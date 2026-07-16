@@ -90,6 +90,17 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
         turn_findings = _audit_turn(turn, ep_id)
         findings.extend(turn_findings)
 
+    # Extended audits: embedding, monitoring, fragmentation
+    findings.extend(
+        audit_embedding_metadata(
+            metadata=result.metadata,
+            run_mode=str(result.metadata.get("run_mode", "")),
+            semantic_enabled=bool(result.metadata.get("semantic_enabled", False)),
+        )
+    )
+    findings.extend(audit_monitoring_metadata(result.metadata))
+    findings.extend(audit_fragmentation_result(result))
+
     return findings
 
 
@@ -311,6 +322,9 @@ def audit_results(results: list[EpisodeResult]) -> AuditReport:
         report.findings.extend(findings)
         if any(f.level == "error" for f in findings):
             report.episodes_with_errors += 1
+
+    # Collection-level audits
+    report.findings.extend(audit_duplicate_keys(results))
 
     return report
 
