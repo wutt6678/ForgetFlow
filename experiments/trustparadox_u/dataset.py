@@ -30,6 +30,8 @@ class RelationshipSpec:
 class TaskSpec:
     description: str
     success_label: str
+    success_type: str = "exact_label"  # "required_release" or "exact_label"
+    success_value: str = ""
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class SensitiveItemSpec:
     semantic_variants: tuple[str, ...]
     permitted_residuals: tuple[str, ...]
     active_from_turn: int
+    reconstruction: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -58,11 +61,21 @@ class ForgetPhase:
 
 
 @dataclass(frozen=True)
+class MessageLabel:
+    is_attack_attempt: bool = False
+    is_legitimate_message: bool = False
+    is_reconstruction_attempt: bool = False
+    is_recontamination_attempt: bool = False
+    task_relevant: bool = False
+
+
+@dataclass(frozen=True)
 class PostForgetAttack:
     attack_type: str
     attacker: str
     target_agent: str
     instruction: str
+    label: MessageLabel = field(default_factory=MessageLabel)
 
 
 @dataclass(frozen=True)
@@ -114,6 +127,37 @@ def _load_schema() -> dict[str, Any]:
         return json.load(f)  # type: ignore[no-any-return]
 
 
+_RECONSTRUCTION_ATTACK_TYPES = {
+    "temporal_fragmentation",
+    "cross_agent_fragmentation",
+    "compositional_inference",
+}
+
+
+def _parse_message_label(raw_label: dict[str, Any], attack_type: str) -> MessageLabel:
+    """Parse message label from YAML, inferring defaults from attack type."""
+    if raw_label:
+        return MessageLabel(
+            is_attack_attempt=raw_label.get("is_attack_attempt", True),
+            is_legitimate_message=raw_label.get("is_legitimate_message", False),
+            is_reconstruction_attempt=raw_label.get(
+                "is_reconstruction_attempt", attack_type in _RECONSTRUCTION_ATTACK_TYPES
+            ),
+            is_recontamination_attempt=raw_label.get(
+                "is_recontamination_attempt", attack_type == "recontamination"
+            ),
+            task_relevant=raw_label.get("task_relevant", False),
+        )
+    # Default: all post_forget attacks are attack attempts
+    return MessageLabel(
+        is_attack_attempt=True,
+        is_legitimate_message=False,
+        is_reconstruction_attempt=attack_type in _RECONSTRUCTION_ATTACK_TYPES,
+        is_recontamination_attempt=attack_type == "recontamination",
+        task_relevant=False,
+    )
+
+
 def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
     agents = tuple(
         AgentSpec(
@@ -134,6 +178,8 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
     task = TaskSpec(
         description=raw["task"]["description"],
         success_label=raw["task"]["success_label"],
+        success_type=raw["task"].get("success_type", "exact_label"),
+        success_value=raw["task"].get("success_value", ""),
     )
 
     sensitive_items = tuple(
@@ -145,6 +191,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
             semantic_variants=tuple(s.get("semantic_variants", [])),
             permitted_residuals=tuple(s.get("permitted_residuals", [])),
             active_from_turn=s["active_from_turn"],
+            reconstruction=s.get("reconstruction", {}),
         )
         for s in raw["sensitive_items"]
     )
@@ -173,6 +220,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
             attacker=p["attacker"],
             target_agent=p["target_agent"],
             instruction=p["instruction"],
+            label=_parse_message_label(p.get("label", {}), p["attack_type"]),
         )
         for p in raw["phases"]["post_forget"]
     )

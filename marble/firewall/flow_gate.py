@@ -125,10 +125,18 @@ class FlowGate:
                 history_enabled=self.config.history.enabled,
                 reconstruction_threshold=self.config.history.reconstruction_threshold,
             )
-            if (
+            # Check all risk dimensions: exact, entity, semantic, reconstruction
+            semantic_threshold = self.config.detector.semantic_threshold
+            unsafe = (
                 recheck_det.exact_score == 1.0
+                or recheck_det.entity_score > 0.0
+                or (
+                    self.config.detector.semantic_enabled
+                    and recheck_det.semantic_score >= semantic_threshold
+                )
                 or recheck_recon >= self.config.history.reconstruction_threshold
-            ):
+            )
+            if unsafe:
                 action = "block"
                 released_text = None
                 reasons = reasons + ("RECHECK_FAILED",)

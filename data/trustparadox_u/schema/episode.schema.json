@@ -42,7 +42,9 @@
       "required": ["description", "success_label"],
       "properties": {
         "description": { "type": "string" },
-        "success_label": { "type": "string" }
+        "success_label": { "type": "string" },
+        "success_type": { "type": "string", "enum": ["required_release", "exact_label"] },
+        "success_value": { "type": "string" }
       }
     },
     "sensitive_items": {
@@ -58,7 +60,16 @@
           "aliases": { "type": "array", "items": { "type": "string" } },
           "semantic_variants": { "type": "array", "items": { "type": "string" } },
           "permitted_residuals": { "type": "array", "items": { "type": "string" } },
-          "active_from_turn": { "type": "integer", "minimum": 0 }
+          "active_from_turn": { "type": "integer", "minimum": 0 },
+          "reconstruction": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["fragments", "fact_chain"] },
+              "forget_id": { "type": "string" },
+              "fragments": { "type": "array", "items": { "type": "string" } },
+              "required_facts": { "type": "array", "items": { "type": "string" } }
+            }
+          }
         }
       }
     },
@@ -96,7 +107,17 @@
               "attack_type": { "type": "string" },
               "attacker": { "type": "string" },
               "target_agent": { "type": "string" },
-              "instruction": { "type": "string" }
+              "instruction": { "type": "string" },
+              "label": {
+                "type": "object",
+                "properties": {
+                  "is_attack_attempt": { "type": "boolean" },
+                  "is_legitimate_message": { "type": "boolean" },
+                  "is_reconstruction_attempt": { "type": "boolean" },
+                  "is_recontamination_attempt": { "type": "boolean" },
+                  "task_relevant": { "type": "boolean" }
+                }
+              }
             }
           }
         }

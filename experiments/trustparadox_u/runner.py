@@ -145,7 +145,9 @@ def run_episode(
         ],
         "forget_ids": [si.forget_id for si in episode.sensitive_items],
         "attack_type": attack_types[0] if len(attack_types) == 1 else attack_types,
-        "secret_variant_id": secret_variant_ids[0] if len(secret_variant_ids) == 1 else secret_variant_ids,
+        "secret_variant_id": secret_variant_ids[0]
+        if len(secret_variant_ids) == 1
+        else secret_variant_ids,
         "seed": config.seed,
         "config_hash": f"{config.detector.semantic_threshold}_{config.policy.rich_actions_enabled}",
     }
@@ -333,14 +335,11 @@ def run_episode(
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
             )
-            # Determine attack classification
-            is_attack = True
-            is_reconstruction = atk_spec.attack_type in (
-                "temporal_fragmentation",
-                "cross_agent_fragmentation",
-                "compositional_inference",
-            )
-            is_recontamination = atk_spec.attack_type == "recontamination"
+            # Determine attack classification from episode labels
+            is_attack = atk_spec.label.is_attack_attempt
+            is_reconstruction = atk_spec.label.is_reconstruction_attempt
+            is_recontamination = atk_spec.label.is_recontamination_attempt
+            is_legitimate = atk_spec.label.is_legitimate_message
 
             if firewall_enabled and (monitoring_active or turn_counter <= forget_phase.turn + 1):
                 decision = sender.send_message(
@@ -381,6 +380,7 @@ def run_episode(
                             decision=decision,
                             attack_type=atk_spec.attack_type,
                             is_attack_attempt=is_attack,
+                            is_legitimate_message=is_legitimate,
                             is_reconstruction_attempt=is_reconstruction,
                             is_recontamination_attempt=is_recontamination,
                             target_exposed=target_exposed,
@@ -404,6 +404,7 @@ def run_episode(
                         released_text=msg,
                         attack_type=atk_spec.attack_type,
                         is_attack_attempt=is_attack,
+                        is_legitimate_message=is_legitimate,
                         is_reconstruction_attempt=is_reconstruction,
                         is_recontamination_attempt=is_recontamination,
                         target_exposed=target_exposed,

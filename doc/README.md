@@ -4,7 +4,7 @@
 
 ForgetFlow is an academic research prototype that intercepts messages between agents in a multi-agent system and prevents information that has been marked for forgetting from leaking through — whether directly, via aliases, paraphrases, fragmented reconstruction, or recontamination.
 
-The system runs on top of the [MARBLE](https://github.com/ulab-uiuc/MARBLE) multi-agent framework and is evaluated using the **TrustParadox-U** benchmark, an extension of scenarios from the paper *"The Trust Paradox in LLM-Based Multi-Agent Systems: When Collaboration Becomes a Security Vulnerability"*.
+The system uses a MARBLE-compatible experimental interface and is evaluated using the **TrustParadox-U** benchmark, an extension of scenarios from the paper *"The Trust Paradox in LLM-Based Multi-Agent Systems: When Collaboration Becomes a Security Vulnerability"*.
 
 ---
 
@@ -202,18 +202,20 @@ ForgetFlow/
 - [Implementation Details](doc/implementation.md)
 - [Changelog](doc/changelog.md)
 - [Key Results](doc/results.md)
+- [Metrics](doc/METRICS.md)
 - [Future Work](FUTURE_WORK.md)
 
 ---
 
 ## Important Limitations
 
-This MVP does **not** implement:
-- Model-weight unlearning / parameter erasure
-- Fine-tuning or retraining
-- Production deployment or distributed systems
-- Formal zero-leakage guarantees
-- Legal compliance claims
+ForgetFlow is a **communication-level forgetting enforcement** system. It has the following limitations:
+
+- **No model-weight erasure**: ForgetFlow does not modify model parameters or perform unlearning. It only prevents information from flowing through the communication layer.
+- **Synthetic benchmark**: Evaluation uses TrustParadox-U, a synthetic benchmark with deterministic reconstruction rules. Results may not generalize to real-world scenarios.
+- **Semantic-model dependence**: Semantic detection depends on the quality of the embedding model. Test mode uses stub embeddings; experiment mode requires a real model.
+- **No universal side-channel protection**: ForgetFlow addresses direct message leakage but does not protect against all possible side channels (e.g., timing attacks, model inversion).
+- **Deterministic reconstruction rules**: The benchmark uses fixed rules for determining reconstruction success, which may not capture all real-world reconstruction scenarios.
 
 ForgetFlow evaluates whether a **communication firewall** can enforce forgetting after an unlearning event. It makes no claims about erasing information from model parameters.
 
