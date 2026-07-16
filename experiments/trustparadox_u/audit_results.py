@@ -375,3 +375,221 @@ def audit_metric_value(
         )
 
     return findings
+
+
+def audit_embedding_metadata(
+    metadata: dict[str, object],
+    *,
+    run_mode: str,
+    semantic_enabled: bool,
+) -> list[AuditFinding]:
+    """Audit embedding metadata based on run mode.
+
+    Experiment mode: provider must be litellm (not fixed), model must exist
+    and not be 'default', dimension must be positive.
+    Test mode: provider must be fixed or null.
+    """
+    findings: list[AuditFinding] = []
+    if not semantic_enabled:
+        return findings
+
+    provider = metadata.get("embedding_provider")
+    model = metadata.get("embedding_model")
+    dimension = metadata.get("embedding_dimension")
+
+    if run_mode == "experiment":
+        if not provider:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_EMBEDDING_PROVIDER",
+                    message="Experiment mode requires embedding_provider in metadata",
+                )
+            )
+        elif provider == "fixed":
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="EXPERIMENT_USES_FIXED_PROVIDER",
+                    message="Experiment mode must not use fixed embedding provider",
+                )
+            )
+        if not model:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_EMBEDDING_MODEL",
+                    message="Experiment mode requires embedding_model in metadata",
+                )
+            )
+        elif model == "default":
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="EMBEDDING_MODEL_IS_DEFAULT",
+                    message="embedding_model must not be 'default'",
+                )
+            )
+        if dimension is not None and (not isinstance(dimension, int) or dimension <= 0):
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="INVALID_EMBEDDING_DIMENSION",
+                    message=f"embedding_dimension must be positive int, got {dimension!r}",
+                )
+            )
+
+    elif run_mode == "test":
+        if provider is not None and provider != "fixed":
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="TEST_MODE_NON_FIXED_PROVIDER",
+                    message=f"Test mode requires provider='fixed', got {provider!r}",
+                )
+            )
+
+    return findings
+
+
+def audit_monitoring_metadata(
+    metadata: dict[str, object],
+) -> list[AuditFinding]:
+    """Audit monitoring-related metadata."""
+    findings: list[AuditFinding] = []
+
+    duration = metadata.get("monitoring_duration_rounds")
+    if duration is not None and (not isinstance(duration, int) or duration < 0):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="NEGATIVE_MONITORING_DURATION",
+                message=f"monitoring_duration_rounds must be non-negative, got {duration!r}",
+            )
+        )
+
+    round_count = metadata.get("post_forget_round_count")
+    if round_count is not None and (not isinstance(round_count, int) or round_count < 0):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="NEGATIVE_ROUND_COUNT",
+                message=f"post_forget_round_count must be non-negative, got {round_count!r}",
+            )
+        )
+
+    return findings
+
+
+def audit_utility_value(
+    utility: float | None,
+) -> list[AuditFinding]:
+    """Audit a utility value: must be None or in [0, 1]."""
+    findings: list[AuditFinding] = []
+    if utility is not None and not (0.0 <= utility <= 1.0):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="UTILITY_OUT_OF_RANGE",
+                message=f"Utility value {utility} not in [0, 1]",
+            )
+        )
+    return findings
+
+
+@dataclass
+class PolicyAblationPair:
+    """A pair of results from binary and rich policy runs."""
+
+    binary: EpisodeResult
+    rich: EpisodeResult
+    pairing_key: str
+
+
+def audit_policy_ablation_pair(pair: PolicyAblationPair) -> list[AuditFinding]:
+    """Audit a paired policy-ablation comparison.
+
+    Checks:
+    - pairing key matches
+    - candidate messages match
+    - only rich_actions_enabled differs in config
+    """
+    findings: list[AuditFinding] = []
+
+    # Check pairing key
+    b_key = pair.binary.metadata.get("pairing_key", "")
+    r_key = pair.rich.metadata.get("pairing_key", "")
+    if b_key != r_key or not b_key:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="POLICY_PAIR_KEY_MISMATCH",
+                message=f"Pairing keys differ: binary={b_key!r}, rich={r_key!r}",
+            )
+        )
+
+    # Check candidate messages match
+    b_candidates = [t.candidate_text for t in pair.binary.turns if t.phase == "POST_FORGET_ATTACK"]
+    r_candidates = [t.candidate_text for t in pair.rich.turns if t.phase == "POST_FORGET_ATTACK"]
+    if b_candidates != r_candidates:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="POLICY_PAIR_CANDIDATE_MISMATCH",
+                message="Binary and rich policy runs have different candidate messages",
+            )
+        )
+
+    return findings
+
+
+def audit_fragmentation_result(result: EpisodeResult) -> list[AuditFinding]:
+    """Audit fragmentation-related result properties."""
+    findings: list[AuditFinding] = []
+    frag_turns = [
+        t
+        for t in result.turns
+        if t.attack_type in ("temporal_fragmentation", "cross_agent_fragmentation")
+    ]
+    if frag_turns:
+        if len(frag_turns) < 2:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="FRAGMENTATION_TOO_FEW_STEPS",
+                    message=f"Fragmentation attack has only {len(frag_turns)} step(s)",
+                    episode_id=result.episode_id,
+                )
+            )
+        # Reconstruction denominator check: must have fragments
+        frag_count = result.metadata.get("fragment_count", 0)
+        if isinstance(frag_count, int) and frag_count < 2:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="FRAGMENTATION_TOO_FEW_FRAGMENTS",
+                    message=f"Fragmentation requires ≥2 fragments, got {frag_count}",
+                    episode_id=result.episode_id,
+                )
+            )
+    return findings
+
+
+def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
+    """Check for duplicate pairing keys before aggregation."""
+    findings: list[AuditFinding] = []
+    seen: dict[str, int] = {}
+    for r in results:
+        key = r.metadata.get("pairing_key", "")
+        if key:
+            seen[key] = seen.get(key, 0) + 1
+    for key, count in seen.items():
+        if count > 1:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="DUPLICATE_PAIRING_KEY",
+                    message=f"Pairing key {key!r} appears {count} times",
+                )
+            )
+    return findings

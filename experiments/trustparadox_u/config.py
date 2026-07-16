@@ -71,7 +71,9 @@ class RunConfig:
 
 @dataclass(frozen=True)
 class ModelsConfig:
+    embedding_provider: str | None = None
     embedding_model: str | None = None
+    embedding_dimension: int | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,33 @@ def load_config(path: str | Path) -> ExperimentConfig:
     return _build_config(raw)
 
 
+def validate_embedding_config(config: ExperimentConfig) -> None:
+    """Validate embedding provider/model settings for the current run mode."""
+    if not config.detector.semantic_enabled:
+        return
+
+    if config.run.mode == "test":
+        if (
+            config.models.embedding_provider is not None
+            and config.models.embedding_provider != "fixed"
+        ):
+            raise ValueError("Semantic test mode requires embedding_provider='fixed' or null")
+        if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
+            raise ValueError("embedding_dimension must be positive")
+        return
+
+    if config.run.mode == "experiment":
+        if config.models.embedding_provider != "litellm":
+            raise ValueError("Semantic experiment mode requires embedding_provider='litellm'")
+        if not config.models.embedding_model:
+            raise ValueError("Semantic experiment mode requires embedding_model")
+        if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
+            raise ValueError("embedding_dimension must be positive")
+        return
+
+    raise ValueError(f"Unsupported run mode: {config.run.mode}")
+
+
 def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
     run = raw.get("run", {})
     seed = run.get("seed")
@@ -132,7 +161,11 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
     run_config = RunConfig(mode=run.get("mode", "test"))
 
     models_raw = raw.get("models", {})
-    models = ModelsConfig(embedding_model=models_raw.get("embedding_model"))
+    models = ModelsConfig(
+        embedding_provider=models_raw.get("embedding_provider"),
+        embedding_model=models_raw.get("embedding_model"),
+        embedding_dimension=models_raw.get("embedding_dimension"),
+    )
 
     return ExperimentConfig(
         seed=seed,

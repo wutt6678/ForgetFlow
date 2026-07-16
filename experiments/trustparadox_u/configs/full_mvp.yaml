@@ -2,6 +2,12 @@ run:
   name: full_mvp
   seed: 42
   repetitions: 5
+  mode: experiment
+
+models:
+  embedding_provider: litellm
+  embedding_model: text-embedding-3-small
+  embedding_dimension: 1536
 
 firewall:
   enabled: true

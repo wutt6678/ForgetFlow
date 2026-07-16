@@ -11,7 +11,7 @@ from typing import Any, Sequence
 
 from experiments.trustparadox_u.agent import ScriptedResponder, TrustParadoxAgent
 from experiments.trustparadox_u.attacks import build_attack
-from experiments.trustparadox_u.config import ExperimentConfig
+from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
 from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
 from marble.firewall.audit import AuditLogger
@@ -94,6 +94,30 @@ class ReconstructionMetadata:
 
 def _set_seed(seed: int) -> None:
     random.seed(seed)
+
+
+def enforcement_is_active(
+    *,
+    monitoring: MonitoringConfig,
+    post_forget_round: int,
+) -> bool:
+    """Determine if firewall enforcement is active at a given post-forget round.
+
+    One post-forget round equals one post-forget message turn.
+
+    Semantics:
+    - continuous=True: all post-forget rounds protected
+    - continuous=False, duration_rounds=0: no post-forget rounds protected
+    - continuous=False, duration_rounds=1: round 0 protected
+    - continuous=False, duration_rounds=3: rounds 0, 1, and 2 protected
+    """
+    if post_forget_round < 0:
+        raise ValueError("post_forget_round must be non-negative")
+
+    if monitoring.continuous:
+        return True
+
+    return post_forget_round < monitoring.duration_rounds
 
 
 def evaluate_target_exposure(
@@ -257,7 +281,11 @@ def run_episode(
                     "models.embedding_model is required when "
                     "semantic detection is enabled in experiment mode"
                 )
-            embedding_provider = RealEmbeddingProvider(config.models.embedding_model)
+            embedding_provider = RealEmbeddingProvider(
+                provider_name=config.models.embedding_provider or "litellm",
+                model_name=config.models.embedding_model,
+                expected_dimension=config.models.embedding_dimension,
+            )
         else:
             raise ValueError(f"Unknown run mode: {config.run.mode!r}")
     detector = HybridDetector(
@@ -424,8 +452,7 @@ def run_episode(
         turn_counter += 1
 
     # Phase: POST_FORGET_ATTACK
-    monitoring_active = config.monitoring.continuous
-    monitoring_remaining = config.monitoring.duration_rounds
+    post_forget_round = 0
 
     # Track cleaned agents that receive recontamination attempts (for RR denominator)
     cleaned_agents_with_attempts: set[str] = set()
@@ -463,7 +490,10 @@ def run_episode(
                         cleaned_agents_with_attempts.add(step.recipient)
                         break
 
-            if firewall_enabled and (monitoring_active or turn_counter <= forget_phase.turn + 1):
+            if firewall_enabled and enforcement_is_active(
+                monitoring=config.monitoring,
+                post_forget_round=post_forget_round,
+            ):
                 decision = sender.send_message(
                     recipient_id=step.recipient,
                     text=msg,
@@ -620,10 +650,7 @@ def run_episode(
                     )
                 )
             turn_counter += 1
-            if monitoring_active and not config.monitoring.continuous:
-                monitoring_remaining -= 1
-                if monitoring_remaining <= 0:
-                    monitoring_active = False
+            post_forget_round += 1
 
     # Phase: FINAL_PROBE
     for agent_id in forget_phase.clean_agents:

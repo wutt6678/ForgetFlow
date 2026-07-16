@@ -71,6 +71,8 @@ class TestFlowGate:
 
     def test_exact_block(self) -> None:
         gate, _ = _setup()
+        # Override policy to binary mode (no rich actions) to test pure blocking
+        gate.policy = ForgetPolicy(rich_actions_enabled=False)
         decision = gate.inspect(_env("The code is 0107"))
         assert decision.action == "block"
         assert decision.released_text is None

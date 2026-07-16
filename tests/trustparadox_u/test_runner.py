@@ -10,7 +10,7 @@ from experiments.trustparadox_u.config import (
     PolicyConfig,
 )
 from experiments.trustparadox_u.dataset import load_episode
-from experiments.trustparadox_u.runner import run_episode
+from experiments.trustparadox_u.runner import enforcement_is_active, run_episode
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 
@@ -99,7 +99,12 @@ class TestRunnerPopulation:
                 f"{ep.episode_id}:SK:Do you remember the old credential?": "I don't remember.",
             }
         )
-        result = run_episode(ep, _config(), responder=responder, firewall_enabled=True)
+        result = run_episode(
+            ep,
+            _config(policy=PolicyConfig(rich_actions_enabled=False)),
+            responder=responder,
+            firewall_enabled=True,
+        )
         blocked = [t for t in result.turns if t.released_text is None]
         assert len(blocked) > 0, "Expected at least one blocked turn"
 
@@ -166,11 +171,11 @@ class TestRunnerPopulation:
             }
         )
         result = run_episode(ep, _config(), responder=responder, firewall_enabled=True)
-        # Exactly one reconstruction attempt
+        # Two reconstruction attempts (cross_agent_fragmentation has 2 steps)
         reconstruction_turns = [t for t in result.turns if t.is_reconstruction_attempt]
-        assert len(reconstruction_turns) == 1
+        assert len(reconstruction_turns) == 2
         # Reconstruction depends on transcript content
-        assert reconstruction_turns[0].target_reconstructed is False
+        assert all(t.target_reconstructed is False for t in reconstruction_turns)
 
     def test_recontamination_denominator_with_firewall(self) -> None:
         """Recontamination denominator counts blocked attempts on cleaned agents."""
@@ -406,3 +411,42 @@ class TestExperimentIdentity:
         variant_id = result.metadata["secret_variant_id"]
         assert variant_id != ""
         assert variant_id != "F001"  # Should not be just the forget_id
+
+
+class TestEnforcementIsActive:
+    """Tests for the enforcement_is_active monitoring window function."""
+
+    def test_continuous_always_active(self) -> None:
+        m = MonitoringConfig(continuous=True, duration_rounds=0)
+        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=10) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=100) is True
+
+    def test_duration_zero_never_active(self) -> None:
+        m = MonitoringConfig(continuous=False, duration_rounds=0)
+        assert enforcement_is_active(monitoring=m, post_forget_round=0) is False
+
+    def test_duration_one_active_at_round_zero(self) -> None:
+        m = MonitoringConfig(continuous=False, duration_rounds=1)
+        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=1) is False
+
+    def test_duration_three(self) -> None:
+        m = MonitoringConfig(continuous=False, duration_rounds=3)
+        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=1) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=2) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=3) is False
+
+    def test_duration_five(self) -> None:
+        m = MonitoringConfig(continuous=False, duration_rounds=5)
+        for r in range(5):
+            assert enforcement_is_active(monitoring=m, post_forget_round=r) is True
+        assert enforcement_is_active(monitoring=m, post_forget_round=5) is False
+
+    def test_negative_round_raises(self) -> None:
+        m = MonitoringConfig(continuous=True, duration_rounds=5)
+        import pytest
+
+        with pytest.raises(ValueError, match="post_forget_round must be non-negative"):
+            enforcement_is_active(monitoring=m, post_forget_round=-1)

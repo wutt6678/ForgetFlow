@@ -63,7 +63,32 @@ jobs:
       - name: Tests
         env:
           FORGETFLOW_TEST_MODE: "1"
-        run: poetry run pytest -q
+        run: poetry run pytest -q -m "not integration"
+
+      - name: Architecture contract tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest tests/test_architecture_contract.py -q
+
+      - name: Firewall tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest tests/firewall -q
+
+      - name: Config tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest tests/trustparadox_u/test_config.py -q
+
+      - name: Embedding tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest tests/trustparadox_u/test_embedding.py -q
+
+      - name: Attack tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest tests/trustparadox_u/test_attacks.py -q
 
       - name: Evaluator tests
         env:

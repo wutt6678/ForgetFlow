@@ -31,7 +31,7 @@ def _det(**kwargs: object) -> DetectorResult:
 
 class TestForgetPolicy:
     def test_exact_blocks(self) -> None:
-        policy = ForgetPolicy()
+        policy = ForgetPolicy(rich_actions_enabled=False)
         action, text, reasons = policy.decide(
             _det(exact_score=1.0, matched_forget_ids=("F001",)),
             [_rec()],

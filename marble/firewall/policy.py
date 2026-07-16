@@ -32,9 +32,13 @@ class ForgetPolicy:
         """Return (action, released_text_or_none, reason_codes)."""
         reasons: list[str] = []
 
-        # Exact match → block
+        # Exact match → block or abstract (if rich actions enabled and residual available)
         if detector_result.exact_score == 1.0:
             reasons.append("EXACT_TARGET_MATCH")
+            if self.rich_actions_enabled:
+                residual = self._find_residual(active_records, detector_result)
+                if residual:
+                    return ("abstract", residual, tuple(reasons))
             return ("block", None, tuple(reasons))
 
         # Reconstruction above threshold → block

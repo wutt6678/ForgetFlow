@@ -11,7 +11,9 @@ dataset:
 
 models:
   agent_model: scripted
-  embedding_model: stub
+  embedding_provider: fixed
+  embedding_model: null
+  embedding_dimension: 3
   temperature: 0.0
   max_output_tokens: 512
 

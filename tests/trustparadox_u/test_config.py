@@ -8,9 +8,12 @@ from experiments.trustparadox_u.config import (
     DetectorConfig,
     ExperimentConfig,
     HistoryConfig,
+    ModelsConfig,
     MonitoringConfig,
     PolicyConfig,
+    RunConfig,
     load_config,
+    validate_embedding_config,
 )
 
 SMOKE_YAML = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "configs" / "smoke.yaml"
@@ -89,3 +92,98 @@ class TestLoadConfig:
     def test_missing_file(self) -> None:
         with pytest.raises(FileNotFoundError):
             load_config("/nonexistent/path.yaml")
+
+
+def _make_config(
+    *,
+    semantic_enabled: bool = True,
+    mode: str = "test",
+    provider: str | None = None,
+    model: str | None = None,
+    dimension: int | None = None,
+) -> ExperimentConfig:
+    return ExperimentConfig(
+        seed=42,
+        repetitions=1,
+        detector=DetectorConfig(semantic_enabled=semantic_enabled),
+        history=HistoryConfig(),
+        policy=PolicyConfig(),
+        monitoring=MonitoringConfig(),
+        run=RunConfig(mode=mode),
+        models=ModelsConfig(
+            embedding_provider=provider,
+            embedding_model=model,
+            embedding_dimension=dimension,
+        ),
+    )
+
+
+class TestModelsConfig:
+    def test_defaults(self) -> None:
+        m = ModelsConfig()
+        assert m.embedding_provider is None
+        assert m.embedding_model is None
+        assert m.embedding_dimension is None
+
+    def test_full_construction(self) -> None:
+        m = ModelsConfig(
+            embedding_provider="litellm",
+            embedding_model="text-embedding-3-small",
+            embedding_dimension=1536,
+        )
+        assert m.embedding_provider == "litellm"
+        assert m.embedding_model == "text-embedding-3-small"
+        assert m.embedding_dimension == 1536
+
+
+class TestValidateEmbeddingConfig:
+    def test_semantic_disabled_no_validation(self) -> None:
+        cfg = _make_config(semantic_enabled=False)
+        validate_embedding_config(cfg)  # should not raise
+
+    def test_valid_fixed_test(self) -> None:
+        cfg = _make_config(mode="test", provider="fixed", dimension=3)
+        validate_embedding_config(cfg)  # should not raise
+
+    def test_valid_null_provider_test(self) -> None:
+        cfg = _make_config(mode="test")
+        validate_embedding_config(cfg)  # should not raise
+
+    def test_valid_litellm_experiment(self) -> None:
+        cfg = _make_config(
+            mode="experiment",
+            provider="litellm",
+            model="text-embedding-3-small",
+            dimension=1536,
+        )
+        validate_embedding_config(cfg)  # should not raise
+
+    def test_experiment_without_model_fails(self) -> None:
+        cfg = _make_config(mode="experiment", provider="litellm")
+        with pytest.raises(ValueError, match="embedding_model"):
+            validate_embedding_config(cfg)
+
+    def test_experiment_without_provider_fails(self) -> None:
+        cfg = _make_config(mode="experiment", model="text-embedding-3-small")
+        with pytest.raises(ValueError, match="embedding_provider"):
+            validate_embedding_config(cfg)
+
+    def test_experiment_with_wrong_provider_fails(self) -> None:
+        cfg = _make_config(mode="experiment", provider="fixed", model="x")
+        with pytest.raises(ValueError, match="embedding_provider"):
+            validate_embedding_config(cfg)
+
+    def test_test_mode_with_real_provider_fails(self) -> None:
+        cfg = _make_config(mode="test", provider="litellm")
+        with pytest.raises(ValueError, match="embedding_provider"):
+            validate_embedding_config(cfg)
+
+    def test_zero_dimension_fails(self) -> None:
+        cfg = _make_config(mode="test", provider="fixed", dimension=0)
+        with pytest.raises(ValueError, match="embedding_dimension"):
+            validate_embedding_config(cfg)
+
+    def test_negative_dimension_fails(self) -> None:
+        cfg = _make_config(mode="test", provider="fixed", dimension=-1)
+        with pytest.raises(ValueError, match="embedding_dimension"):
+            validate_embedding_config(cfg)

@@ -2,8 +2,15 @@
 
 from experiments.trustparadox_u.audit_results import (
     InvalidExperimentResults,
+    PolicyAblationPair,
+    audit_duplicate_keys,
+    audit_embedding_metadata,
     audit_episode_result,
+    audit_fragmentation_result,
     audit_metric_value,
+    audit_monitoring_metadata,
+    audit_policy_ablation_pair,
+    audit_utility_value,
     validate_for_aggregation,
 )
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
@@ -330,3 +337,280 @@ class TestAggregationGate:
         is_valid, report = validate_for_aggregation([result], allow_errors=True)
         assert is_valid is True
         assert report.has_errors
+
+
+class TestEmbeddingAudit:
+    """Embedding metadata audit rules."""
+
+    def test_experiment_missing_provider(self) -> None:
+        findings = audit_embedding_metadata({}, run_mode="experiment", semantic_enabled=True)
+        assert any(f.code == "MISSING_EMBEDDING_PROVIDER" for f in findings)
+
+    def test_experiment_fixed_provider_rejected(self) -> None:
+        findings = audit_embedding_metadata(
+            {"embedding_provider": "fixed"},
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "EXPERIMENT_USES_FIXED_PROVIDER" for f in findings)
+
+    def test_experiment_missing_model(self) -> None:
+        findings = audit_embedding_metadata(
+            {"embedding_provider": "litellm"},
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "MISSING_EMBEDDING_MODEL" for f in findings)
+
+    def test_experiment_default_model_rejected(self) -> None:
+        findings = audit_embedding_metadata(
+            {"embedding_provider": "litellm", "embedding_model": "default"},
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "EMBEDDING_MODEL_IS_DEFAULT" for f in findings)
+
+    def test_experiment_invalid_dimension(self) -> None:
+        findings = audit_embedding_metadata(
+            {
+                "embedding_provider": "litellm",
+                "embedding_model": "text-embedding-3-small",
+                "embedding_dimension": -1,
+            },
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "INVALID_EMBEDDING_DIMENSION" for f in findings)
+
+    def test_experiment_valid_passes(self) -> None:
+        findings = audit_embedding_metadata(
+            {
+                "embedding_provider": "litellm",
+                "embedding_model": "text-embedding-3-small",
+                "embedding_dimension": 1536,
+            },
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+    def test_test_mode_non_fixed_rejected(self) -> None:
+        findings = audit_embedding_metadata(
+            {"embedding_provider": "litellm"},
+            run_mode="test",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "TEST_MODE_NON_FIXED_PROVIDER" for f in findings)
+
+    def test_test_mode_fixed_passes(self) -> None:
+        findings = audit_embedding_metadata(
+            {"embedding_provider": "fixed"},
+            run_mode="test",
+            semantic_enabled=True,
+        )
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+    def test_semantic_disabled_no_findings(self) -> None:
+        findings = audit_embedding_metadata({}, run_mode="experiment", semantic_enabled=False)
+        assert len(findings) == 0
+
+
+class TestMonitoringAudit:
+    """Monitoring metadata audit rules."""
+
+    def test_negative_duration_flagged(self) -> None:
+        findings = audit_monitoring_metadata({"monitoring_duration_rounds": -1})
+        assert any(f.code == "NEGATIVE_MONITORING_DURATION" for f in findings)
+
+    def test_negative_round_count_flagged(self) -> None:
+        findings = audit_monitoring_metadata({"post_forget_round_count": -3})
+        assert any(f.code == "NEGATIVE_ROUND_COUNT" for f in findings)
+
+    def test_valid_monitoring_passes(self) -> None:
+        findings = audit_monitoring_metadata(
+            {
+                "monitoring_duration_rounds": 5,
+                "post_forget_round_count": 3,
+                "monitoring_continuous": True,
+            }
+        )
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+
+class TestUtilityAudit:
+    """Utility value audit rules."""
+
+    def test_utility_out_of_range(self) -> None:
+        findings = audit_utility_value(1.5)
+        assert any(f.code == "UTILITY_OUT_OF_RANGE" for f in findings)
+
+    def test_utility_negative(self) -> None:
+        findings = audit_utility_value(-0.1)
+        assert any(f.code == "UTILITY_OUT_OF_RANGE" for f in findings)
+
+    def test_utility_none_valid(self) -> None:
+        findings = audit_utility_value(None)
+        assert len(findings) == 0
+
+    def test_utility_valid(self) -> None:
+        findings = audit_utility_value(0.75)
+        assert len(findings) == 0
+
+
+class TestPolicyAblationAudit:
+    """Policy ablation pair audit rules."""
+
+    def test_pairing_key_mismatch(self) -> None:
+        b = _valid_result()
+        b.metadata["pairing_key"] = "key1"
+        r = _valid_result()
+        r.metadata["pairing_key"] = "key2"
+        pair = PolicyAblationPair(binary=b, rich=r, pairing_key="key1")
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_KEY_MISMATCH" for f in findings)
+
+    def test_candidate_mismatch(self) -> None:
+        b = _valid_result()
+        b.metadata["pairing_key"] = "k1"
+        r = _valid_result()
+        r.metadata["pairing_key"] = "k1"
+        b.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="msg1",
+            )
+        ]
+        r.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="msg2",
+            )
+        ]
+        pair = PolicyAblationPair(binary=b, rich=r, pairing_key="k1")
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_CANDIDATE_MISMATCH" for f in findings)
+
+    def test_valid_pair_passes(self) -> None:
+        b = _valid_result()
+        b.metadata["pairing_key"] = "k1"
+        r = _valid_result()
+        r.metadata["pairing_key"] = "k1"
+        b.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="same_msg",
+            )
+        ]
+        r.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="same_msg",
+            )
+        ]
+        pair = PolicyAblationPair(binary=b, rich=r, pairing_key="k1")
+        findings = audit_policy_ablation_pair(pair)
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+
+class TestFragmentationAudit:
+    """Fragmentation result audit rules."""
+
+    def test_too_few_steps(self) -> None:
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="frag",
+                attack_type="temporal_fragmentation",
+            )
+        ]
+        findings = audit_fragmentation_result(result)
+        assert any(f.code == "FRAGMENTATION_TOO_FEW_STEPS" for f in findings)
+
+    def test_too_few_fragments(self) -> None:
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="f1",
+                attack_type="temporal_fragmentation",
+            ),
+            TurnResult(
+                turn_id=1,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="f2",
+                attack_type="temporal_fragmentation",
+            ),
+        ]
+        result.metadata["fragment_count"] = 1
+        findings = audit_fragmentation_result(result)
+        assert any(f.code == "FRAGMENTATION_TOO_FEW_FRAGMENTS" for f in findings)
+
+    def test_valid_fragmentation_passes(self) -> None:
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="f1",
+                attack_type="temporal_fragmentation",
+            ),
+            TurnResult(
+                turn_id=1,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="f2",
+                attack_type="temporal_fragmentation",
+            ),
+        ]
+        result.metadata["fragment_count"] = 2
+        findings = audit_fragmentation_result(result)
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+
+class TestDuplicateKeys:
+    """Duplicate pairing key detection."""
+
+    def test_duplicate_keys_flagged(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = "dup"
+        r2 = _valid_result()
+        r2.metadata["pairing_key"] = "dup"
+        findings = audit_duplicate_keys([r1, r2])
+        assert any(f.code == "DUPLICATE_PAIRING_KEY" for f in findings)
+
+    def test_unique_keys_pass(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = "k1"
+        r2 = _valid_result()
+        r2.metadata["pairing_key"] = "k2"
+        findings = audit_duplicate_keys([r1, r2])
+        assert len(findings) == 0
