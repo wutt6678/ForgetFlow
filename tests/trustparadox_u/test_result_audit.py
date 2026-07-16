@@ -31,6 +31,13 @@ def _valid_result(**overrides) -> EpisodeResult:
         "attack_type": "direct",
         "config_hash": "a" * 64,
         "seed": 42,
+        "pairing_key": {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        },
     }
     for k, v in overrides.items():
         setattr(result, k, v)
@@ -601,16 +608,85 @@ class TestDuplicateKeys:
 
     def test_duplicate_keys_flagged(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = "dup"
-        r2 = _valid_result()
-        r2.metadata["pairing_key"] = "dup"
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
         findings = audit_duplicate_keys([r1, r2])
-        assert any(f.code == "DUPLICATE_PAIRING_KEY" for f in findings)
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
 
     def test_unique_keys_pass(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = "k1"
-        r2 = _valid_result()
-        r2.metadata["pairing_key"] = "k2"
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv2",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
         findings = audit_duplicate_keys([r1, r2])
-        assert len(findings) == 0
+        dup_findings = [f for f in findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        assert len(dup_findings) == 0
+
+    def test_missing_pairing_key(self) -> None:
+        r1 = _valid_result()
+        del r1.metadata["pairing_key"]
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_MISSING" for f in findings)
+
+    def test_invalid_pairing_key_type(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = "not_a_valid_key"
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
+
+    def test_missing_field_in_dict(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = {"scenario_id": "s1"}
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
+
+    def test_tuple_pairing_key(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
+        findings = audit_duplicate_keys([r1, r2])
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
+
+    def test_evaluator_auditor_consistency(self) -> None:
+        from experiments.trustparadox_u.identity import (
+            normalize_pairing_key,
+            pairing_key_from_result,
+        )
+
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        from_dict = normalize_pairing_key(r1.metadata["pairing_key"])
+        from_result = pairing_key_from_result(r1)
+        assert from_dict == from_result

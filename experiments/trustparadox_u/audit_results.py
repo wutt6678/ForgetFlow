@@ -591,18 +591,39 @@ def audit_fragmentation_result(result: EpisodeResult) -> list[AuditFinding]:
 
 def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
     """Check for duplicate pairing keys before aggregation."""
+    from experiments.trustparadox_u.identity import normalize_pairing_key
+
     findings: list[AuditFinding] = []
-    seen: dict[str, int] = {}
+    seen: dict[tuple[str, str, str, str, int], int] = {}
     for r in results:
-        key = r.metadata.get("pairing_key", "")
-        if key:
-            seen[key] = seen.get(key, 0) + 1
+        raw_key = r.metadata.get("pairing_key")
+        if raw_key is None:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="PAIRING_KEY_MISSING",
+                    message=f"Episode {r.episode_id} has no pairing_key",
+                )
+            )
+            continue
+        try:
+            key = normalize_pairing_key(raw_key)
+        except (TypeError, ValueError) as exc:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="PAIRING_KEY_INVALID",
+                    message=f"Episode {r.episode_id}: {exc}",
+                )
+            )
+            continue
+        seen[key] = seen.get(key, 0) + 1
     for key, count in seen.items():
         if count > 1:
             findings.append(
                 AuditFinding(
                     level="error",
-                    code="DUPLICATE_PAIRING_KEY",
+                    code="PAIRING_KEY_DUPLICATE",
                     message=f"Pairing key {key!r} appears {count} times",
                 )
             )
