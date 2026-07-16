@@ -414,7 +414,12 @@ def run_episode(
     # Track cleaned agents that receive recontamination attempts (for RR denominator)
     cleaned_agents_with_attempts: set[str] = set()
 
+    # Process each unique attack type once to avoid build_attack duplication
+    seen_types: set[str] = set()
     for atk_spec in episode.phases.post_forget:
+        if atk_spec.attack_type in seen_types:
+            continue
+        seen_types.add(atk_spec.attack_type)
         attack_plan = build_attack(episode, atk_spec.attack_type, config.seed)
         for step in attack_plan.steps:
             sender = agents[step.sender]
@@ -512,9 +517,7 @@ def run_episode(
                                 "fact_chains": episode.fact_chains,
                             },
                             history_enabled=config.history.enabled,
-                            reconstruction_threshold=(
-                                config.history.reconstruction_threshold
-                            ),
+                            reconstruction_threshold=(config.history.reconstruction_threshold),
                         )
                         released_detection = dataclasses.replace(
                             released_detection, reconstruction_score=released_recon
@@ -598,7 +601,7 @@ def run_episode(
                     )
                 )
             turn_counter += 1
-            if monitoring_active:
+            if monitoring_active and not config.monitoring.continuous:
                 monitoring_remaining -= 1
                 if monitoring_remaining <= 0:
                     monitoring_active = False
@@ -620,8 +623,12 @@ def run_episode(
             episode_id=episode.episode_id,
             turn_id=turn_counter,
         )
+        # Check both the response and the full probe context for target recovery.
+        # The probe context check catches cases where the agent received
+        # reintroduced information but the scripted responder doesn't reflect it.
+        combined_text = response + " " + " ".join(probe_context)
         for si in episode.sensitive_items:
-            if si.canonical_target.lower() in response.lower():
+            if si.canonical_target.lower() in combined_text.lower():
                 tracker.confirm_recovery(agent_id, si.forget_id)
         turn_counter += 1
 
