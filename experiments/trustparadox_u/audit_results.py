@@ -90,7 +90,7 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
         turn_findings = _audit_turn(turn, ep_id)
         findings.extend(turn_findings)
 
-    # Extended audits: embedding, monitoring, fragmentation
+    # Extended audits: embedding, monitoring, fragmentation, attack-step
     findings.extend(
         audit_embedding_metadata(
             metadata=result.metadata,
@@ -100,6 +100,7 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
     )
     findings.extend(audit_monitoring_metadata(result.metadata))
     findings.extend(audit_fragmentation_result(result))
+    findings.extend(audit_attack_step_indices(result))
 
     return findings
 
@@ -627,4 +628,95 @@ def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
                     message=f"Pairing key {key!r} appears {count} times",
                 )
             )
+    return findings
+
+
+def audit_attack_step_indices(result: EpisodeResult) -> list[AuditFinding]:
+    """Audit attack-step indices for consistency.
+
+    Rules:
+    - Attack turns must have attack_step_index set
+    - Indices must be non-negative
+    - Indices must be unique within each attack type
+    - Indices must be monotonic within each attack type
+    """
+    findings: list[AuditFinding] = []
+    ep_id = result.episode_id
+
+    # Group attack turns by attack_type
+    by_type: dict[str, list[TurnResult]] = {}
+    for turn in result.turns:
+        if turn.phase == "POST_FORGET_ATTACK":
+            atype = turn.attack_type or "unknown"
+            by_type.setdefault(atype, []).append(turn)
+
+    for atype, turns in by_type.items():
+        seen_indices: set[int] = set()
+        prev_index: int | None = None
+
+        for turn in turns:
+            idx = turn.attack_step_index
+
+            # Must have an index
+            if idx is None:
+                findings.append(
+                    AuditFinding(
+                        level="error",
+                        code="ATTACK_STEP_INDEX_MISSING",
+                        message=(
+                            f"Episode {ep_id}, attack_type={atype}, "
+                            f"turn {turn.turn_id}: missing attack_step_index"
+                        ),
+                        episode_id=ep_id,
+                        turn_id=turn.turn_id,
+                    )
+                )
+                continue
+
+            # Must be non-negative
+            if idx < 0:
+                findings.append(
+                    AuditFinding(
+                        level="error",
+                        code="ATTACK_STEP_INDEX_NEGATIVE",
+                        message=(
+                            f"Episode {ep_id}, attack_type={atype}, "
+                            f"turn {turn.turn_id}: negative step index {idx}"
+                        ),
+                        episode_id=ep_id,
+                        turn_id=turn.turn_id,
+                    )
+                )
+
+            # Must be unique within attack type
+            if idx in seen_indices:
+                findings.append(
+                    AuditFinding(
+                        level="error",
+                        code="ATTACK_STEP_INDEX_DUPLICATE",
+                        message=(
+                            f"Episode {ep_id}, attack_type={atype}: " f"duplicate step index {idx}"
+                        ),
+                        episode_id=ep_id,
+                        turn_id=turn.turn_id,
+                    )
+                )
+            seen_indices.add(idx)
+
+            # Must be monotonic
+            if prev_index is not None and idx < prev_index:
+                findings.append(
+                    AuditFinding(
+                        level="error",
+                        code="ATTACK_STEP_INDEX_NOT_MONOTONIC",
+                        message=(
+                            f"Episode {ep_id}, attack_type={atype}: "
+                            f"step index {idx} < previous {prev_index}"
+                        ),
+                        episode_id=ep_id,
+                        turn_id=turn.turn_id,
+                    )
+                )
+            prev_index = idx
+
     return findings

@@ -58,6 +58,8 @@ class TestAuditor:
                 candidate_text="secret",
                 released_text=None,
                 decision=_decision("block"),
+                attack_type="direct",
+                attack_step_index=0,
                 is_attack_attempt=True,
                 target_exposed=False,
             )
