@@ -1,15 +1,21 @@
 """Tests for ForgetLedger."""
 
 import pytest
-from marble.firewall.types import ForgetRecord
+
 from marble.firewall.registry import ForgetLedger
+from marble.firewall.types import ForgetRecord
 
 
 def _make_record(fid: str = "F001", turn: int = 0, scope: tuple[str, ...] = ()) -> ForgetRecord:
     return ForgetRecord(
-        forget_id=fid, canonical_target="0107", target_type="credential",
-        aliases=("warehouse code",), semantic_variants=(), permitted_residuals=(),
-        active_from_turn=turn, scoped_agent_ids=scope,
+        forget_id=fid,
+        canonical_target="0107",
+        target_type="credential",
+        aliases=("warehouse code",),
+        semantic_variants=(),
+        permitted_residuals=(),
+        active_from_turn=turn,
+        scoped_agent_ids=scope,
     )
 
 

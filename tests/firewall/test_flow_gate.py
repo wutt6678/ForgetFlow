@@ -1,19 +1,25 @@
 """Tests for FlowGate."""
 
-import pytest
-from marble.firewall.types import ForgetRecord, MessageEnvelope
-from marble.firewall.registry import ForgetLedger
+from experiments.trustparadox_u.config import (
+    DetectorConfig,
+    ExperimentConfig,
+    HistoryConfig,
+    MonitoringConfig,
+    PolicyConfig,
+)
+from marble.firewall.audit import AuditLogger
 from marble.firewall.detectors import HybridDetector
+from marble.firewall.flow_gate import FlowGate
 from marble.firewall.history import RecipientHistory, ReconstructionChecker
 from marble.firewall.policy import ForgetPolicy
-from marble.firewall.audit import AuditLogger
-from marble.firewall.flow_gate import FlowGate
-from experiments.trustparadox_u.config import ExperimentConfig, DetectorConfig, HistoryConfig, PolicyConfig, MonitoringConfig
+from marble.firewall.registry import ForgetLedger
+from marble.firewall.types import ForgetRecord, MessageEnvelope
 
 
 def _config() -> ExperimentConfig:
     return ExperimentConfig(
-        seed=42, repetitions=1,
+        seed=42,
+        repetitions=1,
         detector=DetectorConfig(semantic_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
@@ -23,12 +29,17 @@ def _config() -> ExperimentConfig:
 
 def _setup() -> tuple[FlowGate, ForgetLedger]:
     ledger = ForgetLedger()
-    ledger.register(ForgetRecord(
-        forget_id="F001", canonical_target="0107", target_type="credential",
-        aliases=("warehouse code",), semantic_variants=(),
-        permitted_residuals=("Request new credential.",),
-        active_from_turn=0,
-    ))
+    ledger.register(
+        ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=("warehouse code",),
+            semantic_variants=(),
+            permitted_residuals=("Request new credential.",),
+            active_from_turn=0,
+        )
+    )
     detector = HybridDetector(semantic_enabled=False)
     history = RecipientHistory()
     checker = ReconstructionChecker()
@@ -40,9 +51,14 @@ def _setup() -> tuple[FlowGate, ForgetLedger]:
 
 def _env(text: str = "Hello", turn: int = 0) -> MessageEnvelope:
     return MessageEnvelope(
-        message_id="m1", episode_id="ep1", session_id="s1",
-        turn_id=turn, sender_id="CK", recipient_id="SK",
-        raw_text=text, trust_level="high",
+        message_id="m1",
+        episode_id="ep1",
+        session_id="s1",
+        turn_id=turn,
+        sender_id="CK",
+        recipient_id="SK",
+        raw_text=text,
+        trust_level="high",
     )
 
 
@@ -66,14 +82,27 @@ class TestFlowGate:
 
     def test_no_active_records(self) -> None:
         ledger = ForgetLedger()
-        ledger.register(ForgetRecord(
-            forget_id="F001", canonical_target="0107", target_type="credential",
-            aliases=(), semantic_variants=(), permitted_residuals=(),
-            active_from_turn=10,
-        ))
+        ledger.register(
+            ForgetRecord(
+                forget_id="F001",
+                canonical_target="0107",
+                target_type="credential",
+                aliases=(),
+                semantic_variants=(),
+                permitted_residuals=(),
+                active_from_turn=10,
+            )
+        )
         detector = HybridDetector(semantic_enabled=False)
-        gate = FlowGate(ledger, detector, RecipientHistory(), ReconstructionChecker(),
-                        ForgetPolicy(), AuditLogger(), _config())
+        gate = FlowGate(
+            ledger,
+            detector,
+            RecipientHistory(),
+            ReconstructionChecker(),
+            ForgetPolicy(),
+            AuditLogger(),
+            _config(),
+        )
         decision = gate.inspect(_env("The code is 0107", turn=5))
         assert decision.action == "allow"
 

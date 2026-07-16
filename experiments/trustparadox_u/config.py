@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +18,7 @@ class DetectorConfig:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.semantic_threshold <= 1.0):
-            raise ValueError(
-                f"semantic_threshold must be in [0,1], got {self.semantic_threshold}"
-            )
+            raise ValueError(f"semantic_threshold must be in [0,1], got {self.semantic_threshold}")
 
 
 @dataclass(frozen=True)
@@ -31,9 +29,7 @@ class HistoryConfig:
 
     def __post_init__(self) -> None:
         if self.window_size < 1:
-            raise ValueError(
-                f"window_size must be >= 1, got {self.window_size}"
-            )
+            raise ValueError(f"window_size must be >= 1, got {self.window_size}")
         if not (0.0 <= self.reconstruction_threshold <= 1.0):
             raise ValueError(
                 f"reconstruction_threshold must be in [0,1], "

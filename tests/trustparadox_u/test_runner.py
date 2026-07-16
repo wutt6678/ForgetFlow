@@ -1,20 +1,24 @@
 """Tests for episode runner."""
 
-import pytest
 from pathlib import Path
 
-from experiments.trustparadox_u.config import ExperimentConfig, DetectorConfig, HistoryConfig, PolicyConfig, MonitoringConfig
+from experiments.trustparadox_u.config import (
+    DetectorConfig,
+    ExperimentConfig,
+    HistoryConfig,
+    MonitoringConfig,
+    PolicyConfig,
+)
 from experiments.trustparadox_u.dataset import load_episode
 from experiments.trustparadox_u.runner import run_episode
-from experiments.trustparadox_u.agent import ScriptedResponder
-
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 
 
 def _config() -> ExperimentConfig:
     return ExperimentConfig(
-        seed=42, repetitions=1,
+        seed=42,
+        repetitions=1,
         detector=DetectorConfig(semantic_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),

@@ -1,10 +1,10 @@
 """Tests for TrustParadox-U schema and dataset loading."""
 
-import pytest
 from pathlib import Path
 
-from experiments.trustparadox_u.dataset import load_episode, load_episodes_from_dir
+import pytest
 
+from experiments.trustparadox_u.dataset import load_episode, load_episodes_from_dir
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 

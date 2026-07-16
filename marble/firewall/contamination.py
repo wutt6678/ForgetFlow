@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from marble.firewall.types import ContaminationStatus, DetectorResult
 
-
 _VALID_TRANSITIONS = {
     ContaminationStatus.UNKNOWN: {ContaminationStatus.CONTAMINATED},
     ContaminationStatus.CONTAMINATED: {ContaminationStatus.CLEAN},

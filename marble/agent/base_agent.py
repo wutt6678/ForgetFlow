@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any
 
 
 class BaseAgent:
@@ -56,6 +56,7 @@ class BaseAgent:
             return {"action": "allow", "released_text": text}
 
         from marble.firewall.types import MessageEnvelope
+
         envelope = MessageEnvelope(
             message_id=message_id or f"msg_{self.agent_id}_{turn_id}",
             episode_id=episode_id,

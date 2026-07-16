@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Sequence
 
-from marble.firewall.types import DetectorResult, ForgetRecord
 from experiments.trustparadox_u.embedding import EmbeddingProvider, cosine_similarity
+from marble.firewall.types import DetectorResult, ForgetRecord
 
 
 @dataclass
 class RecipientContext:
     """Recent messages visible to a recipient."""
+
     recipient_id: str
     recent_texts: tuple[str, ...] = ()
 
@@ -82,9 +83,7 @@ class HybridDetector:
             # Semantic matching
             if self.semantic_enabled and rec.semantic_variants:
                 if self._embedding_provider is None:
-                    raise ValueError(
-                        "Semantic detection enabled but no embedding provider"
-                    )
+                    raise ValueError("Semantic detection enabled but no embedding provider")
                 sem_score = self._compute_semantic(text, rec)
                 if sem_score > semantic_score:
                     semantic_score = sem_score
@@ -103,6 +102,7 @@ class HybridDetector:
         )
 
     def _compute_semantic(self, text: str, rec: ForgetRecord) -> float:
+        assert self._embedding_provider is not None
         if text not in self._embedding_cache:
             vec = self._embedding_provider.embed([text])[0]
             self._embedding_cache[text] = vec

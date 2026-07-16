@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
+from experiments.trustparadox_u.config import ExperimentConfig
+from marble.firewall.audit import AuditLogger
+from marble.firewall.detectors import HybridDetector
+from marble.firewall.history import RecipientHistory, ReconstructionChecker
+from marble.firewall.policy import ForgetPolicy
+from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
     DetectorResult,
     FirewallDecision,
-    ForgetRecord,
     MessageEnvelope,
     RecipientHistoryItem,
 )
-from marble.firewall.registry import ForgetLedger
-from marble.firewall.detectors import HybridDetector, RecipientContext
-from marble.firewall.history import RecipientHistory, ReconstructionChecker
-from marble.firewall.policy import ForgetPolicy
-from marble.firewall.audit import AuditLogger
-from experiments.trustparadox_u.config import ExperimentConfig
 
 
 class FlowGate:
@@ -54,13 +53,18 @@ class FlowGate:
         if not active:
             elapsed = (time.monotonic() - start) * 1000
             det = DetectorResult(
-                exact_score=0.0, entity_score=0.0,
-                semantic_score=0.0, reconstruction_score=0.0,
-                matched_forget_ids=(), evidence=(),
+                exact_score=0.0,
+                entity_score=0.0,
+                semantic_score=0.0,
+                reconstruction_score=0.0,
+                matched_forget_ids=(),
+                evidence=(),
             )
             decision = FirewallDecision(
-                action="allow", released_text=envelope.raw_text,
-                detector_result=det, reason_codes=("NO_ACTIVE_RECORDS",),
+                action="allow",
+                released_text=envelope.raw_text,
+                detector_result=det,
+                reason_codes=("NO_ACTIVE_RECORDS",),
                 policy_version=self.ledger.policy_version(),
                 latency_ms=elapsed,
             )
@@ -68,16 +72,17 @@ class FlowGate:
             return decision
 
         # 2. Load recipient context
-        ctx = self.history.get_context(
-            envelope.recipient_id, self.config.history.window_size
-        )
+        ctx = self.history.get_context(envelope.recipient_id, self.config.history.window_size)
 
         # 3. Run detector
         det_result = self.detector.detect(envelope.raw_text, active, ctx)
 
         # 4. Run reconstruction checker
         recon_score = self.reconstruction_checker.score(
-            envelope.raw_text, ctx, active, self.episode_metadata,
+            envelope.raw_text,
+            ctx,
+            active,
+            self.episode_metadata,
             history_enabled=self.config.history.enabled,
             reconstruction_threshold=self.config.history.reconstruction_threshold,
         )
@@ -99,9 +104,7 @@ class FlowGate:
 
         # Handle redaction
         if action == "redact" and released_text is None:
-            released_text = self.policy.redact_text(
-                envelope.raw_text, active, det_result
-            )
+            released_text = self.policy.redact_text(envelope.raw_text, active, det_result)
             if not released_text or released_text == envelope.raw_text:
                 action = "block"
                 released_text = None
@@ -115,11 +118,17 @@ class FlowGate:
         if action in ("redact", "abstract") and released_text is not None:
             recheck_det = self.detector.detect(released_text, active, ctx)
             recheck_recon = self.reconstruction_checker.score(
-                released_text, ctx, active, self.episode_metadata,
+                released_text,
+                ctx,
+                active,
+                self.episode_metadata,
                 history_enabled=self.config.history.enabled,
                 reconstruction_threshold=self.config.history.reconstruction_threshold,
             )
-            if recheck_det.exact_score == 1.0 or recheck_recon >= self.config.history.reconstruction_threshold:
+            if (
+                recheck_det.exact_score == 1.0
+                or recheck_recon >= self.config.history.reconstruction_threshold
+            ):
                 action = "block"
                 released_text = None
                 reasons = reasons + ("RECHECK_FAILED",)

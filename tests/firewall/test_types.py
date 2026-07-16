@@ -1,17 +1,18 @@
 """Tests for marble.firewall.types."""
 
 import pytest
+
 from marble.firewall.types import (
-    ForgetRecord,
-    MessageEnvelope,
+    ContaminationStatus,
     DetectorResult,
     FirewallDecision,
+    ForgetRecord,
+    MessageEnvelope,
     RecipientHistoryItem,
-    ContaminationStatus,
 )
 
-
 # ── ForgetRecord ──────────────────────────────────────────────
+
 
 class TestForgetRecord:
     def test_valid_creation(self) -> None:
@@ -118,6 +119,7 @@ class TestForgetRecord:
 
 # ── MessageEnvelope ───────────────────────────────────────────
 
+
 class TestMessageEnvelope:
     def test_valid_creation(self) -> None:
         env = MessageEnvelope(
@@ -135,137 +137,196 @@ class TestMessageEnvelope:
     def test_all_trust_levels(self) -> None:
         for level in ("low", "default", "high"):
             env = MessageEnvelope(
-                message_id="m1", episode_id="ep1", session_id="s1",
-                turn_id=0, sender_id="A", recipient_id="B",
-                raw_text="hi", trust_level=level,
+                message_id="m1",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=0,
+                sender_id="A",
+                recipient_id="B",
+                raw_text="hi",
+                trust_level=level,
             )
             assert env.trust_level == level
 
     def test_empty_message_id_raises(self) -> None:
         with pytest.raises(ValueError, match="message_id"):
             MessageEnvelope(
-                message_id="", episode_id="ep1", session_id="s1",
-                turn_id=0, sender_id="A", recipient_id="B",
-                raw_text="hi", trust_level="low",
+                message_id="",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=0,
+                sender_id="A",
+                recipient_id="B",
+                raw_text="hi",
+                trust_level="low",
             )
 
     def test_negative_turn_raises(self) -> None:
         with pytest.raises(ValueError, match="turn_id"):
             MessageEnvelope(
-                message_id="m1", episode_id="ep1", session_id="s1",
-                turn_id=-1, sender_id="A", recipient_id="B",
-                raw_text="hi", trust_level="low",
+                message_id="m1",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=-1,
+                sender_id="A",
+                recipient_id="B",
+                raw_text="hi",
+                trust_level="low",
             )
 
     def test_invalid_trust_raises(self) -> None:
         with pytest.raises(ValueError, match="trust_level"):
             MessageEnvelope(
-                message_id="m1", episode_id="ep1", session_id="s1",
-                turn_id=0, sender_id="A", recipient_id="B",
-                raw_text="hi", trust_level="ultra",
+                message_id="m1",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=0,
+                sender_id="A",
+                recipient_id="B",
+                raw_text="hi",
+                trust_level="ultra",
             )
 
     def test_empty_sender_raises(self) -> None:
         with pytest.raises(ValueError, match="sender_id"):
             MessageEnvelope(
-                message_id="m1", episode_id="ep1", session_id="s1",
-                turn_id=0, sender_id="", recipient_id="B",
-                raw_text="hi", trust_level="low",
+                message_id="m1",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=0,
+                sender_id="",
+                recipient_id="B",
+                raw_text="hi",
+                trust_level="low",
             )
 
 
 # ── DetectorResult ────────────────────────────────────────────
 
+
 class TestDetectorResult:
     def test_valid(self) -> None:
         dr = DetectorResult(
-            exact_score=1.0, entity_score=0.0,
-            semantic_score=0.5, reconstruction_score=0.0,
-            matched_forget_ids=("F001",), evidence=("0107",),
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.5,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("0107",),
         )
         assert dr.exact_score == 1.0
 
     def test_score_out_of_range_raises(self) -> None:
         with pytest.raises(ValueError, match="exact_score"):
             DetectorResult(
-                exact_score=1.5, entity_score=0.0,
-                semantic_score=0.0, reconstruction_score=0.0,
-                matched_forget_ids=(), evidence=(),
+                exact_score=1.5,
+                entity_score=0.0,
+                semantic_score=0.0,
+                reconstruction_score=0.0,
+                matched_forget_ids=(),
+                evidence=(),
             )
 
     def test_negative_score_raises(self) -> None:
         with pytest.raises(ValueError, match="semantic_score"):
             DetectorResult(
-                exact_score=0.0, entity_score=0.0,
-                semantic_score=-0.1, reconstruction_score=0.0,
-                matched_forget_ids=(), evidence=(),
+                exact_score=0.0,
+                entity_score=0.0,
+                semantic_score=-0.1,
+                reconstruction_score=0.0,
+                matched_forget_ids=(),
+                evidence=(),
             )
 
 
 # ── FirewallDecision ──────────────────────────────────────────
 
+
 class TestFirewallDecision:
     def _det(self) -> DetectorResult:
         return DetectorResult(
-            exact_score=0.0, entity_score=0.0,
-            semantic_score=0.0, reconstruction_score=0.0,
-            matched_forget_ids=(), evidence=(),
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=(),
+            evidence=(),
         )
 
     def test_allow(self) -> None:
         fd = FirewallDecision(
-            action="allow", released_text="Hello",
-            detector_result=self._det(), reason_codes=(),
-            policy_version="v1", latency_ms=1.0,
+            action="allow",
+            released_text="Hello",
+            detector_result=self._det(),
+            reason_codes=(),
+            policy_version="v1",
+            latency_ms=1.0,
         )
         assert fd.action == "allow"
 
     def test_block_requires_none(self) -> None:
         with pytest.raises(ValueError, match="block"):
             FirewallDecision(
-                action="block", released_text="still here",
-                detector_result=self._det(), reason_codes=(),
-                policy_version="v1", latency_ms=1.0,
+                action="block",
+                released_text="still here",
+                detector_result=self._det(),
+                reason_codes=(),
+                policy_version="v1",
+                latency_ms=1.0,
             )
 
     def test_block_with_none_ok(self) -> None:
         fd = FirewallDecision(
-            action="block", released_text=None,
-            detector_result=self._det(), reason_codes=("EXACT",),
-            policy_version="v1", latency_ms=1.0,
+            action="block",
+            released_text=None,
+            detector_result=self._det(),
+            reason_codes=("EXACT",),
+            policy_version="v1",
+            latency_ms=1.0,
         )
         assert fd.released_text is None
 
     def test_allow_requires_text(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
             FirewallDecision(
-                action="allow", released_text=None,
-                detector_result=self._det(), reason_codes=(),
-                policy_version="v1", latency_ms=1.0,
+                action="allow",
+                released_text=None,
+                detector_result=self._det(),
+                reason_codes=(),
+                policy_version="v1",
+                latency_ms=1.0,
             )
 
     def test_negative_latency_raises(self) -> None:
         with pytest.raises(ValueError, match="latency"):
             FirewallDecision(
-                action="allow", released_text="ok",
-                detector_result=self._det(), reason_codes=(),
-                policy_version="v1", latency_ms=-1.0,
+                action="allow",
+                released_text="ok",
+                detector_result=self._det(),
+                reason_codes=(),
+                policy_version="v1",
+                latency_ms=-1.0,
             )
 
 
 # ── RecipientHistoryItem ──────────────────────────────────────
 
+
 class TestRecipientHistoryItem:
     def test_creation(self) -> None:
         item = RecipientHistoryItem(
-            message_id="m1", turn_id=3, sender_id="CK",
+            message_id="m1",
+            turn_id=3,
+            sender_id="CK",
             released_text=" sanitized text ",
         )
         assert item.turn_id == 3
 
     def test_to_dict(self) -> None:
         item = RecipientHistoryItem(
-            message_id="m1", turn_id=0, sender_id="A",
+            message_id="m1",
+            turn_id=0,
+            sender_id="A",
             released_text="hello",
         )
         d = item.to_dict()
@@ -273,6 +334,7 @@ class TestRecipientHistoryItem:
 
 
 # ── ContaminationStatus ───────────────────────────────────────
+
 
 class TestContaminationStatus:
     def test_values(self) -> None:

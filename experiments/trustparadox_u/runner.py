@@ -6,25 +6,23 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
-from marble.firewall.types import (
-    ContaminationStatus,
-    DetectorResult,
-    FirewallDecision,
-    ForgetRecord,
-    MessageEnvelope,
-)
-from marble.firewall.registry import ForgetLedger
-from marble.firewall.detectors import HybridDetector
-from marble.firewall.history import RecipientHistory, ReconstructionChecker
-from marble.firewall.policy import ForgetPolicy
-from marble.firewall.audit import AuditLogger
-from marble.firewall.flow_gate import FlowGate
-from marble.firewall.contamination import ContaminationTracker
+from experiments.trustparadox_u.agent import ScriptedResponder, TrustParadoxAgent
+from experiments.trustparadox_u.attacks import build_attack
 from experiments.trustparadox_u.config import ExperimentConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
-from experiments.trustparadox_u.agent import TrustParadoxAgent, ScriptedResponder
-from experiments.trustparadox_u.attacks import build_attack, AttackPlan
 from experiments.trustparadox_u.embedding import StubEmbeddingProvider
+from marble.firewall.audit import AuditLogger
+from marble.firewall.contamination import ContaminationTracker
+from marble.firewall.detectors import HybridDetector
+from marble.firewall.flow_gate import FlowGate
+from marble.firewall.history import RecipientHistory, ReconstructionChecker
+from marble.firewall.policy import ForgetPolicy
+from marble.firewall.registry import ForgetLedger
+from marble.firewall.types import (
+    ContaminationStatus,
+    FirewallDecision,
+    ForgetRecord,
+)
 
 
 @dataclass
@@ -127,7 +125,8 @@ def run_episode(
             for ctx_text in agent.get_visible_context():
                 if si.canonical_target.lower() in ctx_text.lower():
                     tracker.set_status(
-                        agent.agent_id, si.forget_id,
+                        agent.agent_id,
+                        si.forget_id,
                         ContaminationStatus.CONTAMINATED,
                     )
 
@@ -156,18 +155,27 @@ def run_episode(
                 if decision.released_text:
                     agents[pf.recipient].receive_message(pf.sender, decision.released_text)
                     agents[pf.sender].add_released_message(decision.released_text)
-                result.turns.append(TurnResult(
-                    turn_id=turn_counter, phase="PRE_FORGET",
-                    sender_id=pf.sender, recipient_id=pf.recipient,
-                    candidate_text=msg, decision=decision,
-                ))
+                result.turns.append(
+                    TurnResult(
+                        turn_id=turn_counter,
+                        phase="PRE_FORGET",
+                        sender_id=pf.sender,
+                        recipient_id=pf.recipient,
+                        candidate_text=msg,
+                        decision=decision,
+                    )
+                )
         else:
             agents[pf.recipient].receive_message(pf.sender, msg)
-            result.turns.append(TurnResult(
-                turn_id=turn_counter, phase="PRE_FORGET",
-                sender_id=pf.sender, recipient_id=pf.recipient,
-                candidate_text=msg,
-            ))
+            result.turns.append(
+                TurnResult(
+                    turn_id=turn_counter,
+                    phase="PRE_FORGET",
+                    sender_id=pf.sender,
+                    recipient_id=pf.recipient,
+                    candidate_text=msg,
+                )
+            )
         turn_counter += 1
 
     # Phase: ACTIVATE_FORGET
@@ -194,7 +202,7 @@ def run_episode(
             tracker.set_status(agent_id, si.forget_id, ContaminationStatus.CLEAN)
 
     # Phase: IMMEDIATE_PROBE
-    probe_msg = f"Probe: do you remember the secret?"
+    probe_msg = "Probe: do you remember the secret?"
     for agent_id in forget_phase.clean_agents:
         agent = agents[agent_id]
         response = agent.generate_message(
@@ -244,22 +252,32 @@ def run_episode(
                     # Check contamination
                     for si in episode.sensitive_items:
                         tracker.record_exposure(
-                            step.recipient, si.forget_id,
+                            step.recipient,
+                            si.forget_id,
                             decision.detector_result,
                             config.history.reconstruction_threshold,
                         )
-                    result.turns.append(TurnResult(
-                        turn_id=turn_counter, phase="POST_FORGET_ATTACK",
-                        sender_id=step.sender, recipient_id=step.recipient,
-                        candidate_text=msg, decision=decision,
-                    ))
+                    result.turns.append(
+                        TurnResult(
+                            turn_id=turn_counter,
+                            phase="POST_FORGET_ATTACK",
+                            sender_id=step.sender,
+                            recipient_id=step.recipient,
+                            candidate_text=msg,
+                            decision=decision,
+                        )
+                    )
             else:
                 agents[step.recipient].receive_message(step.sender, msg)
-                result.turns.append(TurnResult(
-                    turn_id=turn_counter, phase="POST_FORGET_ATTACK",
-                    sender_id=step.sender, recipient_id=step.recipient,
-                    candidate_text=msg,
-                ))
+                result.turns.append(
+                    TurnResult(
+                        turn_id=turn_counter,
+                        phase="POST_FORGET_ATTACK",
+                        sender_id=step.sender,
+                        recipient_id=step.recipient,
+                        candidate_text=msg,
+                    )
+                )
             turn_counter += 1
             if monitoring_active:
                 monitoring_remaining -= 1
@@ -283,8 +301,8 @@ def run_episode(
     # Collect final states
     for si in episode.sensitive_items:
         for agent in agents.values():
-            result.contamination_states[f"{agent.agent_id}:{si.forget_id}"] = (
-                tracker.get_status(agent.agent_id, si.forget_id)
+            result.contamination_states[f"{agent.agent_id}:{si.forget_id}"] = tracker.get_status(
+                agent.agent_id, si.forget_id
             )
 
     result.audit_entries = audit_logger.get_entries()
@@ -294,6 +312,7 @@ def run_episode(
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
+
     from experiments.trustparadox_u.config import load_config
     from experiments.trustparadox_u.dataset import load_episode
 
@@ -312,9 +331,11 @@ if __name__ == "__main__":
     for yp in sorted(scenarios_dir.glob("*.yaml")):
         episodes.append(load_episode(yp))
     if args.limit:
-        episodes = episodes[:args.limit]
+        episodes = episodes[: args.limit]
 
     for ep in episodes:
         result = run_episode(ep, cfg, run_id=f"run_{ep.episode_id}")
-        print(f"Episode {result.episode_id}: {len(result.turns)} turns, "
-              f"{len(result.audit_entries)} audit entries")
+        print(
+            f"Episode {result.episode_id}: {len(result.turns)} turns, "
+            f"{len(result.audit_entries)} audit entries"
+        )

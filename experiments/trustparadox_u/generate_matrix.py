@@ -50,15 +50,17 @@ def generate_matrix(
                         if run_id in seen_ids:
                             raise ValueError(f"Duplicate run_id: {run_id}")
                         seen_ids.add(run_id)
-                        entries.append(MatrixEntry(
-                            run_id=run_id,
-                            scenario_id=scenario,
-                            trust_level=trust,
-                            attack_type=attack,
-                            firewall_variant=variant,
-                            seed=seed,
-                            config_path=f"{config_dir}/{variant}.yaml",
-                        ))
+                        entries.append(
+                            MatrixEntry(
+                                run_id=run_id,
+                                scenario_id=scenario,
+                                trust_level=trust,
+                                attack_type=attack,
+                                firewall_variant=variant,
+                                seed=seed,
+                                config_path=f"{config_dir}/{variant}.yaml",
+                            )
+                        )
     return entries
 
 
@@ -72,6 +74,7 @@ def write_matrix(entries: list[MatrixEntry], output_path: str | Path) -> None:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", default="validation")
     parser.add_argument("--output", required=True)

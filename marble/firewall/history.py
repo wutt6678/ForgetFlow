@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from marble.firewall.types import ForgetRecord, RecipientHistoryItem
 from marble.firewall.detectors import RecipientContext
+from marble.firewall.types import ForgetRecord, RecipientHistoryItem
 
 
 class RecipientHistory:
@@ -63,10 +62,7 @@ class ReconstructionChecker:
                 fdata = fragment_map[fid]
                 fragments = fdata.get("fragments", [])
                 if fragments:
-                    found = sum(
-                        1 for frag in fragments
-                        if frag.lower() in combined_lower
-                    )
+                    found = sum(1 for frag in fragments if frag.lower() in combined_lower)
                     if found == len(fragments):
                         return 1.0
                     elif found > 0:
@@ -84,7 +80,7 @@ class ReconstructionChecker:
             total_facts = len(triples)
             for triple in triples:
                 if len(triple) >= 3:
-                    subj, pred, obj = triple[0], triple[1], triple[2]
+                    subj, _, obj = triple[0], triple[1], triple[2]
                     if subj.lower() in combined_lower and obj.lower() in combined_lower:
                         found_facts += 1
             if total_facts > 0 and found_facts == total_facts:

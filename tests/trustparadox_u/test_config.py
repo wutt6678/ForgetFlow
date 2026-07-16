@@ -1,16 +1,17 @@
 """Tests for experiment configuration loading."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from experiments.trustparadox_u.config import (
     DetectorConfig,
-    HistoryConfig,
-    PolicyConfig,
-    MonitoringConfig,
     ExperimentConfig,
+    HistoryConfig,
+    MonitoringConfig,
+    PolicyConfig,
     load_config,
 )
-
 
 SMOKE_YAML = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "configs" / "smoke.yaml"
 
@@ -55,16 +56,22 @@ class TestExperimentConfig:
     def test_invalid_repetitions(self) -> None:
         with pytest.raises(ValueError, match="repetitions"):
             ExperimentConfig(
-                seed=42, repetitions=0,
-                detector=DetectorConfig(), history=HistoryConfig(),
-                policy=PolicyConfig(), monitoring=MonitoringConfig(),
+                seed=42,
+                repetitions=0,
+                detector=DetectorConfig(),
+                history=HistoryConfig(),
+                policy=PolicyConfig(),
+                monitoring=MonitoringConfig(),
             )
 
     def test_to_dict(self) -> None:
         cfg = ExperimentConfig(
-            seed=42, repetitions=3,
-            detector=DetectorConfig(), history=HistoryConfig(),
-            policy=PolicyConfig(), monitoring=MonitoringConfig(),
+            seed=42,
+            repetitions=3,
+            detector=DetectorConfig(),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
         )
         d = cfg.to_dict()
         assert d["seed"] == 42

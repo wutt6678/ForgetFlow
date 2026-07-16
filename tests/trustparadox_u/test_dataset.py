@@ -1,9 +1,8 @@
 """Tests for dataset loading."""
 
-import pytest
 from pathlib import Path
-from experiments.trustparadox_u.dataset import load_episode, load_episodes_from_dir, load_split
 
+from experiments.trustparadox_u.dataset import load_split
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 SPLITS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "splits"
