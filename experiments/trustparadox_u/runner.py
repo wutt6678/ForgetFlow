@@ -307,12 +307,9 @@ def run_episode(
                     "models.embedding_model is required when "
                     "semantic detection is enabled in experiment mode"
                 )
-            embedding_provider = RealEmbeddingProvider(
-                provider_name=config.models.embedding_provider or "litellm",
-                model_name=config.models.embedding_model,
-                expected_dimension=config.models.embedding_dimension,
-                api_base=config.models.api_base,
-            )
+            from experiments.trustparadox_u.providers import build_real_embedding_provider
+
+            embedding_provider = build_real_embedding_provider(config.models)
         else:
             raise ValueError(f"Unknown run mode: {config.run.mode!r}")
     detector = HybridDetector(

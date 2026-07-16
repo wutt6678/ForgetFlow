@@ -63,15 +63,24 @@ def run_preflight(config: ExperimentConfig, *, probe_provider: bool = False) -> 
     # 7. Probe provider if requested
     if probe_provider and config.run.mode == "experiment":
         try:
-            from experiments.trustparadox_u.embedding import RealEmbeddingProvider
-
-            provider = RealEmbeddingProvider(
-                model_name=config.models.embedding_model or "text-embedding-3-small",
-                expected_dimension=config.models.embedding_dimension,
+            from experiments.trustparadox_u.providers import (
+                build_real_embedding_provider,
+                sanitize_api_base,
             )
-            vectors = provider.embed(["preflight probe"])
+
+            provider = build_real_embedding_provider(config.models)
+            vectors = provider.embed(["ForgetFlow provider preflight probe"])
             if not vectors or not vectors[0]:
                 failures.append("Provider probe returned empty vector")
+            else:
+                host = sanitize_api_base(config.models.api_base)
+                print(
+                    f"  provider={provider.provider_name}  "
+                    f"model={provider.model_name}  "
+                    f"expected_dim={config.models.embedding_dimension}  "
+                    f"observed_dim={len(vectors[0])}  "
+                    f"api_base={host or '(default)'}"
+                )
         except Exception as exc:
             failures.append(f"Provider probe failed: {exc}")
 
