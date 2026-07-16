@@ -23,7 +23,10 @@ def format_metric(metric: dict[str, Any]) -> str:
 
 def metric_value(metric: dict[str, Any]) -> float | None:
     """Extract the scalar value from a metric dict."""
-    return metric["value"]
+    v = metric["value"]
+    if v is None:
+        return None
+    return float(v)
 
 
 def load_results(input_dir: str | Path) -> list[dict[str, Any]]:
@@ -79,9 +82,7 @@ def _format_metric_field(metrics: dict[str, Any], key: str) -> str:
     return f"{m:.3f}"
 
 
-def format_extended_table(
-    summary: dict[str, dict[str, Any]], title: str = "Results"
-) -> str:
+def format_extended_table(summary: dict[str, dict[str, Any]], title: str = "Results") -> str:
     """Format a Markdown table with numerator/denominator columns."""
     lines = [f"\n## {title}\n"]
     header = "| Variant | PU-RER | PU-RER num | PU-RER den | CRR | CRR num | CRR den |"
