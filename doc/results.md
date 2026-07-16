@@ -10,10 +10,10 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 137 |
-| Passed | 137 |
+| Total tests | 160 |
+| Passed | 160 |
 | Failed | 0 |
-| Execution time | ~0.33s |
+| Execution time | ~0.40s |
 
 ### Test Breakdown
 
@@ -31,10 +31,12 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 | `test_dataset.py` | 1 | PASS |
 | `test_attacks.py` | 6 | PASS |
 | `test_runner.py` | 3 | PASS |
-| `test_evaluator.py` | 5 | PASS |
+| `test_evaluator.py` | 10 | PASS |
 | `test_matrix.py` | 4 | PASS |
-| `test_end_to_end.py` | 5 | PASS |
+| `test_end_to_end.py` | 7 | PASS |
 | `test_architecture_contract.py` | 9 | PASS |
+| `test_metric_contracts.py` | 10 | PASS |
+| `test_audit_results.py` | 8 | PASS |
 
 ---
 
@@ -169,7 +171,7 @@ For a secret space of size N:
 
 ### Latency
 
-- Test suite execution: ~0.31s
+- Test suite execution: ~0.40s
 - No network calls or LLM API calls
 - All components run in-memory
 

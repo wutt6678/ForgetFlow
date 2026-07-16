@@ -4,6 +4,85 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.3.0] — 2026-07-16
+
+### Added
+
+#### Ground-Truth Labels (Priority 2)
+- `MessageLabel` dataclass with `is_attack_attempt`, `is_legitimate_message`, `is_reconstruction_attempt`, `is_recontamination_attempt`, `task_relevant`
+- Extended episode schema with `label`, `reconstruction`, `success_type`, `success_value` fields
+- All 3 pilot YAML files updated with explicit ground-truth labels per attack
+- Reconstruction metadata on sensitive items (fragments and fact-chain types)
+
+#### Corrected Evaluator Metrics (Priority 3)
+- `MetricValue` dataclass returning `value`, `numerator`, `denominator`, `reason`
+- PU-RER: uses `is_attack_attempt` + `target_exposed` (from `released_text`, never `candidate_text`)
+- CRR: uses `is_reconstruction_attempt` + `target_reconstructed`
+- RR: uses explicit `cleaned_agents_exposed` / `recontaminated_agents` counters
+- FBR: uses `is_legitimate_message` ground-truth labels, not firewall reason codes
+- Utility retention: uses explicit `task_success` field
+
+#### Transformed-Output Rechecking (Priority 5)
+- FlowGate recheck now validates all risk dimensions: exact, entity, semantic, reconstruction
+
+#### Research Test Suite (Priority 6)
+- Rich policy utility test
+- Continuous vs one-time monitoring test
+- Trust invariance uses `released_text` verification
+
+#### Metric-Contract Regression Tests (Priority 7)
+- 10 tests verifying metric correctness contracts
+- Candidate-only secret must not increase PU-RER
+- Blocked reconstruction must not increase CRR
+- FBR only counts legitimate messages
+- AT_RISK must not count as recontamination
+
+#### Result Auditor (Priority 9)
+- `experiments/trustparadox_u/audit_results.py`: validates internal consistency
+- Checks block ↔ `released_text is None` invariant
+- Checks `target_exposed` requires `released_text`
+- Checks reconstruction/recontamination require attempts
+- `validate_for_aggregation()` prevents invalid run aggregation
+
+#### Documentation (Priority 11)
+- `doc/METRICS.md`: full metric definitions with numerators, denominators, and source fields
+- Corrected MARBLE integration wording (MARBLE-compatible, not "runs on MARBLE")
+- Comprehensive limitations section
+
+### Changed
+
+- `TurnResult`: added `is_legitimate_message` field populated from episode labels
+- `EpisodeResult`: metadata now includes `attack_type`, `secret_variant_id`, `seed`
+- `target_reconstructed` and `target_reintroduced` computed from `released_text`
+- Full MVP config enables `semantic_enabled=True`
+- Evaluator returns `MetricValue` instead of bare `float | None`
+- No-firewall delivery test checks `released_text` instead of `candidate_text`
+
+### Fixed
+
+- Evaluator PU-RER no longer inspects `candidate_text` for exposure
+- Evaluator CRR no longer uses reason codes for reconstruction detection
+- Evaluator FBR no longer uses `NO_LEAKAGE_DETECTED` as ground truth
+- FlowGate recheck now includes entity and semantic scores (was only exact + reconstruction)
+
+---
+
+## [0.2.1] — 2026-07-16
+
+### Added
+
+#### Experiment Outcome Recording
+- `TurnResult` extended with `released_text`, attack classification, outcome flags
+- `EpisodeResult` extended with `run_id`, `seed`, `task_success`, contamination counters
+- `_check_target_exposed()` helper checking `released_text` only
+- `target_reconstructed` and `target_reintroduced` tracking in runner
+
+### Changed
+
+- Runner populates metadata with `forbidden_strings`, `forbidden_aliases`, `semantic_variants`, `permitted_residuals`, `forget_ids`, `seed`, `config_hash`
+
+---
+
 ## [0.2.0] — 2026-07-16
 
 ### Added
