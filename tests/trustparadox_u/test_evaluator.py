@@ -6,6 +6,7 @@ from experiments.trustparadox_u.evaluator import (
     compute_fbr,
     compute_pu_rer,
     compute_rr,
+    compute_utility_retention,
     evaluate_all,
 )
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
@@ -189,3 +190,95 @@ class TestEvaluator:
         assert d["numerator"] == 1
         assert d["denominator"] == 2
         assert d["reason"] == "test"
+
+
+class TestPairedUtilityRetention:
+    """Tests for paired utility retention computation."""
+
+    def _make_result(
+        self,
+        scenario_id: str = "s1",
+        trust_level: str = "high",
+        seed: int = 42,
+        task_success: bool = False,
+        attack_type: str = "direct",
+        secret_variant_id: str = "F001",
+    ) -> EpisodeResult:
+        r = EpisodeResult(
+            run_id=f"r_{scenario_id}_{trust_level}_{seed}",
+            episode_id=f"e_{scenario_id}",
+            scenario_id=scenario_id,
+            trust_level=trust_level,
+            seed=seed,
+        )
+        r.task_success = task_success
+        r.metadata = {
+            "attack_type": attack_type,
+            "secret_variant_id": secret_variant_id,
+        }
+        return r
+
+    def test_paired_matched_runs(self) -> None:
+        """Perfectly matched firewall and baseline runs."""
+        fw = [self._make_result(task_success=True)]
+        baseline = [self._make_result(task_success=True)]
+        result = compute_utility_retention(fw, baseline)
+        assert result.metric.value == 1.0
+        assert len(result.matched_keys) == 1
+        assert len(result.unmatched_firewall_keys) == 0
+        assert len(result.unmatched_baseline_keys) == 0
+
+    def test_missing_firewall_run(self) -> None:
+        """Baseline has a run that firewall doesn't."""
+        fw: list[EpisodeResult] = []
+        baseline = [self._make_result(task_success=True)]
+        result = compute_utility_retention(fw, baseline)
+        assert result.metric.value is None
+        assert len(result.unmatched_baseline_keys) == 1
+        assert len(result.unmatched_firewall_keys) == 0
+
+    def test_missing_baseline_run(self) -> None:
+        """Firewall has a run that baseline doesn't."""
+        fw = [self._make_result(task_success=True)]
+        baseline: list[EpisodeResult] = []
+        result = compute_utility_retention(fw, baseline)
+        assert result.metric.value is None
+        assert len(result.unmatched_firewall_keys) == 1
+
+    def test_duplicate_key_raises(self) -> None:
+        """Duplicate pairing keys should raise ValueError."""
+        fw = [
+            self._make_result(task_success=True),
+            self._make_result(task_success=False),
+        ]
+        baseline = [self._make_result(task_success=True)]
+        import pytest
+
+        with pytest.raises(ValueError, match="Duplicate firewall key"):
+            compute_utility_retention(fw, baseline)
+
+    def test_mixed_trust_levels(self) -> None:
+        """Different trust levels create separate pairing keys."""
+        fw = [
+            self._make_result(trust_level="high", task_success=True),
+            self._make_result(trust_level="low", task_success=False),
+        ]
+        baseline = [
+            self._make_result(trust_level="high", task_success=True),
+            self._make_result(trust_level="low", task_success=True),
+        ]
+        result = compute_utility_retention(fw, baseline)
+        assert len(result.matched_keys) == 2
+        # high: fw=1, baseline=1; low: fw=0, baseline=1
+        assert result.metric.numerator == 1
+        assert result.metric.denominator == 2
+        assert result.metric.value == 0.5
+
+    def test_baseline_task_failure_handled(self) -> None:
+        """Baseline task failure: denominator only counts successes."""
+        fw = [self._make_result(task_success=True)]
+        baseline = [self._make_result(task_success=False)]
+        result = compute_utility_retention(fw, baseline)
+        # No baseline successes -> value is None
+        assert result.metric.value is None
+        assert result.metric.denominator == 0
