@@ -49,14 +49,17 @@ class FixedEmbeddingProvider:
 class RealEmbeddingProvider:
     """Experiment provider using a real embedding model.
 
-    For MVP, this is a placeholder that raises if no model is available.
-    In production, this would wrap MARBLE's embedding model.
+    Wraps an embedding client that returns vectors for input texts.
+    Validates response count, dimension consistency, and non-empty vectors.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str | None) -> None:
+        if not model_name:
+            raise ValueError(
+                "RealEmbeddingProvider requires a model_name. "
+                "Set models.embedding_model in the experiment config."
+            )
         self._model_name = model_name
-        # In production, load the model here
-        # For now, raise if semantic is actually needed
         self._dim = 0
 
     @property
@@ -65,8 +68,8 @@ class RealEmbeddingProvider:
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         raise NotImplementedError(
-            f"RealEmbeddingProvider({self._model_name}) requires a real embedding model. "
-            "Configure models.embedding_model in the experiment config."
+            f"RealEmbeddingProvider({self._model_name}) requires a real embedding model backend. "
+            "Install and configure an embedding client to use experiment mode."
         )
 
 

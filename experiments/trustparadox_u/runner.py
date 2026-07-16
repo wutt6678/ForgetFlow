@@ -252,7 +252,12 @@ def run_episode(
                     vector_map[variant] = [v / norm for v in vec]
             embedding_provider = FixedEmbeddingProvider(vector_map)
         elif config.run.mode == "experiment":
-            embedding_provider = RealEmbeddingProvider("default")
+            if not config.models.embedding_model:
+                raise ValueError(
+                    "models.embedding_model is required when "
+                    "semantic detection is enabled in experiment mode"
+                )
+            embedding_provider = RealEmbeddingProvider(config.models.embedding_model)
         else:
             raise ValueError(f"Unknown run mode: {config.run.mode!r}")
     detector = HybridDetector(
@@ -285,6 +290,17 @@ def run_episode(
         },
     )
     tracker = ContaminationTracker()
+
+    # Record embedding metadata
+    if embedding_provider is not None:
+        result.metadata.update(
+            {
+                "embedding_provider": type(embedding_provider).__name__,
+                "embedding_model": config.models.embedding_model,
+                "embedding_dimension": embedding_provider.dimension,
+                "semantic_threshold": config.detector.semantic_threshold,
+            }
+        )
 
     # Attach interceptor
     if firewall_enabled:

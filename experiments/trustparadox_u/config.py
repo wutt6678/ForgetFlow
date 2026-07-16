@@ -70,6 +70,11 @@ class RunConfig:
 
 
 @dataclass(frozen=True)
+class ModelsConfig:
+    embedding_model: str | None = None
+
+
+@dataclass(frozen=True)
 class ExperimentConfig:
     seed: int
     repetitions: int
@@ -78,6 +83,7 @@ class ExperimentConfig:
     policy: PolicyConfig
     monitoring: MonitoringConfig
     run: RunConfig = field(default_factory=RunConfig)
+    models: ModelsConfig = field(default_factory=ModelsConfig)
 
     def __post_init__(self) -> None:
         if self.repetitions < 1:
@@ -125,6 +131,9 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
     monitoring = MonitoringConfig(**mon_raw)
     run_config = RunConfig(mode=run.get("mode", "test"))
 
+    models_raw = raw.get("models", {})
+    models = ModelsConfig(embedding_model=models_raw.get("embedding_model"))
+
     return ExperimentConfig(
         seed=seed,
         repetitions=repetitions,
@@ -133,4 +142,5 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         policy=policy,
         monitoring=monitoring,
         run=run_config,
+        models=models,
     )
