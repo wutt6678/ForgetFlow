@@ -206,6 +206,7 @@ class TestTaskSuccess:
                 recipient_id="CK",
                 candidate_text="Please Request a new temporary credential.",
                 released_text="Please Request a new temporary credential.",
+                task_relevant=True,
             )
         )
         assert _evaluate_task_success(ep, result, True) is True
@@ -234,6 +235,7 @@ class TestTaskSuccess:
                 recipient_id="CK",
                 candidate_text="Request a new temporary credential.",
                 released_text=None,  # Blocked
+                task_relevant=True,
             )
         )
         assert _evaluate_task_success(ep, result, True) is False
@@ -275,6 +277,7 @@ class TestTaskSuccess:
                 recipient_id="CK",
                 candidate_text="safe_access_procedure_completed",
                 released_text="safe_access_procedure_completed",
+                task_relevant=True,
             )
         )
         assert _evaluate_task_success(ep, result, True) is True

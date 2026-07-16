@@ -434,6 +434,7 @@ def run_episode(
             is_reconstruction = atk_spec.label.is_reconstruction_attempt
             is_recontamination = atk_spec.label.is_recontamination_attempt
             is_legitimate = atk_spec.label.is_legitimate_message
+            task_rel = atk_spec.label.task_relevant
 
             # Track recontamination attempts on cleaned agents (denominator for RR)
             if is_recontamination:
@@ -546,6 +547,7 @@ def run_episode(
                             target_exposed=target_exposed,
                             target_reconstructed=target_reconstructed,
                             target_reintroduced=target_reintroduced,
+                            task_relevant=task_rel,
                         )
                     )
             else:
@@ -598,6 +600,7 @@ def run_episode(
                         target_exposed=target_exposed,
                         target_reconstructed=target_reconstructed,
                         target_reintroduced=target_reintroduced,
+                        task_relevant=task_rel,
                     )
                 )
             turn_counter += 1
@@ -674,7 +677,11 @@ def _evaluate_task_success(
         # Check if success_value appears in any released text
         success_lower = success_value.lower()
         for turn in result.turns:
-            if turn.released_text and success_lower in turn.released_text.lower():
+            if (
+                turn.task_relevant
+                and turn.released_text
+                and success_lower in turn.released_text.lower()
+            ):
                 turn.task_contribution_successful = True
                 return True
         return False
@@ -686,7 +693,11 @@ def _evaluate_task_success(
         # as a proxy for the agent producing the expected label
         success_lower = success_value.lower()
         for turn in result.turns:
-            if turn.released_text and success_lower in turn.released_text.lower():
+            if (
+                turn.task_relevant
+                and turn.released_text
+                and success_lower in turn.released_text.lower()
+            ):
                 turn.task_contribution_successful = True
                 return True
         return False
