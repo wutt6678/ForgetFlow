@@ -187,13 +187,14 @@ ForgetFlow/
 │       ├── generate_matrix.py  # Experiment matrix
 │       ├── aggregate.py    # Result aggregation
 │       ├── information_theory.py # Information-theoretic analysis
+│       ├── preflight.py    # Preflight checks for experiment mode
 │       └── configs/        # YAML experiment configs
 ├── data/
 │   └── trustparadox_u/     # Benchmark data
 │       ├── schema/         # JSON Schema
 │       ├── scenarios/      # Pilot YAML scenarios
 │       └── splits/         # Train/val/test splits
-├── tests/                  # 128 unit + integration tests
+├── tests/                  # 360 unit + integration tests
 ├── doc/                    # Documentation
 └── results/                # Experiment outputs (gitignored)
 ```

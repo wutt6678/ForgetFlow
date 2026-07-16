@@ -10,35 +10,35 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 281 |
-| Passed | 281 |
+| Total tests | 360 |
+| Passed | 360 |
 | Failed | 0 |
-| Execution time | ~0.80s |
+| Execution time | ~0.93s |
 
 ### Test Breakdown
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_runner.py` | 28 | PASS |
+| `test_result_audit.py` | 49 | PASS |
+| `test_runner.py` | 34 | PASS |
+| `test_embedding.py` | 33 | PASS |
 | `test_types.py` | 26 | PASS |
-| `test_result_audit.py` | 25 | PASS |
+| `test_config.py` | 25 | PASS |
 | `test_metric_contracts.py` | 24 | PASS |
-| `test_end_to_end.py` | 18 | PASS |
+| `test_end_to_end.py` | 21 | PASS |
 | `test_evaluator.py` | 17 | PASS |
+| `test_attacks.py` | 14 | PASS |
 | `test_aggregate.py` | 14 | PASS |
 | `test_detectors.py` | 12 | PASS |
 | `test_schema.py` | 11 | PASS |
 | `test_matrix.py` | 11 | PASS |
-| `test_config.py` | 11 | PASS |
 | `test_registry.py` | 11 | PASS |
 | `test_policy.py` | 10 | PASS |
 | `test_flow_gate.py` | 10 | PASS |
-| `test_embedding.py` | 9 | PASS |
 | `test_architecture_contract.py` | 9 | PASS |
 | `test_history.py` | 9 | PASS |
 | `test_audit_results.py` | 8 | PASS |
 | `test_contamination.py` | 8 | PASS |
-| `test_attacks.py` | 6 | PASS |
 | `test_dataset.py` | 4 | PASS |
 
 ---
@@ -235,7 +235,7 @@ All local gates pass:
 - `ruff check` ✓
 - `ruff format` ✓
 - `mypy marble experiments` ✓
-- `pytest` (281 tests) ✓
+- `pytest` (360 tests) ✓
 
 ---
 

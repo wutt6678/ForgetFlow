@@ -50,13 +50,16 @@ run:
 
 models:
   embedding_provider: litellm
-  embedding_model: text-embedding-3-small
-  embedding_dimension: 1536
+  embedding_model: openai/text-embedding-v3
+  embedding_dimension: 1024
+  api_base: https://your-endpoint.example.com/compatible-mode/v1
 ```
 
 - Uses `RealEmbeddingProvider` via LiteLLM to call a real embedding API.
-- Requires `poetry install -E experiment`.
+- Requires `litellm` installed (`pip install litellm` or `poetry install -E experiment`).
 - Requires a valid API key (e.g., `OPENAI_API_KEY`) in the environment.
+- `api_base` is optional — set it for custom OpenAI-compatible endpoints (e.g., Alibaba Cloud MaaS).
+- `embedding_model` uses LiteLLM provider prefix format (e.g., `openai/text-embedding-v3`).
 - Provider, model, and dimension are recorded in result metadata.
 
 ---
@@ -101,6 +104,7 @@ Every episode result records:
 | `monitoring_duration_rounds` | Monitoring duration in rounds |
 | `post_forget_round_count` | Final post-forget round count |
 | `fragment_count` | Maximum fragment count across sensitive items |
+| `pairing_key` | Structured dict identifying the experiment pairing |
 | `config_hash` | SHA-256 of the resolved configuration |
 
 ---

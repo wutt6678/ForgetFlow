@@ -4,6 +4,61 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.6.0] — 2026-07-17
+
+### Added
+
+#### Embedding Configuration Validation (Repair Phase 1)
+- `ExperimentConfig.__post_init__()` now calls `validate_embedding_config(self)` — invalid configs cannot be constructed
+- 2 new config tests: unsupported provider, YAML loading path
+
+#### Complete Experiment Metadata (Repair Phases 2–3)
+- `ModelsConfig.api_base: str | None` for custom embedding endpoints
+- Result metadata now includes: `run_mode`, `semantic_enabled`, `monitoring_continuous`, `monitoring_duration_rounds`, `post_forget_round_count`, `fragment_count`, `pairing_key` (structured dict)
+- Embedding metadata uses canonical provider names (`"fixed"`, `"litellm"`) instead of class names
+- Post-episode dimension and round count finalization
+
+#### Audit Integration (Repair Phase 4)
+- `audit_episode_result()` calls `audit_embedding_metadata()`, `audit_monitoring_metadata()`, `audit_fragmentation_result()`
+- `audit_results()` calls `audit_duplicate_keys()`
+
+#### Exact-Label Task Semantics (Repair Phase 5)
+- `EpisodeResult.task_label: str | None` field for explicit outcome tracking
+- `exact_label` evaluation uses `result.task_label == success_value` instead of text matching
+- `required_release` sets `task_label` from `episode.task.success_label`
+
+#### Per-Step Attack Labels (Repair Phase 6)
+- `AttackStep.label: MessageLabel` field — each step carries its own ground-truth label
+- Runner uses `step.label` instead of outer `atk_spec.label`
+
+#### Preflight Module (Repair Phase 7)
+- `experiments/trustparadox_u/preflight.py` — validates config, LiteLLM import, env vars, output directory
+- Optional `--probe-provider` for real API connectivity check
+
+#### Custom Endpoint Support
+- `RealEmbeddingProvider` accepts `api_base` parameter, passed to `litellm.embedding()`
+- YAML config supports `models.api_base` field
+- `litellm_config.yaml` and `.env` gitignored; `*_local.yaml` configs gitignored
+
+### Changed
+
+- **360 total tests** (up from 281), all passing
+- `FixedEmbeddingProvider.model_name` returns `None` (was `"fixed"`)
+- `EmbeddingProvider` Protocol `model_name` return type is `str | None`
+
+### Fixed
+
+- Embedding config invariants enforced at construction time
+- `exact_label` tasks evaluated from explicit outcomes, not text matching
+- Multi-step attacks preserve per-step labels
+
+### Validated
+
+- Real-embedding smoke test passed: 3 episodes via Alibaba Cloud MaaS (`openai/text-embedding-v3`, dimension 1024)
+- Fixed-vector smoke test passed across all 7 configs
+
+---
+
 ## [0.5.0] — 2026-07-16
 
 ### Added

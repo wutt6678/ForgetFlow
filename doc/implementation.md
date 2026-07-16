@@ -82,8 +82,8 @@ text → lowercase → Unicode NFC → strip punctuation → collapse whitespace
 ```
 
 **Embedding providers:**
-- `StubEmbeddingProvider`: Deterministic hash-based embeddings for testing (no network required)
-- `MarbleEmbeddingProvider`: Interface for MARBLE's embedding utilities (not implemented in MVP)
+- `FixedEmbeddingProvider`: Deterministic predefined vectors for testing (`provider_name="fixed"`, `model_name=None`)
+- `RealEmbeddingProvider`: Real embedding API via LiteLLM (`provider_name="litellm"`). Accepts optional `api_base` for custom endpoints (e.g., Alibaba Cloud MaaS). Model name uses LiteLLM provider prefix (e.g., `openai/text-embedding-v3`).
 
 ---
 
@@ -398,33 +398,33 @@ Runs the complete three-scenario pilot:
 
 ## 20. Testing Strategy
 
-- **281 tests** across 21 test files
+- **360 tests** across 21 test files
 - No live model API calls — all tests use `ScriptedResponder` and `FixedEmbeddingProvider`
 - Fixed seeds for determinism
-- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population, aggregation
+- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population, aggregation, embedding providers, config validation
 
 ### Test Categories
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_runner.py` | 28 | Episode execution + population |
+| `test_result_audit.py` | 49 | Extended audit rules |
+| `test_runner.py` | 34 | Episode execution + population |
+| `test_embedding.py` | 33 | Embedding providers + config |
 | `test_types.py` | 26 | Data type validation |
-| `test_result_audit.py` | 25 | Extended audit rules |
+| `test_config.py` | 25 | Configuration loading + validation |
 | `test_metric_contracts.py` | 24 | Metric correctness |
-| `test_end_to_end.py` | 18 | Six paired research cases |
+| `test_end_to_end.py` | 21 | Six paired research cases |
 | `test_evaluator.py` | 17 | Metric computation |
+| `test_attacks.py` | 14 | Attack generation |
 | `test_aggregate.py` | 14 | Aggregation logic |
 | `test_detectors.py` | 12 | Exact/alias detection |
 | `test_schema.py` | 11 | Schema validation + dataset |
 | `test_matrix.py` | 11 | Matrix + trust triplet |
-| `test_config.py` | 11 | Configuration loading |
 | `test_registry.py` | 11 | ForgetLedger behavior |
 | `test_policy.py` | 10 | Policy decisions |
 | `test_flow_gate.py` | 10 | FlowGate integration |
-| `test_embedding.py` | 9 | Embedding providers |
 | `test_architecture_contract.py` | 9 | Architecture regression |
 | `test_history.py` | 9 | History + reconstruction |
 | `test_audit_results.py` | 8 | Result audit validation |
 | `test_contamination.py` | 8 | State machine transitions |
-| `test_attacks.py` | 6 | Attack generation |
 | `test_dataset.py` | 4 | Split loading |
