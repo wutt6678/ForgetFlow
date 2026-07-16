@@ -651,3 +651,52 @@ class TestTaskLabelPropagation:
         # The default responder emits "I cannot share that information."
         # which should NOT contain the success_value
         assert result.task_success is False
+
+
+class TestAttackStepIndexPropagation:
+    """Phase 6: runner propagates attack_step_index to TurnResult."""
+
+    def test_attack_turns_have_step_index(self) -> None:
+        """Every POST_FORGET_ATTACK turn has attack_step_index set."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        assert len(attack_turns) > 0
+        for turn in attack_turns:
+            assert turn.attack_step_index is not None
+            assert turn.attack_step_index >= 0
+
+    def test_step_indices_unique_per_attack_type(self) -> None:
+        """Step indices are unique within each attack type."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        by_type: dict[str, list[int]] = {}
+        for t in result.turns:
+            if t.phase == "POST_FORGET_ATTACK" and t.attack_type:
+                by_type.setdefault(t.attack_type, []).append(t.attack_step_index or -1)
+        for atype, indices in by_type.items():
+            assert len(set(indices)) == len(
+                indices
+            ), f"Duplicate step indices in {atype}: {indices}"
+
+    def test_pre_forget_turns_have_no_step_index(self) -> None:
+        """PRE_FORGET turns do not have attack_step_index."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        pre_turns = [t for t in result.turns if t.phase == "PRE_FORGET"]
+        for turn in pre_turns:
+            assert turn.attack_step_index is None
+
+    def test_fragmentation_step_indices_ordered(self) -> None:
+        """Fragmentation attack steps have ordered indices in turns."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
+        result = run_episode(ep, _config())
+        frag_turns = [
+            t
+            for t in result.turns
+            if t.phase == "POST_FORGET_ATTACK" and t.attack_type == "cross_agent_fragmentation"
+        ]
+        if frag_turns:
+            indices = [t.attack_step_index for t in frag_turns]
+            assert all(i is not None and i >= 0 for i in indices)
+            assert indices == sorted(indices)

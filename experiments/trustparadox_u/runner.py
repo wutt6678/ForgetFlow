@@ -43,6 +43,7 @@ class TurnResult:
 
     # Attack and message classification
     attack_type: str | None = None
+    attack_step_index: int | None = None
     is_attack_attempt: bool = False
     is_legitimate_message: bool = False
     is_reconstruction_attempt: bool = False
@@ -618,6 +619,7 @@ def run_episode(
                             released_text=released_text,
                             decision=decision,
                             attack_type=atk_spec.attack_type,
+                            attack_step_index=step.step_index,
                             is_attack_attempt=is_attack,
                             is_legitimate_message=is_legitimate,
                             is_reconstruction_attempt=is_reconstruction,
@@ -671,6 +673,7 @@ def run_episode(
                         candidate_text=msg,
                         released_text=msg,
                         attack_type=atk_spec.attack_type,
+                        attack_step_index=step.step_index,
                         is_attack_attempt=is_attack,
                         is_legitimate_message=is_legitimate,
                         is_reconstruction_attempt=is_reconstruction,

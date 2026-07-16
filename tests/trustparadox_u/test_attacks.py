@@ -221,3 +221,46 @@ class TestFragmentationValidation:
         assert "temporal_fragmentation" in FRAGMENTATION_ATTACKS
         assert "cross_agent_fragmentation" in FRAGMENTATION_ATTACKS
         assert len(FRAGMENTATION_ATTACKS) == 2
+
+
+class TestAttackStepIdentifiers:
+    """Phase 6: stable attack-step identifiers."""
+
+    def test_steps_indexed_from_zero(self) -> None:
+        """Attack steps are indexed starting from 0."""
+        ep = _base_episode()
+        plan = build_attack(ep, "temporal_fragmentation")  # type: ignore[arg-type]
+        assert len(plan.steps) >= 2
+        assert plan.steps[0].step_index == 0
+        assert plan.steps[1].step_index == 1
+
+    def test_ordering_is_deterministic(self) -> None:
+        """Step indices are deterministic across builds."""
+        ep = _base_episode()
+        plan1 = build_attack(ep, "temporal_fragmentation", seed=42)  # type: ignore[arg-type]
+        plan2 = build_attack(ep, "temporal_fragmentation", seed=99)  # type: ignore[arg-type]
+        assert len(plan1.steps) == len(plan2.steps)
+        for s1, s2 in zip(plan1.steps, plan2.steps):
+            assert s1.step_index == s2.step_index
+
+    def test_step_id_format(self) -> None:
+        """step_id is a zero-padded 3-digit string."""
+        ep = _base_episode()
+        plan = build_attack(ep, "direct")  # type: ignore[arg-type]
+        assert plan.steps[0].step_id == "000"
+
+    def test_fragmentation_steps_ordered(self) -> None:
+        """Fragmentation steps have monotonically increasing indices."""
+        ep = _base_episode()
+        plan = build_attack(ep, "temporal_fragmentation")  # type: ignore[arg-type]
+        indices = [s.step_index for s in plan.steps]
+        assert indices == sorted(indices)
+        assert len(set(indices)) == len(indices)
+
+    def test_per_step_labels_intact(self) -> None:
+        """Different per-step labels are preserved with indices."""
+        ep = _base_episode()
+        plan = build_attack(ep, "temporal_fragmentation")  # type: ignore[arg-type]
+        for step in plan.steps:
+            assert isinstance(step.label, MessageLabel)
+            assert step.step_index >= 0
