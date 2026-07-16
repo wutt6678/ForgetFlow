@@ -1,0 +1,66 @@
+name: ForgetFlow CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Validate Poetry project
+        run: poetry check
+
+      - name: Validate workflow YAML
+        run: poetry run python scripts/validate_workflows.py
+
+      - name: Check source integrity
+        run: poetry run python scripts/check_source_integrity.py
+
+      - name: Compile source
+        run: poetry run python -m compileall marble experiments
+
+      - name: Import contracts
+        run: |
+          poetry run python -c "from marble.firewall.types import ForgetRecord, MessageEnvelope, DetectorResult, FirewallDecision"
+          poetry run python -c "from marble.firewall.registry import ForgetLedger"
+          poetry run python -c "from marble.firewall.detectors import HybridDetector"
+          poetry run python -c "from marble.firewall.history import RecipientHistory, ReconstructionChecker"
+          poetry run python -c "from marble.firewall.policy import ForgetPolicy"
+          poetry run python -c "from marble.firewall.flow_gate import FlowGate"
+          poetry run python -c "from marble.firewall.contamination import ContaminationTracker"
+          poetry run python -c "from experiments.trustparadox_u.runner import run_episode"
+
+      - name: Ruff lint
+        run: poetry run ruff check marble experiments tests scripts
+
+      - name: Ruff format
+        run: poetry run ruff format --check marble experiments tests scripts
+
+      - name: Mypy
+        run: poetry run mypy marble experiments
+
+      - name: Tests
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run pytest -q
