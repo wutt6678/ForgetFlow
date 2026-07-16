@@ -690,3 +690,115 @@ class TestDuplicateKeys:
         from_dict = normalize_pairing_key(r1.metadata["pairing_key"])
         from_result = pairing_key_from_result(r1)
         assert from_dict == from_result
+
+
+class TestRunnerAuditIntegration:
+    """Integration tests using actual runner output."""
+
+    def test_runner_result_passes_aggregation_audit(self) -> None:
+        """A result from the real runner passes the full audit pipeline."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result = run_episode(ep, config)
+        report = audit_results([result])
+        assert not report.has_errors
+
+    def test_runner_duplicate_results_fail_audit(self) -> None:
+        """Two runs of the same episode with same identity are flagged."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result_a = run_episode(ep, config)
+        result_b = run_episode(ep, config)
+        report = audit_results([result_a, result_b])
+        assert report.has_errors
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in report.findings)
+
+    def test_runner_distinct_seeds_pass(self) -> None:
+        """Different seeds produce distinct pairing keys."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config_a = ExperimentConfig(
+            seed=1,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        config_b = ExperimentConfig(
+            seed=2,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result_a = run_episode(ep, config_a)
+        result_b = run_episode(ep, config_b)
+        report = audit_results([result_a, result_b])
+        dup_findings = [f for f in report.findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        assert len(dup_findings) == 0
+
+    def test_malformed_pairing_key_raises_not_typeerror(self) -> None:
+        """A malformed pairing key raises an audit error, not a raw TypeError."""
+        import pytest
+
+        result = _valid_result()
+        result.metadata["pairing_key"] = "bad_string_key"
+        with pytest.raises(InvalidExperimentResults):
+            validate_for_aggregation([result])
