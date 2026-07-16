@@ -496,6 +496,14 @@ def run_episode(
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
             )
+            # Propagate task label from responder if present
+            if sender.last_task_label is not None:
+                if result.task_label is not None and result.task_label != sender.last_task_label:
+                    raise ValueError(
+                        "Conflicting task labels in one episode: "
+                        f"{result.task_label!r} vs {sender.last_task_label!r}"
+                    )
+                result.task_label = sender.last_task_label
             # Determine attack classification from per-step labels
             is_attack = step.label.is_attack_attempt
             is_reconstruction = step.label.is_reconstruction_attempt
@@ -757,7 +765,6 @@ def _evaluate_task_success(
                 and success_lower in turn.released_text.lower()
             ):
                 turn.task_contribution_successful = True
-                result.task_label = episode.task.success_label
                 return True
         return False
 
