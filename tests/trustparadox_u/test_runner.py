@@ -72,3 +72,129 @@ class TestRunner:
         result = run_episode(ep, _config())
         assert result.cleaned_agents_exposed == 0
         assert result.recontaminated_agents == 0
+
+
+class TestTaskSuccess:
+    """Tests for explicit task-success evaluation."""
+
+    def test_required_release_success(self) -> None:
+        """Required residual released -> task success."""
+        from experiments.trustparadox_u.runner import EpisodeResult, _evaluate_task_success
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = EpisodeResult(
+            run_id="r1", episode_id=ep.episode_id, scenario_id=ep.scenario_id,
+            trust_level=ep.trust_level, seed=42,
+        )
+        # success_value = "Request a new temporary credential."
+        from experiments.trustparadox_u.runner import TurnResult
+        result.turns.append(TurnResult(
+            turn_id=0, phase="POST_FORGET_ATTACK",
+            sender_id="SK", recipient_id="CK",
+            candidate_text="Please Request a new temporary credential.",
+            released_text="Please Request a new temporary credential.",
+        ))
+        assert _evaluate_task_success(ep, result, True) is True
+
+    def test_required_release_blocked(self) -> None:
+        """Required residual blocked -> task failure."""
+        from experiments.trustparadox_u.runner import (
+            EpisodeResult,
+            TurnResult,
+            _evaluate_task_success,
+        )
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = EpisodeResult(
+            run_id="r1", episode_id=ep.episode_id, scenario_id=ep.scenario_id,
+            trust_level=ep.trust_level, seed=42,
+        )
+        result.turns.append(TurnResult(
+            turn_id=0, phase="POST_FORGET_ATTACK",
+            sender_id="SK", recipient_id="CK",
+            candidate_text="Request a new temporary credential.",
+            released_text=None,  # Blocked
+        ))
+        assert _evaluate_task_success(ep, result, True) is False
+
+    def test_exact_label_matches(self) -> None:
+        """Exact label matches -> success."""
+        from experiments.trustparadox_u.dataset import TaskSpec
+        from experiments.trustparadox_u.runner import (
+            EpisodeResult,
+            TurnResult,
+            _evaluate_task_success,
+        )
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        # Override task to exact_label type
+        from dataclasses import replace
+        ep = replace(ep, task=TaskSpec(
+            description=ep.task.description,
+            success_label=ep.task.success_label,
+            success_type="exact_label",
+            success_value="safe_access_procedure_completed",
+        ))
+        result = EpisodeResult(
+            run_id="r1", episode_id=ep.episode_id, scenario_id=ep.scenario_id,
+            trust_level=ep.trust_level, seed=42,
+        )
+        result.turns.append(TurnResult(
+            turn_id=0, phase="POST_FORGET_ATTACK",
+            sender_id="SK", recipient_id="CK",
+            candidate_text="safe_access_procedure_completed",
+            released_text="safe_access_procedure_completed",
+        ))
+        assert _evaluate_task_success(ep, result, True) is True
+
+    def test_exact_label_differs(self) -> None:
+        """Exact label differs -> failure."""
+        from dataclasses import replace
+
+        from experiments.trustparadox_u.dataset import TaskSpec
+        from experiments.trustparadox_u.runner import (
+            EpisodeResult,
+            TurnResult,
+            _evaluate_task_success,
+        )
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        ep = replace(ep, task=TaskSpec(
+            description=ep.task.description,
+            success_label=ep.task.success_label,
+            success_type="exact_label",
+            success_value="some_other_label",
+        ))
+        result = EpisodeResult(
+            run_id="r1", episode_id=ep.episode_id, scenario_id=ep.scenario_id,
+            trust_level=ep.trust_level, seed=42,
+        )
+        result.turns.append(TurnResult(
+            turn_id=0, phase="POST_FORGET_ATTACK",
+            sender_id="SK", recipient_id="CK",
+            candidate_text="safe_access_procedure_completed",
+            released_text="safe_access_procedure_completed",
+        ))
+        assert _evaluate_task_success(ep, result, True) is False
+
+    def test_unsupported_type_raises(self) -> None:
+        """Unsupported task type raises ValueError."""
+        from dataclasses import replace
+
+        from experiments.trustparadox_u.dataset import TaskSpec
+        from experiments.trustparadox_u.runner import EpisodeResult, _evaluate_task_success
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        ep = replace(ep, task=TaskSpec(
+            description=ep.task.description,
+            success_label=ep.task.success_label,
+            success_type="unsupported_type",
+            success_value="something",
+        ))
+        result = EpisodeResult(
+            run_id="r1", episode_id=ep.episode_id, scenario_id=ep.scenario_id,
+            trust_level=ep.trust_level, seed=42,
+        )
+        import pytest
+        with pytest.raises(ValueError, match="Unsupported task success_type"):
+            _evaluate_task_success(ep, result, True)
