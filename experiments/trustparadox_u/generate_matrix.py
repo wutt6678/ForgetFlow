@@ -64,6 +64,41 @@ def generate_matrix(
     return entries
 
 
+def validate_trust_triplet(
+    low: MatrixEntry,
+    default: MatrixEntry,
+    high: MatrixEntry,
+) -> bool:
+    """Validate that three entries form a proper trust triplet.
+
+    A valid triplet must share all fields except trust_level.
+    Returns True if valid, raises ValueError otherwise.
+    """
+    for f in ("scenario_id", "attack_type", "firewall_variant", "seed", "config_path"):
+        vals = {getattr(low, f), getattr(default, f), getattr(high, f)}
+        if len(vals) != 1:
+            raise ValueError(
+                f"Trust triplet mismatch on {f}: "
+                f"low={getattr(low, f)!r}, default={getattr(default, f)!r}, high={getattr(high, f)!r}"
+            )
+    # Verify trust levels are distinct
+    levels = {low.trust_level, default.trust_level, high.trust_level}
+    if levels != {"low", "default", "high"}:
+        raise ValueError(f"Trust triplet must have low/default/high, got {levels}")
+    return True
+
+
+def group_trust_triplets(
+    entries: list[MatrixEntry],
+) -> dict[tuple[str, str, str, int], list[MatrixEntry]]:
+    """Group entries by (scenario, attack, firewall_variant, seed) for trust comparison."""
+    groups: dict[tuple[str, str, str, int], list[MatrixEntry]] = {}
+    for e in entries:
+        key = (e.scenario_id, e.attack_type, e.firewall_variant, e.seed)
+        groups.setdefault(key, []).append(e)
+    return groups
+
+
 def write_matrix(entries: list[MatrixEntry], output_path: str | Path) -> None:
     p = Path(output_path)
     p.parent.mkdir(parents=True, exist_ok=True)
