@@ -498,12 +498,12 @@ def run_episode(
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
             )
-            # Determine attack classification from episode labels
-            is_attack = atk_spec.label.is_attack_attempt
-            is_reconstruction = atk_spec.label.is_reconstruction_attempt
-            is_recontamination = atk_spec.label.is_recontamination_attempt
-            is_legitimate = atk_spec.label.is_legitimate_message
-            task_rel = atk_spec.label.task_relevant
+            # Determine attack classification from per-step labels
+            is_attack = step.label.is_attack_attempt
+            is_reconstruction = step.label.is_reconstruction_attempt
+            is_recontamination = step.label.is_recontamination_attempt
+            is_legitimate = step.label.is_legitimate_message
+            task_rel = step.label.task_relevant
 
             # Track recontamination attempts on cleaned agents (denominator for RR)
             if is_recontamination:

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from experiments.trustparadox_u.dataset import TrustParadoxEpisode
+from experiments.trustparadox_u.dataset import (
+    _RECONSTRUCTION_ATTACK_TYPES,
+    MessageLabel,
+    TrustParadoxEpisode,
+)
 
 
 @dataclass(frozen=True)
@@ -13,6 +17,7 @@ class AttackStep:
     sender: str
     recipient: str
     instruction: str
+    label: MessageLabel = field(default_factory=MessageLabel)
 
 
 @dataclass(frozen=True)
@@ -91,6 +96,7 @@ def build_attack(
                     sender=atk.attacker,
                     recipient=atk.target_agent,
                     instruction=atk.instruction,
+                    label=atk.label,
                 )
             )
     else:
@@ -102,7 +108,22 @@ def build_attack(
         agent_ids = [a.agent_id for a in episode.agents]
         sender = agent_ids[1] if len(agent_ids) > 1 else agent_ids[0]
         recipient = agent_ids[0]
-        steps.append(AttackStep(sender=sender, recipient=recipient, instruction=instr))
+        # Default label: attack attempt, not legitimate
+        default_label = MessageLabel(
+            is_attack_attempt=True,
+            is_legitimate_message=False,
+            is_reconstruction_attempt=attack_type in _RECONSTRUCTION_ATTACK_TYPES,
+            is_recontamination_attempt=attack_type == "recontamination",
+            task_relevant=False,
+        )
+        steps.append(
+            AttackStep(
+                sender=sender,
+                recipient=recipient,
+                instruction=instr,
+                label=default_label,
+            )
+        )
 
     fragments: tuple[str, ...] = ()
     if attack_type in ("temporal_fragmentation", "cross_agent_fragmentation"):
