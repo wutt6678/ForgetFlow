@@ -10,21 +10,22 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 262 |
-| Passed | 262 |
+| Total tests | 281 |
+| Passed | 281 |
 | Failed | 0 |
-| Execution time | ~0.75s |
+| Execution time | ~0.80s |
 
 ### Test Breakdown
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_types.py` | 26 | PASS |
 | `test_runner.py` | 28 | PASS |
+| `test_types.py` | 26 | PASS |
+| `test_result_audit.py` | 25 | PASS |
 | `test_metric_contracts.py` | 24 | PASS |
-| `test_end_to_end.py` | 20 | PASS |
-| `test_result_audit.py` | 19 | PASS |
-| `test_evaluator.py` | 16 | PASS |
+| `test_end_to_end.py` | 18 | PASS |
+| `test_evaluator.py` | 17 | PASS |
+| `test_aggregate.py` | 14 | PASS |
 | `test_detectors.py` | 12 | PASS |
 | `test_schema.py` | 11 | PASS |
 | `test_matrix.py` | 11 | PASS |
@@ -234,7 +235,7 @@ All local gates pass:
 - `ruff check` ✓
 - `ruff format` ✓
 - `mypy marble experiments` ✓
-- `pytest` (262 tests) ✓
+- `pytest` (281 tests) ✓
 
 ---
 

@@ -4,6 +4,56 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.5.0] — 2026-07-16
+
+### Added
+
+#### Legitimate Post-Forget Task Turn (Revision 7)
+- `legitimate_task` attack template in `attacks.py`
+- `legitimate_task` entry in `pilot_credential.yaml` with `task_relevant=True`
+- `_evaluate_task_success()` now requires `turn.task_relevant=True` to count
+- `task_relevant` propagated into all post-forget `TurnResult` instances
+
+#### Experiment Embedding Provider (Revision 8)
+- `ModelsConfig` dataclass with `embedding_model: str | None`
+- `RealEmbeddingProvider` now requires `model_name` and validates inputs
+- Runner validates `embedding_model` is set for experiment mode
+- Embedding metadata recorded in results (provider, model, dimension, threshold)
+
+#### CLI Output and Run Identity (Revision 9)
+- CLI no longer overrides run IDs with `run_<episode_id>`
+- Writes `episode_results.jsonl`, `message_audit.jsonl`, `manifest.json`
+- `--overwrite` flag to replace existing output directories
+- Failed episodes tracked separately instead of silently dropped
+
+#### Extended Result Auditor (Revision 11)
+- `InvalidExperimentResults` exception class
+- `validate_for_aggregation()` raises by default instead of returning `(False, report)`
+- New audit rules: `BLOCKED_MESSAGE_AT_RISK`, `RECONSTRUCTION_WITHOUT_RELEASED_HISTORY`, `LEGITIMATE_TASK_NOT_TASK_RELEVANT`, `INVALID_RUN_ID`
+- 25 audit tests (up from 19)
+
+#### CI Experiment-Contract Gates (Revision 12)
+- Explicit per-module test steps: evaluator, metric contracts, end-to-end, runner, result audit
+- No `continue-on-error` or `|| true` suppression
+
+### Changed
+
+- **281 total tests** (up from 262), all passing
+- Runner tests use exact assertions (`== 1`, `== 0`) instead of vacuous `>= 0`
+- Reconstruction test checks exact count and `target_reconstructed` value
+- All audit test fixtures updated for `INVALID_RUN_ID` rule (run_id ≥ 8 chars)
+
+### Fixed
+
+- Contamination state updated only from released content (blocked messages no longer affect tracker)
+- Unmonitored reintroduction now transitions through `AT_RISK` to `RECONTAMINATED`
+- Continuous monitoring never decrements `monitoring_remaining`
+- Final probe checks full agent context (visible + history + inbox) for target recovery
+- Attack deduplication prevents step duplication in `build_attack()`
+- Paired utility cannot exceed 1.0 (baseline-eligible pairs only)
+
+---
+
 ## [0.4.0] — 2026-07-16
 
 ### Added

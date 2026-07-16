@@ -289,7 +289,7 @@ The runner uses `ScriptedResponder` for deterministic testing (no LLM API calls)
 
 ## 14. Attack Library (`experiments/trustparadox_u/attacks.py`)
 
-Seven attack types:
+Seven attack types plus a legitimate task message:
 
 | Type | Category | Description |
 |------|----------|-------------|
@@ -300,6 +300,7 @@ Seven attack types:
 | `cross_agent_fragmentation` | cross_fragment | Request fragments across agents |
 | `compositional_inference` | compositional_inference | Request fact-chain completion |
 | `recontamination` | recontamination | Re-introduce target to cleaned agent |
+| `legitimate_task` | legitimate_task | Safe task-relevant message for utility evaluation |
 
 Attack plans are deterministic given the same seed.
 
@@ -362,6 +363,9 @@ Validates episode results before aggregation:
 - `target_reconstructed=True` → `is_reconstruction_attempt=True`
 - `target_reintroduced=True` → `is_recontamination_attempt=True`
 - `task_contribution_successful=True` → `task_relevant=True`
+- Blocked message must not create exposure or reintroduction (`BLOCKED_MESSAGE_AT_RISK`)
+- Reconstructed result must have `released_text` (`RECONSTRUCTION_WITHOUT_RELEASED_HISTORY`)
+- Legitimate task message must be task-relevant (`LEGITIMATE_TASK_NOT_TASK_RELEVANT`)
 
 **Episode-level rules:**
 - Config hash has valid SHA-256 length (64 hex chars)
@@ -370,13 +374,14 @@ Validates episode results before aggregation:
 - `cleaned_agents_exposed` ≥ 0
 - `recontaminated_agents` ≤ `cleaned_agents_exposed`
 - Metadata contains `forbidden_strings`, `seed`, `config_hash`
+- Run ID length must be 8–64 characters (`INVALID_RUN_ID`)
 
 **Metric rules** (`audit_metric_value()`):
 - numerator ≤ denominator
 - Zero denominator → value is None
 - Nonzero denominator → value in [0, 1]
 
-`validate_for_aggregation()` refuses to process invalid results unless `allow_errors=True`.
+`validate_for_aggregation()` raises `InvalidExperimentResults` by default when results have errors. Pass `allow_errors=True` to override.
 
 ---
 
@@ -393,21 +398,22 @@ Runs the complete three-scenario pilot:
 
 ## 20. Testing Strategy
 
-- **262 tests** across 20 test files
+- **281 tests** across 21 test files
 - No live model API calls — all tests use `ScriptedResponder` and `FixedEmbeddingProvider`
 - Fixed seeds for determinism
-- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population
+- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population, aggregation
 
 ### Test Categories
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_types.py` | 26 | Data type validation |
 | `test_runner.py` | 28 | Episode execution + population |
+| `test_types.py` | 26 | Data type validation |
+| `test_result_audit.py` | 25 | Extended audit rules |
 | `test_metric_contracts.py` | 24 | Metric correctness |
-| `test_end_to_end.py` | 20 | Six paired research cases |
-| `test_result_audit.py` | 19 | Extended audit rules |
-| `test_evaluator.py` | 16 | Metric computation |
+| `test_end_to_end.py` | 18 | Six paired research cases |
+| `test_evaluator.py` | 17 | Metric computation |
+| `test_aggregate.py` | 14 | Aggregation logic |
 | `test_detectors.py` | 12 | Exact/alias detection |
 | `test_schema.py` | 11 | Schema validation + dataset |
 | `test_matrix.py` | 11 | Matrix + trust triplet |
