@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from experiments.trustparadox_u.config import ExperimentConfig
 from marble.firewall.audit import AuditLogger
@@ -14,6 +14,7 @@ from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
     DetectorResult,
     FirewallDecision,
+    ForgetRecord,
     MessageEnvelope,
     RecipientHistoryItem,
 )
@@ -125,17 +126,25 @@ class FlowGate:
                 history_enabled=self.config.history.enabled,
                 reconstruction_threshold=self.config.history.reconstruction_threshold,
             )
-            # Check all risk dimensions: exact, entity, semantic, reconstruction
-            semantic_threshold = self.config.detector.semantic_threshold
-            unsafe = (
-                recheck_det.exact_score == 1.0
-                or recheck_det.entity_score > 0.0
-                or (
-                    self.config.detector.semantic_enabled
-                    and recheck_det.semantic_score >= semantic_threshold
-                )
-                or recheck_recon >= self.config.history.reconstruction_threshold
+
+            # Determine if released text is a permitted residual
+            permitted_residual = _is_permitted_residual(released_text, active)
+
+            # Exact or alias match always blocks (even for permitted residuals)
+            exact_or_alias = (
+                recheck_det.exact_score == 1.0 or recheck_det.entity_score > 0.0
             )
+            # Reconstruction risk always blocks
+            reconstructive = recheck_recon >= self.config.history.reconstruction_threshold
+            # Semantic unsafe: above threshold AND not a permitted residual
+            semantic_threshold = self.config.detector.semantic_threshold
+            semantic_unsafe = (
+                self.config.detector.semantic_enabled
+                and recheck_det.semantic_score >= semantic_threshold
+                and not permitted_residual
+            )
+
+            unsafe = exact_or_alias or reconstructive or semantic_unsafe
             if unsafe:
                 action = "block"
                 released_text = None
@@ -167,3 +176,16 @@ class FlowGate:
                     released_text=decision.released_text,
                 ),
             )
+
+
+def _is_permitted_residual(
+    text: str,
+    active_records: Sequence[ForgetRecord],
+) -> bool:
+    """Check if text matches a permitted residual (normalized exact match)."""
+    text_lower = text.lower().strip()
+    for rec in active_records:
+        for residual in rec.permitted_residuals:
+            if residual.lower().strip() == text_lower:
+                return True
+    return False

@@ -120,3 +120,69 @@ class TestFlowGate:
         entries = gate.audit_logger.get_entries()
         assert len(entries) == 1
         assert entries[0]["action"] == "allow"
+
+
+class TestPermittedResidualRecheck:
+    """Tests for permitted residual handling during recheck."""
+
+    def test_exact_permitted_residual_released(self) -> None:
+        """Exact permitted residual should be released despite semantic relation."""
+        from marble.firewall.flow_gate import _is_permitted_residual
+
+        rec = ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=("warehouse code",),
+            semantic_variants=(),
+            permitted_residuals=("Request new credential.",),
+            active_from_turn=0,
+        )
+        assert _is_permitted_residual("Request new credential.", [rec]) is True
+
+    def test_residual_containing_target_blocked(self) -> None:
+        """Residual containing exact target should still be blocked."""
+        from marble.firewall.flow_gate import _is_permitted_residual
+
+        rec = ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=(),
+            semantic_variants=(),
+            permitted_residuals=("The code 0107 is old.",),
+            active_from_turn=0,
+        )
+        # It IS a permitted residual by text match
+        assert _is_permitted_residual("The code 0107 is old.", [rec]) is True
+        # But the flow gate would still block it due to exact_score == 1.0
+
+    def test_residual_containing_alias(self) -> None:
+        """Residual containing forbidden alias is still matched by entity."""
+        from marble.firewall.flow_gate import _is_permitted_residual
+
+        rec = ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=("warehouse code",),
+            semantic_variants=(),
+            permitted_residuals=("Ask about the warehouse code.",),
+            active_from_turn=0,
+        )
+        assert _is_permitted_residual("Ask about the warehouse code.", [rec]) is True
+
+    def test_non_approved_paraphrase_not_residual(self) -> None:
+        """Non-approved text is not a permitted residual."""
+        from marble.firewall.flow_gate import _is_permitted_residual
+
+        rec = ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=(),
+            semantic_variants=(),
+            permitted_residuals=("Request new credential.",),
+            active_from_turn=0,
+        )
+        assert _is_permitted_residual("Some other text", [rec]) is False
