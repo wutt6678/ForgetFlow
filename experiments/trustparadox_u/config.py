@@ -90,6 +90,7 @@ class ExperimentConfig:
     def __post_init__(self) -> None:
         if self.repetitions < 1:
             raise ValueError("repetitions must be >= 1")
+        validate_embedding_config(self)
 
     def config_hash(self) -> str:
         """Generate a stable SHA-256 hash of the complete resolved configuration."""

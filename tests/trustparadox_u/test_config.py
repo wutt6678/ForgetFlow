@@ -159,31 +159,53 @@ class TestValidateEmbeddingConfig:
         validate_embedding_config(cfg)  # should not raise
 
     def test_experiment_without_model_fails(self) -> None:
-        cfg = _make_config(mode="experiment", provider="litellm")
         with pytest.raises(ValueError, match="embedding_model"):
-            validate_embedding_config(cfg)
+            _make_config(mode="experiment", provider="litellm")
 
     def test_experiment_without_provider_fails(self) -> None:
-        cfg = _make_config(mode="experiment", model="text-embedding-3-small")
         with pytest.raises(ValueError, match="embedding_provider"):
-            validate_embedding_config(cfg)
+            _make_config(mode="experiment", model="text-embedding-3-small")
 
     def test_experiment_with_wrong_provider_fails(self) -> None:
-        cfg = _make_config(mode="experiment", provider="fixed", model="x")
         with pytest.raises(ValueError, match="embedding_provider"):
-            validate_embedding_config(cfg)
+            _make_config(mode="experiment", provider="fixed", model="x")
 
     def test_test_mode_with_real_provider_fails(self) -> None:
-        cfg = _make_config(mode="test", provider="litellm")
         with pytest.raises(ValueError, match="embedding_provider"):
-            validate_embedding_config(cfg)
+            _make_config(mode="test", provider="litellm")
 
     def test_zero_dimension_fails(self) -> None:
-        cfg = _make_config(mode="test", provider="fixed", dimension=0)
         with pytest.raises(ValueError, match="embedding_dimension"):
-            validate_embedding_config(cfg)
+            _make_config(mode="test", provider="fixed", dimension=0)
 
     def test_negative_dimension_fails(self) -> None:
-        cfg = _make_config(mode="test", provider="fixed", dimension=-1)
         with pytest.raises(ValueError, match="embedding_dimension"):
-            validate_embedding_config(cfg)
+            _make_config(mode="test", provider="fixed", dimension=-1)
+
+    def test_unsupported_provider_fails(self) -> None:
+        with pytest.raises(ValueError, match="embedding_provider"):
+            _make_config(mode="test", provider="huggingface")
+
+    def test_invalid_config_via_yaml_loading(self) -> None:
+        """Invalid config loaded from YAML fails during construction."""
+        import os
+        import tempfile
+
+        bad_yaml = """
+run:
+  mode: experiment
+  seed: 42
+  repetitions: 1
+models:
+  embedding_provider: fixed
+  embedding_model: null
+  embedding_dimension: 3
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(bad_yaml)
+            f.flush()
+            try:
+                with pytest.raises(ValueError):
+                    load_config(f.name)
+            finally:
+                os.unlink(f.name)
