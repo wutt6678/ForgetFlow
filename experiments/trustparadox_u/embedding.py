@@ -167,10 +167,15 @@ class RealEmbeddingProvider:
 
             response = litellm.embedding(**kwargs)
         except Exception as exc:
+            from experiments.trustparadox_u.providers import sanitize_api_base
+
+            host = sanitize_api_base(self._api_base)
+            endpoint_info = f", endpoint={host}" if host else ""
             raise RuntimeError(
                 f"Embedding request failed for "
                 f"provider={self._provider_name}, "
                 f"model={self._model_name}"
+                f"{endpoint_info}"
             ) from exc
 
         vectors = extract_embedding_vectors(response)

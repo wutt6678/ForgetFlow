@@ -229,3 +229,87 @@ class TestCosineSimilarity:
 
     def test_opposite_vectors(self) -> None:
         assert cosine_similarity([1.0, 0.0], [-1.0, 0.0]) == -1.0
+
+
+class TestCustomEndpointPropagation:
+    """Tests that api_base is correctly propagated to LiteLLM."""
+
+    def test_api_base_passed_to_litellm(self) -> None:
+        """Provider with api_base passes it to litellm.embedding()."""
+        mock_response = {
+            "data": [{"embedding": [0.1] * 1024}],
+            "model": "openai/text-embedding-v3",
+        }
+        mock_litellm = _mock_litellm(mock_response)
+
+        with patch.dict(sys.modules, {"litellm": mock_litellm}):
+            provider = RealEmbeddingProvider(
+                model_name="openai/text-embedding-v3",
+                expected_dimension=1024,
+                api_base="https://example.test/v1",
+            )
+            provider.embed(["example text"])
+
+        mock_litellm.embedding.assert_called_once_with(
+            model="openai/text-embedding-v3",
+            input=["example text"],
+            api_base="https://example.test/v1",
+        )
+
+    def test_no_api_base_omits_param(self) -> None:
+        """Provider without api_base does not pass it to litellm.embedding()."""
+        mock_response = {
+            "data": [{"embedding": [0.1] * 1536}],
+            "model": "text-embedding-3-small",
+        }
+        mock_litellm = _mock_litellm(mock_response)
+
+        with patch.dict(sys.modules, {"litellm": mock_litellm}):
+            provider = RealEmbeddingProvider(
+                model_name="text-embedding-3-small",
+                expected_dimension=1536,
+            )
+            provider.embed(["example text"])
+
+        mock_litellm.embedding.assert_called_once_with(
+            model="text-embedding-3-small",
+            input=["example text"],
+        )
+
+    def test_dimension_checked_with_custom_endpoint(self) -> None:
+        """Expected dimension is still validated with a custom endpoint."""
+        mock_response = {
+            "data": [{"embedding": [0.1] * 512}],
+            "model": "openai/text-embedding-v3",
+        }
+        mock_litellm = _mock_litellm(mock_response)
+
+        with patch.dict(sys.modules, {"litellm": mock_litellm}):
+            provider = RealEmbeddingProvider(
+                model_name="openai/text-embedding-v3",
+                expected_dimension=1024,
+                api_base="https://example.test/v1",
+            )
+            with pytest.raises(RuntimeError, match="dimension"):
+                provider.embed(["example text"])
+
+    def test_error_context_contains_sanitized_endpoint(self) -> None:
+        """Error messages contain provider, model, and sanitized endpoint."""
+        mock_litellm = MagicMock()
+        mock_litellm.embedding.side_effect = RuntimeError("connection failed")
+
+        with patch.dict(sys.modules, {"litellm": mock_litellm}):
+            provider = RealEmbeddingProvider(
+                model_name="openai/text-embedding-v3",
+                expected_dimension=1024,
+                api_base="https://user:pass@example.test/v1?key=abc",
+            )
+            with pytest.raises(RuntimeError) as exc_info:
+                provider.embed(["example text"])
+
+        error_msg = str(exc_info.value)
+        assert "litellm" in error_msg
+        assert "openai/text-embedding-v3" in error_msg
+        # Should NOT contain credentials or query strings
+        assert "user:pass" not in error_msg
+        assert "key=abc" not in error_msg
