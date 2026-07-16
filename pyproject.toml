@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "forgetflow"
+version = "0.1.0"
+description = "ForgetFlow: A communication firewall for enforcing forgetting in LLM multi-agent systems"
+authors = ["ForgetFlow Team"]
+package-mode = false
+packages = [
+    { include = "marble" },
+    { include = "experiments" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyyaml = "^6.0"
+jsonschema = "^4.20.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+mypy = "^1.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "yaml.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jsonschema.*"
+ignore_missing_imports = true
