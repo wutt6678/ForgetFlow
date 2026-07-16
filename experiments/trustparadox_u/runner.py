@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import random
 from dataclasses import dataclass, field
 from typing import Any, Sequence
@@ -180,7 +181,17 @@ def run_episode(
     # Populate metadata with forbidden strings and permitted residuals
     # Collect attack types from episode phases
     attack_types = [atk.attack_type for atk in episode.phases.post_forget]
-    secret_variant_ids = [si.forget_id for si in episode.sensitive_items]
+    secret_variant_ids = [si.secret_variant_id for si in episode.sensitive_items]
+    config_hash = config.config_hash()
+
+    # Generate run_id if not provided
+    if not run_id:
+        variant_id_str = (
+            secret_variant_ids[0] if len(secret_variant_ids) == 1 else ",".join(secret_variant_ids)
+        )
+        run_id_payload = f"{episode.episode_id}|{variant_id_str}|{config_hash}|{config.seed}"
+        run_id = hashlib.sha256(run_id_payload.encode()).hexdigest()[:20]
+
     result.metadata = {
         "forbidden_strings": [si.canonical_target for si in episode.sensitive_items],
         "forbidden_aliases": [alias for si in episode.sensitive_items for alias in si.aliases],
@@ -196,8 +207,11 @@ def run_episode(
         if len(secret_variant_ids) == 1
         else secret_variant_ids,
         "seed": config.seed,
-        "config_hash": f"{config.detector.semantic_threshold}_{config.policy.rich_actions_enabled}",
+        "config_hash": config_hash,
     }
+
+    # Update result with generated run_id
+    result.run_id = run_id
 
     # Track released messages per recipient for reconstruction evaluation
     recipient_transcript: dict[str, list[str]] = {}

@@ -198,3 +198,57 @@ class TestTaskSuccess:
         import pytest
         with pytest.raises(ValueError, match="Unsupported task success_type"):
             _evaluate_task_success(ep, result, True)
+
+
+class TestExperimentIdentity:
+    """Tests for config hash and run ID stability."""
+
+    def test_different_config_different_hash(self) -> None:
+        """Different history window -> different config hash."""
+        from experiments.trustparadox_u.config import HistoryConfig
+
+        cfg1 = _config()
+        cfg2 = _config(history=HistoryConfig(window_size=10))
+        assert cfg1.config_hash() != cfg2.config_hash()
+
+    def test_same_config_same_hash(self) -> None:
+        """Same resolved config -> same hash."""
+        cfg1 = _config()
+        cfg2 = _config()
+        assert cfg1.config_hash() == cfg2.config_hash()
+
+    def test_different_seed_different_run_id(self) -> None:
+        """Different seed -> different run ID."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        r1 = run_episode(ep, _config(seed=42))
+        r2 = run_episode(ep, _config(seed=99))
+        assert r1.run_id != r2.run_id
+
+    def test_config_hash_is_sha256(self) -> None:
+        """Config hash should be a valid SHA-256 hex digest."""
+        cfg = _config()
+        h = cfg.config_hash()
+        assert len(h) == 64  # SHA-256 hex length
+        assert all(c in "0123456789abcdef" for c in h)
+
+    def test_run_id_is_populated(self) -> None:
+        """Run ID should be auto-generated when not provided."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        assert result.run_id != ""
+        assert len(result.run_id) == 20
+
+    def test_metadata_has_config_hash(self) -> None:
+        """Metadata should include the full config hash."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        assert "config_hash" in result.metadata
+        assert len(result.metadata["config_hash"]) == 64
+
+    def test_metadata_has_secret_variant_id(self) -> None:
+        """Metadata should include the real secret variant ID."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        variant_id = result.metadata["secret_variant_id"]
+        assert variant_id != ""
+        assert variant_id != "F001"  # Should not be just the forget_id

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -70,6 +72,11 @@ class ExperimentConfig:
     def __post_init__(self) -> None:
         if self.repetitions < 1:
             raise ValueError("repetitions must be >= 1")
+
+    def config_hash(self) -> str:
+        """Generate a stable SHA-256 hash of the complete resolved configuration."""
+        payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode()).hexdigest()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

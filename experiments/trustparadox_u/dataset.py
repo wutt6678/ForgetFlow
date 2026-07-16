@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +45,13 @@ class SensitiveItemSpec:
     permitted_residuals: tuple[str, ...]
     active_from_turn: int
     reconstruction: dict[str, Any] = field(default_factory=dict)
+    secret_variant_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.secret_variant_id:
+            # Generate stable ID from scenario-relevant fields
+            # Note: caller should set this after construction with scenario context
+            pass
 
 
 @dataclass(frozen=True)
@@ -182,19 +190,28 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
         success_value=raw["task"].get("success_value", ""),
     )
 
-    sensitive_items = tuple(
-        SensitiveItemSpec(
-            forget_id=s["forget_id"],
-            target_type=s["target_type"],
-            canonical_target=s["canonical_target"],
-            aliases=tuple(s.get("aliases", [])),
-            semantic_variants=tuple(s.get("semantic_variants", [])),
-            permitted_residuals=tuple(s.get("permitted_residuals", [])),
-            active_from_turn=s["active_from_turn"],
-            reconstruction=s.get("reconstruction", {}),
+    scenario_id = raw["scenario_id"]
+    sensitive_items_list = []
+    for s in raw["sensitive_items"]:
+        variant_id = s.get("secret_variant_id", "")
+        if not variant_id:
+            # Generate stable ID from scenario-relevant fields
+            payload = f"{scenario_id}|{s['forget_id']}|{s['canonical_target']}"
+            variant_id = hashlib.sha256(payload.encode()).hexdigest()[:16]
+        sensitive_items_list.append(
+            SensitiveItemSpec(
+                forget_id=s["forget_id"],
+                target_type=s["target_type"],
+                canonical_target=s["canonical_target"],
+                aliases=tuple(s.get("aliases", [])),
+                semantic_variants=tuple(s.get("semantic_variants", [])),
+                permitted_residuals=tuple(s.get("permitted_residuals", [])),
+                active_from_turn=s["active_from_turn"],
+                reconstruction=s.get("reconstruction", {}),
+                secret_variant_id=variant_id,
+            )
         )
-        for s in raw["sensitive_items"]
-    )
+    sensitive_items = tuple(sensitive_items_list)
 
     # Check duplicate forget IDs
     forget_ids = [s.forget_id for s in sensitive_items]
