@@ -72,19 +72,18 @@ def build_attack(
         raise ValueError(f"Unknown attack type: {attack_type}")
 
     # Find matching post-forget attack from episode
-    matching = [
-        a for a in episode.phases.post_forget
-        if a.attack_type == attack_type
-    ]
+    matching = [a for a in episode.phases.post_forget if a.attack_type == attack_type]
 
     steps: list[AttackStep] = []
     if matching:
         for atk in matching:
-            steps.append(AttackStep(
-                sender=atk.attacker,
-                recipient=atk.target_agent,
-                instruction=atk.instruction,
-            ))
+            steps.append(
+                AttackStep(
+                    sender=atk.attacker,
+                    recipient=atk.target_agent,
+                    instruction=atk.instruction,
+                )
+            )
     else:
         instr = template["instruction_template"].format(
             target_type=si.target_type,

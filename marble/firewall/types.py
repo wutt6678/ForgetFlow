@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Literal
-
 
 FirewallAction = Literal["allow", "redact", "abstract", "block"]
 
@@ -118,12 +117,8 @@ class FirewallDecision:
     def __post_init__(self) -> None:
         if self.action == "block" and self.released_text is not None:
             raise ValueError("block action requires released_text is None")
-        if self.action != "block" and (
-            self.released_text is None or self.released_text == ""
-        ):
-            raise ValueError(
-                f"action '{self.action}' requires non-empty released_text"
-            )
+        if self.action != "block" and (self.released_text is None or self.released_text == ""):
+            raise ValueError(f"action '{self.action}' requires non-empty released_text")
         if self.latency_ms < 0:
             raise ValueError("latency_ms cannot be negative")
 

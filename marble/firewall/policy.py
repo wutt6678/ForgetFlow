@@ -6,7 +6,6 @@ import re
 from typing import Sequence
 
 from marble.firewall.types import DetectorResult, FirewallAction, ForgetRecord
-from marble.firewall.detectors import HybridDetector
 
 
 class ForgetPolicy:

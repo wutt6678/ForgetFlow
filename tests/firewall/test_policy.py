@@ -1,14 +1,16 @@
 """Tests for ForgetPolicy."""
 
-import pytest
-from marble.firewall.types import DetectorResult, ForgetRecord
 from marble.firewall.policy import ForgetPolicy
+from marble.firewall.types import DetectorResult, ForgetRecord
 
 
 def _rec() -> ForgetRecord:
     return ForgetRecord(
-        forget_id="F001", canonical_target="0107", target_type="credential",
-        aliases=("warehouse code",), semantic_variants=(),
+        forget_id="F001",
+        canonical_target="0107",
+        target_type="credential",
+        aliases=("warehouse code",),
+        semantic_variants=(),
         permitted_residuals=("Request a new credential.",),
         active_from_turn=0,
     )
@@ -16,8 +18,12 @@ def _rec() -> ForgetRecord:
 
 def _det(**kwargs: object) -> DetectorResult:
     defaults = dict(
-        exact_score=0.0, entity_score=0.0, semantic_score=0.0,
-        reconstruction_score=0.0, matched_forget_ids=(), evidence=(),
+        exact_score=0.0,
+        entity_score=0.0,
+        semantic_score=0.0,
+        reconstruction_score=0.0,
+        matched_forget_ids=(),
+        evidence=(),
     )
     defaults.update(kwargs)
     return DetectorResult(**defaults)  # type: ignore[arg-type]
@@ -28,7 +34,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy()
         action, text, reasons = policy.decide(
             _det(exact_score=1.0, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "block"
         assert text is None
@@ -37,7 +44,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy(reconstruction_threshold=0.6)
         action, text, reasons = policy.decide(
             _det(reconstruction_score=0.8, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "block"
 
@@ -45,7 +53,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy(semantic_threshold=0.8)
         action, text, reasons = policy.decide(
             _det(semantic_score=0.9, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "abstract"
         assert text == "Request a new credential."
@@ -54,7 +63,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy()
         action, text, reasons = policy.decide(
             _det(entity_score=1.0, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "redact"
 
@@ -67,7 +77,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy(rich_actions_enabled=False)
         action, text, reasons = policy.decide(
             _det(entity_score=1.0, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "block"
 
@@ -75,7 +86,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy(rich_actions_enabled=False, semantic_threshold=0.8)
         action, text, reasons = policy.decide(
             _det(semantic_score=0.9, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert action == "block"
 
@@ -83,7 +95,8 @@ class TestForgetPolicy:
         policy = ForgetPolicy()
         _, _, reasons = policy.decide(
             _det(exact_score=1.0, matched_forget_ids=("F001",)),
-            [_rec()], "v1",
+            [_rec()],
+            "v1",
         )
         assert "EXACT_TARGET_MATCH" in reasons
 

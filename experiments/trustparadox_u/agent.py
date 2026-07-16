@@ -14,8 +14,7 @@ class ResponseProvider(Protocol):
         agent_id: str,
         turn_id: int,
         instruction: str,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 class ScriptedResponder:
@@ -69,9 +68,7 @@ class TrustParadoxAgent(BaseAgent):
         turn_id: int = 0,
     ) -> str:
         if self._provider is not None:
-            return self._provider.respond(
-                episode_id, self.agent_id, turn_id, instruction
-            )
+            return self._provider.respond(episode_id, self.agent_id, turn_id, instruction)
         return f"[{self.agent_id}] {instruction}"
 
     def add_released_message(self, text: str) -> None:

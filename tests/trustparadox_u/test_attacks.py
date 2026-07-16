@@ -1,11 +1,11 @@
 """Tests for attack library."""
 
-import pytest
 from pathlib import Path
 
-from experiments.trustparadox_u.dataset import load_episode
-from experiments.trustparadox_u.attacks import build_attack
+import pytest
 
+from experiments.trustparadox_u.attacks import build_attack
+from experiments.trustparadox_u.dataset import load_episode
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 

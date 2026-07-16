@@ -1,8 +1,9 @@
 """Tests for ContaminationTracker."""
 
 import pytest
-from marble.firewall.types import ContaminationStatus, DetectorResult
+
 from marble.firewall.contamination import ContaminationTracker
+from marble.firewall.types import ContaminationStatus, DetectorResult
 
 
 class TestContaminationTracker:
@@ -44,8 +45,12 @@ class TestContaminationTracker:
         t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
         t.set_status("A", "F001", ContaminationStatus.CLEAN)
         det = DetectorResult(
-            exact_score=1.0, entity_score=0.0, semantic_score=0.0,
-            reconstruction_score=0.0, matched_forget_ids=("F001",), evidence=(),
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=(),
         )
         t.record_exposure("A", "F001", det)
         assert t.get_status("A", "F001") == ContaminationStatus.AT_RISK

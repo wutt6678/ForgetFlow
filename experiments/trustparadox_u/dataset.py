@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
 import jsonschema
+import yaml
 
 
 @dataclass(frozen=True)
@@ -104,12 +104,14 @@ class TrustParadoxEpisode:
         raise ValueError(f"Unknown agent: {agent_id}")
 
 
-_SCHEMA_PATH = Path(__file__).parents[2] / "data" / "trustparadox_u" / "schema" / "episode.schema.json"
+_SCHEMA_PATH = (
+    Path(__file__).parents[2] / "data" / "trustparadox_u" / "schema" / "episode.schema.json"
+)
 
 
-def _load_schema() -> dict:
+def _load_schema() -> dict[str, Any]:
     with open(_SCHEMA_PATH) as f:
-        return json.load(f)
+        return json.load(f)  # type: ignore[no-any-return]
 
 
 def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
@@ -198,10 +200,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
 
     fragment_map = raw.get("fragment_map", {})
     raw_facts = raw.get("fact_chains", [])
-    fact_chains = tuple(
-        tuple(tuple(triple) for triple in chain)
-        for chain in raw_facts
-    )
+    fact_chains = tuple(tuple(tuple(triple) for triple in chain) for chain in raw_facts)
 
     return TrustParadoxEpisode(
         episode_id=raw["episode_id"],
@@ -216,12 +215,25 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
         expected=expected,
         fragment_map=fragment_map,
         fact_chains=fact_chains,
-        metadata={k: v for k, v in raw.items()
-                  if k not in {
-                      "episode_id", "scenario_id", "macro_scene", "trust_level",
-                      "agents", "relationships", "task", "sensitive_items",
-                      "phases", "expected", "fragment_map", "fact_chains",
-                  }},
+        metadata={
+            k: v
+            for k, v in raw.items()
+            if k
+            not in {
+                "episode_id",
+                "scenario_id",
+                "macro_scene",
+                "trust_level",
+                "agents",
+                "relationships",
+                "task",
+                "sensitive_items",
+                "phases",
+                "expected",
+                "fragment_map",
+                "fact_chains",
+            }
+        },
     )
 
 

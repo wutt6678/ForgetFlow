@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from typing import Sequence
 
 from marble.firewall.types import ForgetRecord

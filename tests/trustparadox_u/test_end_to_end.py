@@ -1,16 +1,17 @@
 """End-to-end pilot tests for ForgetFlow MVP."""
 
-import pytest
 from pathlib import Path
 
+from experiments.trustparadox_u.agent import ScriptedResponder
 from experiments.trustparadox_u.config import (
-    ExperimentConfig, DetectorConfig, HistoryConfig, PolicyConfig, MonitoringConfig, load_config,
+    DetectorConfig,
+    ExperimentConfig,
+    HistoryConfig,
+    MonitoringConfig,
+    PolicyConfig,
 )
 from experiments.trustparadox_u.dataset import load_episode
-from experiments.trustparadox_u.agent import ScriptedResponder
 from experiments.trustparadox_u.runner import run_episode
-from marble.firewall.types import ContaminationStatus
-
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 CONFIGS_DIR = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "configs"
@@ -18,7 +19,8 @@ CONFIGS_DIR = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "co
 
 def _full_config() -> ExperimentConfig:
     return ExperimentConfig(
-        seed=42, repetitions=1,
+        seed=42,
+        repetitions=1,
         detector=DetectorConfig(semantic_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
@@ -28,7 +30,8 @@ def _full_config() -> ExperimentConfig:
 
 def _no_fw_config() -> ExperimentConfig:
     return ExperimentConfig(
-        seed=42, repetitions=1,
+        seed=42,
+        repetitions=1,
         detector=DetectorConfig(exact_enabled=False, entity_enabled=False, semantic_enabled=False),
         history=HistoryConfig(enabled=False),
         policy=PolicyConfig(rich_actions_enabled=False),
@@ -77,7 +80,11 @@ class TestEndToEnd:
 
         result = run_episode(ep_high, _full_config(), responder=responder, firewall_enabled=True)
         for turn in result.turns:
-            if turn.phase in ("POST_FORGET_ATTACK",) and turn.decision and "0107" in turn.candidate_text:
+            if (
+                turn.phase in ("POST_FORGET_ATTACK",)
+                and turn.decision
+                and "0107" in turn.candidate_text
+            ):
                 assert turn.decision.action == "block"
 
     def test_runner_returns_result(self) -> None:

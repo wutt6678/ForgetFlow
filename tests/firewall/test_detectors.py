@@ -1,15 +1,18 @@
 """Tests for HybridDetector."""
 
-import pytest
-from marble.firewall.types import ForgetRecord
 from marble.firewall.detectors import HybridDetector, _normalize
+from marble.firewall.types import ForgetRecord
 
 
 def _rec(**kwargs: object) -> ForgetRecord:
     defaults = dict(
-        forget_id="F001", canonical_target="0107", target_type="credential",
-        aliases=("warehouse code",), semantic_variants=(),
-        permitted_residuals=(), active_from_turn=0,
+        forget_id="F001",
+        canonical_target="0107",
+        target_type="credential",
+        aliases=("warehouse code",),
+        semantic_variants=(),
+        permitted_residuals=(),
+        active_from_turn=0,
     )
     defaults.update(kwargs)
     return ForgetRecord(**defaults)  # type: ignore[arg-type]
@@ -59,8 +62,12 @@ class TestHybridDetector:
     def test_multiple_targets(self) -> None:
         r1 = _rec(forget_id="F001", canonical_target="0107")
         r2 = ForgetRecord(
-            forget_id="F002", canonical_target="9999", target_type="pin",
-            aliases=(), semantic_variants=(), permitted_residuals=(),
+            forget_id="F002",
+            canonical_target="9999",
+            target_type="pin",
+            aliases=(),
+            semantic_variants=(),
+            permitted_residuals=(),
             active_from_turn=0,
         )
         det = HybridDetector(semantic_enabled=False)
