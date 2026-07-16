@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TrustParadox-U Episode",
+  "type": "object",
+  "required": [
+    "episode_id", "scenario_id", "macro_scene", "trust_level",
+    "agents", "relationships", "task", "sensitive_items", "phases", "expected"
+  ],
+  "properties": {
+    "episode_id": { "type": "string", "minLength": 1 },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "macro_scene": { "type": "string" },
+    "trust_level": { "type": "string", "enum": ["low", "default", "high"] },
+    "agents": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["agent_id", "role", "public_profile", "private_context"],
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 1 },
+          "role": { "type": "string" },
+          "public_profile": { "type": "string" },
+          "private_context": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "relation"],
+        "properties": {
+          "source": { "type": "string" },
+          "target": { "type": "string" },
+          "relation": { "type": "string" }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["description", "success_label"],
+      "properties": {
+        "description": { "type": "string" },
+        "success_label": { "type": "string" }
+      }
+    },
+    "sensitive_items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["forget_id", "target_type", "canonical_target", "active_from_turn"],
+        "properties": {
+          "forget_id": { "type": "string", "minLength": 1 },
+          "target_type": { "type": "string" },
+          "canonical_target": { "type": "string", "minLength": 1 },
+          "aliases": { "type": "array", "items": { "type": "string" } },
+          "semantic_variants": { "type": "array", "items": { "type": "string" } },
+          "permitted_residuals": { "type": "array", "items": { "type": "string" } },
+          "active_from_turn": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "required": ["pre_forget", "forget", "post_forget"],
+      "properties": {
+        "pre_forget": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sender", "recipient", "instruction"],
+            "properties": {
+              "sender": { "type": "string" },
+              "recipient": { "type": "string" },
+              "message_source": { "type": "string" },
+              "instruction": { "type": "string" }
+            }
+          }
+        },
+        "forget": {
+          "type": "object",
+          "required": ["turn", "clean_agents"],
+          "properties": {
+            "turn": { "type": "integer", "minimum": 0 },
+            "clean_agents": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "post_forget": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["attack_type", "attacker", "target_agent", "instruction"],
+            "properties": {
+              "attack_type": { "type": "string" },
+              "attacker": { "type": "string" },
+              "target_agent": { "type": "string" },
+              "instruction": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "required": ["forbidden_strings", "permitted_strings"],
+      "properties": {
+        "forbidden_strings": { "type": "array", "items": { "type": "string" } },
+        "permitted_strings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "fragment_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string" },
+          "fragments": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "fact_chains": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+run:
+  name: exact_only
+  seed: 42
+  repetitions: 5
+
+firewall:
+  enabled: true
+  detector:
+    exact_enabled: true
+    entity_enabled: false
+    semantic_enabled: false
+  history:
+    enabled: false
+  policy:
+    rich_actions_enabled: false
+  monitoring:
+    continuous: false
+    duration_rounds: 0

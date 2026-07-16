@@ -1,0 +1,23 @@
+run:
+  name: ablation_one_time_monitor
+  seed: 42
+  repetitions: 5
+
+firewall:
+  enabled: true
+  detector:
+    exact_enabled: true
+    entity_enabled: true
+    semantic_enabled: true
+    semantic_threshold: 0.80
+  history:
+    enabled: true
+    window_size: 5
+    reconstruction_threshold: 0.60
+  policy:
+    rich_actions_enabled: true
+    privacy_utility_weight: 1.0
+    trust_independent: true
+  monitoring:
+    continuous: false
+    duration_rounds: 0

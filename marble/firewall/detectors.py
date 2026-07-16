@@ -1,0 +1,123 @@
+"""HybridDetector: exact, alias/entity, and semantic leakage detection."""
+
+from __future__ import annotations
+
+import re
+import unicodedata
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
+
+from marble.firewall.types import DetectorResult, ForgetRecord
+from experiments.trustparadox_u.embedding import EmbeddingProvider, cosine_similarity
+
+
+@dataclass
+class RecipientContext:
+    """Recent messages visible to a recipient."""
+    recipient_id: str
+    recent_texts: tuple[str, ...] = ()
+
+
+def _normalize(text: str) -> str:
+    """Normalize text: lowercase, unicode NFC, collapse whitespace, strip punctuation."""
+    text = text.lower()
+    text = unicodedata.normalize("NFC", text)
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+class HybridDetector:
+    """Detects exact, alias, and semantic leakage."""
+
+    def __init__(
+        self,
+        exact_enabled: bool = True,
+        entity_enabled: bool = True,
+        semantic_enabled: bool = True,
+        semantic_threshold: float = 0.80,
+        embedding_provider: EmbeddingProvider | None = None,
+    ) -> None:
+        self.exact_enabled = exact_enabled
+        self.entity_enabled = entity_enabled
+        self.semantic_enabled = semantic_enabled
+        self.semantic_threshold = semantic_threshold
+        self._embedding_provider = embedding_provider
+        self._embedding_cache: dict[str, list[float]] = {}
+
+    def detect(
+        self,
+        text: str,
+        active_records: Sequence[ForgetRecord],
+        recipient_context: RecipientContext | None = None,
+    ) -> DetectorResult:
+        exact_score = 0.0
+        entity_score = 0.0
+        semantic_score = 0.0
+        matched_ids: list[str] = []
+        evidence: list[str] = []
+
+        norm_text = _normalize(text)
+
+        for rec in active_records:
+            # Exact matching
+            if self.exact_enabled:
+                norm_target = _normalize(rec.canonical_target)
+                if norm_target and norm_target in norm_text:
+                    exact_score = 1.0
+                    if rec.forget_id not in matched_ids:
+                        matched_ids.append(rec.forget_id)
+                    evidence.append(f"EXACT:{rec.canonical_target}")
+
+            # Alias/entity matching
+            if self.entity_enabled:
+                for alias in rec.aliases:
+                    norm_alias = _normalize(alias)
+                    if norm_alias and norm_alias in norm_text:
+                        entity_score = 1.0
+                        if rec.forget_id not in matched_ids:
+                            matched_ids.append(rec.forget_id)
+                        evidence.append(f"ALIAS:{alias}")
+
+            # Semantic matching
+            if self.semantic_enabled and rec.semantic_variants:
+                if self._embedding_provider is None:
+                    raise ValueError(
+                        "Semantic detection enabled but no embedding provider"
+                    )
+                sem_score = self._compute_semantic(text, rec)
+                if sem_score > semantic_score:
+                    semantic_score = sem_score
+                if sem_score >= self.semantic_threshold:
+                    if rec.forget_id not in matched_ids:
+                        matched_ids.append(rec.forget_id)
+                    evidence.append(f"SEMANTIC:{sem_score:.3f}")
+
+        return DetectorResult(
+            exact_score=exact_score,
+            entity_score=entity_score,
+            semantic_score=semantic_score,
+            reconstruction_score=0.0,
+            matched_forget_ids=tuple(matched_ids),
+            evidence=tuple(evidence),
+        )
+
+    def _compute_semantic(self, text: str, rec: ForgetRecord) -> float:
+        if text not in self._embedding_cache:
+            vec = self._embedding_provider.embed([text])[0]
+            self._embedding_cache[text] = vec
+        msg_vec = self._embedding_cache[text]
+
+        max_sim = 0.0
+        for variant in rec.semantic_variants:
+            cache_key = f"__variant__{rec.forget_id}__{variant}"
+            if cache_key not in self._embedding_cache:
+                vec = self._embedding_provider.embed([variant])[0]
+                self._embedding_cache[cache_key] = vec
+            sim = cosine_similarity(msg_vec, self._embedding_cache[cache_key])
+            if sim > max_sim:
+                max_sim = sim
+        return max(0.0, min(1.0, max_sim))
+
+    def clear_cache(self) -> None:
+        self._embedding_cache.clear()

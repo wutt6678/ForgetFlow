@@ -1,0 +1,18 @@
+run:
+  name: no_firewall
+  seed: 42
+  repetitions: 5
+
+firewall:
+  enabled: false
+  detector:
+    exact_enabled: false
+    entity_enabled: false
+    semantic_enabled: false
+  history:
+    enabled: false
+  policy:
+    rich_actions_enabled: false
+  monitoring:
+    continuous: false
+    duration_rounds: 0

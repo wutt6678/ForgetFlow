@@ -1,0 +1,21 @@
+run:
+  name: ablation_stateless
+  seed: 42
+  repetitions: 5
+
+firewall:
+  enabled: true
+  detector:
+    exact_enabled: true
+    entity_enabled: true
+    semantic_enabled: true
+    semantic_threshold: 0.80
+  history:
+    enabled: false
+  policy:
+    rich_actions_enabled: true
+    privacy_utility_weight: 1.0
+    trust_independent: true
+  monitoring:
+    continuous: true
+    duration_rounds: 5

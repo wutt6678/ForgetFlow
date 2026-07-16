@@ -1,0 +1,41 @@
+run:
+  name: smoke
+  seed: 42
+  repetitions: 1
+  mode: scripted
+
+dataset:
+  root: data/trustparadox_u
+  split: development
+  scenario_ids: all
+
+models:
+  agent_model: scripted
+  embedding_model: stub
+  temperature: 0.0
+  max_output_tokens: 512
+
+firewall:
+  enabled: true
+  detector:
+    exact_enabled: true
+    entity_enabled: true
+    semantic_enabled: true
+    semantic_threshold: 0.80
+  history:
+    enabled: true
+    window_size: 5
+    reconstruction_threshold: 0.60
+  policy:
+    rich_actions_enabled: true
+    privacy_utility_weight: 1.0
+    trust_independent: true
+  monitoring:
+    continuous: true
+    duration_rounds: 5
+
+logging:
+  output_dir: results/trustparadox_u/smoke
+  save_candidate_messages: true
+  save_released_messages: true
+  save_agent_visible_state: true
