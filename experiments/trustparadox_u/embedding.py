@@ -121,6 +121,7 @@ class RealEmbeddingProvider:
         provider_name: str = "litellm",
         model_name: str,
         expected_dimension: int | None = None,
+        api_base: str | None = None,
     ) -> None:
         if provider_name != "litellm":
             raise ValueError(f"Unsupported embedding provider: {provider_name}")
@@ -135,6 +136,7 @@ class RealEmbeddingProvider:
         self._provider_name = provider_name
         self._model_name = model_name
         self._expected_dimension = expected_dimension
+        self._api_base = api_base
         self._observed_dimension: int | None = None
 
     @property
@@ -156,10 +158,14 @@ class RealEmbeddingProvider:
         try:
             import litellm  # type: ignore[import-untyped]
 
-            response = litellm.embedding(
-                model=self._model_name,
-                input=list(texts),
-            )
+            kwargs: dict[str, Any] = {
+                "model": self._model_name,
+                "input": list(texts),
+            }
+            if self._api_base:
+                kwargs["api_base"] = self._api_base
+
+            response = litellm.embedding(**kwargs)
         except Exception as exc:
             raise RuntimeError(
                 f"Embedding request failed for "

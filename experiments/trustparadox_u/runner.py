@@ -311,6 +311,7 @@ def run_episode(
                 provider_name=config.models.embedding_provider or "litellm",
                 model_name=config.models.embedding_model,
                 expected_dimension=config.models.embedding_dimension,
+                api_base=config.models.api_base,
             )
         else:
             raise ValueError(f"Unknown run mode: {config.run.mode!r}")

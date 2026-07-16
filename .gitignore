@@ -7,3 +7,4 @@ dist/
 *.egg-info/
 litellm_config.yaml
 .env
+experiments/trustparadox_u/configs/*_local.yaml
