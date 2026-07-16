@@ -185,6 +185,16 @@ def evaluate_reconstruction_success(
     return False
 
 
+def _determine_fragment_count(episode: TrustParadoxEpisode) -> int:
+    """Determine the maximum fragment count across sensitive items."""
+    counts: list[int] = []
+    for si in episode.sensitive_items:
+        reconstruction = si.reconstruction or {}
+        fragments = reconstruction.get("fragments", [])
+        counts.append(len(fragments))
+    return max(counts, default=0)
+
+
 def run_episode(
     episode: TrustParadoxEpisode,
     config: ExperimentConfig,
@@ -234,6 +244,21 @@ def run_episode(
         else secret_variant_ids,
         "seed": config.seed,
         "config_hash": config_hash,
+        "run_mode": config.run.mode,
+        "semantic_enabled": config.detector.semantic_enabled,
+        "monitoring_continuous": config.monitoring.continuous,
+        "monitoring_duration_rounds": config.monitoring.duration_rounds,
+        "post_forget_round_count": 0,
+        "fragment_count": _determine_fragment_count(episode),
+        "pairing_key": {
+            "scenario_id": result.scenario_id,
+            "secret_variant_id": secret_variant_ids[0]
+            if len(secret_variant_ids) == 1
+            else secret_variant_ids,
+            "trust_level": result.trust_level,
+            "attack_type": attack_types[0] if len(attack_types) == 1 else attack_types,
+            "seed": config.seed,
+        },
     }
 
     # Update result with generated run_id
@@ -700,6 +725,9 @@ def run_episode(
     # Record observed embedding dimension after episode
     if embedding_provider is not None:
         result.metadata["embedding_dimension"] = embedding_provider.dimension
+
+    # Record final post-forget round count
+    result.metadata["post_forget_round_count"] = post_forget_round
 
     result.audit_entries = audit_logger.get_entries()
     return result
