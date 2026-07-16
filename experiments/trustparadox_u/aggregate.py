@@ -10,6 +10,22 @@ from experiments.trustparadox_u.evaluator import evaluate_all
 from experiments.trustparadox_u.runner import EpisodeResult
 
 
+def format_metric(metric: dict[str, Any]) -> str:
+    """Format a structured metric dict for display.
+
+    Returns 'N/A' when value is None, otherwise a 3-decimal string.
+    """
+    value = metric["value"]
+    if value is None:
+        return "N/A"
+    return f"{value:.3f}"
+
+
+def metric_value(metric: dict[str, Any]) -> float | None:
+    """Extract the scalar value from a metric dict."""
+    return metric["value"]
+
+
 def load_results(input_dir: str | Path) -> list[dict[str, Any]]:
     p = Path(input_dir)
     results = []
@@ -22,6 +38,12 @@ def load_results(input_dir: str | Path) -> list[dict[str, Any]]:
 def aggregate_summary(
     variant_results: dict[str, list[EpisodeResult]],
 ) -> dict[str, dict[str, Any]]:
+    """Compute per-variant evaluation metrics.
+
+    Each value is a dict with keys like 'pu_rer', 'crr', etc., where
+    each value is itself a dict with 'value', 'numerator', 'denominator',
+    and 'reason' (from MetricValue.to_dict()).
+    """
     summary: dict[str, dict[str, Any]] = {}
     for variant, results in variant_results.items():
         metrics = evaluate_all(results)
@@ -30,16 +52,60 @@ def aggregate_summary(
 
 
 def format_table(summary: dict[str, dict[str, Any]], title: str = "Results") -> str:
+    """Format a Markdown table from aggregated summary.
+
+    Handles both structured metric dicts (with 'value' key) and plain floats.
+    """
     lines = [f"\n## {title}\n"]
     lines.append("| Variant | PU-RER | CRR | RR | FBR |")
     lines.append("|---|---:|---:|---:|---:|")
     for variant, metrics in sorted(summary.items()):
-        pu = f"{metrics['pu_rer']:.3f}" if metrics["pu_rer"] is not None else "N/A"
-        crr = f"{metrics['crr']:.3f}" if metrics["crr"] is not None else "N/A"
-        rr = f"{metrics['rr']:.3f}" if metrics["rr"] is not None else "N/A"
-        fbr = f"{metrics['fbr']:.3f}" if metrics["fbr"] is not None else "N/A"
+        pu = _format_metric_field(metrics, "pu_rer")
+        crr = _format_metric_field(metrics, "crr")
+        rr = _format_metric_field(metrics, "rr")
+        fbr = _format_metric_field(metrics, "fbr")
         lines.append(f"| {variant} | {pu} | {crr} | {rr} | {fbr} |")
     return "\n".join(lines)
+
+
+def _format_metric_field(metrics: dict[str, Any], key: str) -> str:
+    """Format a single metric from the summary, handling structured and plain forms."""
+    m = metrics[key]
+    if isinstance(m, dict):
+        return format_metric(m)
+    # Legacy plain float
+    if m is None:
+        return "N/A"
+    return f"{m:.3f}"
+
+
+def format_extended_table(
+    summary: dict[str, dict[str, Any]], title: str = "Results"
+) -> str:
+    """Format a Markdown table with numerator/denominator columns."""
+    lines = [f"\n## {title}\n"]
+    header = "| Variant | PU-RER | PU-RER num | PU-RER den | CRR | CRR num | CRR den |"
+    lines.append(header)
+    lines.append("|---|---:|---:|---:|---:|---:|---:|")
+    for variant, metrics in sorted(summary.items()):
+        pu = _get_metric_dict(metrics, "pu_rer")
+        crr = _get_metric_dict(metrics, "crr")
+        pu_str = format_metric(pu)
+        crr_str = format_metric(crr)
+        lines.append(
+            f"| {variant} | {pu_str} | {pu['numerator']} | {pu['denominator']} "
+            f"| {crr_str} | {crr['numerator']} | {crr['denominator']} |"
+        )
+    return "\n".join(lines)
+
+
+def _get_metric_dict(metrics: dict[str, Any], key: str) -> dict[str, Any]:
+    """Get a metric as a dict, handling both structured and plain forms."""
+    m = metrics[key]
+    if isinstance(m, dict):
+        return m
+    # Legacy plain float — wrap in dict
+    return {"value": m, "numerator": 0, "denominator": 0, "reason": None}
 
 
 if __name__ == "__main__":
