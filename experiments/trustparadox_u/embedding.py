@@ -11,7 +11,7 @@ class EmbeddingProvider(Protocol):
     def provider_name(self) -> str: ...
 
     @property
-    def model_name(self) -> str: ...
+    def model_name(self) -> str | None: ...
 
     @property
     def dimension(self) -> int | None: ...
@@ -45,8 +45,8 @@ class FixedEmbeddingProvider:
         return "fixed"
 
     @property
-    def model_name(self) -> str:
-        return "fixed"
+    def model_name(self) -> str | None:
+        return None
 
     @property
     def dimension(self) -> int:

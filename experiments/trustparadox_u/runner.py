@@ -323,8 +323,8 @@ def run_episode(
     if embedding_provider is not None:
         result.metadata.update(
             {
-                "embedding_provider": type(embedding_provider).__name__,
-                "embedding_model": config.models.embedding_model,
+                "embedding_provider": embedding_provider.provider_name,
+                "embedding_model": embedding_provider.model_name,
                 "embedding_dimension": embedding_provider.dimension,
                 "semantic_threshold": config.detector.semantic_threshold,
             }
@@ -696,6 +696,10 @@ def run_episode(
 
     # Evaluate task success using explicit benchmark rules
     result.task_success = _evaluate_task_success(episode, result, firewall_enabled)
+
+    # Record observed embedding dimension after episode
+    if embedding_provider is not None:
+        result.metadata["embedding_dimension"] = embedding_provider.dimension
 
     result.audit_entries = audit_logger.get_entries()
     return result

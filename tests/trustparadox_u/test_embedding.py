@@ -63,7 +63,7 @@ class TestFixedEmbeddingProvider:
 
     def test_model_name(self) -> None:
         provider = FixedEmbeddingProvider({"a": [1.0]})
-        assert provider.model_name == "fixed"
+        assert provider.model_name is None
 
 
 class TestRealEmbeddingProvider:
