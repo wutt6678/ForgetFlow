@@ -1,6 +1,7 @@
 """Tests for experiment result auditor."""
 
 from experiments.trustparadox_u.audit_results import (
+    InvalidExperimentResults,
     audit_episode_result,
     audit_results,
     validate_for_aggregation,
@@ -35,7 +36,7 @@ class TestAuditor:
     def test_valid_episode_passes(self) -> None:
         """Valid episode with consistent turns should pass audit."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -68,7 +69,7 @@ class TestAuditor:
     def test_block_with_released_text_is_error(self) -> None:
         """Blocked message with released_text is inconsistent."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -101,7 +102,7 @@ class TestAuditor:
     def test_exposed_without_released_text_is_error(self) -> None:
         """target_exposed=True without released_text is inconsistent."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -134,7 +135,7 @@ class TestAuditor:
     def test_reconstructed_without_attempt_is_error(self) -> None:
         """target_reconstructed without is_reconstruction_attempt is inconsistent."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -166,7 +167,7 @@ class TestAuditor:
     def test_missing_forbidden_strings_is_error(self) -> None:
         """Missing forbidden_strings in metadata is an error."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -178,23 +179,25 @@ class TestAuditor:
         assert any(f.code == "MISSING_FORBIDDEN_STRINGS" for f in errors)
 
     def test_validate_for_aggregation(self) -> None:
-        """validate_for_aggregation returns False for results with errors."""
+        """validate_for_aggregation raises for results with errors."""
+        import pytest
+
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
             seed=42,
         )
         result.metadata = {}  # Missing forbidden_strings
-        is_valid, report = validate_for_aggregation([result])
-        assert not is_valid
-        assert report.has_errors
+        with pytest.raises(InvalidExperimentResults) as exc_info:
+            validate_for_aggregation([result])
+        assert exc_info.value.report.has_errors
 
     def test_validate_for_aggregation_with_override(self) -> None:
         """validate_for_aggregation with allow_errors=True passes even with errors."""
         result = EpisodeResult(
-            run_id="r1",
+            run_id="run_0001",
             episode_id="e1",
             scenario_id="s1",
             trust_level="high",
@@ -207,7 +210,7 @@ class TestAuditor:
     def test_audit_results_counts(self) -> None:
         """audit_results correctly counts episodes and errors."""
         r1 = EpisodeResult(
-            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+            run_id="run_0001", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
         )
         r1.metadata = {
             "forbidden_strings": ["s"],
@@ -217,7 +220,7 @@ class TestAuditor:
             "attack_type": "direct",
         }
         r2 = EpisodeResult(
-            run_id="r2", episode_id="e2", scenario_id="s1", trust_level="high", seed=42
+            run_id="run_0002", episode_id="e2", scenario_id="s1", trust_level="high", seed=42
         )
         r2.metadata = {}  # Error
         report = audit_results([r1, r2])

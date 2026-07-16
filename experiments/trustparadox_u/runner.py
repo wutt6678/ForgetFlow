@@ -723,6 +723,10 @@ def _evaluate_task_success(
 
 if __name__ == "__main__":
     import argparse
+    import dataclasses
+    import json
+    import subprocess
+    from datetime import datetime, timezone
     from pathlib import Path
 
     from experiments.trustparadox_u.config import load_config
@@ -733,11 +737,17 @@ if __name__ == "__main__":
     parser.add_argument("--split", default="development")
     parser.add_argument("--output", default="results/trustparadox_u")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     data_root = Path("data/trustparadox_u")
     scenarios_dir = data_root / "scenarios"
+
+    output_dir = Path(args.output)
+    if output_dir.exists() and any(output_dir.iterdir()) and not args.overwrite:
+        raise SystemExit(f"Output directory {output_dir} is not empty. Use --overwrite to replace.")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     episodes = []
     for yp in sorted(scenarios_dir.glob("*.yaml")):
@@ -745,9 +755,56 @@ if __name__ == "__main__":
     if args.limit:
         episodes = episodes[: args.limit]
 
+    results = []
+    failed: list[dict[str, str]] = []
     for ep in episodes:
-        result = run_episode(ep, cfg, run_id=f"run_{ep.episode_id}")
-        print(
-            f"Episode {result.episode_id}: {len(result.turns)} turns, "
-            f"{len(result.audit_entries)} audit entries"
+        try:
+            result = run_episode(ep, cfg)
+            results.append(result)
+            print(
+                f"Episode {result.episode_id}: {len(result.turns)} turns, "
+                f"{len(result.audit_entries)} audit entries"
+            )
+        except Exception as exc:
+            failed.append({"episode_id": ep.episode_id, "error": str(exc)})
+            print(f"Episode {ep.episode_id}: FAILED ({exc})")
+
+    # Write episode_results.jsonl
+    results_path = output_dir / "episode_results.jsonl"
+    with open(results_path, "w") as f:
+        for r in results:
+            record = dataclasses.asdict(r)
+            f.write(json.dumps(record, default=str) + "\n")
+
+    # Write message_audit.jsonl
+    audit_path = output_dir / "message_audit.jsonl"
+    with open(audit_path, "w") as f:
+        for r in results:
+            for entry in r.audit_entries:
+                f.write(json.dumps(entry, default=str) + "\n")
+
+    # Write manifest.json
+    try:
+        repo_commit = (
+            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
+            .decode()
+            .strip()
         )
+    except Exception:
+        repo_commit = "unknown"
+
+    manifest = {
+        "config_hash": cfg.config_hash(),
+        "seed": cfg.seed,
+        "run_mode": cfg.run.mode,
+        "embedding_model": cfg.models.embedding_model,
+        "scenario_ids": [ep.episode_id for ep in episodes],
+        "repository_commit": repo_commit,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "failed_episodes": failed,
+    }
+    manifest_path = output_dir / "manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"\nWrote {len(results)} results to {output_dir}")

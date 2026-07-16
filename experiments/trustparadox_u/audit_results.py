@@ -10,6 +10,14 @@ from dataclasses import dataclass, field
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
 
+class InvalidExperimentResults(Exception):
+    """Raised when experiment results fail audit validation."""
+
+    def __init__(self, report: AuditReport) -> None:
+        self.report = report
+        super().__init__(f"Experiment validation failed with " f"{len(report.errors())} error(s)")
+
+
 @dataclass
 class AuditFinding:
     """A single audit finding."""
@@ -127,6 +135,22 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
             )
         )
 
+    # BLOCKED_MESSAGE_AT_RISK: blocked message must not create exposure or reintroduction
+    if turn.released_text is None and (turn.target_exposed or turn.target_reintroduced):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="BLOCKED_MESSAGE_AT_RISK",
+                message=(
+                    f"Turn {turn.turn_id}: blocked message has "
+                    f"target_exposed={turn.target_exposed} or "
+                    f"target_reintroduced={turn.target_reintroduced}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
     # Check: reconstruction success requires reconstruction attempt
     if turn.target_reconstructed and not turn.is_reconstruction_attempt:
         findings.append(
@@ -134,6 +158,18 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 level="error",
                 code="RECONSTRUCTED_WITHOUT_ATTEMPT",
                 message=f"Turn {turn.turn_id}: target_reconstructed without is_reconstruction_attempt",
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # RECONSTRUCTION_WITHOUT_RELEASED_HISTORY: reconstructed must have released messages
+    if turn.target_reconstructed and turn.released_text is None:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="RECONSTRUCTION_WITHOUT_RELEASED_HISTORY",
+                message=f"Turn {turn.turn_id}: reconstructed but no released_text",
                 episode_id=episode_id,
                 turn_id=turn.turn_id,
             )
@@ -158,6 +194,18 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 level="error",
                 code="TASK_CONTRIBUTION_WITHOUT_RELEVANCE",
                 message=f"Turn {turn.turn_id}: task_contribution_successful without task_relevant",
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # LEGITIMATE_TASK_NOT_TASK_RELEVANT: legitimate task message must be task-relevant
+    if turn.is_legitimate_message and not turn.task_relevant:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="LEGITIMATE_TASK_NOT_TASK_RELEVANT",
+                message=f"Turn {turn.turn_id}: legitimate_task message but task_relevant=False",
                 episode_id=episode_id,
                 turn_id=turn.turn_id,
             )
@@ -229,6 +277,27 @@ def _audit_episode_rules(result: EpisodeResult, episode_id: str) -> list[AuditFi
             )
         )
 
+    # MISSING_EMBEDDING_METADATA: when semantic detection was enabled
+    if result.metadata.get("semantic_threshold") is not None:
+        pass  # Embedding metadata present
+    # Check if semantic was enabled but embedding metadata is missing
+    # (We can't know for sure from metadata alone, so check for embedding_provider)
+    if "embedding_provider" not in result.metadata and "semantic_threshold" not in result.metadata:
+        # Only flag if the episode used semantic detection
+        pass  # Cannot determine from metadata alone
+
+    # INVALID_RUN_ID: check run ID format
+    run_id = result.run_id
+    if run_id and (len(run_id) < 8 or len(run_id) > 64):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="INVALID_RUN_ID",
+                message=f"Run ID has unexpected length: {len(run_id)} ({run_id!r})",
+                episode_id=episode_id,
+            )
+        )
+
     return findings
 
 
@@ -252,12 +321,13 @@ def validate_for_aggregation(
 ) -> tuple[bool, AuditReport]:
     """Validate results before aggregation.
 
-    Returns (is_valid, report).
-    Raises if results have errors and allow_errors is False.
+    Returns (True, report) when validation passes.
+    Raises InvalidExperimentResults when results have errors
+    and allow_errors is False.
     """
     report = audit_results(results)
     if report.has_errors and not allow_errors:
-        return False, report
+        raise InvalidExperimentResults(report)
     return True, report
 
 

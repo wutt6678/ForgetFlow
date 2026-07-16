@@ -1,6 +1,7 @@
 """Tests for experiment result auditor."""
 
 from experiments.trustparadox_u.audit_results import (
+    InvalidExperimentResults,
     audit_episode_result,
     audit_metric_value,
     validate_for_aggregation,
@@ -11,7 +12,7 @@ from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 def _valid_result(**overrides) -> EpisodeResult:
     """Create a minimal valid EpisodeResult for testing."""
     result = EpisodeResult(
-        run_id="r1",
+        run_id="run_0001",
         episode_id="ep1",
         scenario_id="s1",
         trust_level="default",
@@ -162,6 +163,53 @@ class TestTurnRules:
         task_findings = [f for f in findings if f.code == "TASK_CONTRIBUTION_WITHOUT_RELEVANCE"]
         assert len(task_findings) == 1
 
+    def test_blocked_message_at_risk(self) -> None:
+        """Blocked message with target_exposed=True is flagged."""
+        turn = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="secret",
+            released_text=None,
+            target_exposed=True,
+        )
+        findings = audit_episode_result(_valid_result(turns=[turn]))
+        at_risk = [f for f in findings if f.code == "BLOCKED_MESSAGE_AT_RISK"]
+        assert len(at_risk) == 1
+
+    def test_reconstruction_without_released_history(self) -> None:
+        """Reconstructed target without released_text is flagged."""
+        turn = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="parts",
+            released_text=None,
+            target_reconstructed=True,
+            is_reconstruction_attempt=True,
+        )
+        findings = audit_episode_result(_valid_result(turns=[turn]))
+        recon = [f for f in findings if f.code == "RECONSTRUCTION_WITHOUT_RELEASED_HISTORY"]
+        assert len(recon) == 1
+
+    def test_legitimate_task_not_task_relevant(self) -> None:
+        """Legitimate message without task_relevant is flagged."""
+        turn = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="help with task",
+            released_text="help with task",
+            is_legitimate_message=True,
+            task_relevant=False,
+        )
+        findings = audit_episode_result(_valid_result(turns=[turn]))
+        legit = [f for f in findings if f.code == "LEGITIMATE_TASK_NOT_TASK_RELEVANT"]
+        assert len(legit) == 1
+
 
 class TestEpisodeRules:
     """Episode-level audit rules."""
@@ -214,6 +262,20 @@ class TestEpisodeRules:
         errors = [f for f in findings if f.level == "error"]
         assert len(errors) == 0
 
+    def test_invalid_run_id_too_short(self) -> None:
+        """Run ID shorter than 8 chars is flagged."""
+        result = _valid_result(run_id="abc")
+        findings = audit_episode_result(result)
+        rid = [f for f in findings if f.code == "INVALID_RUN_ID"]
+        assert len(rid) == 1
+
+    def test_invalid_run_id_too_long(self) -> None:
+        """Run ID longer than 64 chars is flagged."""
+        result = _valid_result(run_id="x" * 65)
+        findings = audit_episode_result(result)
+        rid = [f for f in findings if f.code == "INVALID_RUN_ID"]
+        assert len(rid) == 1
+
 
 class TestMetricRules:
     """Metric-level audit rules."""
@@ -254,8 +316,17 @@ class TestAggregationGate:
         assert is_valid is True
 
     def test_invalid_results_fail_aggregation(self) -> None:
-        """Results with errors fail aggregation gate."""
+        """Results with errors raise InvalidExperimentResults."""
+        import pytest
+
         result = _valid_result(cleaned_agents_exposed=-1)
-        is_valid, report = validate_for_aggregation([result])
-        assert is_valid is False
+        with pytest.raises(InvalidExperimentResults) as exc_info:
+            validate_for_aggregation([result])
+        assert exc_info.value.report.has_errors
+
+    def test_invalid_results_allow_errors(self) -> None:
+        """Results with errors pass when allow_errors=True."""
+        result = _valid_result(cleaned_agents_exposed=-1)
+        is_valid, report = validate_for_aggregation([result], allow_errors=True)
+        assert is_valid is True
         assert report.has_errors

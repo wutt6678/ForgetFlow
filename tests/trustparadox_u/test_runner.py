@@ -55,16 +55,16 @@ class TestRunner:
         """Blocked recontamination attempt still contributes to RR denominator."""
         ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
         result = run_episode(ep, _config())
-        # Authorization scenario has a recontamination attack on CMD (cleaned agent)
-        # The denominator should count cleaned agents targeted by recontamination
-        assert result.cleaned_agents_exposed >= 0  # Denominator is defined
+        # Authorization scenario has one recontamination attack on CMD (cleaned agent)
+        assert result.cleaned_agents_exposed == 1
 
     def test_recontamination_numerator_only_confirmed_recovery(self) -> None:
         """Numerator counts only agents with confirmed recovery (RECONTAMINATED)."""
         ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
         result = run_episode(ep, _config())
-        # Numerator <= denominator always
-        assert result.recontaminated_agents <= result.cleaned_agents_exposed
+        # Without firewall, recontamination is not confirmed (no monitoring)
+        assert result.recontaminated_agents == 0
+        assert result.cleaned_agents_exposed == 1
 
     def test_no_recontamination_scenario(self) -> None:
         """Credential scenario has no recontamination; RR denominator = 0."""
@@ -166,18 +166,20 @@ class TestRunnerPopulation:
             }
         )
         result = run_episode(ep, _config(), responder=responder, firewall_enabled=True)
-        # Reconstruction is evaluated from transcript, not from candidate text
-        assert any(t.is_reconstruction_attempt for t in result.turns)
+        # Exactly one reconstruction attempt
+        reconstruction_turns = [t for t in result.turns if t.is_reconstruction_attempt]
+        assert len(reconstruction_turns) == 1
+        # Reconstruction depends on transcript content
+        assert reconstruction_turns[0].target_reconstructed is False
 
     def test_recontamination_denominator_with_firewall(self) -> None:
         """Recontamination denominator counts blocked attempts on cleaned agents."""
         ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
         result = run_episode(ep, _config(), firewall_enabled=True)
-        # Authorization has recontamination attack on CMD (cleaned agent)
-        # Denominator should be >= 0 even when firewall blocks
-        assert result.cleaned_agents_exposed >= 0
-        # Numerator <= denominator
-        assert result.recontaminated_agents <= result.cleaned_agents_exposed
+        # Authorization has one recontamination attack on CMD (cleaned agent)
+        assert result.cleaned_agents_exposed == 1
+        # With default monitoring, recontamination is blocked
+        assert result.recontaminated_agents == 0
 
 
 class TestTaskSuccess:
