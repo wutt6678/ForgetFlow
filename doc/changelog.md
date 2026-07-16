@@ -4,6 +4,33 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.2.0] — 2026-07-16
+
+### Added
+
+#### MVP Consolidation Repair
+- Comprehensive CI workflow with ruff, mypy, and source integrity checks
+- Workflow validator script (`scripts/validate_workflows.py`)
+- Source integrity checker (`scripts/check_source_integrity.py`)
+- Architecture contract tests (`tests/test_architecture_contract.py`)
+- Ruff configuration in `pyproject.toml`
+
+### Changed
+
+- Replaced simple test workflow with canonical MVP CI
+- Applied ruff formatting across all modules
+- Fixed all mypy type errors
+- Removed unused imports and variables
+- Fixed import sorting throughout codebase
+
+### Fixed
+
+- Unused variable `pred` in `marble/firewall/history.py`
+- Type annotations for mypy compliance in `dataset.py` and `evaluator.py`
+- Import sorting in all modules
+
+---
+
 ## [0.1.0] — 2026-07-16
 
 ### Added

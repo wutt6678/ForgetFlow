@@ -10,10 +10,10 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 128 |
-| Passed | 128 |
+| Total tests | 137 |
+| Passed | 137 |
 | Failed | 0 |
-| Execution time | ~0.31s |
+| Execution time | ~0.33s |
 
 ### Test Breakdown
 
@@ -34,6 +34,7 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 | `test_evaluator.py` | 5 | PASS |
 | `test_matrix.py` | 4 | PASS |
 | `test_end_to_end.py` | 5 | PASS |
+| `test_architecture_contract.py` | 9 | PASS |
 
 ---
 
