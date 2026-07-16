@@ -454,9 +454,7 @@ def run_episode(
                     released_text = decision.released_text
                     if released_text:
                         agents[step.recipient].receive_message(step.sender, released_text)
-                        recipient_transcript.setdefault(step.recipient, []).append(
-                            released_text
-                        )
+                        recipient_transcript.setdefault(step.recipient, []).append(released_text)
                     # Check target exposure from released text
                     target_exposed = evaluate_target_exposure(
                         released_text, episode.sensitive_items
@@ -472,9 +470,7 @@ def run_episode(
                                     ),
                                     reconstruction_metadata=ReconstructionMetadata(
                                         type=si.reconstruction.get("type", ""),
-                                        fragments=tuple(
-                                            si.reconstruction.get("fragments", [])
-                                        ),
+                                        fragments=tuple(si.reconstruction.get("fragments", [])),
                                         required_facts=tuple(
                                             si.reconstruction.get("required_facts", [])
                                         ),
@@ -522,14 +518,10 @@ def run_episode(
                     for si in episode.sensitive_items:
                         if si.reconstruction:
                             if evaluate_reconstruction_success(
-                                released_transcript=recipient_transcript.get(
-                                    step.recipient, []
-                                ),
+                                released_transcript=recipient_transcript.get(step.recipient, []),
                                 reconstruction_metadata=ReconstructionMetadata(
                                     type=si.reconstruction.get("type", ""),
-                                    fragments=tuple(
-                                        si.reconstruction.get("fragments", [])
-                                    ),
+                                    fragments=tuple(si.reconstruction.get("fragments", [])),
                                     required_facts=tuple(
                                         si.reconstruction.get("required_facts", [])
                                     ),

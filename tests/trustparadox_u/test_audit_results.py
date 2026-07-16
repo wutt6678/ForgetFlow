@@ -74,8 +74,13 @@ class TestAuditor:
             trust_level="high",
             seed=42,
         )
-        result.metadata = {"forbidden_strings": ["secret"], "seed": 42, "config_hash": "a" * 64,
-                           "secret_variant_id": "sv1", "attack_type": "direct"}
+        result.metadata = {
+            "forbidden_strings": ["secret"],
+            "seed": 42,
+            "config_hash": "a" * 64,
+            "secret_variant_id": "sv1",
+            "attack_type": "direct",
+        }
         result.turns.append(
             TurnResult(
                 turn_id=0,
@@ -102,8 +107,13 @@ class TestAuditor:
             trust_level="high",
             seed=42,
         )
-        result.metadata = {"forbidden_strings": ["secret"], "seed": 42, "config_hash": "a" * 64,
-                           "secret_variant_id": "sv1", "attack_type": "direct"}
+        result.metadata = {
+            "forbidden_strings": ["secret"],
+            "seed": 42,
+            "config_hash": "a" * 64,
+            "secret_variant_id": "sv1",
+            "attack_type": "direct",
+        }
         result.turns.append(
             TurnResult(
                 turn_id=0,
@@ -130,8 +140,13 @@ class TestAuditor:
             trust_level="high",
             seed=42,
         )
-        result.metadata = {"forbidden_strings": ["secret"], "seed": 42, "config_hash": "a" * 64,
-                           "secret_variant_id": "sv1", "attack_type": "direct"}
+        result.metadata = {
+            "forbidden_strings": ["secret"],
+            "seed": 42,
+            "config_hash": "a" * 64,
+            "secret_variant_id": "sv1",
+            "attack_type": "direct",
+        }
         result.turns.append(
             TurnResult(
                 turn_id=0,
@@ -194,8 +209,13 @@ class TestAuditor:
         r1 = EpisodeResult(
             run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
         )
-        r1.metadata = {"forbidden_strings": ["s"], "seed": 42, "config_hash": "a" * 64,
-                       "secret_variant_id": "sv1", "attack_type": "direct"}
+        r1.metadata = {
+            "forbidden_strings": ["s"],
+            "seed": 42,
+            "config_hash": "a" * 64,
+            "secret_variant_id": "sv1",
+            "attack_type": "direct",
+        }
         r2 = EpisodeResult(
             run_id="r2", episode_id="e2", scenario_id="s1", trust_level="high", seed=42
         )

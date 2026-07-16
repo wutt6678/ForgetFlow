@@ -131,9 +131,7 @@ class FlowGate:
             permitted_residual = _is_permitted_residual(released_text, active)
 
             # Exact or alias match always blocks (even for permitted residuals)
-            exact_or_alias = (
-                recheck_det.exact_score == 1.0 or recheck_det.entity_score > 0.0
-            )
+            exact_or_alias = recheck_det.exact_score == 1.0 or recheck_det.entity_score > 0.0
             # Reconstruction risk always blocks
             reconstructive = recheck_recon >= self.config.history.reconstruction_threshold
             # Semantic unsafe: above threshold AND not a permitted residual

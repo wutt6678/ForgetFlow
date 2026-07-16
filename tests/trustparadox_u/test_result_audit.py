@@ -37,17 +37,29 @@ class TestTurnRules:
         from marble.firewall.types import DetectorResult, FirewallDecision
 
         dr = DetectorResult(
-            exact_score=1.0, entity_score=0.0, semantic_score=0.0,
-            reconstruction_score=0.0, matched_forget_ids=[], evidence=[],
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=[],
+            evidence=[],
         )
         decision = FirewallDecision(
-            action="block", released_text=None, detector_result=dr,
-            reason_codes=("exact",), policy_version="v1", latency_ms=0.1,
+            action="block",
+            released_text=None,
+            detector_result=dr,
+            reason_codes=("exact",),
+            policy_version="v1",
+            latency_ms=0.1,
         )
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="secret", released_text=None, decision=decision,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="secret",
+            released_text=None,
+            decision=decision,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
         block_findings = [f for f in findings if f.code == "BLOCK_WITH_RELEASED_TEXT"]
@@ -58,18 +70,30 @@ class TestTurnRules:
         from marble.firewall.types import DetectorResult, FirewallDecision
 
         dr = DetectorResult(
-            exact_score=1.0, entity_score=0.0, semantic_score=0.0,
-            reconstruction_score=0.0, matched_forget_ids=[], evidence=[],
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=[],
+            evidence=[],
         )
         # Create a valid block decision, then override turn.released_text
         decision = FirewallDecision(
-            action="block", released_text=None, detector_result=dr,
-            reason_codes=("exact",), policy_version="v1", latency_ms=0.1,
+            action="block",
+            released_text=None,
+            detector_result=dr,
+            reason_codes=("exact",),
+            policy_version="v1",
+            latency_ms=0.1,
         )
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="secret", released_text="leaked", decision=decision,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="secret",
+            released_text="leaked",
+            decision=decision,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
         block_findings = [f for f in findings if f.code == "BLOCK_WITH_RELEASED_TEXT"]
@@ -78,9 +102,12 @@ class TestTurnRules:
     def test_exposure_requires_released_text(self) -> None:
         """target_exposed=True without released_text is flagged."""
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="secret", released_text=None,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="secret",
+            released_text=None,
             target_exposed=True,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
@@ -90,10 +117,14 @@ class TestTurnRules:
     def test_reconstruction_requires_attempt(self) -> None:
         """target_reconstructed without is_reconstruction_attempt is flagged."""
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="parts", released_text="parts",
-            target_reconstructed=True, is_reconstruction_attempt=False,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="parts",
+            released_text="parts",
+            target_reconstructed=True,
+            is_reconstruction_attempt=False,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
         recon_findings = [f for f in findings if f.code == "RECONSTRUCTED_WITHOUT_ATTEMPT"]
@@ -102,10 +133,14 @@ class TestTurnRules:
     def test_reintroduction_requires_recontamination(self) -> None:
         """target_reintroduced without is_recontamination_attempt is flagged."""
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="msg", released_text="msg",
-            target_reintroduced=True, is_recontamination_attempt=False,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="msg",
+            released_text="msg",
+            target_reintroduced=True,
+            is_recontamination_attempt=False,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
         reint_findings = [f for f in findings if f.code == "REINTRODUCED_WITHOUT_ATTEMPT"]
@@ -114,10 +149,14 @@ class TestTurnRules:
     def test_task_contribution_requires_relevance(self) -> None:
         """task_contribution_successful without task_relevant is flagged."""
         turn = TurnResult(
-            turn_id=0, phase="POST_FORGET_ATTACK",
-            sender_id="SK", recipient_id="CK",
-            candidate_text="msg", released_text="msg",
-            task_contribution_successful=True, task_relevant=False,
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="SK",
+            recipient_id="CK",
+            candidate_text="msg",
+            released_text="msg",
+            task_contribution_successful=True,
+            task_relevant=False,
         )
         findings = audit_episode_result(_valid_result(turns=[turn]))
         task_findings = [f for f in findings if f.code == "TASK_CONTRIBUTION_WITHOUT_RELEVANCE"]
@@ -161,7 +200,8 @@ class TestEpisodeRules:
     def test_numerator_cannot_exceed_denominator(self) -> None:
         """recontaminated_agents > cleaned_agents_exposed is flagged."""
         result = _valid_result(
-            cleaned_agents_exposed=1, recontaminated_agents=2,
+            cleaned_agents_exposed=1,
+            recontaminated_agents=2,
         )
         findings = audit_episode_result(result)
         num_findings = [f for f in findings if f.code == "NUMERATOR_EXCEEDS_DENOMINATOR"]

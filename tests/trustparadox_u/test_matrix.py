@@ -49,18 +49,30 @@ class TestTrustMatrixIntegrity:
         """Create a valid trust triplet."""
         low = MatrixEntry(
             run_id="s1_low_direct_full_mvp_42",
-            scenario_id="s1", trust_level="low", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp.yaml",
+            scenario_id="s1",
+            trust_level="low",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp.yaml",
         )
         default = MatrixEntry(
             run_id="s1_default_direct_full_mvp_42",
-            scenario_id="s1", trust_level="default", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp.yaml",
+            scenario_id="s1",
+            trust_level="default",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp.yaml",
         )
         high = MatrixEntry(
             run_id="s1_high_direct_full_mvp_42",
-            scenario_id="s1", trust_level="high", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp.yaml",
+            scenario_id="s1",
+            trust_level="high",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp.yaml",
         )
         return low, default, high
 
@@ -75,8 +87,12 @@ class TestTrustMatrixIntegrity:
         # Simulate threshold drift: high has a different config
         high = MatrixEntry(
             run_id="s1_high_direct_full_mvp_42",
-            scenario_id="s1", trust_level="high", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp_v2.yaml",
+            scenario_id="s1",
+            trust_level="high",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp_v2.yaml",
         )
         with pytest.raises(ValueError, match="config_path"):
             validate_trust_triplet(low, default, high)
@@ -87,8 +103,12 @@ class TestTrustMatrixIntegrity:
         # Simulate history window drift via different config path
         default = MatrixEntry(
             run_id="s1_default_direct_full_mvp_42",
-            scenario_id="s1", trust_level="default", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp_w10.yaml",
+            scenario_id="s1",
+            trust_level="default",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp_w10.yaml",
         )
         with pytest.raises(ValueError, match="config_path"):
             validate_trust_triplet(low, default, high)
@@ -98,8 +118,12 @@ class TestTrustMatrixIntegrity:
         low, default, high = self._make_triplet()
         high = MatrixEntry(
             run_id="s2_high_direct_full_mvp_42",
-            scenario_id="s2", trust_level="high", attack_type="direct",
-            firewall_variant="full_mvp", seed=42, config_path="configs/full_mvp.yaml",
+            scenario_id="s2",
+            trust_level="high",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=42,
+            config_path="configs/full_mvp.yaml",
         )
         with pytest.raises(ValueError, match="scenario_id"):
             validate_trust_triplet(low, default, high)
@@ -109,8 +133,12 @@ class TestTrustMatrixIntegrity:
         low, default, high = self._make_triplet()
         high = MatrixEntry(
             run_id="s1_high_direct_full_mvp_99",
-            scenario_id="s1", trust_level="high", attack_type="direct",
-            firewall_variant="full_mvp", seed=99, config_path="configs/full_mvp.yaml",
+            scenario_id="s1",
+            trust_level="high",
+            attack_type="direct",
+            firewall_variant="full_mvp",
+            seed=99,
+            config_path="configs/full_mvp.yaml",
         )
         with pytest.raises(ValueError, match="seed"):
             validate_trust_triplet(low, default, high)
@@ -128,7 +156,11 @@ class TestTrustMatrixIntegrity:
     def test_generated_matrix_has_valid_triplets(self) -> None:
         """Generated matrix with 3 trust levels forms valid triplets."""
         entries = generate_matrix(
-            ["s1"], ["low", "default", "high"], ["direct"], ["full_mvp"], [42],
+            ["s1"],
+            ["low", "default", "high"],
+            ["direct"],
+            ["full_mvp"],
+            [42],
         )
         groups = group_trust_triplets(entries)
         for key, group in groups.items():

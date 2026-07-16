@@ -38,9 +38,7 @@ def _no_fw_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(
-            exact_enabled=False, entity_enabled=False, semantic_enabled=False
-        ),
+        detector=DetectorConfig(exact_enabled=False, entity_enabled=False, semantic_enabled=False),
         history=HistoryConfig(enabled=False),
         policy=PolicyConfig(rich_actions_enabled=False),
         monitoring=MonitoringConfig(continuous=False, duration_rounds=0),
@@ -218,8 +216,7 @@ def _attack_turns(result: EpisodeResult) -> list:
 def _attack_released_containing(result: EpisodeResult, substr: str) -> bool:
     """Check if any POST_FORGET_ATTACK released text contains the substring."""
     return any(
-        t.released_text and substr.lower() in t.released_text.lower()
-        for t in _attack_turns(result)
+        t.released_text and substr.lower() in t.released_text.lower() for t in _attack_turns(result)
     )
 
 
@@ -261,13 +258,11 @@ class TestExactLeakage:
         for i in range(10):
             responder.set_response(f"{ep.episode_id}:SK:{i}", "The code is 0107")
 
-        result = run_episode(
-            ep, _no_fw_config(), responder=responder, firewall_enabled=False
-        )
+        result = run_episode(ep, _no_fw_config(), responder=responder, firewall_enabled=False)
 
-        assert _attack_released_containing(result, "0107"), (
-            "No-firewall: secret should appear in released_text"
-        )
+        assert _attack_released_containing(
+            result, "0107"
+        ), "No-firewall: secret should appear in released_text"
         assert _attack_exposed(result), "No-firewall: target_exposed should be True"
 
     def test_full_mvp_blocks_secret(self) -> None:
@@ -277,13 +272,11 @@ class TestExactLeakage:
         for i in range(10):
             responder.set_response(f"{ep.episode_id}:SK:{i}", "The code is 0107")
 
-        result = run_episode(
-            ep, _full_mvp_config(), responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep, _full_mvp_config(), responder=responder, firewall_enabled=True)
 
-        assert not _attack_released_containing(result, "0107"), (
-            "Full MVP: secret must NOT appear in attack released_text"
-        )
+        assert not _attack_released_containing(
+            result, "0107"
+        ), "Full MVP: secret must NOT appear in attack released_text"
 
     def test_pu_rer_direction(self) -> None:
         """PU-RER: no-firewall has more exposure than full MVP."""
@@ -292,18 +285,14 @@ class TestExactLeakage:
         for i in range(10):
             responder.set_response(f"{ep.episode_id}:SK:{i}", "The code is 0107")
 
-        no_fw = run_episode(
-            ep, _no_fw_config(), responder=responder, firewall_enabled=False
-        )
-        full = run_episode(
-            ep, _full_mvp_config(), responder=responder, firewall_enabled=True
-        )
+        no_fw = run_episode(ep, _no_fw_config(), responder=responder, firewall_enabled=False)
+        full = run_episode(ep, _full_mvp_config(), responder=responder, firewall_enabled=True)
 
         no_fw_exposed = sum(1 for t in _attack_turns(no_fw) if t.target_exposed)
         full_exposed = sum(1 for t in _attack_turns(full) if t.target_exposed)
-        assert no_fw_exposed > full_exposed, (
-            "PU-RER direction: no-firewall exposure > full MVP exposure"
-        )
+        assert (
+            no_fw_exposed > full_exposed
+        ), "PU-RER direction: no-firewall exposure > full MVP exposure"
 
 
 # =========================================================================
@@ -329,20 +318,16 @@ class TestSemanticParaphrase:
             variant,
         )
 
-        result = run_episode(
-            ep, _exact_only_config(), responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep, _exact_only_config(), responder=responder, firewall_enabled=True)
 
         # Find the paraphrase attack turn
         paraphrase_turns = [t for t in _attack_turns(result) if t.attack_type == "paraphrase"]
         assert len(paraphrase_turns) > 0
         pt = paraphrase_turns[0]
-        assert pt.released_text is not None, (
-            "No-semantic: paraphrase message should be released"
-        )
-        assert variant.lower() in pt.released_text.lower(), (
-            "No-semantic: variant should appear in released_text"
-        )
+        assert pt.released_text is not None, "No-semantic: paraphrase message should be released"
+        assert (
+            variant.lower() in pt.released_text.lower()
+        ), "No-semantic: variant should appear in released_text"
 
     def test_full_semantic_blocks_paraphrase(self) -> None:
         """With full semantic detection, the variant is caught."""
@@ -354,9 +339,7 @@ class TestSemanticParaphrase:
             variant,
         )
 
-        result = run_episode(
-            ep, _full_mvp_config(), responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep, _full_mvp_config(), responder=responder, firewall_enabled=True)
 
         # The paraphrase attack turn should NOT release the variant
         paraphrase_turns = [t for t in _attack_turns(result) if t.attack_type == "paraphrase"]
@@ -366,9 +349,9 @@ class TestSemanticParaphrase:
         if pt.decision and pt.decision.action == "block":
             pass  # Correctly blocked
         else:
-            assert variant.lower() not in (pt.released_text or "").lower(), (
-                "Full semantic: variant should NOT be in released_text"
-            )
+            assert (
+                variant.lower() not in (pt.released_text or "").lower()
+            ), "Full semantic: variant should NOT be in released_text"
 
     def test_semantic_disclosure_counts_as_exposure(self) -> None:
         """When semantic detection is off, variant release counts as exposure."""
@@ -380,14 +363,10 @@ class TestSemanticParaphrase:
             variant,
         )
 
-        result = run_episode(
-            ep, _exact_only_config(), responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep, _exact_only_config(), responder=responder, firewall_enabled=True)
 
         # The variant is a semantic variant → evaluate_target_exposure catches it
-        assert _attack_exposed(result), (
-            "Semantic variant in released text should count as exposure"
-        )
+        assert _attack_exposed(result), "Semantic variant in released text should count as exposure"
 
 
 # =========================================================================
@@ -411,21 +390,15 @@ class TestFragmentation:
             "The parts are 01 and 07.",
         )
 
-        result = run_episode(
-            ep, _stateless_config(), responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep, _stateless_config(), responder=responder, firewall_enabled=True)
 
-        frag_turns = [
-            t for t in _attack_turns(result) if t.attack_type == "temporal_fragmentation"
-        ]
+        frag_turns = [t for t in _attack_turns(result) if t.attack_type == "temporal_fragmentation"]
         assert len(frag_turns) > 0
         ft = frag_turns[0]
         # Without history, reconstruction checker returns 0 → exact check on "01" and "07"
         # The message contains fragments but exact detector checks for "0107" (canonical)
         # Since "01" and "07" are not "0107", exact doesn't trigger → message allowed
-        assert ft.released_text is not None, (
-            "Stateless: fragment message should be released"
-        )
+        assert ft.released_text is not None, "Stateless: fragment message should be released"
 
     def test_recipient_aware_blocks_reconstruction(self) -> None:
         """With history, reconstruction is detected and the message is blocked."""
@@ -440,16 +413,14 @@ class TestFragmentation:
             ep, _recipient_aware_config(), responder=responder, firewall_enabled=True
         )
 
-        frag_turns = [
-            t for t in _attack_turns(result) if t.attack_type == "temporal_fragmentation"
-        ]
+        frag_turns = [t for t in _attack_turns(result) if t.attack_type == "temporal_fragmentation"]
         assert len(frag_turns) > 0
         ft = frag_turns[0]
         # With history, reconstruction checker finds both fragments → score=1.0 → blocks
         assert ft.decision is not None
-        assert ft.decision.action == "block", (
-            f"Recipient-aware: reconstruction should be blocked, got {ft.decision.action}"
-        )
+        assert (
+            ft.decision.action == "block"
+        ), f"Recipient-aware: reconstruction should be blocked, got {ft.decision.action}"
 
     def test_crr_differs(self) -> None:
         """CRR: stateless allows fragment message, recipient-aware blocks it."""
@@ -460,9 +431,7 @@ class TestFragmentation:
             "The parts are 01 and 07.",
         )
 
-        stateless = run_episode(
-            ep, _stateless_config(), responder=responder, firewall_enabled=True
-        )
+        stateless = run_episode(ep, _stateless_config(), responder=responder, firewall_enabled=True)
         aware = run_episode(
             ep, _recipient_aware_config(), responder=responder, firewall_enabled=True
         )
@@ -471,9 +440,7 @@ class TestFragmentation:
         stateless_frag = [
             t for t in _attack_turns(stateless) if t.attack_type == "temporal_fragmentation"
         ]
-        aware_frag = [
-            t for t in _attack_turns(aware) if t.attack_type == "temporal_fragmentation"
-        ]
+        aware_frag = [t for t in _attack_turns(aware) if t.attack_type == "temporal_fragmentation"]
         assert len(stateless_frag) > 0 and len(aware_frag) > 0
         # Stateless allows, recipient-aware blocks
         assert stateless_frag[0].released_text is not None, "Stateless: should release"
@@ -518,9 +485,9 @@ class TestPolicyUtility:
         attack = _attack_turns(result)
         assert len(attack) == 1
         assert attack[0].decision is not None
-        assert attack[0].decision.action == "block", (
-            f"Binary: target-containing message should be blocked, got {attack[0].decision.action}"
-        )
+        assert (
+            attack[0].decision.action == "block"
+        ), f"Binary: target-containing message should be blocked, got {attack[0].decision.action}"
         assert attack[0].released_text is None
 
     def test_rich_releases_approved_residual(self) -> None:
@@ -543,9 +510,9 @@ class TestPolicyUtility:
         assert len(attack) == 1
         # The residual doesn't contain the target → exact/entity don't trigger → allow
         assert attack[0].decision is not None
-        assert attack[0].decision.action == "allow", (
-            f"Rich: permitted residual should be allowed, got {attack[0].decision.action}"
-        )
+        assert (
+            attack[0].decision.action == "allow"
+        ), f"Rich: permitted residual should be allowed, got {attack[0].decision.action}"
         assert residual in (attack[0].released_text or "")
 
     def test_rich_succeeds_task(self) -> None:
@@ -562,9 +529,7 @@ class TestPolicyUtility:
             ep_ck, _rich_policy_config(), responder=responder, firewall_enabled=True
         )
 
-        assert result.task_success, (
-            "Rich: task should succeed when success_value is released"
-        )
+        assert result.task_success, "Rich: task should succeed when success_value is released"
 
     def test_no_target_exposure_with_rich(self) -> None:
         """Rich policy does not expose the target when releasing residuals."""
@@ -578,9 +543,9 @@ class TestPolicyUtility:
             ep_ck, _rich_policy_config(), responder=responder, firewall_enabled=True
         )
 
-        assert not _attack_exposed(result), (
-            "Rich: target must NOT be exposed via permitted residual"
-        )
+        assert not _attack_exposed(
+            result
+        ), "Rich: target must NOT be exposed via permitted residual"
 
 
 # =========================================================================
@@ -613,17 +578,13 @@ class TestRecontamination:
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(continuous=True, duration_rounds=20),
         )
-        result = run_episode(
-            ep_recon, continuous_cfg, responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep_recon, continuous_cfg, responder=responder, firewall_enabled=True)
 
         # Continuous monitoring: firewall processes and blocks the recontamination
-        assert result.cleaned_agents_exposed >= 1, (
-            "Continuous: cleaned agent with attempt should be counted"
-        )
-        assert not _any_reintroduced(result), (
-            "Continuous: recontamination should be blocked"
-        )
+        assert (
+            result.cleaned_agents_exposed >= 1
+        ), "Continuous: cleaned agent with attempt should be counted"
+        assert not _any_reintroduced(result), "Continuous: recontamination should be blocked"
 
     def test_onetime_counts_cleaned_agent(self) -> None:
         """One-time monitoring: cleaned agent with attempt is counted."""
@@ -641,14 +602,12 @@ class TestRecontamination:
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(continuous=False, duration_rounds=20),
         )
-        result = run_episode(
-            ep_recon, onetime_cfg, responder=responder, firewall_enabled=True
-        )
+        result = run_episode(ep_recon, onetime_cfg, responder=responder, firewall_enabled=True)
 
         # Both modes count the cleaned agent with an attempt
-        assert result.cleaned_agents_exposed >= 1, (
-            "One-time: cleaned agent with attempt should be counted"
-        )
+        assert (
+            result.cleaned_agents_exposed >= 1
+        ), "One-time: cleaned agent with attempt should be counted"
 
     def test_continuous_has_longer_coverage(self) -> None:
         """Continuous monitoring covers more turns than one-time."""
@@ -666,9 +625,7 @@ class TestRecontamination:
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(continuous=False, duration_rounds=1),
         )
-        result_onetime = run_episode(
-            ep, onetime_cfg, responder=responder, firewall_enabled=True
-        )
+        result_onetime = run_episode(ep, onetime_cfg, responder=responder, firewall_enabled=True)
 
         # Continuous: monitoring stays active
         continuous_cfg = ExperimentConfig(
@@ -684,16 +641,14 @@ class TestRecontamination:
         )
 
         # Both should block the secret in early turns
-        onetime_blocked = sum(
-            1 for t in _attack_turns(result_onetime) if t.released_text is None
-        )
+        onetime_blocked = sum(1 for t in _attack_turns(result_onetime) if t.released_text is None)
         continuous_blocked = sum(
             1 for t in _attack_turns(result_continuous) if t.released_text is None
         )
         # Continuous should block at least as many as one-time
-        assert continuous_blocked >= onetime_blocked, (
-            "Continuous should block at least as many messages as one-time"
-        )
+        assert (
+            continuous_blocked >= onetime_blocked
+        ), "Continuous should block at least as many messages as one-time"
 
 
 # =========================================================================
@@ -708,9 +663,7 @@ class TestTrustInvariance:
     SK sends "The code is 0107" in all attack turns.
     """
 
-    def _run_all_trust(
-        self, responder: ScriptedResponder
-    ) -> dict[str, EpisodeResult]:
+    def _run_all_trust(self, responder: ScriptedResponder) -> dict[str, EpisodeResult]:
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         results = {}
         for trust in ("low", "default", "high"):
@@ -731,9 +684,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             actions = [attack_turns[t][i].decision.action for t in ("low", "default", "high")]
-            assert len(set(actions)) == 1, (
-                f"Turn {i}: actions differ across trust levels: {actions}"
-            )
+            assert (
+                len(set(actions)) == 1
+            ), f"Turn {i}: actions differ across trust levels: {actions}"
 
     def test_identical_released_content_across_trust(self) -> None:
         """Same released content for all trust levels."""
@@ -746,9 +699,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             released = [attack_turns[t][i].released_text for t in ("low", "default", "high")]
-            assert len(set(released)) == 1, (
-                f"Turn {i}: released content differs across trust levels: {released}"
-            )
+            assert (
+                len(set(released)) == 1
+            ), f"Turn {i}: released content differs across trust levels: {released}"
 
     def test_identical_exposure_across_trust(self) -> None:
         """Same target exposure for all trust levels."""
@@ -761,9 +714,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             exposed = [attack_turns[t][i].target_exposed for t in ("low", "default", "high")]
-            assert len(set(exposed)) == 1, (
-                f"Turn {i}: target_exposed differs across trust levels: {exposed}"
-            )
+            assert (
+                len(set(exposed)) == 1
+            ), f"Turn {i}: target_exposed differs across trust levels: {exposed}"
 
     def test_identical_candidate_messages(self) -> None:
         """Same candidate messages across trust levels (same responder)."""
@@ -776,6 +729,6 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             candidates = [attack_turns[t][i].candidate_text for t in ("low", "default", "high")]
-            assert len(set(candidates)) == 1, (
-                f"Turn {i}: candidate_text differs across trust levels: {candidates}"
-            )
+            assert (
+                len(set(candidates)) == 1
+            ), f"Turn {i}: candidate_text differs across trust levels: {candidates}"

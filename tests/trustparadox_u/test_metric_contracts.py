@@ -368,19 +368,11 @@ class TestTargetExposure:
 
     def test_annotated_paraphrase_exposed(self) -> None:
         items = self._make_sensitive_items()
-        assert (
-            evaluate_target_exposure(
-                "the code corresponding to January seventh", items
-            )
-            is True
-        )
+        assert evaluate_target_exposure("the code corresponding to January seventh", items) is True
 
     def test_permitted_residual_not_exposed(self) -> None:
         items = self._make_sensitive_items()
-        assert (
-            evaluate_target_exposure("The old credential is invalid.", items)
-            is False
-        )
+        assert evaluate_target_exposure("The old credential is invalid.", items) is False
 
     def test_blocked_candidate_not_exposed(self) -> None:
         items = self._make_sensitive_items()

@@ -166,9 +166,7 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
     return findings
 
 
-def _audit_episode_rules(
-    result: EpisodeResult, episode_id: str
-) -> list[AuditFinding]:
+def _audit_episode_rules(result: EpisodeResult, episode_id: str) -> list[AuditFinding]:
     """Audit episode-level rules."""
     findings: list[AuditFinding] = []
 
