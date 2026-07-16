@@ -10,7 +10,12 @@ from experiments.trustparadox_u.evaluator import (
     compute_pu_rer,
     compute_rr,
 )
-from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+from experiments.trustparadox_u.runner import (
+    EpisodeResult,
+    ReconstructionMetadata,
+    TurnResult,
+    evaluate_reconstruction_success,
+)
 from marble.firewall.types import ContaminationStatus
 
 
@@ -190,3 +195,145 @@ class TestMetricContracts:
         )
         metric = compute_pu_rer([result])
         assert metric.value == 0.0, "Redacted message should not count as exposure"
+
+
+class TestReconstructionSuccess:
+    """Tests for evaluate_reconstruction_success helper."""
+
+    def test_first_fragment_only_returns_false(self) -> None:
+        meta = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=["The first part is 01"],
+                reconstruction_metadata=meta,
+            )
+            is False
+        )
+
+    def test_two_released_fragments_returns_true(self) -> None:
+        meta = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=["First part 01", "Second part 07"],
+                reconstruction_metadata=meta,
+            )
+            is True
+        )
+
+    def test_second_fragment_blocked_returns_false(self) -> None:
+        """Only released messages contribute; blocked fragment is absent."""
+        meta = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        # Only first fragment was released, second was blocked (not in transcript)
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=["The first part is 01"],
+                reconstruction_metadata=meta,
+            )
+            is False
+        )
+
+    def test_two_candidates_one_released_returns_false(self) -> None:
+        """Only one of two candidate fragments was released."""
+        meta = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=["Part 01"],  # Only one fragment released
+                reconstruction_metadata=meta,
+            )
+            is False
+        )
+
+    def test_complete_fact_chain_returns_true(self) -> None:
+        meta = ReconstructionMetadata(
+            type="fact_chain",
+            required_facts=("employee_17_is_alice", "employee_17_has_m4", "m4_implies_condition_x"),
+        )
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=[
+                    "employee_17_is_alice works here",
+                    "employee_17_has_m4 clearance",
+                    "m4_implies_condition_x is known",
+                ],
+                reconstruction_metadata=meta,
+            )
+            is True
+        )
+
+    def test_incomplete_fact_chain_returns_false(self) -> None:
+        meta = ReconstructionMetadata(
+            type="fact_chain",
+            required_facts=("employee_17_is_alice", "employee_17_has_m4", "m4_implies_condition_x"),
+        )
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=[
+                    "employee_17_is_alice works here",
+                    "employee_17_has_m4 clearance",
+                ],
+                reconstruction_metadata=meta,
+            )
+            is False
+        )
+
+    def test_none_metadata_returns_false(self) -> None:
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=["some text"],
+                reconstruction_metadata=None,
+            )
+            is False
+        )
+
+    def test_empty_transcript_returns_false(self) -> None:
+        meta = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        assert (
+            evaluate_reconstruction_success(
+                released_transcript=[],
+                reconstruction_metadata=meta,
+            )
+            is False
+        )
+
+    def test_crr_reflects_multi_message_reconstruction(self) -> None:
+        """CRR should be 1 when multi-message reconstruction succeeds."""
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="SK",
+                recipient_id="CK",
+                candidate_text="Fragment 01",
+                released_text="Fragment 01",
+                is_reconstruction_attempt=True,
+                target_reconstructed=True,
+            )
+        )
+        metric = compute_crr([result])
+        assert metric.value == 1.0
+        assert metric.numerator == 1
+        assert metric.denominator == 1
+
+    def test_crr_blocked_messages_never_contribute(self) -> None:
+        """Blocked reconstruction: released_text is None, target_reconstructed must be False."""
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="SK",
+                recipient_id="CK",
+                candidate_text="Fragments 01 and 07",
+                released_text=None,
+                is_reconstruction_attempt=True,
+                target_reconstructed=False,
+            )
+        )
+        metric = compute_crr([result])
+        assert metric.value == 0.0
+        assert metric.numerator == 0
