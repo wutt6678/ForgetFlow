@@ -2,33 +2,72 @@
 
 from __future__ import annotations
 
-import hashlib
 import math
-from typing import Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 
 class EmbeddingProvider(Protocol):
     def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
-class StubEmbeddingProvider:
-    """Deterministic stub for testing. Produces embeddings from text hashing."""
+class FixedEmbeddingProvider:
+    """Deterministic test provider with predefined vectors.
 
-    def __init__(self, dim: int = 64) -> None:
-        self._dim = dim
+    Uses normalized text as lookup key. Unknown text returns a configured
+    default unrelated vector (does NOT hash arbitrary strings).
+    """
+
+    def __init__(
+        self,
+        vectors: Mapping[str, Sequence[float]],
+        default_vector: Sequence[float] | None = None,
+    ) -> None:
+        self._vectors = {k.lower().strip(): list(v) for k, v in vectors.items()}
+        if default_vector is not None:
+            self._default = list(default_vector)
+        else:
+            # Zero vector as default (unrelated to everything)
+            dim = len(next(iter(vectors.values()))) if vectors else 64
+            self._default = [0.0] * dim
+        self._dim = len(self._default)
+
+    @property
+    def dimension(self) -> int:
+        return self._dim
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         results = []
         for text in texts:
-            vec = [0.0] * self._dim
-            h = hashlib.sha256(text.lower().strip().encode()).digest()
-            for i in range(self._dim):
-                byte_idx = i % len(h)
-                vec[i] = (h[byte_idx] - 128) / 128.0
-            norm = math.sqrt(sum(v * v for v in vec)) or 1.0
-            vec = [v / norm for v in vec]
-            results.append(vec)
+            key = text.lower().strip()
+            if key in self._vectors:
+                results.append(list(self._vectors[key]))
+            else:
+                results.append(list(self._default))
         return results
+
+
+class RealEmbeddingProvider:
+    """Experiment provider using a real embedding model.
+
+    For MVP, this is a placeholder that raises if no model is available.
+    In production, this would wrap MARBLE's embedding model.
+    """
+
+    def __init__(self, model_name: str) -> None:
+        self._model_name = model_name
+        # In production, load the model here
+        # For now, raise if semantic is actually needed
+        self._dim = 0
+
+    @property
+    def dimension(self) -> int:
+        return self._dim
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        raise NotImplementedError(
+            f"RealEmbeddingProvider({self._model_name}) requires a real embedding model. "
+            "Configure models.embedding_model in the experiment config."
+        )
 
 
 def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:

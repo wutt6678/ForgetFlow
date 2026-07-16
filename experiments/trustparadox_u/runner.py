@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import random
 from dataclasses import dataclass, field
 from typing import Any, Sequence
@@ -11,7 +12,7 @@ from experiments.trustparadox_u.agent import ScriptedResponder, TrustParadoxAgen
 from experiments.trustparadox_u.attacks import build_attack
 from experiments.trustparadox_u.config import ExperimentConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
-from experiments.trustparadox_u.embedding import StubEmbeddingProvider
+from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
 from marble.firewall.audit import AuditLogger
 from marble.firewall.contamination import ContaminationTracker
 from marble.firewall.detectors import HybridDetector
@@ -232,7 +233,27 @@ def run_episode(
 
     # Create firewall components
     ledger = ForgetLedger()
-    embedding_provider = StubEmbeddingProvider() if config.detector.semantic_enabled else None
+    embedding_provider: FixedEmbeddingProvider | RealEmbeddingProvider | None = None
+    if config.detector.semantic_enabled:
+        if config.run.mode == "test":
+            # Use fixed embeddings for deterministic tests
+            # Build a fixed vector map from semantic variants
+            vector_map: dict[str, list[float]] = {}
+            dim = 64
+            for si in episode.sensitive_items:
+                for variant in si.semantic_variants:
+                    # Create a simple deterministic vector for each variant
+                    vec = [0.0] * dim
+                    for i, ch in enumerate(variant.lower()):
+                        vec[i % dim] += (ord(ch) - 96) / 26.0
+                    # Normalize
+                    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+                    vector_map[variant] = [v / norm for v in vec]
+            embedding_provider = FixedEmbeddingProvider(vector_map)
+        elif config.run.mode == "experiment":
+            embedding_provider = RealEmbeddingProvider("default")
+        else:
+            raise ValueError(f"Unknown run mode: {config.run.mode!r}")
     detector = HybridDetector(
         exact_enabled=config.detector.exact_enabled,
         entity_enabled=config.detector.entity_enabled,

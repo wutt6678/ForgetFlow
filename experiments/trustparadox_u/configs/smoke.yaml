@@ -2,7 +2,7 @@ run:
   name: smoke
   seed: 42
   repetitions: 1
-  mode: scripted
+  mode: test
 
 dataset:
   root: data/trustparadox_u

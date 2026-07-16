@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +61,15 @@ class MonitoringConfig:
 
 
 @dataclass(frozen=True)
+class RunConfig:
+    mode: str = "test"  # "test" or "experiment"
+
+    def __post_init__(self) -> None:
+        if self.mode not in ("test", "experiment"):
+            raise ValueError(f"mode must be 'test' or 'experiment', got {self.mode!r}")
+
+
+@dataclass(frozen=True)
 class ExperimentConfig:
     seed: int
     repetitions: int
@@ -68,6 +77,7 @@ class ExperimentConfig:
     history: HistoryConfig
     policy: PolicyConfig
     monitoring: MonitoringConfig
+    run: RunConfig = field(default_factory=RunConfig)
 
     def __post_init__(self) -> None:
         if self.repetitions < 1:
@@ -113,6 +123,7 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
     history = HistoryConfig(**hist_raw)
     policy = PolicyConfig(**pol_raw)
     monitoring = MonitoringConfig(**mon_raw)
+    run_config = RunConfig(mode=run.get("mode", "test"))
 
     return ExperimentConfig(
         seed=seed,
@@ -121,4 +132,5 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         history=history,
         policy=policy,
         monitoring=monitoring,
+        run=run_config,
     )
