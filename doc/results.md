@@ -10,33 +10,35 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 160 |
-| Passed | 160 |
+| Total tests | 262 |
+| Passed | 262 |
 | Failed | 0 |
-| Execution time | ~0.40s |
+| Execution time | ~0.75s |
 
 ### Test Breakdown
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
 | `test_types.py` | 26 | PASS |
-| `test_registry.py` | 11 | PASS |
+| `test_runner.py` | 28 | PASS |
+| `test_metric_contracts.py` | 24 | PASS |
+| `test_end_to_end.py` | 20 | PASS |
+| `test_result_audit.py` | 19 | PASS |
+| `test_evaluator.py` | 16 | PASS |
 | `test_detectors.py` | 12 | PASS |
-| `test_history.py` | 9 | PASS |
-| `test_policy.py` | 10 | PASS |
-| `test_flow_gate.py` | 6 | PASS |
-| `test_contamination.py` | 8 | PASS |
-| `test_config.py` | 11 | PASS |
 | `test_schema.py` | 11 | PASS |
-| `test_dataset.py` | 1 | PASS |
-| `test_attacks.py` | 6 | PASS |
-| `test_runner.py` | 3 | PASS |
-| `test_evaluator.py` | 10 | PASS |
-| `test_matrix.py` | 4 | PASS |
-| `test_end_to_end.py` | 7 | PASS |
+| `test_matrix.py` | 11 | PASS |
+| `test_config.py` | 11 | PASS |
+| `test_registry.py` | 11 | PASS |
+| `test_policy.py` | 10 | PASS |
+| `test_flow_gate.py` | 10 | PASS |
+| `test_embedding.py` | 9 | PASS |
 | `test_architecture_contract.py` | 9 | PASS |
-| `test_metric_contracts.py` | 10 | PASS |
+| `test_history.py` | 9 | PASS |
 | `test_audit_results.py` | 8 | PASS |
+| `test_contamination.py` | 8 | PASS |
+| `test_attacks.py` | 6 | PASS |
+| `test_dataset.py` | 4 | PASS |
 
 ---
 
@@ -180,6 +182,59 @@ For a secret space of size N:
 - 540 experiment runs can be generated in <1s
 - Episode runner processes 3 episodes in <1s
 - Memory usage: minimal (no large models loaded)
+
+---
+
+## Pilot Experiment Results
+
+### Configuration
+
+| Dimension | Value |
+|-----------|-------|
+| Scenarios | 3 (credential, private attribute, authorization) |
+| Conditions | 7 (no firewall, exact only, full MVP, no semantic, stateless, binary policy, one-time monitoring) |
+| Trust levels | 3 (low, default, high) |
+| Seeds | 5 (42, 43, 44, 45, 46) |
+| **Total runs** | **315** |
+
+### Directional Expectation Checks
+
+All 12 directional checks passed across all scenarios:
+
+| Check | Result |
+|-------|--------|
+| credential: full MVP exposure < no firewall | PASS |
+| credential: full MVP exposure ≤ no semantic | PASS |
+| credential: full MVP stable across trust | PASS |
+| attribute: full MVP exposure < no firewall | PASS |
+| attribute: full MVP exposure ≤ no semantic | PASS |
+| attribute: full MVP stable across trust | PASS |
+| authorization: full MVP exposure < no firewall | PASS |
+| authorization: full MVP exposure ≤ no semantic | PASS |
+| authorization: full MVP stable across trust | PASS |
+
+### Credential Scenario Exposure Rates
+
+| Condition | Avg Exposure Rate |
+|-----------|-------------------|
+| No firewall | 0.5000 |
+| One-time monitoring | 0.2500 |
+| Full MVP | 0.0000 |
+| Exact only | 0.0000 |
+| No semantic | 0.0000 |
+| Stateless | 0.0000 |
+| Binary policy | 0.0000 |
+
+### CI Verification
+
+All local gates pass:
+- `validate_workflows.py` ✓
+- `check_source_integrity.py` ✓
+- `compileall marble experiments` ✓
+- `ruff check` ✓
+- `ruff format` ✓
+- `mypy marble experiments` ✓
+- `pytest` (262 tests) ✓
 
 ---
 

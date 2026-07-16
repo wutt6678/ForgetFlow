@@ -347,49 +347,78 @@ Generates paired runs across dimensions:
 - Deterministic ordering, no duplicate run IDs
 - Output as JSONL
 
+**Trust triplet validation:** `validate_trust_triplet()` ensures that low/default/high entries share all fields except `trust_level`. `group_trust_triplets()` groups entries by (scenario, attack, firewall_variant, seed) for paired comparison.
+
 ---
 
 ## 18. Result Auditor (`experiments/trustparadox_u/audit_results.py`)
 
 Validates episode results before aggregation:
 
+**Turn-level rules:**
 - `block` action → `released_text is None`
 - Non-block action → `released_text` exists
 - `target_exposed=True` → `released_text` is not None
 - `target_reconstructed=True` → `is_reconstruction_attempt=True`
 - `target_reintroduced=True` → `is_recontamination_attempt=True`
+- `task_contribution_successful=True` → `task_relevant=True`
+
+**Episode-level rules:**
+- Config hash has valid SHA-256 length (64 hex chars)
+- Secret variant ID exists
+- Attack type exists
+- `cleaned_agents_exposed` ≥ 0
+- `recontaminated_agents` ≤ `cleaned_agents_exposed`
 - Metadata contains `forbidden_strings`, `seed`, `config_hash`
+
+**Metric rules** (`audit_metric_value()`):
+- numerator ≤ denominator
+- Zero denominator → value is None
+- Nonzero denominator → value in [0, 1]
 
 `validate_for_aggregation()` refuses to process invalid results unless `allow_errors=True`.
 
 ---
 
-## 19. Testing Strategy
+## 19. Pilot Experiment Runner (`experiments/trustparadox_u/run_pilot.py`)
 
-- **160 tests** across 18 test files
-- No live model API calls — all tests use `ScriptedResponder` and `StubEmbeddingProvider`
+Runs the complete three-scenario pilot:
+- 3 scenarios × 7 conditions × 3 trust levels × 5 seeds = 315 runs
+- Scripted responders for deterministic execution
+- Fixed embedding provider for semantic detection
+- Verifies directional expectations (full MVP < no firewall, trust stability, etc.)
+- Outputs: episode results JSONL, metric table JSON, directional check report
+
+---
+
+## 20. Testing Strategy
+
+- **262 tests** across 20 test files
+- No live model API calls — all tests use `ScriptedResponder` and `FixedEmbeddingProvider`
 - Fixed seeds for determinism
-- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit
+- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population
 
 ### Test Categories
 
 | File | Tests | Coverage |
 |------|-------|----------|
 | `test_types.py` | 26 | Data type validation |
-| `test_registry.py` | 11 | ForgetLedger behavior |
+| `test_runner.py` | 28 | Episode execution + population |
+| `test_metric_contracts.py` | 24 | Metric correctness |
+| `test_end_to_end.py` | 20 | Six paired research cases |
+| `test_result_audit.py` | 19 | Extended audit rules |
+| `test_evaluator.py` | 16 | Metric computation |
 | `test_detectors.py` | 12 | Exact/alias detection |
-| `test_history.py` | 9 | History + reconstruction |
-| `test_policy.py` | 10 | Policy decisions |
-| `test_flow_gate.py` | 6 | FlowGate integration |
-| `test_contamination.py` | 8 | State machine transitions |
-| `test_config.py` | 11 | Configuration loading |
 | `test_schema.py` | 11 | Schema validation + dataset |
-| `test_dataset.py` | 1 | Split loading |
-| `test_attacks.py` | 6 | Attack generation |
-| `test_runner.py` | 3 | Episode execution |
-| `test_evaluator.py` | 10 | Metric computation |
-| `test_matrix.py` | 4 | Matrix generation |
-| `test_end_to_end.py` | 7 | Full pipeline validation |
+| `test_matrix.py` | 11 | Matrix + trust triplet |
+| `test_config.py` | 11 | Configuration loading |
+| `test_registry.py` | 11 | ForgetLedger behavior |
+| `test_policy.py` | 10 | Policy decisions |
+| `test_flow_gate.py` | 10 | FlowGate integration |
+| `test_embedding.py` | 9 | Embedding providers |
 | `test_architecture_contract.py` | 9 | Architecture regression |
-| `test_metric_contracts.py` | 10 | Metric correctness |
+| `test_history.py` | 9 | History + reconstruction |
 | `test_audit_results.py` | 8 | Result audit validation |
+| `test_contamination.py` | 8 | State machine transitions |
+| `test_attacks.py` | 6 | Attack generation |
+| `test_dataset.py` | 4 | Split loading |

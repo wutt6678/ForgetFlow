@@ -4,6 +4,43 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.4.0] — 2026-07-16
+
+### Added
+
+#### Runner Population Tests (Fix Plan Iteration 10)
+- 10 new tests in `TestRunnerPopulation` class in `test_runner.py`
+- Direct verification that runner populates all important fields
+- Tests for: no-firewall released text, blocked message `released_text=None`, seed preservation, metadata fields (forbidden strings, permitted residuals, semantic variants, aliases), attack labels from dataset, reconstruction transcript state, recontamination denominator
+
+#### Trust Matrix Integrity (Fix Plan Iteration 11)
+- `validate_trust_triplet()` in `generate_matrix.py` — validates low/default/high entries differ only in trust level
+- `group_trust_triplets()` — groups entries by (scenario, attack, firewall_variant, seed)
+- 7 new tests in `TestTrustMatrixIntegrity` class in `test_matrix.py`
+- Tests: valid triplet, threshold drift rejection, history-window drift rejection, different secret/seed rejection, grouping, generated matrix validation
+
+#### Extended Result Auditing (Fix Plan Iteration 12)
+- Episode-level audit rules: config hash SHA-256 length, secret variant ID existence, attack type existence, non-negative denominator, numerator ≤ denominator
+- Turn-level audit rule: task contribution requires task relevance
+- `audit_metric_value()` for metric validation: numerator ≤ denominator, zero denominator → None, nonzero denominator → [0,1]
+- 19 new tests in `test_result_audit.py` covering turn rules, episode rules, metric rules, and aggregation gate
+
+#### Full CI Verification (Fix Plan Iteration 13)
+- All gates pass: `validate_workflows.py`, `check_source_integrity.py`, `compileall`, `ruff check`, `ruff format`, `mypy`, and 262 tests
+- Applied ruff formatting across all modules for consistency
+
+#### Three-Scenario Pilot Experiment (Fix Plan Iteration 14)
+- `experiments/trustparadox_u/run_pilot.py` — runs 315 experiments (3 scenarios × 7 conditions × 3 trust levels × 5 seeds)
+- All directional expectation checks pass across all scenarios
+- Output: message audit JSONL, episode results JSONL, metric table, config manifest
+
+### Changed
+
+- Updated test fixtures in `test_audit_results.py` to include new required metadata fields
+- **262 total tests** (up from 160), all passing
+
+---
+
 ## [0.3.0] — 2026-07-16
 
 ### Added
