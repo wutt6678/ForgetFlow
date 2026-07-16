@@ -275,6 +275,7 @@ class TestTaskSuccess:
             scenario_id=ep.scenario_id,
             trust_level=ep.trust_level,
             seed=42,
+            task_label="safe_access_procedure_completed",
         )
         result.turns.append(
             TurnResult(

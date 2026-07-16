@@ -74,6 +74,7 @@ class EpisodeResult:
 
     # Task outcome
     task_success: bool = False
+    task_label: str | None = None
 
     # Contamination tracking
     cleaned_agents_exposed: int = 0
@@ -758,24 +759,15 @@ def _evaluate_task_success(
                 and success_lower in turn.released_text.lower()
             ):
                 turn.task_contribution_successful = True
+                result.task_label = episode.task.success_label
                 return True
         return False
 
     if success_type == "exact_label":
         if not success_value:
             return False
-        # For exact_label: check if success_value appears in any released text
-        # as a proxy for the agent producing the expected label
-        success_lower = success_value.lower()
-        for turn in result.turns:
-            if (
-                turn.task_relevant
-                and turn.released_text
-                and success_lower in turn.released_text.lower()
-            ):
-                turn.task_contribution_successful = True
-                return True
-        return False
+        # For exact_label: check explicit task outcome, not text matching
+        return result.task_label == success_value
 
     raise ValueError(f"Unsupported task success_type: {success_type!r}")
 
