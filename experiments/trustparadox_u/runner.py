@@ -866,4 +866,26 @@ if __name__ == "__main__":
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
 
+    # Generate SmokeManifest
+    from experiments.trustparadox_u.audit_results import audit_results
+    from experiments.trustparadox_u.manifest import build_manifest, save_manifest
+
+    audit_report = audit_results(results)
+    config_hashes = list({cfg.config_hash()})
+    smoke_manifest = build_manifest(
+        results=results,
+        run_mode=cfg.run.mode,
+        config_hashes=config_hashes,
+        provider=cfg.models.embedding_provider,
+        model=cfg.models.embedding_model,
+        dimension=cfg.models.embedding_dimension,
+        semantic_threshold=cfg.detector.semantic_threshold,
+        api_base=cfg.models.api_base,
+        audit_valid=not audit_report.has_errors,
+        audit_error_count=len(audit_report.errors()),
+    )
+    smoke_manifest_path = output_dir / "smoke_manifest.json"
+    save_manifest(smoke_manifest, smoke_manifest_path)
+    print(f"Smoke manifest written to {smoke_manifest_path}")
+
     print(f"\nWrote {len(results)} results to {output_dir}")
