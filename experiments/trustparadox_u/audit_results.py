@@ -74,6 +74,9 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
             )
         )
 
+    # Episode-level rules
+    findings.extend(_audit_episode_rules(result, ep_id))
+
     # Check each turn
     for turn in result.turns:
         turn_findings = _audit_turn(turn, ep_id)
@@ -148,6 +151,86 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
             )
         )
 
+    # Check: task contribution requires task relevance
+    if turn.task_contribution_successful and not turn.task_relevant:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="TASK_CONTRIBUTION_WITHOUT_RELEVANCE",
+                message=f"Turn {turn.turn_id}: task_contribution_successful without task_relevant",
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    return findings
+
+
+def _audit_episode_rules(
+    result: EpisodeResult, episode_id: str
+) -> list[AuditFinding]:
+    """Audit episode-level rules."""
+    findings: list[AuditFinding] = []
+
+    # Config hash has valid SHA-256 length (64 hex chars)
+    config_hash = result.metadata.get("config_hash", "")
+    if config_hash and len(config_hash) != 64:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="INVALID_CONFIG_HASH_LENGTH",
+                message=f"Config hash has invalid length: {len(config_hash)}",
+                episode_id=episode_id,
+            )
+        )
+
+    # Secret variant ID exists
+    if not result.metadata.get("secret_variant_id"):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="MISSING_SECRET_VARIANT_ID",
+                message="Episode metadata missing secret_variant_id",
+                episode_id=episode_id,
+            )
+        )
+
+    # Attack type exists
+    if not result.metadata.get("attack_type"):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="MISSING_ATTACK_TYPE",
+                message="Episode metadata missing attack_type",
+                episode_id=episode_id,
+            )
+        )
+
+    # Cleaned-agent denominator is not negative
+    if result.cleaned_agents_exposed < 0:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="NEGATIVE_CLEANED_AGENTS_DENOMINATOR",
+                message=f"cleaned_agents_exposed is negative: {result.cleaned_agents_exposed}",
+                episode_id=episode_id,
+            )
+        )
+
+    # Numerator cannot exceed denominator
+    if result.recontaminated_agents > result.cleaned_agents_exposed:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="NUMERATOR_EXCEEDS_DENOMINATOR",
+                message=(
+                    f"recontaminated_agents ({result.recontaminated_agents}) > "
+                    f"cleaned_agents_exposed ({result.cleaned_agents_exposed})"
+                ),
+                episode_id=episode_id,
+            )
+        )
+
     return findings
 
 
@@ -178,3 +261,49 @@ def validate_for_aggregation(
     if report.has_errors and not allow_errors:
         return False, report
     return True, report
+
+
+def audit_metric_value(
+    numerator: int,
+    denominator: int,
+    value: float | None,
+    metric_name: str = "",
+) -> list[AuditFinding]:
+    """Audit a single metric value for consistency.
+
+    Rules:
+    - numerator <= denominator
+    - zero denominator -> value is None
+    - nonzero denominator -> value in [0, 1]
+    """
+    findings: list[AuditFinding] = []
+    prefix = f"{metric_name}: " if metric_name else ""
+
+    if numerator > denominator:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="METRIC_NUMERATOR_EXCEEDS_DENOMINATOR",
+                message=f"{prefix}numerator ({numerator}) > denominator ({denominator})",
+            )
+        )
+
+    if denominator == 0 and value is not None:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="METRIC_ZERO_DENOMINATOR_WITH_VALUE",
+                message=f"{prefix}zero denominator but value is {value!r} (expected None)",
+            )
+        )
+
+    if denominator != 0 and value is not None and not (0.0 <= value <= 1.0):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="METRIC_VALUE_OUT_OF_RANGE",
+                message=f"{prefix}value {value} not in [0, 1]",
+            )
+        )
+
+    return findings
