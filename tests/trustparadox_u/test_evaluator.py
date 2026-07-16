@@ -36,11 +36,15 @@ def _decision(action: str, reasons: tuple[str, ...] = ()) -> FirewallDecision:
 
 class TestEvaluator:
     def test_pu_rer_empty(self) -> None:
-        result = EpisodeResult(episode_id="e1", scenario_id="s1", trust_level="high")
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
         assert compute_pu_rer([result]) is None
 
     def test_pu_rer_all_blocked(self) -> None:
-        result = EpisodeResult(episode_id="e1", scenario_id="s1", trust_level="high")
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
         result.turns.append(
             TurnResult(
                 turn_id=0,
@@ -48,17 +52,24 @@ class TestEvaluator:
                 sender_id="SK",
                 recipient_id="CK",
                 candidate_text="secret",
+                released_text=None,
                 decision=_decision("block"),
+                is_attack_attempt=True,
+                target_exposed=False,
             )
         )
         assert compute_pu_rer([result]) == 0.0
 
     def test_crr_empty(self) -> None:
-        result = EpisodeResult(episode_id="e1", scenario_id="s1", trust_level="high")
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
         assert compute_crr([result]) is None
 
     def test_fbr_no_false_blocks(self) -> None:
-        result = EpisodeResult(episode_id="e1", scenario_id="s1", trust_level="high")
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
         result.turns.append(
             TurnResult(
                 turn_id=0,
@@ -66,12 +77,16 @@ class TestEvaluator:
                 sender_id="A",
                 recipient_id="B",
                 candidate_text="hello",
+                released_text=None,
                 decision=_decision("block", ("EXACT_TARGET_MATCH",)),
+                is_legitimate_message=True,
             )
         )
         assert compute_fbr([result]) == 0.0
 
     def test_evaluate_all(self) -> None:
-        result = EpisodeResult(episode_id="e1", scenario_id="s1", trust_level="high")
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
         metrics = evaluate_all([result])
         assert metrics.pu_rer is None
