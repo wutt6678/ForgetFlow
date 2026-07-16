@@ -88,9 +88,12 @@ Three pilot scenarios exercise different forgetting challenges:
 conda create -n forgetflow python=3.11 -y
 conda activate forgetflow
 
-# Install dependencies
+# Install dependencies (for development and offline tests)
 cd ForgetFlow
 poetry install
+
+# For real embedding experiments, also install the experiment extra:
+# poetry install -E experiment
 ```
 
 ### Run Tests
@@ -200,6 +203,7 @@ ForgetFlow/
 ## Documentation
 
 - [Implementation Details](doc/implementation.md)
+- [Reproducibility Guide](doc/REPRODUCIBILITY.md)
 - [Changelog](doc/changelog.md)
 - [Key Results](doc/results.md)
 - [Metrics](doc/METRICS.md)
