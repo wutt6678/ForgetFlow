@@ -282,3 +282,19 @@ class TestPairedUtilityRetention:
         # No baseline successes -> value is None
         assert result.metric.value is None
         assert result.metric.denominator == 0
+
+    def test_firewall_success_on_baseline_failure_does_not_raise_utility(self) -> None:
+        """Regression: firewall success where baseline failed must not inflate utility."""
+        fw = [
+            self._make_result(task_success=True, trust_level="high"),
+            self._make_result(task_success=True, trust_level="low"),
+        ]
+        baseline = [
+            self._make_result(task_success=True, trust_level="high"),
+            self._make_result(task_success=False, trust_level="low"),
+        ]
+        result = compute_utility_retention(fw, baseline)
+        # Only the 'high' pair is eligible (baseline succeeded)
+        assert result.metric.value == 1.0
+        assert result.metric.numerator == 1
+        assert result.metric.denominator == 1

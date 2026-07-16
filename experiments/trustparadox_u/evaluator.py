@@ -197,17 +197,13 @@ def compute_utility_retention(
     unmatched_baseline = baseline_keys - firewall_keys
     unmatched_firewall = firewall_keys - baseline_keys
 
-    # Compute utility over matched pairs
-    fw_successes = 0
-    baseline_successes = 0
-    for key in matched_keys:
-        if firewall_index[key].task_success:
-            fw_successes += 1
-        if baseline_index[key].task_success:
-            baseline_successes += 1
+    # Compute utility over matched pairs where baseline succeeded
+    eligible_keys = {key for key in matched_keys if baseline_index[key].task_success}
+    baseline_successes = len(eligible_keys)
+    fw_successes = sum(1 for key in eligible_keys if firewall_index[key].task_success)
 
     if baseline_successes == 0:
-        metric = MetricValue(None, 0, 0, "no task successes in baseline")
+        metric = MetricValue(None, 0, 0, "no baseline-successful matched pairs")
     else:
         metric = MetricValue(
             fw_successes / baseline_successes,
