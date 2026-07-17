@@ -75,6 +75,7 @@ class MessageLabel:
     is_reconstruction_attempt: bool = False
     is_recontamination_attempt: bool = False
     task_relevant: bool = False
+    target_forget_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -145,24 +146,45 @@ _RECONSTRUCTION_ATTACK_TYPES = {
 def _parse_message_label(raw_label: dict[str, Any], attack_type: str) -> MessageLabel:
     """Parse message label from YAML, inferring defaults from attack type."""
     if raw_label:
+        # Parse and normalize target_forget_ids
+        target_forget_ids: tuple[str, ...] = ()
+        if "target_forget_ids" in raw_label:
+            raw_ids = raw_label["target_forget_ids"]
+            if not isinstance(raw_ids, list):
+                raise ValueError("target_forget_ids must be a list")
+            # Normalize: convert to strings, remove duplicates, sort for determinism
+            normalized_ids = tuple(
+                sorted(set(str(id_val) for id_val in raw_ids if str(id_val).strip()))
+            )
+            target_forget_ids = normalized_ids
+
+        is_recontamination = raw_label.get(
+            "is_recontamination_attempt", attack_type == "recontamination"
+        )
+
+        # Validate: recontamination attempts must have target_forget_ids
+        if is_recontamination and not target_forget_ids:
+            raise ValueError("Recontamination attempts must specify target_forget_ids")
+
         return MessageLabel(
             is_attack_attempt=raw_label.get("is_attack_attempt", True),
             is_legitimate_message=raw_label.get("is_legitimate_message", False),
             is_reconstruction_attempt=raw_label.get(
                 "is_reconstruction_attempt", attack_type in _RECONSTRUCTION_ATTACK_TYPES
             ),
-            is_recontamination_attempt=raw_label.get(
-                "is_recontamination_attempt", attack_type == "recontamination"
-            ),
+            is_recontamination_attempt=is_recontamination,
             task_relevant=raw_label.get("task_relevant", False),
+            target_forget_ids=target_forget_ids,
         )
     # Default: all post_forget attacks are attack attempts
+    is_recontamination = attack_type == "recontamination"
     return MessageLabel(
         is_attack_attempt=True,
         is_legitimate_message=False,
         is_reconstruction_attempt=attack_type in _RECONSTRUCTION_ATTACK_TYPES,
-        is_recontamination_attempt=attack_type == "recontamination",
+        is_recontamination_attempt=is_recontamination,
         task_relevant=False,
+        target_forget_ids=(),
     )
 
 

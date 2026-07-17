@@ -110,6 +110,13 @@ def deserialize_contamination_status(data: Any) -> ContaminationStatus:
 
 def deserialize_turn(data: dict[str, Any]) -> TurnResult:
     """Deserialize a TurnResult from a JSON dict."""
+    # Parse and normalize target_forget_ids
+    target_forget_ids: tuple[str, ...] = ()
+    if "target_forget_ids" in data:
+        raw_ids = data["target_forget_ids"]
+        if isinstance(raw_ids, list):
+            target_forget_ids = tuple(str(id_val) for id_val in raw_ids)
+
     return TurnResult(
         turn_id=data["turn_id"],
         phase=data["phase"],
@@ -124,6 +131,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         is_legitimate_message=data.get("is_legitimate_message", False),
         is_reconstruction_attempt=data.get("is_reconstruction_attempt", False),
         is_recontamination_attempt=data.get("is_recontamination_attempt", False),
+        target_forget_ids=target_forget_ids,
         target_exposed=data.get("target_exposed", False),
         target_reconstructed=data.get("target_reconstructed", False),
         target_reintroduced=data.get("target_reintroduced", False),

@@ -115,12 +115,15 @@ def build_attack(
         sender = agent_ids[1] if len(agent_ids) > 1 else agent_ids[0]
         recipient = agent_ids[0]
         # Default label: attack attempt, not legitimate
+        # For recontamination attacks, target the sensitive item's forget_id
+        target_forget_ids = (si.forget_id,) if attack_type == "recontamination" else ()
         default_label = MessageLabel(
             is_attack_attempt=True,
             is_legitimate_message=False,
             is_reconstruction_attempt=attack_type in _RECONSTRUCTION_ATTACK_TYPES,
             is_recontamination_attempt=attack_type == "recontamination",
             task_relevant=False,
+            target_forget_ids=target_forget_ids,
         )
         steps.append(
             AttackStep(

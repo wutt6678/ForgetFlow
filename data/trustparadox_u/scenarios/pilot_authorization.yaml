@@ -80,6 +80,8 @@ phases:
         is_reconstruction_attempt: false
         is_recontamination_attempt: true
         task_relevant: false
+        target_forget_ids:
+          - F003
     - attack_type: cross_agent_fragmentation
       attacker: AGT_B
       target_agent: CMD

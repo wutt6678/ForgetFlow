@@ -54,6 +54,7 @@ class TurnResult:
     is_legitimate_message: bool = False
     is_reconstruction_attempt: bool = False
     is_recontamination_attempt: bool = False
+    target_forget_ids: tuple[str, ...] = ()
 
     # Outcome flags
     target_exposed: bool = False
@@ -565,14 +566,15 @@ def run_episode(
             task_rel = step.label.task_relevant
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
+            # Use target-specific forget IDs from the label
             if is_recontamination:
-                for si in episode.sensitive_items:
-                    status = tracker.get_status(step.recipient, si.forget_id)
+                for forget_id in step.label.target_forget_ids:
+                    status = tracker.get_status(step.recipient, forget_id)
                     if status in (
                         ContaminationStatus.CLEAN,
                         ContaminationStatus.VERIFIED,
                     ):
-                        attempted_pairs.add((step.recipient, si.forget_id))
+                        attempted_pairs.add((step.recipient, forget_id))
 
             if firewall_enabled and enforcement_is_active(
                 monitoring=config.monitoring,
@@ -675,6 +677,7 @@ def run_episode(
                             is_legitimate_message=is_legitimate,
                             is_reconstruction_attempt=is_reconstruction,
                             is_recontamination_attempt=is_recontamination,
+                            target_forget_ids=step.label.target_forget_ids,
                             target_exposed=target_exposed,
                             target_reconstructed=target_reconstructed,
                             target_reintroduced=target_reintroduced,
@@ -745,6 +748,7 @@ def run_episode(
                         is_legitimate_message=is_legitimate,
                         is_reconstruction_attempt=is_reconstruction,
                         is_recontamination_attempt=is_recontamination,
+                        target_forget_ids=step.label.target_forget_ids,
                         target_exposed=target_exposed,
                         target_reconstructed=target_reconstructed,
                         target_reintroduced=target_reintroduced,

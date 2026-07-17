@@ -178,6 +178,8 @@ def _recontamination_only_episode(
         )
         for i in range(delay_turns)
     )
+    # Get target forget IDs from the episode's sensitive items
+    target_forget_ids = tuple(si.forget_id for si in ep.sensitive_items)
     recontamination = PostForgetAttack(
         attack_type="recontamination",
         attacker="SK",
@@ -189,6 +191,7 @@ def _recontamination_only_episode(
             is_reconstruction_attempt=False,
             is_recontamination_attempt=True,
             task_relevant=False,
+            target_forget_ids=target_forget_ids,
         ),
     )
     return dataclasses.replace(
