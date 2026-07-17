@@ -203,4 +203,99 @@ def validate_manifest_against_results(
                 }
             )
 
+    # 7. Check config hashes match
+    actual_config_hashes = sorted({str(r.metadata.get("config_hash", "")) for r in results})
+    if list(manifest.config_hashes) != actual_config_hashes:
+        findings.append(
+            {
+                "code": "MANIFEST_CONFIG_HASHES_MISMATCH",
+                "message": f"Config hashes don't match: manifest={manifest.config_hashes}, actual={actual_config_hashes}",
+            }
+        )
+
+    # 8. Check run mode matches
+    actual_run_modes = {r.metadata.get("run_mode") for r in results}
+    if len(actual_run_modes) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_RUN_MODES",
+                "message": f"Results have multiple run modes: {actual_run_modes}",
+            }
+        )
+    elif actual_run_modes and manifest.run_mode not in actual_run_modes:
+        findings.append(
+            {
+                "code": "MANIFEST_RUN_MODE_MISMATCH",
+                "message": f"Run mode doesn't match: manifest={manifest.run_mode}, actual={actual_run_modes.pop()}",
+            }
+        )
+
+    # 9. Check provider matches
+    actual_providers = {r.metadata.get("embedding_provider") for r in results}
+    if len(actual_providers) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_PROVIDERS",
+                "message": f"Results have multiple providers: {actual_providers}",
+            }
+        )
+    elif actual_providers and manifest.provider not in actual_providers:
+        findings.append(
+            {
+                "code": "MANIFEST_PROVIDER_MISMATCH",
+                "message": f"Provider doesn't match: manifest={manifest.provider}, actual={actual_providers.pop()}",
+            }
+        )
+
+    # 10. Check model matches
+    actual_models = {r.metadata.get("embedding_model") for r in results}
+    if len(actual_models) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_MODELS",
+                "message": f"Results have multiple models: {actual_models}",
+            }
+        )
+    elif actual_models and manifest.model not in actual_models:
+        findings.append(
+            {
+                "code": "MANIFEST_MODEL_MISMATCH",
+                "message": f"Model doesn't match: manifest={manifest.model}, actual={actual_models.pop()}",
+            }
+        )
+
+    # 11. Check dimension matches
+    actual_dimensions = {r.metadata.get("embedding_dimension") for r in results}
+    if len(actual_dimensions) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_DIMENSIONS",
+                "message": f"Results have multiple dimensions: {actual_dimensions}",
+            }
+        )
+    elif actual_dimensions and manifest.dimension not in actual_dimensions:
+        findings.append(
+            {
+                "code": "MANIFEST_DIMENSION_MISMATCH",
+                "message": f"Dimension doesn't match: manifest={manifest.dimension}, actual={actual_dimensions.pop()}",
+            }
+        )
+
+    # 12. Check semantic threshold matches
+    actual_thresholds = {r.metadata.get("semantic_threshold") for r in results}
+    if len(actual_thresholds) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_THRESHOLDS",
+                "message": f"Results have multiple thresholds: {actual_thresholds}",
+            }
+        )
+    elif actual_thresholds and manifest.semantic_threshold not in actual_thresholds:
+        findings.append(
+            {
+                "code": "MANIFEST_THRESHOLD_MISMATCH",
+                "message": f"Threshold doesn't match: manifest={manifest.semantic_threshold}, actual={actual_thresholds.pop()}",
+            }
+        )
+
     return findings

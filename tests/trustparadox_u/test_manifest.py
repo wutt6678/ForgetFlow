@@ -207,6 +207,8 @@ class TestValidateManifestAgainstResults:
     def test_valid_manifest_passes(self) -> None:
         """A valid manifest passes validation."""
         results = [_make_result()]
+        results[0].metadata["run_mode"] = "test"
+        results[0].metadata["semantic_threshold"] = 0.8
         m = build_manifest(
             results=results,
             run_mode="test",
@@ -333,3 +335,146 @@ class TestValidateManifestAgainstResults:
         )
         findings = validate_manifest_against_results(m, results)
         assert any(f["code"] == "MANIFEST_METRIC_COUNTS_MISMATCH" for f in findings)
+
+    def test_config_hashes_mismatch_fails(self) -> None:
+        """Config hashes mismatch fails validation."""
+        results = [_make_result(config_hash="abc123")]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("wrong_hash",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_CONFIG_HASHES_MISMATCH" for f in findings)
+
+    def test_run_mode_mismatch_fails(self) -> None:
+        """Run mode mismatch fails validation."""
+        results = [_make_result()]
+        results[0].metadata["run_mode"] = "experiment"
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",  # Wrong run mode
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_RUN_MODE_MISMATCH" for f in findings)
+
+    def test_provider_mismatch_fails(self) -> None:
+        """Provider mismatch fails validation."""
+        results = [_make_result()]
+        results[0].metadata["embedding_provider"] = "openai"
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider="alibaba",  # Wrong provider
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_PROVIDER_MISMATCH" for f in findings)
+
+    def test_model_mismatch_fails(self) -> None:
+        """Model mismatch fails validation."""
+        results = [_make_result()]
+        results[0].metadata["embedding_model"] = "text-embedding-v3"
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model="wrong-model",  # Wrong model
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_MODEL_MISMATCH" for f in findings)
+
+    def test_dimension_mismatch_fails(self) -> None:
+        """Dimension mismatch fails validation."""
+        results = [_make_result()]
+        results[0].metadata["embedding_dimension"] = 1536
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=512,  # Wrong dimension
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_DIMENSION_MISMATCH" for f in findings)
+
+    def test_threshold_mismatch_fails(self) -> None:
+        """Semantic threshold mismatch fails validation."""
+        results = [_make_result()]
+        results[0].metadata["semantic_threshold"] = 0.9
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,  # Wrong threshold
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_THRESHOLD_MISMATCH" for f in findings)

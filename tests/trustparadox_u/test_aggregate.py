@@ -114,6 +114,8 @@ class TestAggregateSummary:
 def _write_valid_episodes(path: Path) -> None:
     """Write a valid episodes.jsonl file for testing."""
     result = _valid_result()
+    result.metadata["run_mode"] = "test"
+    result.metadata["semantic_threshold"] = 0.8
     data = {
         "run_id": result.run_id,
         "episode_id": result.episode_id,
