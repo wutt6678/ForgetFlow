@@ -11,6 +11,13 @@ from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallD
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
+# Current schema version for episode results
+RESULT_SCHEMA_VERSION = "1.0"
+
+
+class UnsupportedSchemaVersionError(ValueError):
+    """Raised when an unsupported schema version is encountered."""
+
 
 def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult:
     """Deserialize a DetectorResult from a JSON dict."""
@@ -143,7 +150,19 @@ def load_episode_results(path: str | Path) -> list[EpisodeResult]:
                 continue
             try:
                 data = json.loads(line)
-                results.append(deserialize_episode_result(data))
+                # Handle schema versioning
+                schema_version = str(data.get("schema_version", "0"))
+                if schema_version == "1.0":
+                    # Versioned envelope format
+                    episode_data = data.get("episode", data)
+                    results.append(deserialize_episode_result(episode_data))
+                elif schema_version == "0":
+                    # Legacy format (no version field)
+                    results.append(deserialize_episode_result(data))
+                else:
+                    raise UnsupportedSchemaVersionError(
+                        f"Unsupported schema version: {schema_version!r} at line {line_num}"
+                    )
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Malformed JSONL at line {line_num}: {exc}") from exc
             except (KeyError, TypeError, ValueError) as exc:

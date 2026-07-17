@@ -9,6 +9,8 @@ import pytest
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 from experiments.trustparadox_u.serialization import (
+    RESULT_SCHEMA_VERSION,
+    UnsupportedSchemaVersionError,
     deserialize_contamination_status,
     deserialize_detector_result,
     deserialize_firewall_decision,
@@ -423,3 +425,96 @@ class TestLoadEpisodeResults:
 
         with pytest.raises(ValueError, match="Malformed episode"):
             load_episode_results(episodes_file)
+
+
+class TestSchemaVersioning:
+    """Tests for schema versioning support."""
+
+    def test_current_schema_version(self) -> None:
+        """Current schema version should be defined."""
+        assert RESULT_SCHEMA_VERSION == "1.0"
+
+    def test_legacy_format_no_version(self, tmp_path: Path) -> None:
+        """Legacy format without schema_version should work."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "metadata": {},
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(episode_data) + "\n")
+
+        results = load_episode_results(episodes_file)
+        assert len(results) == 1
+
+    def test_versioned_envelope_format(self, tmp_path: Path) -> None:
+        """Versioned envelope format should work."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "metadata": {},
+        }
+        versioned_data = {
+            "schema_version": "1.0",
+            "episode": episode_data,
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(versioned_data) + "\n")
+
+        results = load_episode_results(episodes_file)
+        assert len(results) == 1
+
+    def test_unsupported_schema_version_raises(self, tmp_path: Path) -> None:
+        """Unsupported schema version should raise error."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "metadata": {},
+        }
+        versioned_data = {
+            "schema_version": "99.0",
+            "episode": episode_data,
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(versioned_data) + "\n")
+
+        with pytest.raises(ValueError, match="Unsupported schema version"):
+            load_episode_results(episodes_file)
+
+    def test_zero_schema_version_works(self, tmp_path: Path) -> None:
+        """Schema version '0' should work (legacy)."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "metadata": {},
+        }
+        versioned_data = {
+            "schema_version": "0",
+            **episode_data,
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(versioned_data) + "\n")
+
+        results = load_episode_results(episodes_file)
+        assert len(results) == 1
+
