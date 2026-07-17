@@ -662,6 +662,17 @@ class TestDuplicateKeys:
         from_result = pairing_key_from_result(r1)
         assert from_dict == from_result
 
+    def test_type_error_in_identity_becomes_finding(self) -> None:
+        """TypeError during identity conversion becomes an audit finding."""
+        r = _valid_result()
+        # Set seed to None which will cause TypeError when converting to int
+        r.seed = None  # type: ignore[assignment]
+
+        from experiments.trustparadox_u.audit_results import audit_duplicate_keys
+
+        findings = audit_duplicate_keys([r])
+        assert any(f.code == "RUN_IDENTITY_INVALID" for f in findings)
+
 
 class TestRunnerAuditIntegration:
     """Integration tests using actual runner output."""

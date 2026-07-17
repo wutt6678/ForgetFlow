@@ -623,7 +623,7 @@ def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
     for r in results:
         try:
             identity = run_identity_from_result(r)
-        except (KeyError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError) as exc:
             findings.append(
                 AuditFinding(
                     level="error",
