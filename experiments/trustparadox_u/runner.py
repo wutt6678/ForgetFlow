@@ -648,7 +648,10 @@ def run_episode(
                         and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
                         and released_text is not None
                     ):
-                        if result.task_label is not None and result.task_label != sender.last_task_label:
+                        if (
+                            result.task_label is not None
+                            and result.task_label != sender.last_task_label
+                        ):
                             raise ValueError(
                                 "Conflicting task labels in one episode: "
                                 f"{result.task_label!r} vs {sender.last_task_label!r}"
@@ -714,7 +717,10 @@ def run_episode(
                     sender.last_task_label is not None
                     and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
                 ):
-                    if result.task_label is not None and result.task_label != sender.last_task_label:
+                    if (
+                        result.task_label is not None
+                        and result.task_label != sender.last_task_label
+                    ):
                         raise ValueError(
                             "Conflicting task labels in one episode: "
                             f"{result.task_label!r} vs {sender.last_task_label!r}"
@@ -986,6 +992,8 @@ if __name__ == "__main__":
 
     # Check for audit errors
     if audit_report.has_errors and not args.allow_invalid_results:
-        print(f"\nERROR: Audit found {len(audit_report.errors())} error(s). "
-              f"Use --allow-invalid-results to continue.")
+        print(
+            f"\nERROR: Audit found {len(audit_report.errors())} error(s). "
+            f"Use --allow-invalid-results to continue."
+        )
         raise SystemExit(1)

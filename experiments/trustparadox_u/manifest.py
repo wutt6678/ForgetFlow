@@ -120,45 +120,57 @@ def validate_manifest_against_results(
 
     # 1. Check result_count
     if manifest.result_count != len(results):
-        findings.append({
-            "code": "MANIFEST_RESULT_COUNT_MISMATCH",
-            "message": f"Manifest says {manifest.result_count} results, got {len(results)}",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_RESULT_COUNT_MISMATCH",
+                "message": f"Manifest says {manifest.result_count} results, got {len(results)}",
+            }
+        )
 
     # 2. Check episode IDs match
     actual_episode_ids = sorted({r.episode_id for r in results})
     if list(manifest.episode_ids) != actual_episode_ids:
-        findings.append({
-            "code": "MANIFEST_EPISODE_IDS_MISMATCH",
-            "message": f"Episode IDs don't match: manifest={manifest.episode_ids}, actual={actual_episode_ids}",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_EPISODE_IDS_MISMATCH",
+                "message": f"Episode IDs don't match: manifest={manifest.episode_ids}, actual={actual_episode_ids}",
+            }
+        )
 
     # 3. Check seeds match
     actual_seeds = sorted({r.seed for r in results})
     if list(manifest.seeds) != actual_seeds:
-        findings.append({
-            "code": "MANIFEST_SEEDS_MISMATCH",
-            "message": f"Seeds don't match: manifest={manifest.seeds}, actual={actual_seeds}",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_SEEDS_MISMATCH",
+                "message": f"Seeds don't match: manifest={manifest.seeds}, actual={actual_seeds}",
+            }
+        )
 
     # 4. Check audit status is true
     if not manifest.audit_valid:
-        findings.append({
-            "code": "MANIFEST_AUDIT_INVALID",
-            "message": f"Manifest reports audit invalid with {manifest.audit_error_count} errors",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_AUDIT_INVALID",
+                "message": f"Manifest reports audit invalid with {manifest.audit_error_count} errors",
+            }
+        )
 
     # 5. Check repository commit is valid
     if manifest.repository_commit == "unknown":
-        findings.append({
-            "code": "MANIFEST_UNKNOWN_COMMIT",
-            "message": "Repository commit is 'unknown'",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_UNKNOWN_COMMIT",
+                "message": "Repository commit is 'unknown'",
+            }
+        )
     elif not COMMIT_RE.match(manifest.repository_commit.replace("-dirty", "")):
-        findings.append({
-            "code": "MANIFEST_INVALID_COMMIT",
-            "message": f"Repository commit '{manifest.repository_commit}' is not a valid SHA",
-        })
+        findings.append(
+            {
+                "code": "MANIFEST_INVALID_COMMIT",
+                "message": f"Repository commit '{manifest.repository_commit}' is not a valid SHA",
+            }
+        )
 
     # 6. Check metric counts match evaluator output
     if manifest.metric_counts:
@@ -184,9 +196,11 @@ def validate_manifest_against_results(
             },
         }
         if manifest.metric_counts != expected_counts:
-            findings.append({
-                "code": "MANIFEST_METRIC_COUNTS_MISMATCH",
-                "message": "Metric counts don't match evaluator output",
-            })
+            findings.append(
+                {
+                    "code": "MANIFEST_METRIC_COUNTS_MISMATCH",
+                    "message": "Metric counts don't match evaluator output",
+                }
+            )
 
     return findings
