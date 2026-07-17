@@ -367,3 +367,87 @@ class TestLocateEpisodeResults:
 
         with pytest.raises(FileNotFoundError, match="No episode results found"):
             locate_episode_results(tmp_path)
+
+
+class TestCommitProvenanceValidation:
+    """Section 5: Smoke artifact provenance validation."""
+
+    def _make_manifest(self, commit: str = "abc1234"):
+        from experiments.trustparadox_u.manifest import SmokeManifest
+
+        return SmokeManifest(
+            repository_commit=commit,
+            generated_at_utc="2024-01-01T00:00:00Z",
+            run_mode="test",
+            config_hashes=("a" * 64,),
+            provider="fixed",
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep1",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+
+    def test_matching_commit_passes(self) -> None:
+        """Manifest commit matches expected commit -> no error."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("abc1234")
+        result = validate_commit_provenance(manifest, expected_commit="abc1234")
+        assert result is None
+
+    def test_stale_commit_raises(self) -> None:
+        """Manifest commit differs from expected -> StaleArtifactError."""
+        from experiments.trustparadox_u.aggregate import (
+            StaleArtifactError,
+            validate_commit_provenance,
+        )
+
+        manifest = self._make_manifest("old_sha1")
+        with pytest.raises(StaleArtifactError, match="Artifact commit mismatch"):
+            validate_commit_provenance(manifest, expected_commit="new_sha2")
+
+    def test_historical_override_returns_warning(self) -> None:
+        """Historical mode returns warning instead of raising."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("old_sha1")
+        result = validate_commit_provenance(
+            manifest,
+            expected_commit="new_sha2",
+            allow_historical=True,
+        )
+        assert result is not None
+        assert "HISTORICAL" in result
+
+    def test_dirty_sha_mismatch(self) -> None:
+        """Manifest with dirty suffix still matches base SHA."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("abc1234-dirty")
+        result = validate_commit_provenance(manifest, expected_commit="abc1234")
+        assert result is None
+
+    def test_no_provenance_check_when_no_args(self) -> None:
+        """No expected_commit and no require_current -> no check."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("anything")
+        result = validate_commit_provenance(manifest)
+        assert result is None
+
+    def test_require_current_commit_checks_head(self) -> None:
+        """--require-current-commit compares against current HEAD."""
+        from experiments.trustparadox_u.aggregate import (
+            StaleArtifactError,
+            validate_commit_provenance,
+        )
+
+        manifest = self._make_manifest("definitely_not_current_head")
+        with pytest.raises(StaleArtifactError):
+            validate_commit_provenance(manifest, require_current_commit=True)

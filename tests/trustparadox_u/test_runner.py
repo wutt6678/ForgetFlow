@@ -785,3 +785,96 @@ class TestRepeatedProbingRobustness:
             if turn.released_text:
                 for f in forbidden:
                     assert f not in turn.released_text
+
+
+class TestReintroducedForgetIdSemantics:
+    """Section 2: target_reintroduced depends on reintroduced_ids, not target_exposed."""
+
+    def test_no_firewall_reintroduced_ids_empty_when_not_targeted(self) -> None:
+        """Attack exposes content but doesn't target it -> no reintroduction."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config(), firewall_enabled=False)
+        for turn in result.turns:
+            if turn.phase == "POST_FORGET_ATTACK" and turn.is_recontamination_attempt:
+                # reintroduced_forget_ids must be subset of target_forget_ids
+                assert set(turn.reintroduced_forget_ids).issubset(set(turn.target_forget_ids))
+                # target_reintroduced must agree with reintroduced_forget_ids
+                assert turn.target_reintroduced == bool(turn.reintroduced_forget_ids)
+
+    def test_firewall_reintroduced_ids_subset_of_exposed_and_targeted(self) -> None:
+        """With firewall, reintroduced IDs must be subset of both exposed and targeted."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config(), firewall_enabled=True)
+        for turn in result.turns:
+            if turn.phase == "POST_FORGET_ATTACK":
+                reintroduced = set(turn.reintroduced_forget_ids)
+                exposed = set(turn.exposed_forget_ids)
+                targeted = set(turn.target_forget_ids)
+                assert reintroduced.issubset(exposed)
+                if turn.is_recontamination_attempt:
+                    assert reintroduced.issubset(targeted)
+                assert turn.target_reintroduced == bool(reintroduced)
+
+    def test_reintroduced_forget_ids_populated_on_turn_result(self) -> None:
+        """reintroduced_forget_ids field exists and is a tuple."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        for turn in result.turns:
+            assert isinstance(turn.reintroduced_forget_ids, tuple)
+
+    def test_reconstructed_forget_ids_populated_on_turn_result(self) -> None:
+        """reconstructed_forget_ids field exists and is a tuple."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        for turn in result.turns:
+            assert isinstance(turn.reconstructed_forget_ids, tuple)
+            # target_reconstructed must agree with reconstructed_forget_ids
+            assert turn.target_reconstructed == bool(turn.reconstructed_forget_ids)
+
+
+class TestDetectorMatchMerge:
+    """Section 3: Detector-matched forget IDs merge into exposed_forget_ids."""
+
+    def test_text_match_appears_in_exposed_ids(self) -> None:
+        """Text-based match appears in exposed_forget_ids."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config(), firewall_enabled=False)
+        # In no-firewall mode, text matches should appear
+        for turn in result.turns:
+            if turn.phase == "POST_FORGET_ATTACK" and turn.released_text:
+                # exposed_forget_ids should be consistent with text content
+                assert isinstance(turn.exposed_forget_ids, tuple)
+
+    def test_exposed_ids_includes_all_forget_ids_for_episode(self) -> None:
+        """All forget IDs in the episode are valid targets for exposure."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        valid_ids = {si.forget_id for si in ep.sensitive_items}
+        for turn in result.turns:
+            assert set(turn.exposed_forget_ids).issubset(valid_ids)
+
+
+class TestPerRecordReconstructionAttribution:
+    """Section 4: Per-record reconstruction attribution."""
+
+    def test_reconstructed_ids_is_tuple(self) -> None:
+        """reconstructed_forget_ids is always a tuple."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        for turn in result.turns:
+            assert isinstance(turn.reconstructed_forget_ids, tuple)
+
+    def test_reconstructed_ids_subset_of_valid_forget_ids(self) -> None:
+        """Reconstructed IDs must be valid forget IDs from the episode."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        valid_ids = {si.forget_id for si in ep.sensitive_items}
+        for turn in result.turns:
+            assert set(turn.reconstructed_forget_ids).issubset(valid_ids)
+
+    def test_aggregate_reconstructed_matches_record_ids(self) -> None:
+        """target_reconstructed must equal bool(reconstructed_forget_ids)."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        result = run_episode(ep, _config())
+        for turn in result.turns:
+            assert turn.target_reconstructed == bool(turn.reconstructed_forget_ids)

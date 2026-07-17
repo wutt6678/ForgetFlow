@@ -274,6 +274,71 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
             )
         )
 
+    # REINTRODUCED_IDS_CONSISTENCY: target_reintroduced must agree with reintroduced_forget_ids
+    if turn.target_reintroduced != bool(turn.reintroduced_forget_ids):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="REINTRODUCED_IDS_CONSISTENCY",
+                message=(
+                    f"Turn {turn.turn_id}: target_reintroduced={turn.target_reintroduced} "
+                    f"but reintroduced_forget_ids={turn.reintroduced_forget_ids}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # RECONSTRUCTED_IDS_CONSISTENCY: target_reconstructed must agree with reconstructed_forget_ids
+    if turn.target_reconstructed != bool(turn.reconstructed_forget_ids):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="RECONSTRUCTED_IDS_CONSISTENCY",
+                message=(
+                    f"Turn {turn.turn_id}: target_reconstructed={turn.target_reconstructed} "
+                    f"but reconstructed_forget_ids={turn.reconstructed_forget_ids}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # REINTRODUCED_SUBSET_OF_EXPOSED: reintroduced IDs must be a subset of exposed IDs
+    reintroduced_set = set(turn.reintroduced_forget_ids)
+    exposed_set = set(turn.exposed_forget_ids)
+    if not reintroduced_set.issubset(exposed_set):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="REINTRODUCED_NOT_SUBSET_OF_EXPOSED",
+                message=(
+                    f"Turn {turn.turn_id}: reintroduced_forget_ids "
+                    f"{turn.reintroduced_forget_ids} not subset of "
+                    f"exposed_forget_ids {turn.exposed_forget_ids}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # REINTRODUCED_SUBSET_OF_TARGETED: reintroduced IDs must be a subset of target_forget_ids
+    targeted_set = set(turn.target_forget_ids)
+    if reintroduced_set and not reintroduced_set.issubset(targeted_set):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="REINTRODUCED_NOT_SUBSET_OF_TARGETED",
+                message=(
+                    f"Turn {turn.turn_id}: reintroduced_forget_ids "
+                    f"{turn.reintroduced_forget_ids} not subset of "
+                    f"target_forget_ids {turn.target_forget_ids}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
     return findings
 
 

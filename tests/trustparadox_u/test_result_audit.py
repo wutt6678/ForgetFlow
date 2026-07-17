@@ -1241,3 +1241,141 @@ class TestUnexpectedRecontaminationAudit:
         invalid = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_COUNT_INVALID"]
         assert len(invalid) == 1
         assert invalid[0].level == "error"
+
+
+class TestReintroducedIdsConsistency:
+    """Section 2: target_reintroduced must agree with reintroduced_forget_ids."""
+
+    def test_consistent_reintroduced_ids(self) -> None:
+        """target_reintroduced=True with non-empty reintroduced_forget_ids passes."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                target_forget_ids=("F001",),
+                exposed_forget_ids=("F001",),
+                reintroduced_forget_ids=("F001",),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        consistency = [f for f in findings if f.code == "REINTRODUCED_IDS_CONSISTENCY"]
+        assert len(consistency) == 0
+
+    def test_inconsistent_reintroduced_ids(self) -> None:
+        """target_reintroduced=True but empty reintroduced_forget_ids fails."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                target_forget_ids=("F001",),
+                exposed_forget_ids=("F001",),
+                reintroduced_forget_ids=(),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        consistency = [f for f in findings if f.code == "REINTRODUCED_IDS_CONSISTENCY"]
+        assert len(consistency) == 1
+        assert consistency[0].level == "error"
+
+    def test_reintroduced_not_subset_of_exposed(self) -> None:
+        """reintroduced_forget_ids not subset of exposed_forget_ids fails."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                target_forget_ids=("F001",),
+                exposed_forget_ids=("F002",),
+                reintroduced_forget_ids=("F001",),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        subset = [f for f in findings if f.code == "REINTRODUCED_NOT_SUBSET_OF_EXPOSED"]
+        assert len(subset) == 1
+
+    def test_reintroduced_not_subset_of_targeted(self) -> None:
+        """reintroduced_forget_ids not subset of target_forget_ids fails."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                target_forget_ids=("F001",),
+                exposed_forget_ids=("F001", "F002"),
+                reintroduced_forget_ids=("F002",),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        subset = [f for f in findings if f.code == "REINTRODUCED_NOT_SUBSET_OF_TARGETED"]
+        assert len(subset) == 1
+
+
+class TestReconstructedIdsConsistency:
+    """Section 4: target_reconstructed must agree with reconstructed_forget_ids."""
+
+    def test_consistent_reconstructed_ids(self) -> None:
+        """target_reconstructed=True with non-empty reconstructed_forget_ids passes."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_reconstruction_attempt=True,
+                reconstructed_forget_ids=("F001",),
+                target_reconstructed=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        consistency = [f for f in findings if f.code == "RECONSTRUCTED_IDS_CONSISTENCY"]
+        assert len(consistency) == 0
+
+    def test_inconsistent_reconstructed_ids(self) -> None:
+        """target_reconstructed=True but empty reconstructed_forget_ids fails."""
+        result = _valid_result()
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_reconstruction_attempt=True,
+                reconstructed_forget_ids=(),
+                target_reconstructed=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        consistency = [f for f in findings if f.code == "RECONSTRUCTED_IDS_CONSISTENCY"]
+        assert len(consistency) == 1
+        assert consistency[0].level == "error"

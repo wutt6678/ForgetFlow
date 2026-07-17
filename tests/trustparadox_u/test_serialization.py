@@ -767,3 +767,107 @@ class TestMultiTargetDiskPipeline:
         assert metric.value is not None
         assert 0.0 <= metric.value <= 1.0
         assert metric.numerator <= metric.denominator
+
+
+class TestNewFieldDiskRoundTrip:
+    """Disk round trip preserves reintroduced_forget_ids and reconstructed_forget_ids."""
+
+    def test_reintroduced_forget_ids_round_trip(self, tmp_path: Path) -> None:
+        """reintroduced_forget_ids survives serialization round trip."""
+        turn = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="A",
+            recipient_id="B",
+            candidate_text="test",
+            released_text="test",
+            is_recontamination_attempt=True,
+            target_forget_ids=("F001",),
+            exposed_forget_ids=("F001",),
+            reintroduced_forget_ids=("F001",),
+            target_reintroduced=True,
+        )
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            turns=[turn],
+        )
+        result.metadata = {"config_hash": "a" * 64}
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        with open(episodes_file, "w") as f:
+            f.write(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        loaded_turn = loaded[0].turns[0]
+        assert loaded_turn.reintroduced_forget_ids == ("F001",)
+        assert loaded_turn.target_reintroduced is True
+
+    def test_reconstructed_forget_ids_round_trip(self, tmp_path: Path) -> None:
+        """reconstructed_forget_ids survives serialization round trip."""
+        turn = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="A",
+            recipient_id="B",
+            candidate_text="test",
+            released_text="test",
+            is_reconstruction_attempt=True,
+            reconstructed_forget_ids=("F001", "F002"),
+            target_reconstructed=True,
+        )
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            turns=[turn],
+        )
+        result.metadata = {"config_hash": "a" * 64}
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        with open(episodes_file, "w") as f:
+            f.write(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        loaded_turn = loaded[0].turns[0]
+        assert loaded_turn.reconstructed_forget_ids == ("F001", "F002")
+        assert loaded_turn.target_reconstructed is True
+
+    def test_missing_new_fields_default_to_empty(self, tmp_path: Path) -> None:
+        """Old format without new fields deserializes with empty tuples."""
+        old_turn = {
+            "turn_id": 0,
+            "phase": "POST_FORGET_ATTACK",
+            "sender_id": "A",
+            "recipient_id": "B",
+            "candidate_text": "test",
+            "released_text": "test",
+        }
+        old_result = {
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [old_turn],
+            "contamination_states": {},
+            "audit_entries": [],
+            "metadata": {"config_hash": "a" * 64},
+        }
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        with open(episodes_file, "w") as f:
+            f.write(json.dumps(old_result) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        loaded_turn = loaded[0].turns[0]
+        assert loaded_turn.reintroduced_forget_ids == ()
+        assert loaded_turn.reconstructed_forget_ids == ()
+        assert loaded_turn.target_reintroduced is False
+        assert loaded_turn.target_reconstructed is False

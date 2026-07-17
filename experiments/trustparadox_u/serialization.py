@@ -124,6 +124,20 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         if isinstance(raw_ids, list):
             exposed_forget_ids = tuple(str(id_val) for id_val in raw_ids)
 
+    # Parse and normalize reconstructed_forget_ids
+    reconstructed_forget_ids: tuple[str, ...] = ()
+    if "reconstructed_forget_ids" in data:
+        raw_ids = data["reconstructed_forget_ids"]
+        if isinstance(raw_ids, list):
+            reconstructed_forget_ids = tuple(str(id_val) for id_val in raw_ids)
+
+    # Parse and normalize reintroduced_forget_ids
+    reintroduced_forget_ids: tuple[str, ...] = ()
+    if "reintroduced_forget_ids" in data:
+        raw_ids = data["reintroduced_forget_ids"]
+        if isinstance(raw_ids, list):
+            reintroduced_forget_ids = tuple(str(id_val) for id_val in raw_ids)
+
     return TurnResult(
         turn_id=data["turn_id"],
         phase=data["phase"],
@@ -142,7 +156,9 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         target_exposed=data.get("target_exposed", False),
         exposed_forget_ids=exposed_forget_ids,
         target_reconstructed=data.get("target_reconstructed", False),
+        reconstructed_forget_ids=reconstructed_forget_ids,
         target_reintroduced=data.get("target_reintroduced", False),
+        reintroduced_forget_ids=reintroduced_forget_ids,
         task_relevant=data.get("task_relevant", False),
         task_contribution_successful=data.get("task_contribution_successful", False),
     )

@@ -44,6 +44,10 @@ class ManifestValidationError(AggregationError):
     """Error validating manifest against results."""
 
 
+class StaleArtifactError(AggregationError):
+    """Error when artifact commit does not match expected commit."""
+
+
 class ResultAuditError(AggregationError):
     """Error auditing results."""
 
@@ -273,6 +277,46 @@ def validate_manifest_or_raise(
         raise ManifestValidationError(f"Manifest validation failed: {', '.join(codes)}")
 
 
+def validate_commit_provenance(
+    manifest: SmokeManifest,
+    *,
+    expected_commit: str | None = None,
+    require_current_commit: bool = False,
+    allow_historical: bool = False,
+) -> str | None:
+    """Validate that the manifest's commit matches the expected or current commit.
+
+    Returns a warning message if historical mode is active, or None if clean.
+    Raises StaleArtifactError if the commit doesn't match and historical mode is off.
+    """
+    from experiments.trustparadox_u.manifest import get_repository_commit
+
+    if require_current_commit:
+        current = get_repository_commit()
+        expected = current
+    elif expected_commit is not None:
+        expected = expected_commit
+    else:
+        return None  # No provenance check requested
+
+    manifest_commit = manifest.repository_commit.replace("-dirty", "")
+
+    if manifest_commit == expected:
+        return None  # Clean match
+
+    if allow_historical:
+        return (
+            f"HISTORICAL: manifest commit {manifest.repository_commit} "
+            f"differs from expected {expected}"
+        )
+
+    raise StaleArtifactError(
+        f"Artifact commit mismatch: manifest has {manifest.repository_commit!r}, "
+        f"expected {expected!r}. "
+        f"Use --allow-historical-artifacts to analyze older artifacts."
+    )
+
+
 def main() -> int:
     """Run the aggregation CLI."""
     import argparse
@@ -284,6 +328,21 @@ def main() -> int:
         "--allow-missing-manifest",
         action="store_true",
         help="Allow aggregation without a manifest (diagnostic only)",
+    )
+    parser.add_argument(
+        "--expected-commit",
+        default=None,
+        help="Require manifest commit to match this SHA",
+    )
+    parser.add_argument(
+        "--require-current-commit",
+        action="store_true",
+        help="Require manifest commit to match the current HEAD",
+    )
+    parser.add_argument(
+        "--allow-historical-artifacts",
+        action="store_true",
+        help="Allow artifacts from a different commit (marked historical)",
     )
     args = parser.parse_args()
 
@@ -323,17 +382,29 @@ def main() -> int:
             error_count = len(audit_report.findings)
             raise ResultAuditError(f"Audit failed with {error_count} errors")
 
-        # 4. Validate manifest against results
+        # 4. Validate commit provenance
+        historical_warning = None
+        if manifest is not None:
+            historical_warning = validate_commit_provenance(
+                manifest,
+                expected_commit=args.expected_commit,
+                require_current_commit=args.require_current_commit,
+                allow_historical=args.allow_historical_artifacts,
+            )
+            if historical_warning:
+                print(f"WARNING: {historical_warning}", file=sys.stderr)
+
+        # 5. Validate manifest against results
         if manifest is not None:
             validate_manifest_or_raise(manifest, results)
 
-        # 5. Validate for aggregation
+        # 6. Validate for aggregation
         validate_for_aggregation(results)
 
-        # 6. Aggregate
+        # 7. Aggregate
         evaluation = evaluate_all(results)
 
-        # 7. Write outputs
+        # 8. Write outputs
         if diagnostic_only:
             # Write limited diagnostic outputs
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -355,6 +426,9 @@ def main() -> int:
                 audit_report=audit_report,
             )
 
+    except StaleArtifactError as exc:
+        print(f"Aggregation failed [STALE_ARTIFACT]: {exc}", file=sys.stderr)
+        return 6
     except FileNotFoundError as exc:
         print(f"Aggregation failed [INPUT_MISSING]: {exc}", file=sys.stderr)
         return 2

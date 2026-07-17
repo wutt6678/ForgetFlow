@@ -78,7 +78,9 @@ class TurnResult:
     target_exposed: bool = False
     exposed_forget_ids: tuple[str, ...] = ()
     target_reconstructed: bool = False
+    reconstructed_forget_ids: tuple[str, ...] = ()
     target_reintroduced: bool = False
+    reintroduced_forget_ids: tuple[str, ...] = ()
 
     # Task contribution
     task_relevant: bool = False
@@ -657,46 +659,12 @@ def run_episode(
                     if released_text:
                         agents[step.recipient].receive_message(step.sender, released_text)
                         recipient_transcript.setdefault(step.recipient, []).append(released_text)
-                    # Check target exposure from released text
+                    # Check target exposure from released text (text-based)
                     exposed_ids = evaluate_exposed_forget_ids(
                         released_text, episode.sensitive_items
                     )
-                    target_exposed = bool(exposed_ids)
-                    # Reconstruction: evaluate from full recipient-visible transcript
-                    target_reconstructed = False
-                    if is_reconstruction:
-                        for si in episode.sensitive_items:
-                            if si.reconstruction:
-                                if evaluate_reconstruction_success(
-                                    released_transcript=recipient_transcript.get(
-                                        step.recipient, []
-                                    ),
-                                    reconstruction_metadata=ReconstructionMetadata(
-                                        type=si.reconstruction.get("type", ""),
-                                        fragments=tuple(si.reconstruction.get("fragments", [])),
-                                        required_facts=tuple(
-                                            si.reconstruction.get("required_facts", [])
-                                        ),
-                                    ),
-                                ):
-                                    target_reconstructed = True
-                                    break
-                    # Reintroduction success: recontamination attempt + target exposed
-                    target_reintroduced = is_recontamination and target_exposed
-                    # Transition to AT_RISK only for targeted AND exposed records
-                    if target_reintroduced:
-                        targeted_ids = set(step.label.target_forget_ids)
-                        reintroduced_ids = exposed_ids & targeted_ids
-                        for forget_id in reintroduced_ids:
-                            current = tracker.get_status(step.recipient, forget_id)
-                            if current in (
-                                ContaminationStatus.CLEAN,
-                                ContaminationStatus.VERIFIED,
-                            ):
-                                tracker.set_status(
-                                    step.recipient, forget_id, ContaminationStatus.AT_RISK
-                                )
-                    # Check contamination: only update from released content
+                    # Run detector and merge matched_forget_ids into exposure
+                    released_detection = None
                     if released_text is not None:
                         released_context = history.get_context(
                             step.recipient, config.history.window_size
@@ -721,8 +689,16 @@ def run_episode(
                         released_detection = dataclasses.replace(
                             released_detection, reconstruction_score=released_recon
                         )
+                        # Merge detector-matched forget IDs into exposure
+                        exposed_ids = exposed_ids | set(released_detection.matched_forget_ids)
+                        # Validate that all matched IDs are registered
+                        valid_forget_ids = {si.forget_id for si in episode.sensitive_items}
+                        unknown_ids = exposed_ids - valid_forget_ids
+                        if unknown_ids:
+                            raise ValueError(
+                                "Detector returned unknown forget IDs: " f"{sorted(unknown_ids)}"
+                            )
                         for si in episode.sensitive_items:
-                            # Only record exposure for matching forget IDs
                             if si.forget_id not in released_detection.matched_forget_ids:
                                 continue
                             tracker.record_exposure(
@@ -731,6 +707,41 @@ def run_episode(
                                 released_detection,
                                 config.history.reconstruction_threshold,
                             )
+                    target_exposed = bool(exposed_ids)
+                    # Per-record reconstruction attribution
+                    reconstructed_ids: set[str] = set()
+                    if is_reconstruction:
+                        for si in episode.sensitive_items:
+                            if si.reconstruction:
+                                if evaluate_reconstruction_success(
+                                    released_transcript=recipient_transcript.get(
+                                        step.recipient, []
+                                    ),
+                                    reconstruction_metadata=ReconstructionMetadata(
+                                        type=si.reconstruction.get("type", ""),
+                                        fragments=tuple(si.reconstruction.get("fragments", [])),
+                                        required_facts=tuple(
+                                            si.reconstruction.get("required_facts", [])
+                                        ),
+                                    ),
+                                ):
+                                    reconstructed_ids.add(si.forget_id)
+                    target_reconstructed = bool(reconstructed_ids)
+                    # Reintroduction: only targeted AND exposed records
+                    targeted_ids = set(step.label.target_forget_ids)
+                    reintroduced_ids = exposed_ids & targeted_ids
+                    target_reintroduced = is_recontamination and bool(reintroduced_ids)
+                    # Transition to AT_RISK only for reintroduced records
+                    if target_reintroduced:
+                        for forget_id in reintroduced_ids:
+                            current = tracker.get_status(step.recipient, forget_id)
+                            if current in (
+                                ContaminationStatus.CLEAN,
+                                ContaminationStatus.VERIFIED,
+                            ):
+                                tracker.set_status(
+                                    step.recipient, forget_id, ContaminationStatus.AT_RISK
+                                )
                     result.turns.append(
                         TurnResult(
                             turn_id=turn_counter,
@@ -750,7 +761,9 @@ def run_episode(
                             target_exposed=target_exposed,
                             exposed_forget_ids=tuple(sorted(exposed_ids)),
                             target_reconstructed=target_reconstructed,
+                            reconstructed_forget_ids=tuple(sorted(reconstructed_ids)),
                             target_reintroduced=target_reintroduced,
+                            reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
                             task_relevant=task_rel,
                         )
                     )
@@ -776,8 +789,8 @@ def run_episode(
                 recipient_transcript.setdefault(step.recipient, []).append(msg)
                 exposed_ids = evaluate_exposed_forget_ids(msg, episode.sensitive_items)
                 target_exposed = bool(exposed_ids)
-                # Reconstruction: evaluate from full recipient-visible transcript
-                target_reconstructed = False
+                # Per-record reconstruction attribution
+                reconstructed_ids = set()
                 if is_reconstruction:
                     for si in episode.sensitive_items:
                         if si.reconstruction:
@@ -791,13 +804,14 @@ def run_episode(
                                     ),
                                 ),
                             ):
-                                target_reconstructed = True
-                                break
-                target_reintroduced = is_recontamination and target_exposed
-                # Transition to AT_RISK only for targeted AND exposed records
+                                reconstructed_ids.add(si.forget_id)
+                target_reconstructed = bool(reconstructed_ids)
+                # Reintroduction: only targeted AND exposed records
+                targeted_ids = set(step.label.target_forget_ids)
+                reintroduced_ids = exposed_ids & targeted_ids
+                target_reintroduced = is_recontamination and bool(reintroduced_ids)
+                # Transition to AT_RISK only for reintroduced records
                 if target_reintroduced:
-                    targeted_ids = set(step.label.target_forget_ids)
-                    reintroduced_ids = exposed_ids & targeted_ids
                     for forget_id in reintroduced_ids:
                         current = tracker.get_status(step.recipient, forget_id)
                         if current in (
@@ -825,7 +839,9 @@ def run_episode(
                         target_exposed=target_exposed,
                         exposed_forget_ids=tuple(sorted(exposed_ids)),
                         target_reconstructed=target_reconstructed,
+                        reconstructed_forget_ids=tuple(sorted(reconstructed_ids)),
                         target_reintroduced=target_reintroduced,
+                        reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
                         task_relevant=task_rel,
                     )
                 )
