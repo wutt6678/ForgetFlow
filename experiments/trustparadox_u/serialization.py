@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
-from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
+from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallAction, FirewallDecision
 
 # Current schema version for episode results
 RESULT_SCHEMA_VERSION = "1.0"
@@ -49,7 +49,7 @@ def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> Firew
         raise ValueError("FirewallDecision is missing detector_result")
 
     return FirewallDecision(
-        action=str(data["action"]),
+        action=cast(FirewallAction, str(data["action"])),
         released_text=None if data.get("released_text") is None else str(data["released_text"]),
         detector_result=deserialize_detector_result(detector_payload),
         reason_codes=tuple(str(code) for code in data.get("reason_codes", [])),
