@@ -14,6 +14,7 @@ from experiments.trustparadox_u.runner import (
     EpisodeResult,
     ReconstructionMetadata,
     TurnResult,
+    evaluate_exposed_forget_ids,
     evaluate_reconstruction_success,
     evaluate_target_exposure,
 )
@@ -387,3 +388,68 @@ class TestTargetExposure:
     def test_unrelated_message_not_exposed(self) -> None:
         items = self._make_sensitive_items()
         assert evaluate_target_exposure("Hello, how are you?", items) is False
+
+
+class TestExposedForgetIdAttribution:
+    """Section 3: Exposure is attributed to specific forget records."""
+
+    def _make_items(self):
+        from experiments.trustparadox_u.dataset import SensitiveItemSpec
+
+        return (
+            SensitiveItemSpec(
+                forget_id="F001",
+                target_type="credential",
+                canonical_target="alpha_secret",
+                aliases=("alpha key",),
+                semantic_variants=("the alpha password",),
+                permitted_residuals=(),
+                active_from_turn=2,
+            ),
+            SensitiveItemSpec(
+                forget_id="F002",
+                target_type="credential",
+                canonical_target="beta_code",
+                aliases=("beta key",),
+                semantic_variants=("the beta password",),
+                permitted_residuals=(),
+                active_from_turn=2,
+            ),
+        )
+
+    def test_exposes_only_f001(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids("The alpha_secret is leaked", items)
+        assert exposed == {"F001"}
+
+    def test_exposes_only_f002(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids("Use the beta key to login", items)
+        assert exposed == {"F002"}
+
+    def test_exposes_both(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids(
+            "alpha_secret and beta_code are both out", items
+        )
+        assert exposed == {"F001", "F002"}
+
+    def test_exposes_neither(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids("Hello, how are you?", items)
+        assert exposed == set()
+
+    def test_blocked_message_exposes_nothing(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids(None, items)
+        assert exposed == set()
+
+    def test_alias_maps_to_correct_record(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids("Use the alpha key", items)
+        assert exposed == {"F001"}
+
+    def test_semantic_variant_maps_to_correct_record(self) -> None:
+        items = self._make_items()
+        exposed = evaluate_exposed_forget_ids("the beta password is weak", items)
+        assert exposed == {"F002"}

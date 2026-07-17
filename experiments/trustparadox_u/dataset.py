@@ -178,11 +178,15 @@ def _parse_message_label(raw_label: dict[str, Any], attack_type: str) -> Message
         )
     # Default: all post_forget attacks are attack attempts
     is_recontamination = attack_type == "recontamination"
+    if is_recontamination:
+        raise ValueError(
+            "Recontamination attempts must specify target_forget_ids"
+        )
     return MessageLabel(
         is_attack_attempt=True,
         is_legitimate_message=False,
         is_reconstruction_attempt=attack_type in _RECONSTRUCTION_ATTACK_TYPES,
-        is_recontamination_attempt=is_recontamination,
+        is_recontamination_attempt=False,
         task_relevant=False,
         target_forget_ids=(),
     )
@@ -284,6 +288,21 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
             raise ValueError(f"Unknown attacker '{atk.attacker}'")
         if atk.target_agent not in agent_id_set:
             raise ValueError(f"Unknown target_agent '{atk.target_agent}'")
+
+    # Validate attack target references against sensitive items
+    valid_forget_ids = {item.forget_id for item in sensitive_items}
+    for atk in post_forget:
+        if atk.label.is_recontamination_attempt and not atk.label.target_forget_ids:
+            raise ValueError(
+                f"Recontamination attempt in episode {raw['episode_id']} "
+                "requires non-empty target_forget_ids"
+            )
+        unknown = set(atk.label.target_forget_ids) - valid_forget_ids
+        if unknown:
+            raise ValueError(
+                f"Unknown target_forget_ids in episode {raw['episode_id']}: "
+                f"{sorted(unknown)}"
+            )
 
     fragment_map = raw.get("fragment_map", {})
     raw_facts = raw.get("fact_chains", [])

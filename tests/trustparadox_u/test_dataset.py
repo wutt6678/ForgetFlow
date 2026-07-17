@@ -186,3 +186,141 @@ class TestAttackTargetReferences:
         new_phases = replace(ep.phases, post_forget=tuple(new_attacks))
         ok_ep = replace(ep, phases=new_phases)
         validate_attack_target_references(ok_ep)  # Should not raise
+
+
+class TestDefaultRecontaminationValidation:
+    """Section 2: Default recontamination labels must require target_forget_ids."""
+
+    def test_default_recontamination_without_label_fails(self) -> None:
+        """Recontamination attack with empty label dict raises ValueError."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        with pytest.raises(ValueError, match="target_forget_ids"):
+            _parse_message_label({}, "recontamination")
+
+    def test_explicit_recontamination_without_targets_fails(self) -> None:
+        """Explicit recontamination label without targets raises ValueError."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        with pytest.raises(ValueError, match="target_forget_ids"):
+            _parse_message_label(
+                {"is_recontamination_attempt": True}, "recontamination"
+            )
+
+    def test_explicit_recontamination_with_targets_passes(self) -> None:
+        """Explicit recontamination label with targets passes."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        label = _parse_message_label(
+            {"is_recontamination_attempt": True, "target_forget_ids": ["F001"]},
+            "recontamination",
+        )
+        assert label.is_recontamination_attempt
+        assert label.target_forget_ids == ("F001",)
+
+    def test_empty_target_string_filtered(self) -> None:
+        """Empty target strings are filtered out, causing recontamination to fail."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        with pytest.raises(ValueError, match="target_forget_ids"):
+            _parse_message_label(
+                {"is_recontamination_attempt": True, "target_forget_ids": [""]},
+                "recontamination",
+            )
+
+    def test_duplicate_targets_normalized(self) -> None:
+        """Duplicate target_forget_ids are deduplicated and sorted."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        label = _parse_message_label(
+            {
+                "is_recontamination_attempt": True,
+                "target_forget_ids": ["F002", "F001", "F002"],
+            },
+            "recontamination",
+        )
+        assert label.target_forget_ids == ("F001", "F002")
+
+    def test_non_recontamination_may_omit_targets(self) -> None:
+        """Non-recontamination labels may omit target_forget_ids."""
+        from experiments.trustparadox_u.dataset import _parse_message_label
+
+        label = _parse_message_label({"is_attack_attempt": True}, "direct_probing")
+        assert not label.is_recontamination_attempt
+        assert label.target_forget_ids == ()
+
+
+class TestLoadingTargetValidation:
+    """Section 3: Loading validates target_forget_ids against sensitive items."""
+
+    def test_load_valid_episode_passes(self) -> None:
+        """Episode with valid target_forget_ids loads successfully."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
+        # Should have recontamination with valid targets
+        recontamination_attacks = [
+            atk
+            for atk in ep.phases.post_forget
+            if atk.label.is_recontamination_attempt
+        ]
+        assert len(recontamination_attacks) > 0
+
+    def test_load_with_unknown_target_fails(self) -> None:
+        """Loading episode with unknown target_forget_ids raises ValueError."""
+        import tempfile
+        import textwrap
+
+        yaml_content = textwrap.dedent("""\
+            episode_id: test_unknown_target
+            scenario_id: test
+            macro_scene: test
+            trust_level: high
+            agents:
+              - agent_id: A
+                role: sender
+                public_profile: test
+                private_context: []
+              - agent_id: B
+                role: recipient
+                public_profile: test
+                private_context: []
+            relationships:
+              - source: A
+                target: B
+                relation: test
+            task:
+              description: test
+              success_label: test
+              success_type: exact_label
+              success_value: test
+            sensitive_items:
+              - forget_id: F001
+                target_type: credential
+                canonical_target: secret
+                aliases: []
+                semantic_variants: []
+                permitted_residuals: []
+                active_from_turn: 0
+            phases:
+              pre_forget: []
+              forget:
+                turn: 1
+                clean_agents: [A]
+              post_forget:
+                - attack_type: recontamination
+                  attacker: B
+                  target_agent: A
+                  instruction: test
+                  label:
+                    is_recontamination_attempt: true
+                    target_forget_ids: [UNKNOWN_ID]
+            expected:
+              forbidden_strings: []
+              permitted_strings: []
+        """)
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            with pytest.raises(ValueError, match="Unknown target_forget_ids"):
+                load_episode(f.name)
