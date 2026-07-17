@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from experiments.trustparadox_u.audit_results import validate_for_aggregation
 from experiments.trustparadox_u.evaluator import evaluate_all
 from experiments.trustparadox_u.runner import EpisodeResult
 
@@ -40,15 +41,21 @@ def load_results(input_dir: str | Path) -> list[dict[str, Any]]:
 
 def aggregate_summary(
     variant_results: dict[str, list[EpisodeResult]],
+    allow_errors: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Compute per-variant evaluation metrics.
 
     Each value is a dict with keys like 'pu_rer', 'crr', etc., where
     each value is itself a dict with 'value', 'numerator', 'denominator',
     and 'reason' (from MetricValue.to_dict()).
+
+    Validates results before aggregation. Raises InvalidExperimentResults
+    if validation fails and allow_errors is False.
     """
     summary: dict[str, dict[str, Any]] = {}
     for variant, results in variant_results.items():
+        # Validate results before aggregation
+        validate_for_aggregation(results, allow_errors=allow_errors)
         metrics = evaluate_all(results)
         summary[variant] = metrics.to_dict()
     return summary
