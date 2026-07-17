@@ -187,9 +187,7 @@ def build_manifest(
     )
 
     # Derive config hashes from results
-    config_hashes = tuple(
-        sorted({str(r.metadata.get("config_hash", "")) for r in results})
-    )
+    config_hashes = tuple(sorted({str(r.metadata.get("config_hash", "")) for r in results}))
 
     # Derive episode IDs and seeds from results
     episode_ids = tuple(sorted({r.episode_id for r in results}))
