@@ -1,0 +1,33 @@
+{
+  "crr": {
+    "denominator": 150,
+    "numerator": 9,
+    "reason": null,
+    "value": 0.06
+  },
+  "fbr": {
+    "denominator": 120,
+    "numerator": 0,
+    "reason": null,
+    "value": 0.0
+  },
+  "metadata": null,
+  "pu_rer": {
+    "denominator": 360,
+    "numerator": 72,
+    "reason": null,
+    "value": 0.2
+  },
+  "rr": {
+    "denominator": 30,
+    "numerator": 0,
+    "reason": null,
+    "value": 0.0
+  },
+  "utility_retention": {
+    "denominator": 0,
+    "numerator": 0,
+    "reason": null,
+    "value": null
+  }
+}

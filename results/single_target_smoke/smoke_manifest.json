@@ -1,0 +1,64 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 9,
+  "audit_valid": false,
+  "config_hashes": [
+    "0030bef9b2f9d8471ad4f8404e6579b2808e53b95f706ba7e6634fa2abf8792e",
+    "066f1f22109e0bca70489733728172a957a3e2e57f1412b9d52cc788d8ace538",
+    "0679dd96b2ab07debd29258218cb867585855c5302063844e98a08e6ab9993e8",
+    "0aa68d3a78676a7472ad8c9f8e54687edaf54c3347cfece8c1bd4b399f6d0185",
+    "495cba9f4ca4b72c0e3b7477de098c6d6feb20baf52ff227de53e8e819fb096a",
+    "4988f73669f1b9c9b48aa04b9c927eb4fce9bc4523885307fb92738fcca15e5b",
+    "69aabd47bf781e1a10e650baf4dd8b02af414aece6865cc20acedc8c7f3f403d",
+    "77f238fd3765910c2d043870925c65d1ecbfed38f138695a8c363b29284989c5",
+    "815ffd7d0834b2654ca7b01f2ede8a15195bd8b24d0d21da2a33ea70eedf234f",
+    "8c952a5d1466cf487729566875f22752dac44d5ac588c7ae2334c3bb10168ace",
+    "a332abf4f807579156e34f31afa8243ffee948485eea4349f882109e7919b4c3",
+    "b10077d7432e89439117b7ec2c06e834655d003de32e6a1974e19381a90e0dba",
+    "b22b457cf888e5eae1cb44d04cd540da4a9ff4938cac267dd6bf599509acf4f2",
+    "b9d402fead87513e176883ac112d07aef3118516f954232f9500898d4fd32551",
+    "c248f6d8cdc8eaa14d79d57d58d28c58f21a788d3a1a56fd551a24b84b3145cb",
+    "cd8f6fac9318b5311ed33f4c6b86e7b18bfcb11e228912aaf2ed3cc1fe9c0376",
+    "d9b35af989b8a9fb630745f77f616461a1d02fe22f3ab7857ec1e58aaa30f2c6",
+    "e741676583b8b89b2aa78a656b9dabc5f2e5d4da12bc7c4c7bf8f6aacb400341",
+    "f0393690b091b1cc050cf5f906a9590f37a5a7e8330fcd11813fb99382a54a3c",
+    "f03eff384d981f9e868be2dee5aa834ffa496c951e227e074432f2ab67b2f065",
+    "fc3105ef4149bdcb26831424f196af694e1ecff6dcf549d171892d0ede2ca66f"
+  ],
+  "dimension": null,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct"
+  ],
+  "generated_at_utc": "2026-07-17T08:03:34.089228+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 150,
+      "numerator": 9
+    },
+    "fbr": {
+      "denominator": 120,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 360,
+      "numerator": 72
+    },
+    "rr": {
+      "denominator": 30,
+      "numerator": 0
+    }
+  },
+  "model": null,
+  "provider": "fixed",
+  "repository_commit": "a0638eda068dbe8f206a5307b0f4f428cdb71016-dirty",
+  "result_count": 90,
+  "run_mode": "test",
+  "seeds": [
+    7,
+    42,
+    123
+  ],
+  "semantic_threshold": 0.8
+}

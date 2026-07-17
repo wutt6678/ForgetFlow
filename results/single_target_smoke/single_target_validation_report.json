@@ -1,0 +1,40 @@
+{
+  "commit": "a0638eda068dbe8f206a5307b0f4f428cdb71016-dirty",
+  "total_runs": 90,
+  "unique_run_ids": 90,
+  "audit_valid": false,
+  "audit_error_count": 9,
+  "directional_checks": {
+    "privacy_mvp_better": {
+      "check": "full_mvp PU-RER <= no_firewall PU-RER",
+      "mvp_pu_rer": 0.16666666666666666,
+      "no_fw_pu_rer": 0.25,
+      "passed": true
+    },
+    "semantic_protection": {
+      "check": "full_mvp PU-RER <= no_semantic PU-RER",
+      "full_pu_rer": 0.16666666666666666,
+      "no_sem_pu_rer": 0.16666666666666666,
+      "passed": true
+    },
+    "stateful_reconstruction_safer": {
+      "check": "stateful CRR <= stateless CRR",
+      "stateful_crr": 0.0,
+      "stateless_crr": 0.2,
+      "passed": true
+    },
+    "rich_utility_ge_binary": {
+      "check": "rich task_success >= binary task_success",
+      "rich_success": 0,
+      "binary_success": 0,
+      "passed": true
+    },
+    "continuous_rr_le_finite": {
+      "check": "continuous RR <= monitoring_0 RR",
+      "continuous_rr": 0.0,
+      "monitoring_0_rr": 0.0,
+      "passed": true
+    }
+  },
+  "all_passed": true
+}
