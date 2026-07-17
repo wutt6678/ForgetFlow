@@ -3,9 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Protocol, Sequence
 
 from marble.agent.base_agent import BaseAgent
+
+
+class TaskOutcomeSource(str, Enum):
+    """Source of task outcome determination.
+
+    ENVIRONMENT: Outcome is determined by environment, independent of message delivery.
+    RELEASED_MESSAGE: Outcome depends on the message being released to the recipient.
+    """
+
+    ENVIRONMENT = "environment"
+    RELEASED_MESSAGE = "released_message"
 
 
 @dataclass(frozen=True)
@@ -14,6 +26,7 @@ class ScriptedResponse:
 
     text: str
     task_label: str | None = None
+    task_outcome_source: TaskOutcomeSource | None = None
 
 
 class ResponseProvider(Protocol):
@@ -86,6 +99,7 @@ class TrustParadoxAgent(BaseAgent):
         self._provider = response_provider
         self._released_history: list[str] = []
         self.last_task_label: str | None = None
+        self.last_task_outcome_source: TaskOutcomeSource | None = None
 
     def generate_message(
         self,
@@ -95,10 +109,12 @@ class TrustParadoxAgent(BaseAgent):
         turn_id: int = 0,
     ) -> str:
         self.last_task_label = None
+        self.last_task_outcome_source = None
         if self._provider is not None:
             response = self._provider.respond(episode_id, self.agent_id, turn_id, instruction)
             if isinstance(response, ScriptedResponse):
                 self.last_task_label = response.task_label
+                self.last_task_outcome_source = response.task_outcome_source
                 return response.text
             return response
         return f"[{self.agent_id}] {instruction}"

@@ -9,7 +9,11 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from experiments.trustparadox_u.agent import ScriptedResponder, TrustParadoxAgent
+from experiments.trustparadox_u.agent import (
+    ScriptedResponder,
+    TaskOutcomeSource,
+    TrustParadoxAgent,
+)
 from experiments.trustparadox_u.attacks import build_attack
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
@@ -497,14 +501,21 @@ def run_episode(
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
             )
-            # Propagate task label from responder if present
-            if sender.last_task_label is not None:
+
+            # Handle task label propagation based on outcome source
+            # Default (None) or ENVIRONMENT: apply task label immediately
+            # RELEASED_MESSAGE: apply only when message is released (handled below)
+            if (
+                sender.last_task_label is not None
+                and sender.last_task_outcome_source != TaskOutcomeSource.RELEASED_MESSAGE
+            ):
                 if result.task_label is not None and result.task_label != sender.last_task_label:
                     raise ValueError(
                         "Conflicting task labels in one episode: "
                         f"{result.task_label!r} vs {sender.last_task_label!r}"
                     )
                 result.task_label = sender.last_task_label
+
             # Determine attack classification from per-step labels
             is_attack = step.label.is_attack_attempt
             is_reconstruction = step.label.is_reconstruction_attempt
@@ -630,6 +641,19 @@ def run_episode(
                             task_relevant=task_rel,
                         )
                     )
+
+                    # Handle RELEASED_MESSAGE outcome source: apply task label only if released
+                    if (
+                        sender.last_task_label is not None
+                        and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
+                        and released_text is not None
+                    ):
+                        if result.task_label is not None and result.task_label != sender.last_task_label:
+                            raise ValueError(
+                                "Conflicting task labels in one episode: "
+                                f"{result.task_label!r} vs {sender.last_task_label!r}"
+                            )
+                        result.task_label = sender.last_task_label
             else:
                 # No firewall or monitoring disabled: released_text equals candidate_text
                 agents[step.recipient].receive_message(step.sender, msg)
@@ -684,6 +708,18 @@ def run_episode(
                         task_relevant=task_rel,
                     )
                 )
+
+                # Handle RELEASED_MESSAGE outcome source: message is always released here
+                if (
+                    sender.last_task_label is not None
+                    and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
+                ):
+                    if result.task_label is not None and result.task_label != sender.last_task_label:
+                        raise ValueError(
+                            "Conflicting task labels in one episode: "
+                            f"{result.task_label!r} vs {sender.last_task_label!r}"
+                        )
+                    result.task_label = sender.last_task_label
             turn_counter += 1
             post_forget_round += 1
 
