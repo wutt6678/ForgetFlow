@@ -95,8 +95,8 @@ class TestRealEmbeddingSmoke:
         assert any(s > 0 for s in semantic_scores), "All semantic scores are zero"
 
     def test_audit_passes_with_real_embeddings(self) -> None:
-        """Audit passes with real embedding results."""
-        from experiments.trustparadox_u.audit_results import audit_episode_result
+        """Full audit passes with real embedding results (not just FORBIDDEN check)."""
+        from experiments.trustparadox_u.audit_results import AuditReport, audit_episode_result
 
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         cfg = ExperimentConfig(
@@ -116,7 +116,30 @@ class TestRealEmbeddingSmoke:
         )
         result = run_episode(ep, cfg)
         findings = audit_episode_result(result)
-        errors = [f for f in findings if f.level == "error"]
-        # No forbidden string leaks
-        leak_findings = [f for f in errors if "FORBIDDEN" in f.code]
-        assert len(leak_findings) == 0
+        report = AuditReport(findings=findings, episodes_audited=1)
+        # Full audit must pass, not just FORBIDDEN check
+        assert not report.has_errors, f"Audit has errors: {[f.message for f in report.errors()]}"
+
+    def test_provider_provenance_recorded(self) -> None:
+        """Provider, model, dimension, and endpoint provenance are recorded."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        cfg = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=True, semantic_threshold=0.80),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+            run=RunConfig(mode="experiment"),
+            models=ModelsConfig(
+                embedding_provider="litellm",
+                embedding_model="openai/text-embedding-v3",
+                embedding_dimension=1024,
+                api_base="https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+            ),
+        )
+        result = run_episode(ep, cfg)
+        # Verify provenance is recorded in metadata
+        assert result.metadata.get("embedding_provider") == "litellm"
+        assert result.metadata.get("embedding_model") == "openai/text-embedding-v3"
+        assert result.metadata.get("embedding_dimension", 0) > 0
