@@ -229,7 +229,7 @@ class TestAggregationCLI:
         ):
             exit_code = main()
 
-        assert exit_code == 1
+        assert exit_code == 3  # RESULT_LOAD
 
     def test_manifest_mismatch(self, tmp_path: Path) -> None:
         """Manifest with wrong result count should fail."""

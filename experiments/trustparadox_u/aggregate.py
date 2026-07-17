@@ -293,7 +293,10 @@ def main() -> int:
     try:
         # 1. Load episode results
         episodes_path = locate_episode_results(input_dir)
-        results = load_episode_results(episodes_path)
+        try:
+            results = load_episode_results(episodes_path)
+        except (TypeError, ValueError) as exc:
+            raise ResultLoadError(f"Failed to load {episodes_path}: {exc}") from exc
 
         # 2. Load manifest
         manifest_path = input_dir / "smoke_manifest.json"

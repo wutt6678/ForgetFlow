@@ -245,7 +245,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1  # General error (ValueError from deserialization)
+        assert exit_code == 3  # RESULT_LOAD
 
     def test_malformed_contamination_status_fails(self, tmp_path: Path) -> None:
         """Malformed contamination status should fail with clear error."""
@@ -268,7 +268,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1  # General error (ValueError from deserialization)
+        assert exit_code == 3  # RESULT_LOAD
 
     def test_duplicate_results_blocked(self, tmp_path: Path) -> None:
         """Duplicate results should be blocked."""
