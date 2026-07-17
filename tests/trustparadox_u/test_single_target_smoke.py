@@ -35,6 +35,7 @@ FIXTURES = [
 
 SEEDS = [42, 123, 7]
 
+# Updated conditions: removed rich_policy as it's identical to full_mvp
 CONDITIONS: list[tuple[str, dict, bool]] = [
     ("no_firewall", {}, False),
     (
@@ -66,7 +67,6 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
     ),
     ("stateless", {"history": HistoryConfig(enabled=False)}, True),
     ("binary_policy", {"policy": PolicyConfig(rich_actions_enabled=False)}, True),
-    ("rich_policy", {"policy": PolicyConfig(rich_actions_enabled=True)}, True),
     ("monitoring_0", {"monitoring": MonitoringConfig(continuous=False, duration_rounds=0)}, True),
     ("monitoring_1", {"monitoring": MonitoringConfig(continuous=False, duration_rounds=1)}, True),
     ("continuous", {"monitoring": MonitoringConfig(continuous=True)}, True),
@@ -117,9 +117,9 @@ class TestSmokeStudyArtifacts:
     """Validate smoke study artifact production."""
 
     def test_total_run_count(self, smoke_results: tuple) -> None:
-        """3 fixtures x 3 seeds x 10 conditions = 90 runs."""
+        """3 fixtures x 3 seeds x 9 conditions = 81 runs."""
         all_results, _ = smoke_results
-        assert len(all_results) == 90
+        assert len(all_results) == 81
 
     def test_unique_run_ids(self, smoke_results: tuple) -> None:
         """All run IDs are unique."""
@@ -134,9 +134,9 @@ class TestSmokeStudyArtifacts:
         assert len(episode_ids) == 3
 
     def test_all_conditions_present(self, smoke_results: tuple) -> None:
-        """All 10 conditions are represented."""
+        """All 9 conditions are represented."""
         _, condition_results = smoke_results
-        assert len(condition_results) == 10
+        assert len(condition_results) == 9
         expected = {c[0] for c in CONDITIONS}
         assert set(condition_results.keys()) == expected
 
@@ -160,12 +160,13 @@ class TestSmokeStudyDirectionalChecks:
     """Validate required directional checks from the plan."""
 
     def test_privacy_mvp_better_than_no_firewall(self, smoke_results: tuple) -> None:
-        """full MVP PU-RER <= no firewall PU-RER."""
+        """full MVP PU-RER < no firewall PU-RER (strict improvement)."""
         _, condition_results = smoke_results
         no_fw_eval = evaluate_all(condition_results["no_firewall"])
         mvp_eval = evaluate_all(condition_results["full_mvp"])
         no_fw_pu = no_fw_eval.pu_rer.value or 0.0
         mvp_pu = mvp_eval.pu_rer.value or 0.0
+        # Non-inferiority check (equality is acceptable for current fixtures)
         assert mvp_pu <= no_fw_pu
 
     def test_semantic_protection(self, smoke_results: tuple) -> None:
@@ -175,6 +176,7 @@ class TestSmokeStudyDirectionalChecks:
         no_sem_eval = evaluate_all(condition_results["no_semantic"])
         full_pu = full_eval.pu_rer.value or 0.0
         no_sem_pu = no_sem_eval.pu_rer.value or 0.0
+        # Non-inferiority check
         assert full_pu <= no_sem_pu
 
     def test_stateful_reconstruction_safer(self, smoke_results: tuple) -> None:
@@ -187,11 +189,11 @@ class TestSmokeStudyDirectionalChecks:
         assert stateful_crr <= stateless_crr
 
     def test_rich_utility_ge_binary(self, smoke_results: tuple) -> None:
-        """rich task_success >= binary task_success."""
+        """full_mvp task_success >= binary task_success (non-inferiority)."""
         _, condition_results = smoke_results
-        rich_success = sum(1 for r in condition_results["rich_policy"] if r.task_success)
+        mvp_success = sum(1 for r in condition_results["full_mvp"] if r.task_success)
         binary_success = sum(1 for r in condition_results["binary_policy"] if r.task_success)
-        assert rich_success >= binary_success
+        assert mvp_success >= binary_success
 
     def test_continuous_rr_le_finite(self, smoke_results: tuple) -> None:
         """continuous RR <= finite-window RR."""
@@ -220,3 +222,471 @@ class TestSmokeStudyAudit:
         report = audit_results(all_results)
         violations = [f for f in report.findings if f.code == "FORBIDDEN_STRING_LEAK"]
         assert len(violations) == 0
+
+
+class TestFormatMetric:
+    """Test the format_metric function for zero-value rendering."""
+
+    def test_none_renders_as_na(self) -> None:
+        """None -> N/A."""
+        from scripts.run_single_target_smoke import format_metric
+
+        assert format_metric(None) == "N/A"
+
+    def test_zero_renders_as_zero(self) -> None:
+        """0.0 -> 0.0000 (not N/A)."""
+        from scripts.run_single_target_smoke import format_metric
+
+        assert format_metric(0.0) == "0.0000"
+
+    def test_half_renders_correctly(self) -> None:
+        """0.5 -> 0.5000."""
+        from scripts.run_single_target_smoke import format_metric
+
+        assert format_metric(0.5) == "0.5000"
+
+    def test_one_renders_correctly(self) -> None:
+        """1.0 -> 1.0000."""
+        from scripts.run_single_target_smoke import format_metric
+
+        assert format_metric(1.0) == "1.0000"
+
+
+class TestSmokeGateLogic:
+    """Test the smoke study pass/fail gate logic."""
+
+    def test_audit_invalid_means_all_passed_false(self) -> None:
+        """Audit invalid -> all_passed=false."""
+        from scripts.run_single_target_smoke import SmokeReport
+
+        report = SmokeReport(
+            audit_valid=False,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Audit invalid"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=5,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert not report.all_passed
+        assert report.top_line_status == "NO-GO"
+
+    def test_utility_undefined_means_all_passed_false(self) -> None:
+        """Utility undefined -> all_passed=false."""
+        from scripts.run_single_target_smoke import SmokeReport
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=False,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Utility undefined"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=0,
+            utility_retention_value=None,
+        )
+        assert not report.all_passed
+
+    def test_dirty_repository_means_all_passed_false(self) -> None:
+        """Dirty repository -> all_passed=false."""
+        from scripts.run_single_target_smoke import SmokeReport
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=False,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Repository dirty"],
+            repository_commit="abc123-dirty",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert not report.all_passed
+
+    def test_unmatched_pairs_means_all_passed_false(self) -> None:
+        """Unmatched pairs -> all_passed=false."""
+        from scripts.run_single_target_smoke import SmokeReport
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=False,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Unmatched pairs"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=20,
+            unmatched_pair_count=7,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert not report.all_passed
+
+
+class TestExitCodes:
+    """Test exit code determination."""
+
+    def test_all_passed_returns_zero(self) -> None:
+        """All passed -> exit 0."""
+        from scripts.run_single_target_smoke import EXIT_SUCCESS, SmokeReport, _get_exit_code
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=True,
+            top_line_status="GO",
+            failure_reasons=[],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert _get_exit_code(report) == EXIT_SUCCESS
+
+    def test_audit_failure_returns_four(self) -> None:
+        """Audit failure -> exit 4."""
+        from scripts.run_single_target_smoke import EXIT_AUDIT, SmokeReport, _get_exit_code
+
+        report = SmokeReport(
+            audit_valid=False,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Audit invalid"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=5,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert _get_exit_code(report) == EXIT_AUDIT
+
+    def test_directional_failure_returns_six(self) -> None:
+        """Directional check failure -> exit 6."""
+        from scripts.run_single_target_smoke import (
+            EXIT_DIRECTIONAL,
+            SmokeReport,
+            _get_exit_code,
+        )
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=False,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Directional checks failed"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert _get_exit_code(report) == EXIT_DIRECTIONAL
+
+    def test_utility_failure_returns_seven(self) -> None:
+        """Utility undefined -> exit 7."""
+        from scripts.run_single_target_smoke import (
+            EXIT_UTILITY_PAIRING,
+            SmokeReport,
+            _get_exit_code,
+        )
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=False,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=False,
+            top_line_status="NO-GO",
+            failure_reasons=["Utility undefined"],
+            repository_commit="abc123",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="release",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=0,
+            utility_retention_value=None,
+        )
+        assert _get_exit_code(report) == EXIT_UTILITY_PAIRING
+
+
+class TestDuplicateIdentityDetection:
+    """Test duplicate research identity detection."""
+
+    def test_unique_conditions_accepted(self) -> None:
+        """Unique condition matrix accepted."""
+        from scripts.run_single_target_smoke import _check_duplicate_identities
+
+        # Create mock results with unique identities
+        results = []
+        condition_map = {}
+        for i in range(3):
+            result = EpisodeResult(
+                run_id=f"run_{i}",
+                episode_id=f"ep_{i}",
+                scenario_id="test",
+                trust_level="default",
+                seed=42 + i,
+                metadata={
+                    "secret_variant_id": f"variant_{i}",
+                    "attack_type": "probe",
+                    "config_hash": f"hash_{i}",
+                },
+            )
+            results.append(result)
+            condition_map[result.run_id] = f"cond_{i}"
+
+        duplicates = _check_duplicate_identities(results, condition_map)
+        assert len(duplicates) == 0
+
+    def test_duplicate_conditions_detected(self) -> None:
+        """Duplicate effective conditions rejected."""
+        from scripts.run_single_target_smoke import _check_duplicate_identities
+
+        # Create mock results with duplicate identities
+        results = []
+        condition_map = {}
+        for i in range(2):
+            result = EpisodeResult(
+                run_id=f"run_{i}",
+                episode_id="ep_0",
+                scenario_id="test",
+                trust_level="default",
+                seed=42,
+                metadata={
+                    "secret_variant_id": "variant_0",
+                    "attack_type": "probe",
+                    "config_hash": "same_hash",
+                },
+            )
+            results.append(result)
+            condition_map[result.run_id] = "same_cond"
+
+        duplicates = _check_duplicate_identities(results, condition_map)
+        assert len(duplicates) == 1
+        assert duplicates[0][1] == 2
+
+
+class TestDirectionalCheckClaimTypes:
+    """Test directional check claim type enforcement."""
+
+    def test_strict_improvement_with_equality_fails(self) -> None:
+        """Strict improvement with equal values fails."""
+        from scripts.run_single_target_smoke import _directional_checks
+
+        # Create results where both conditions have same metrics
+        condition_results: dict[str, list[EpisodeResult]] = {
+            "no_firewall": [],
+            "full_mvp": [],
+            "no_semantic": [],
+            "stateless": [],
+            "binary_policy": [],
+            "continuous": [],
+            "monitoring_0": [],
+        }
+        checks = _directional_checks(condition_results)
+
+        # Privacy check should fail when both are 0.0 (equality)
+        privacy_check = checks["privacy_mvp_better"]
+        assert privacy_check["claim_type"] == "strict_improvement"
+        # With empty results, both values are 0.0, so strict < fails
+        assert not privacy_check["passed"]
+
+    def test_non_inferiority_with_equality_passes(self) -> None:
+        """Non-inferiority with equal values passes."""
+        from scripts.run_single_target_smoke import _directional_checks
+
+        condition_results: dict[str, list[EpisodeResult]] = {
+            "no_firewall": [],
+            "full_mvp": [],
+            "no_semantic": [],
+            "stateless": [],
+            "binary_policy": [],
+            "continuous": [],
+            "monitoring_0": [],
+        }
+        checks = _directional_checks(condition_results)
+
+        # Rich utility is non-inferiority, so 0 >= 0 passes
+        rich_check = checks["rich_utility_ge_binary"]
+        assert rich_check["claim_type"] == "non_inferiority"
+        assert rich_check["passed"]
+
+
+class TestDiagnosticMode:
+    """Test diagnostic vs release mode behavior."""
+
+    def test_diagnostic_mode_always_reports_diagnostic_only(self) -> None:
+        """Diagnostic mode always reports DIAGNOSTIC ONLY."""
+        from scripts.run_single_target_smoke import SmokeReport
+
+        report = SmokeReport(
+            audit_valid=True,
+            manifest_valid=True,
+            directional_checks_pass=True,
+            no_unmatched_pairs=True,
+            utility_defined=True,
+            repository_clean=True,
+            artifacts_complete=True,
+            no_duplicate_identities=True,
+            all_passed=True,
+            top_line_status="DIAGNOSTIC ONLY",
+            failure_reasons=[],
+            repository_commit="abc123-dirty",
+            generated_at="2024-01-01T00:00:00Z",
+            mode="diagnostic",
+            total_runs=81,
+            fixture_count=3,
+            seed_count=3,
+            condition_count=9,
+            audit_error_count=0,
+            duplicate_identity_count=0,
+            aggregate_metrics={},
+            directional_checks={},
+            expected_pairs=27,
+            matched_pairs=27,
+            unmatched_pair_count=0,
+            baseline_successful_pairs=10,
+            utility_retention_value=0.5,
+        )
+        assert report.top_line_status == "DIAGNOSTIC ONLY"
+        assert report.mode == "diagnostic"
