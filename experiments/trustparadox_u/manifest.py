@@ -15,6 +15,30 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 @dataclass(frozen=True)
+class RepositoryProvenance:
+    """Parsed repository commit with dirty-tree flag."""
+
+    commit: str
+    dirty: bool
+
+    @property
+    def raw(self) -> str:
+        """Return the raw string representation."""
+        return f"{self.commit}-dirty" if self.dirty else self.commit
+
+
+def parse_repository_provenance(value: str) -> RepositoryProvenance:
+    """Parse a repository commit string into a RepositoryProvenance."""
+    dirty = value.endswith("-dirty")
+    commit = value.removesuffix("-dirty") if dirty else value
+
+    if not COMMIT_RE.match(commit):
+        raise ValueError(f"Invalid repository commit: {value!r}")
+
+    return RepositoryProvenance(commit=commit, dirty=dirty)
+
+
+@dataclass(frozen=True)
 class SmokeManifest:
     """Sanitized provenance record for a smoke run."""
 

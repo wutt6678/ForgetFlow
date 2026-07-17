@@ -163,9 +163,12 @@ def write_aggregation_outputs(
     evaluation: EvalMetrics,
     manifest: SmokeManifest,
     audit_report: AuditReport,
+    provenance_meta: dict[str, Any] | None = None,
 ) -> None:
     """Write all aggregation output files to disk."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    prov = provenance_meta or {}
 
     # metrics.json
     metrics_dict = evaluation.to_dict()
@@ -200,6 +203,7 @@ def write_aggregation_outputs(
         "result_count": len(results),
         "episode_ids": sorted({r.episode_id for r in results}),
         "manifest": manifest.to_dict(),
+        "artifact_provenance": prov,
     }
     (output_dir / "summary.json").write_text(json.dumps(summary_dict, indent=2, sort_keys=True))
 
@@ -238,8 +242,16 @@ def write_aggregation_outputs(
 
     # summary.md
     summary_data = {"default": metrics_dict}
-    md = format_table(summary_data, title="Aggregation Summary")
-    (output_dir / "summary.md").write_text(md)
+    md_lines: list[str] = []
+    if prov.get("historical"):
+        md_lines.append(
+            f"> **Historical artifact analysis.** "
+            f"> These results were produced by commit "
+            f"> `{prov.get('artifact_commit', 'unknown')}` and do not "
+            f"> validate the current implementation.\n"
+        )
+    md_lines.append(format_table(summary_data, title="Aggregation Summary"))
+    (output_dir / "summary.md").write_text("\n".join(md_lines))
 
 
 def locate_episode_results(input_dir: Path) -> Path:
@@ -283,36 +295,77 @@ def validate_commit_provenance(
     expected_commit: str | None = None,
     require_current_commit: bool = False,
     allow_historical: bool = False,
-) -> str | None:
+    skip_check: bool = False,
+) -> dict[str, Any]:
     """Validate that the manifest's commit matches the expected or current commit.
 
-    Returns a warning message if historical mode is active, or None if clean.
-    Raises StaleArtifactError if the commit doesn't match and historical mode is off.
+    Returns a provenance metadata dict. Raises StaleArtifactError if the commit
+    doesn't match and historical mode is off.
+
+    Default behavior: require current clean commit match.
     """
-    from experiments.trustparadox_u.manifest import get_repository_commit
+    from experiments.trustparadox_u.manifest import (
+        get_repository_commit,
+        parse_repository_provenance,
+    )
 
-    if require_current_commit:
-        current = get_repository_commit()
-        expected = current
+    artifact_prov = parse_repository_provenance(manifest.repository_commit)
+
+    provenance_meta: dict[str, Any] = {
+        "artifact_commit": artifact_prov.commit,
+        "artifact_dirty": artifact_prov.dirty,
+        "historical": False,
+        "validation_mode": "strict",
+        "release_certifying": False,
+    }
+
+    if skip_check:
+        provenance_meta["validation_mode"] = "skipped"
+        return provenance_meta
+
+    # Determine expected commit
+    if require_current_commit or (expected_commit is None and not allow_historical):
+        current_raw = get_repository_commit()
+        current_prov = parse_repository_provenance(current_raw)
+        expected_prov = current_prov
+        provenance_meta["expected_commit"] = current_prov.commit
+        provenance_meta["expected_dirty"] = current_prov.dirty
     elif expected_commit is not None:
-        expected = expected_commit
+        expected_prov = parse_repository_provenance(expected_commit)
+        provenance_meta["expected_commit"] = expected_prov.commit
+        provenance_meta["expected_dirty"] = expected_prov.dirty
     else:
-        return None  # No provenance check requested
+        # allow_historical without expected
+        provenance_meta["validation_mode"] = "historical_override"
+        provenance_meta["historical"] = True
+        return provenance_meta
 
-    manifest_commit = manifest.repository_commit.replace("-dirty", "")
+    # Compare
+    if artifact_prov.commit == expected_prov.commit and not artifact_prov.dirty:
+        # Clean match
+        if expected_prov.dirty:
+            # Current is dirty, artifact is clean -> can't certify
+            provenance_meta["validation_mode"] = "dirty_checkout"
+            provenance_meta["release_certifying"] = False
+            if not allow_historical:
+                raise StaleArtifactError(
+                    f"Current checkout is dirty ({expected_prov.commit}-dirty). "
+                    f"Cannot certify release. Use --allow-historical-artifacts."
+                )
+            provenance_meta["historical"] = True
+        else:
+            provenance_meta["release_certifying"] = True
+        return provenance_meta
 
-    if manifest_commit == expected:
-        return None  # Clean match
-
+    # Mismatch or dirty artifact
     if allow_historical:
-        return (
-            f"HISTORICAL: manifest commit {manifest.repository_commit} "
-            f"differs from expected {expected}"
-        )
+        provenance_meta["validation_mode"] = "historical_override"
+        provenance_meta["historical"] = True
+        return provenance_meta
 
     raise StaleArtifactError(
         f"Artifact commit mismatch: manifest has {manifest.repository_commit!r}, "
-        f"expected {expected!r}. "
+        f"expected {expected_prov.raw!r}. "
         f"Use --allow-historical-artifacts to analyze older artifacts."
     )
 
@@ -344,7 +397,20 @@ def main() -> int:
         action="store_true",
         help="Allow artifacts from a different commit (marked historical)",
     )
+    parser.add_argument(
+        "--skip-commit-check",
+        action="store_true",
+        help="Skip commit provenance check (diagnostic only)",
+    )
     args = parser.parse_args()
+
+    # Default: require current commit unless explicitly overridden
+    if (
+        args.expected_commit is None
+        and not args.allow_historical_artifacts
+        and not args.skip_commit_check
+    ):
+        args.require_current_commit = True
 
     input_dir = Path(args.input)
     output_dir = Path(args.output)
@@ -383,16 +449,22 @@ def main() -> int:
             raise ResultAuditError(f"Audit failed with {error_count} errors")
 
         # 4. Validate commit provenance
-        historical_warning = None
+        provenance_meta: dict[str, Any] = {}
         if manifest is not None:
-            historical_warning = validate_commit_provenance(
+            provenance_meta = validate_commit_provenance(
                 manifest,
                 expected_commit=args.expected_commit,
                 require_current_commit=args.require_current_commit,
                 allow_historical=args.allow_historical_artifacts,
+                skip_check=args.skip_commit_check,
             )
-            if historical_warning:
-                print(f"WARNING: {historical_warning}", file=sys.stderr)
+            if provenance_meta.get("historical"):
+                print(
+                    f"WARNING: HISTORICAL artifact analysis. "
+                    f"Manifest commit {provenance_meta.get('artifact_commit')} "
+                    f"does not validate the current implementation.",
+                    file=sys.stderr,
+                )
 
         # 5. Validate manifest against results
         if manifest is not None:
@@ -424,6 +496,7 @@ def main() -> int:
                 evaluation=evaluation,
                 manifest=manifest,
                 audit_report=audit_report,
+                provenance_meta=provenance_meta,
             )
 
     except StaleArtifactError as exc:

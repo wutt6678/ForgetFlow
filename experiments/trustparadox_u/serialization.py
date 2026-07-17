@@ -23,6 +23,30 @@ class UnsupportedSchemaVersionError(ValueError):
     """Raised when an unsupported schema version is encountered."""
 
 
+def deserialize_id_tuple(data: Mapping[str, object], field: str) -> tuple[str, ...]:
+    """Deserialize and validate a tuple of forget ID strings.
+
+    Rejects non-list values, non-string items, empty strings, and duplicates.
+    """
+    raw = data.get(field, [])
+
+    if not isinstance(raw, list):
+        raise ValueError(f"{field} must be a list, got {type(raw).__name__}")
+
+    values: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            raise ValueError(f"{field} must contain strings, got {type(item).__name__}")
+        if not item:
+            raise ValueError(f"{field} contains an empty ID")
+        values.append(item)
+
+    if len(values) != len(set(values)):
+        raise ValueError(f"{field} contains duplicate IDs")
+
+    return tuple(values)
+
+
 def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult:
     """Deserialize a DetectorResult from a JSON dict."""
     if data is None:
@@ -110,33 +134,11 @@ def deserialize_contamination_status(data: Any) -> ContaminationStatus:
 
 def deserialize_turn(data: dict[str, Any]) -> TurnResult:
     """Deserialize a TurnResult from a JSON dict."""
-    # Parse and normalize target_forget_ids
-    target_forget_ids: tuple[str, ...] = ()
-    if "target_forget_ids" in data:
-        raw_ids = data["target_forget_ids"]
-        if isinstance(raw_ids, list):
-            target_forget_ids = tuple(str(id_val) for id_val in raw_ids)
-
-    # Parse and normalize exposed_forget_ids
-    exposed_forget_ids: tuple[str, ...] = ()
-    if "exposed_forget_ids" in data:
-        raw_ids = data["exposed_forget_ids"]
-        if isinstance(raw_ids, list):
-            exposed_forget_ids = tuple(str(id_val) for id_val in raw_ids)
-
-    # Parse and normalize reconstructed_forget_ids
-    reconstructed_forget_ids: tuple[str, ...] = ()
-    if "reconstructed_forget_ids" in data:
-        raw_ids = data["reconstructed_forget_ids"]
-        if isinstance(raw_ids, list):
-            reconstructed_forget_ids = tuple(str(id_val) for id_val in raw_ids)
-
-    # Parse and normalize reintroduced_forget_ids
-    reintroduced_forget_ids: tuple[str, ...] = ()
-    if "reintroduced_forget_ids" in data:
-        raw_ids = data["reintroduced_forget_ids"]
-        if isinstance(raw_ids, list):
-            reintroduced_forget_ids = tuple(str(id_val) for id_val in raw_ids)
+    # Parse and normalize ID fields using strict validation
+    target_forget_ids = deserialize_id_tuple(data, "target_forget_ids")
+    exposed_forget_ids = deserialize_id_tuple(data, "exposed_forget_ids")
+    reconstructed_forget_ids = deserialize_id_tuple(data, "reconstructed_forget_ids")
+    reintroduced_forget_ids = deserialize_id_tuple(data, "reintroduced_forget_ids")
 
     return TurnResult(
         turn_id=data["turn_id"],
@@ -164,7 +166,10 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
     )
 
 
-def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
+def deserialize_episode_result(
+    data: dict[str, Any],
+    schema_version: str = "1.0",
+) -> EpisodeResult:
     """Deserialize an EpisodeResult from a JSON dict."""
     turns = [deserialize_turn(t) for t in data.get("turns", [])]
 
@@ -198,6 +203,7 @@ def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
         attempted_agent_record_pairs=attempted_agent_record_pairs,
         recontaminated_agent_record_pairs=recontaminated_agent_record_pairs,
         metadata=data.get("metadata", {}),
+        schema_version=schema_version,
     )
 
 
@@ -220,10 +226,10 @@ def load_episode_results(path: str | Path) -> list[EpisodeResult]:
                 if schema_version == "1.0":
                     # Versioned envelope format
                     episode_data = data.get("episode", data)
-                    results.append(deserialize_episode_result(episode_data))
+                    results.append(deserialize_episode_result(episode_data, schema_version))
                 elif schema_version == "0":
                     # Legacy format (no version field)
-                    results.append(deserialize_episode_result(data))
+                    results.append(deserialize_episode_result(data, schema_version))
                 else:
                     raise UnsupportedSchemaVersionError(
                         f"Unsupported schema version: {schema_version!r} at line {line_num}"

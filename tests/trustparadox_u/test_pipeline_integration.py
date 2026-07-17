@@ -171,7 +171,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 
@@ -307,7 +314,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             # Mock get_repository_commit to return different commit
             with patch(
@@ -335,7 +349,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 
@@ -417,7 +438,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 

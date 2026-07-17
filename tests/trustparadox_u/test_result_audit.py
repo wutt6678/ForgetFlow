@@ -1379,3 +1379,73 @@ class TestReconstructedIdsConsistency:
         consistency = [f for f in findings if f.code == "RECONSTRUCTED_IDS_CONSISTENCY"]
         assert len(consistency) == 1
         assert consistency[0].level == "error"
+
+
+class TestSchemaAwareAudit:
+    """Section 7: Schema-aware historical audit."""
+
+    def test_legacy_schema_skips_record_id_checks(self) -> None:
+        """Legacy schema (< 1.0) should not enforce record ID consistency."""
+        result = _valid_result()
+        result.schema_version = "0.9"
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                reintroduced_forget_ids=(),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        # Should NOT have REINTRODUCED_IDS_CONSISTENCY error for legacy schema
+        consistency = [f for f in findings if f.code == "REINTRODUCED_IDS_CONSISTENCY"]
+        assert len(consistency) == 0
+
+    def test_legacy_schema_warns_on_reconstructed_without_ids(self) -> None:
+        """Legacy schema with target_reconstructed but no IDs gets warning."""
+        result = _valid_result()
+        result.schema_version = "0.9"
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_reconstruction_attempt=True,
+                reconstructed_forget_ids=(),
+                target_reconstructed=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        legacy = [f for f in findings if f.code == "LEGACY_SCHEMA_MISSING_RECORD_IDS"]
+        assert len(legacy) == 1
+        assert legacy[0].level == "warning"
+
+    def test_current_schema_enforces_record_id_checks(self) -> None:
+        """Schema >= 1.0 should enforce record ID consistency."""
+        result = _valid_result()
+        result.schema_version = "1.0"
+        result.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="test",
+                released_text="test",
+                is_recontamination_attempt=True,
+                reintroduced_forget_ids=(),
+                target_reintroduced=True,
+            )
+        ]
+        findings = audit_episode_result(result)
+        consistency = [f for f in findings if f.code == "REINTRODUCED_IDS_CONSISTENCY"]
+        assert len(consistency) == 1
+        assert consistency[0].level == "error"

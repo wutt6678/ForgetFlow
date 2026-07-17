@@ -115,6 +115,9 @@ class EpisodeResult:
     # Experiment metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # Schema version for compatibility tracking
+    schema_version: str = "1.0"
+
 
 @dataclass(frozen=True)
 class ReconstructionMetadata:
@@ -204,6 +207,49 @@ def evaluate_target_exposure(
     Does NOT use the firewall detector result as ground truth.
     """
     return bool(evaluate_exposed_forget_ids(released_text, sensitive_items))
+
+
+def evaluate_released_exposure(
+    *,
+    released_text: str | None,
+    episode: Any,
+    detector: Any,
+    ledger: Any,
+    turn_id: int,
+    sender_id: str,
+    recipient_id: str,
+    context_messages: Any,
+) -> tuple[set[str], Any]:
+    """Evaluate released exposure using text + detector in all branches.
+
+    This is the single shared path for exposure evaluation regardless of
+    whether firewall enforcement was active. The same released text must
+    produce the same exposure attribution in every condition.
+
+    Returns:
+        (exposed_ids, detector_result_or_None)
+    """
+    if released_text is None:
+        return set(), None
+
+    # Text-based evaluation
+    text_ids = evaluate_exposed_forget_ids(released_text, episode.sensitive_items)
+
+    # Detector evaluation
+    active_records = ledger.active_records(turn_id, sender_id, recipient_id)
+    detection = detector.detect(released_text, active_records, context_messages)
+
+    # Merge detector matches
+    detector_ids = set(detection.matched_forget_ids)
+    exposed_ids = text_ids | detector_ids
+
+    # Validate all matched IDs are registered
+    valid_forget_ids = {si.forget_id for si in episode.sensitive_items}
+    unknown_ids = exposed_ids - valid_forget_ids
+    if unknown_ids:
+        raise ValueError(f"Detector returned unknown forget IDs: {sorted(unknown_ids)}")
+
+    return exposed_ids, detection
 
 
 def evaluate_reconstruction_success(
@@ -659,26 +705,26 @@ def run_episode(
                     if released_text:
                         agents[step.recipient].receive_message(step.sender, released_text)
                         recipient_transcript.setdefault(step.recipient, []).append(released_text)
-                    # Check target exposure from released text (text-based)
-                    exposed_ids = evaluate_exposed_forget_ids(
-                        released_text, episode.sensitive_items
+                    # Shared exposure evaluation (text + detector)
+                    released_context = history.get_context(
+                        step.recipient, config.history.window_size
                     )
-                    # Run detector and merge matched_forget_ids into exposure
-                    released_detection = None
-                    if released_text is not None:
-                        released_context = history.get_context(
-                            step.recipient, config.history.window_size
-                        )
-                        active_records = ledger.active_records(
-                            turn_counter, step.sender, step.recipient
-                        )
-                        released_detection = detector.detect(
-                            released_text, active_records, released_context
-                        )
+                    exposed_ids, released_detection = evaluate_released_exposure(
+                        released_text=released_text,
+                        episode=episode,
+                        detector=detector,
+                        ledger=ledger,
+                        turn_id=turn_counter,
+                        sender_id=step.sender,
+                        recipient_id=step.recipient,
+                        context_messages=released_context,
+                    )
+                    # Update detector with reconstruction score
+                    if released_detection is not None:
                         released_recon = checker.score(
-                            released_text,
+                            released_text or "",
                             released_context,
-                            active_records,
+                            ledger.active_records(turn_counter, step.sender, step.recipient),
                             {
                                 "fragment_map": episode.fragment_map,
                                 "fact_chains": episode.fact_chains,
@@ -689,15 +735,6 @@ def run_episode(
                         released_detection = dataclasses.replace(
                             released_detection, reconstruction_score=released_recon
                         )
-                        # Merge detector-matched forget IDs into exposure
-                        exposed_ids = exposed_ids | set(released_detection.matched_forget_ids)
-                        # Validate that all matched IDs are registered
-                        valid_forget_ids = {si.forget_id for si in episode.sensitive_items}
-                        unknown_ids = exposed_ids - valid_forget_ids
-                        if unknown_ids:
-                            raise ValueError(
-                                "Detector returned unknown forget IDs: " f"{sorted(unknown_ids)}"
-                            )
                         for si in episode.sensitive_items:
                             if si.forget_id not in released_detection.matched_forget_ids:
                                 continue
@@ -787,7 +824,18 @@ def run_episode(
                 # No firewall or monitoring disabled: released_text equals candidate_text
                 agents[step.recipient].receive_message(step.sender, msg)
                 recipient_transcript.setdefault(step.recipient, []).append(msg)
-                exposed_ids = evaluate_exposed_forget_ids(msg, episode.sensitive_items)
+                # Shared exposure evaluation (text + detector)
+                released_context = history.get_context(step.recipient, config.history.window_size)
+                exposed_ids, _released_detection = evaluate_released_exposure(
+                    released_text=msg,
+                    episode=episode,
+                    detector=detector,
+                    ledger=ledger,
+                    turn_id=turn_counter,
+                    sender_id=step.sender,
+                    recipient_id=step.recipient,
+                    context_messages=released_context,
+                )
                 target_exposed = bool(exposed_ids)
                 # Per-record reconstruction attribution
                 reconstructed_ids = set()

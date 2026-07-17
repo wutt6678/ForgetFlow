@@ -871,3 +871,71 @@ class TestNewFieldDiskRoundTrip:
         assert loaded_turn.reconstructed_forget_ids == ()
         assert loaded_turn.target_reintroduced is False
         assert loaded_turn.target_reconstructed is False
+
+
+class TestDeserializeIdTuple:
+    """Section 8: Strict deserialization of per-record ID fields."""
+
+    def test_valid_list(self) -> None:
+        """Valid list of strings should deserialize."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": ["a", "b", "c"]}
+        result = deserialize_id_tuple(data, "field")
+        assert result == ("a", "b", "c")
+
+    def test_empty_list(self) -> None:
+        """Empty list should return empty tuple."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": []}
+        result = deserialize_id_tuple(data, "field")
+        assert result == ()
+
+    def test_missing_field(self) -> None:
+        """Missing field should return empty tuple."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"other": ["a"]}
+        result = deserialize_id_tuple(data, "field")
+        assert result == ()
+
+    def test_non_list_raises(self) -> None:
+        """Non-list value should raise ValueError."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": "not-a-list"}
+        with pytest.raises(ValueError, match="must be a list"):
+            deserialize_id_tuple(data, "field")
+
+    def test_non_string_item_raises(self) -> None:
+        """Non-string items should raise ValueError."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": ["a", 123]}
+        with pytest.raises(ValueError, match="must contain strings"):
+            deserialize_id_tuple(data, "field")
+
+    def test_empty_string_raises(self) -> None:
+        """Empty string IDs should raise ValueError."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": ["a", ""]}
+        with pytest.raises(ValueError, match="empty ID"):
+            deserialize_id_tuple(data, "field")
+
+    def test_duplicates_raise(self) -> None:
+        """Duplicate IDs should raise ValueError."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": ["a", "b", "a"]}
+        with pytest.raises(ValueError, match="duplicate"):
+            deserialize_id_tuple(data, "field")
+
+    def test_dict_value_raises(self) -> None:
+        """Dict value should raise ValueError."""
+        from experiments.trustparadox_u.serialization import deserialize_id_tuple
+
+        data = {"field": {"nested": True}}
+        with pytest.raises(ValueError, match="must be a list"):
+            deserialize_id_tuple(data, "field")

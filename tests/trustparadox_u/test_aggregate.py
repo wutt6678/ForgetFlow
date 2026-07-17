@@ -171,7 +171,16 @@ class TestAggregationCLI:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -249,7 +258,16 @@ class TestAggregationCLI:
             json.dump(manifest, f)
 
         with patch.object(
-            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -394,12 +412,13 @@ class TestCommitProvenanceValidation:
         )
 
     def test_matching_commit_passes(self) -> None:
-        """Manifest commit matches expected commit -> no error."""
+        """Manifest commit matches expected commit -> release_certifying."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
         manifest = self._make_manifest("abc1234")
         result = validate_commit_provenance(manifest, expected_commit="abc1234")
-        assert result is None
+        assert result["release_certifying"] is True
+        assert result["historical"] is False
 
     def test_stale_commit_raises(self) -> None:
         """Manifest commit differs from expected -> StaleArtifactError."""
@@ -408,38 +427,41 @@ class TestCommitProvenanceValidation:
             validate_commit_provenance,
         )
 
-        manifest = self._make_manifest("old_sha1")
+        manifest = self._make_manifest("aaaaaaa")
         with pytest.raises(StaleArtifactError, match="Artifact commit mismatch"):
-            validate_commit_provenance(manifest, expected_commit="new_sha2")
+            validate_commit_provenance(manifest, expected_commit="bbbbbbb")
 
-    def test_historical_override_returns_warning(self) -> None:
-        """Historical mode returns warning instead of raising."""
+    def test_historical_override_returns_historical(self) -> None:
+        """Historical mode returns historical metadata."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
-        manifest = self._make_manifest("old_sha1")
+        manifest = self._make_manifest("aaaaaaa")
         result = validate_commit_provenance(
             manifest,
-            expected_commit="new_sha2",
+            expected_commit="bbbbbbb",
             allow_historical=True,
         )
-        assert result is not None
-        assert "HISTORICAL" in result
+        assert result["historical"] is True
+        assert result["validation_mode"] == "historical_override"
 
-    def test_dirty_sha_mismatch(self) -> None:
-        """Manifest with dirty suffix still matches base SHA."""
-        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+    def test_dirty_artifact_raises(self) -> None:
+        """Dirty artifact cannot certify a clean commit."""
+        from experiments.trustparadox_u.aggregate import (
+            StaleArtifactError,
+            validate_commit_provenance,
+        )
 
         manifest = self._make_manifest("abc1234-dirty")
-        result = validate_commit_provenance(manifest, expected_commit="abc1234")
-        assert result is None
+        with pytest.raises(StaleArtifactError, match="Artifact commit mismatch"):
+            validate_commit_provenance(manifest, expected_commit="abc1234")
 
-    def test_no_provenance_check_when_no_args(self) -> None:
-        """No expected_commit and no require_current -> no check."""
+    def test_skip_check_returns_skipped(self) -> None:
+        """skip_check returns without validation."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
-        manifest = self._make_manifest("anything")
-        result = validate_commit_provenance(manifest)
-        assert result is None
+        manifest = self._make_manifest("a" * 40)
+        result = validate_commit_provenance(manifest, skip_check=True)
+        assert result["validation_mode"] == "skipped"
 
     def test_require_current_commit_checks_head(self) -> None:
         """--require-current-commit compares against current HEAD."""
@@ -448,6 +470,6 @@ class TestCommitProvenanceValidation:
             validate_commit_provenance,
         )
 
-        manifest = self._make_manifest("definitely_not_current_head")
+        manifest = self._make_manifest("aaaaaaa")
         with pytest.raises(StaleArtifactError):
             validate_commit_provenance(manifest, require_current_commit=True)

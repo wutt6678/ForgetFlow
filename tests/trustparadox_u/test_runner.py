@@ -878,3 +878,92 @@ class TestPerRecordReconstructionAttribution:
         result = run_episode(ep, _config())
         for turn in result.turns:
             assert turn.target_reconstructed == bool(turn.reconstructed_forget_ids)
+
+
+class TestEvaluateReleasedExposure:
+    """Section 2: Shared evaluate_released_exposure() helper."""
+
+    def test_none_released_text_returns_empty(self) -> None:
+        """None released_text should return empty set and None detection."""
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        exposed, detection = evaluate_released_exposure(
+            released_text=None,
+            episode=None,
+            detector=None,
+            ledger=None,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        assert exposed == set()
+        assert detection is None
+
+    def test_text_match_without_detector(self) -> None:
+        """Text-based matching should work without detector."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        # Create mock episode with sensitive items
+        episode = MagicMock()
+        si = MagicMock()
+        si.forget_id = "fid1"
+        si.canonical_target = "unique_secret_xyz"
+        episode.sensitive_items = [si]
+
+        # Mock detector that returns no matches
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=[])
+
+        # Mock ledger
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        exposed, detection = evaluate_released_exposure(
+            released_text="This contains unique_secret_xyz in it",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        # Text matching found the canonical target
+        assert "fid1" in exposed
+        # Detector was called
+        detector.detect.assert_called_once()
+
+    def test_unknown_detector_ids_raise(self) -> None:
+        """Detector returning unknown forget IDs should raise ValueError."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si = MagicMock()
+        si.forget_id = "fid1"
+        si.canonical_target = "unique_secret_xyz"
+        episode.sensitive_items = [si]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=["unknown_id"])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        import pytest
+
+        with pytest.raises(ValueError, match="unknown forget IDs"):
+            evaluate_released_exposure(
+                released_text="some text",
+                episode=episode,
+                detector=detector,
+                ledger=ledger,
+                turn_id=0,
+                sender_id="A",
+                recipient_id="B",
+                context_messages=[],
+            )

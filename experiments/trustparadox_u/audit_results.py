@@ -110,9 +110,27 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
     findings.extend(_audit_episode_rules(result, ep_id))
 
     # Check each turn
+    has_record_id_fields = result.schema_version >= "1.0"
     for turn in result.turns:
         turn_findings = _audit_turn(turn, ep_id)
         findings.extend(turn_findings)
+        # Record ID consistency checks only for schema >= 1.0
+        if has_record_id_fields:
+            findings.extend(_audit_record_id_consistency(turn, ep_id))
+        elif turn.target_reconstructed and not turn.reconstructed_forget_ids:
+            # Legacy schema: target_reconstructed without record IDs
+            findings.append(
+                AuditFinding(
+                    level="warning",
+                    code="LEGACY_SCHEMA_MISSING_RECORD_IDS",
+                    message=(
+                        f"Turn {turn.turn_id}: legacy schema has "
+                        f"target_reconstructed=True but no reconstructed_forget_ids"
+                    ),
+                    episode_id=ep_id,
+                    turn_id=turn.turn_id,
+                )
+            )
 
     # Extended audits: embedding, monitoring, fragmentation, attack-step
     findings.extend(
@@ -273,6 +291,13 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 turn_id=turn.turn_id,
             )
         )
+
+    return findings
+
+
+def _audit_record_id_consistency(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
+    """Audit record-level ID consistency (schema >= 1.0 only)."""
+    findings: list[AuditFinding] = []
 
     # REINTRODUCED_IDS_CONSISTENCY: target_reintroduced must agree with reintroduced_forget_ids
     if turn.target_reintroduced != bool(turn.reintroduced_forget_ids):
