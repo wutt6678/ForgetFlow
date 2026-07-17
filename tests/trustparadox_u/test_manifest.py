@@ -21,6 +21,13 @@ def _make_result(
     episode_id: str = "ep_001",
     seed: int = 42,
     config_hash: str = "abc123",
+    run_mode: str = "test",
+    semantic_enabled: bool = True,
+    embedding_provider: str | None = "litellm",
+    embedding_model: str | None = "openai/text-embedding-v3",
+    embedding_dimension: int | None = 1024,
+    semantic_threshold: float = 0.8,
+    api_base_sanitized: str | None = None,
 ) -> EpisodeResult:
     r = EpisodeResult(
         run_id="r1",
@@ -30,6 +37,13 @@ def _make_result(
         seed=seed,
     )
     r.metadata["config_hash"] = config_hash
+    r.metadata["run_mode"] = run_mode
+    r.metadata["semantic_enabled"] = semantic_enabled
+    r.metadata["embedding_provider"] = embedding_provider
+    r.metadata["embedding_model"] = embedding_model
+    r.metadata["embedding_dimension"] = embedding_dimension
+    r.metadata["semantic_threshold"] = semantic_threshold
+    r.metadata["api_base_sanitized"] = api_base_sanitized
     return r
 
 
@@ -39,38 +53,22 @@ class TestSmokeManifest:
     def test_manifest_includes_commit_sha(self) -> None:
         """Manifest includes a repository commit."""
         results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc123"],
-        )
+        m = build_manifest(results=results)
         assert m.repository_commit != ""
         assert m.repository_commit != "unknown" or True  # may be unknown in CI
 
     def test_provider_model_dimension_present(self) -> None:
         """Provider, model, and dimension are recorded."""
         results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-            provider="litellm",
-            model="openai/text-embedding-v3",
-            dimension=1024,
-        )
+        m = build_manifest(results=results)
         assert m.provider == "litellm"
         assert m.model == "openai/text-embedding-v3"
         assert m.dimension == 1024
 
     def test_no_credentials_in_manifest(self) -> None:
         """Credentials do not appear in serialised manifest."""
-        results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="experiment",
-            config_hashes=["abc"],
-            api_base="https://user:pass@example.com/v1/embeddings?key=secret",
-        )
+        results = [_make_result(api_base_sanitized="https://example.com")]
+        m = build_manifest(results=results)
         raw = m.to_json()
         assert "user" not in raw
         assert "pass" not in raw
@@ -78,24 +76,15 @@ class TestSmokeManifest:
 
     def test_no_query_strings_in_sanitized_endpoint(self) -> None:
         """Query strings are stripped from the endpoint."""
-        results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-            api_base="https://example.com/v1?token=xyz",
-        )
+        results = [_make_result(api_base_sanitized="https://example.com")]
+        m = build_manifest(results=results)
         assert m.api_base_sanitized == "https://example.com"
         assert "?" not in (m.api_base_sanitized or "")
 
     def test_no_raw_secret_fields(self) -> None:
         """Raw sensitive items are not stored in the manifest."""
         results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-        )
+        m = build_manifest(results=results)
         raw = m.to_json()
         assert "canonical_target" not in raw
         assert "forbidden_strings" not in raw
@@ -105,8 +94,6 @@ class TestSmokeManifest:
         results = [_make_result()]
         m = build_manifest(
             results=results,
-            run_mode="test",
-            config_hashes=["abc"],
             audit_valid=False,
             audit_error_count=3,
         )
@@ -120,23 +107,14 @@ class TestSmokeManifest:
             "pu_rer": {"numerator": 2, "denominator": 5},
             "crr": {"numerator": 1, "denominator": 3},
         }
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-            metric_counts=counts,
-        )
+        m = build_manifest(results=results, metric_counts=counts)
         assert m.metric_counts["pu_rer"]["numerator"] == 2
         assert m.metric_counts["crr"]["denominator"] == 3
 
     def test_json_serialization_is_deterministic(self) -> None:
         """Two serialisations of the same manifest produce identical JSON."""
         results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc", "def"],
-        )
+        m = build_manifest(results=results)
         # Replace timestamp with fixed value for determinism
         m2 = SmokeManifest(
             repository_commit=m.repository_commit,
@@ -165,11 +143,7 @@ class TestSmokeManifest:
     def test_save_manifest_writes_file(self, tmp_path: Path) -> None:
         """save_manifest writes a JSON file to disk."""
         results = [_make_result()]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-        )
+        m = build_manifest(results=results)
         out = tmp_path / "smoke_manifest.json"
         save_manifest(m, out)
         assert out.exists()
@@ -183,11 +157,7 @@ class TestSmokeManifest:
             _make_result(episode_id="ep_b", seed=2),
             _make_result(episode_id="ep_a", seed=1),  # duplicate
         ]
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc"],
-        )
+        m = build_manifest(results=results)
         assert set(m.episode_ids) == {"ep_a", "ep_b"}
         assert set(m.seeds) == {1, 2}
         assert m.result_count == 3
@@ -209,13 +179,7 @@ class TestValidateManifestAgainstResults:
     def test_valid_manifest_passes(self) -> None:
         """A valid manifest passes validation."""
         results = [_make_result()]
-        results[0].metadata["run_mode"] = "test"
-        results[0].metadata["semantic_threshold"] = 0.8
-        m = build_manifest(
-            results=results,
-            run_mode="test",
-            config_hashes=["abc123"],
-        )
+        m = build_manifest(results=results)
         findings = validate_manifest_against_results(m, results)
         # Filter out commit-related findings since we're testing in a real repo
         non_commit_findings = [f for f in findings if "COMMIT" not in f["code"]]
@@ -575,35 +539,35 @@ class TestRequireSingleMetadataValue:
         from experiments.trustparadox_u.manifest import require_single_metadata_value
 
         r1 = _make_result()
-        r1.metadata["provider"] = "openai"
+        r1.metadata["embedding_provider"] = "openai"
         r2 = _make_result(episode_id="ep_002")
-        r2.metadata["provider"] = "anthropic"
+        r2.metadata["embedding_provider"] = "anthropic"
 
-        with pytest.raises(ValueError, match="Expected exactly one value"):
-            require_single_metadata_value([r1, r2], "provider")
+        with pytest.raises(ValueError, match="Expected one value"):
+            require_single_metadata_value([r1, r2], "embedding_provider")
 
-    def test_none_values_discarded(self) -> None:
-        """None values should be discarded when allow_none=False."""
+    def test_none_values_raise_when_not_allowed(self) -> None:
+        """None values should raise error when allow_none=False."""
         from experiments.trustparadox_u.manifest import require_single_metadata_value
 
         r1 = _make_result()
-        r1.metadata["provider"] = "openai"
-        r2 = _make_result(episode_id="ep_002")
-        # r2 has no provider (None)
+        r1.metadata["embedding_provider"] = "openai"
+        r2 = _make_result(episode_id="ep_002", embedding_provider=None)
+        # r2 has embedding_provider=None
 
-        result = require_single_metadata_value([r1, r2], "provider")
-        assert result == "openai"
+        with pytest.raises(ValueError, match="missing from some results"):
+            require_single_metadata_value([r1, r2], "embedding_provider")
 
     def test_none_values_allowed(self) -> None:
         """None values should be allowed when allow_none=True."""
         from experiments.trustparadox_u.manifest import require_single_metadata_value
 
         r1 = _make_result()
-        r1.metadata["provider"] = None
+        r1.metadata["embedding_provider"] = None
         r2 = _make_result(episode_id="ep_002")
-        r2.metadata["provider"] = None
+        r2.metadata["embedding_provider"] = None
 
-        result = require_single_metadata_value([r1, r2], "provider", allow_none=True)
+        result = require_single_metadata_value([r1, r2], "embedding_provider", allow_none=True)
         assert result is None
 
     def test_all_none_raises_without_allow_none(self) -> None:
@@ -611,19 +575,19 @@ class TestRequireSingleMetadataValue:
         from experiments.trustparadox_u.manifest import require_single_metadata_value
 
         r1 = _make_result()
-        r1.metadata["provider"] = None
+        r1.metadata["embedding_provider"] = None
         r2 = _make_result(episode_id="ep_002")
-        r2.metadata["provider"] = None
+        r2.metadata["embedding_provider"] = None
 
-        with pytest.raises(ValueError, match="Expected exactly one value"):
-            require_single_metadata_value([r1, r2], "provider")
+        with pytest.raises(ValueError, match="cannot be null"):
+            require_single_metadata_value([r1, r2], "embedding_provider")
 
     def test_missing_field_raises(self) -> None:
         """Missing field should raise ValueError."""
         from experiments.trustparadox_u.manifest import require_single_metadata_value
 
-        r1 = _make_result()
-        # No provider field at all
+        r1 = _make_result(embedding_provider=None)
+        # No embedding_provider field (None)
 
-        with pytest.raises(ValueError, match="Expected exactly one value"):
-            require_single_metadata_value([r1], "provider")
+        with pytest.raises(ValueError, match="cannot be null"):
+            require_single_metadata_value([r1], "embedding_provider")

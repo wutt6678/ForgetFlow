@@ -954,16 +954,8 @@ if __name__ == "__main__":
         },
     }
 
-    config_hashes = list({cfg.config_hash()})
     smoke_manifest = build_manifest(
         results=results,
-        run_mode=cfg.run.mode,
-        config_hashes=config_hashes,
-        provider=cfg.models.embedding_provider,
-        model=cfg.models.embedding_model,
-        dimension=cfg.models.embedding_dimension,
-        semantic_threshold=cfg.detector.semantic_threshold,
-        api_base=cfg.models.api_base,
         audit_valid=not audit_report.has_errors,
         audit_error_count=len(audit_report.errors()),
         metric_counts=metric_counts,

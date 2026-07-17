@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from experiments.trustparadox_u.providers import sanitize_api_base
-
 # Regex for valid git commit SHA (7-40 hex characters)
 COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
@@ -103,21 +101,34 @@ def require_single_metadata_value(
     Args:
         results: List of EpisodeResult objects.
         field: Metadata field name to extract.
-        allow_none: If True, None values are allowed and discarded.
+        allow_none: If True, None values are allowed when all results have None.
+                   If False, None values cause an error.
 
     Returns:
         The single consistent value.
 
     Raises:
-        ValueError: If multiple inconsistent values are found.
+        ValueError: If results is empty, multiple inconsistent values are found,
+                   or None is present when allow_none=False.
     """
+    if not results:
+        raise ValueError("Cannot derive manifest metadata from an empty result set")
+
     values = {result.metadata.get(field) for result in results}
 
-    if not allow_none:
-        values.discard(None)
+    # Handle all-None case
+    if values == {None}:
+        if allow_none:
+            return None
+        raise ValueError(f"Metadata field {field!r} cannot be null")
 
+    # Check for mixed None and non-None values
+    if None in values:
+        raise ValueError(f"Metadata field {field!r} is missing from some results")
+
+    # Check for multiple different non-None values
     if len(values) != 1:
-        raise ValueError(f"Expected exactly one value for {field}, got {values!r}")
+        raise ValueError(f"Expected one value for {field!r}, found {values!r}")
 
     return next(iter(values))
 
@@ -125,31 +136,89 @@ def require_single_metadata_value(
 def build_manifest(
     *,
     results: list[Any],
-    run_mode: str,
-    config_hashes: list[str],
-    provider: str | None = None,
-    model: str | None = None,
-    dimension: int | None = None,
-    semantic_threshold: float = 0.8,
-    api_base: str | None = None,
     audit_valid: bool = True,
     audit_error_count: int = 0,
     metric_counts: dict[str, dict[str, int]] | None = None,
 ) -> SmokeManifest:
-    """Build a sanitised smoke manifest from run results."""
+    """Build a sanitised smoke manifest from run results.
+
+    All provenance metadata is derived from the completed results to ensure
+    the manifest describes what actually executed, not what was configured.
+
+    Args:
+        results: List of EpisodeResult objects from the run.
+        audit_valid: Whether the audit passed validation.
+        audit_error_count: Number of audit errors found.
+        metric_counts: Metric numerator/denominator counts.
+
+    Returns:
+        A SmokeManifest derived from the results.
+
+    Raises:
+        ValueError: If results are empty or have inconsistent metadata.
+    """
+    if not results:
+        raise ValueError("Cannot build manifest from empty result set")
+
+    # Derive all metadata from results
+    run_mode = str(require_single_metadata_value(results, "run_mode"))
+    semantic_enabled = bool(require_single_metadata_value(results, "semantic_enabled"))
+
+    # For semantic-disabled runs, allow None for embedding fields
+    provider = require_single_metadata_value(
+        results, "embedding_provider", allow_none=not semantic_enabled
+    )
+    model = require_single_metadata_value(
+        results, "embedding_model", allow_none=not semantic_enabled
+    )
+    dimension = require_single_metadata_value(
+        results, "embedding_dimension", allow_none=not semantic_enabled
+    )
+
+    # Semantic threshold is always required
+    semantic_threshold = float(require_single_metadata_value(results, "semantic_threshold"))
+
+    # API base is optional
+    api_base_sanitized = require_single_metadata_value(
+        results, "api_base_sanitized", allow_none=True
+    )
+
+    # Derive config hashes from results
+    config_hashes = tuple(
+        sorted({str(r.metadata.get("config_hash", "")) for r in results})
+    )
+
+    # Derive episode IDs and seeds from results
     episode_ids = tuple(sorted({r.episode_id for r in results}))
     seeds = tuple(sorted({r.seed for r in results}))
+
+    # Validate semantic experiment requirements
+    if run_mode == "experiment" and semantic_enabled:
+        if provider is None or provider == "fixed":
+            raise ValueError(
+                f"Semantic experiment requires a real embedding provider, got {provider!r}"
+            )
+        if model is None:
+            raise ValueError("Semantic experiment requires an embedding model")
+        if dimension is None or not isinstance(dimension, int) or dimension <= 0:
+            raise ValueError(
+                f"Semantic experiment requires a positive integer dimension, got {dimension!r}"
+            )
+        if not isinstance(semantic_threshold, (int, float)):
+            raise ValueError(
+                f"Semantic experiment requires a numeric threshold, got {semantic_threshold!r}"
+            )
 
     return SmokeManifest(
         repository_commit=get_repository_commit(),
         generated_at_utc=datetime.now(timezone.utc).isoformat(),
         run_mode=run_mode,
-        config_hashes=tuple(sorted(set(config_hashes))),
+        config_hashes=config_hashes,
         provider=provider,
         model=model,
         dimension=dimension,
         semantic_threshold=semantic_threshold,
-        api_base_sanitized=sanitize_api_base(api_base),
+        api_base_sanitized=api_base_sanitized,
         episode_ids=episode_ids,
         seeds=seeds,
         result_count=len(results),
