@@ -268,16 +268,55 @@ def inspect_result_schema_versions(path: str | Path) -> set[str]:
     """Peek at schema versions in a JSONL file without full deserialization.
 
     Returns the set of distinct schema version strings found.
+    Validates that each line is a JSON mapping with a parseable schema version.
+    For schema >= 1.0, also validates the presence of an 'episode' mapping.
     """
     path = Path(path)
     versions: set[str] = set()
     with open(path) as f:
-        for line in f:
+        for line_number, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
                 continue
-            data = json.loads(line)
-            versions.add(str(data.get("schema_version", UNVERSIONED_RESULT_SCHEMA)))
+            try:
+                decoded = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Malformed JSON in {path} at line {line_number}: {exc}"
+                ) from exc
+
+            if not isinstance(decoded, Mapping):
+                raise ValueError(
+                    f"Result envelope at line {line_number} in {path} "
+                    f"must be a JSON object, got {type(decoded).__name__}"
+                )
+
+            raw_version = decoded.get("schema_version", UNVERSIONED_RESULT_SCHEMA)
+
+            # Validate schema version is parseable
+            try:
+                sv_tuple = parse_schema_version(raw_version)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid schema version at line {line_number} in {path}: {exc}"
+                ) from exc
+
+            # For schema >= 1.0, require an 'episode' mapping
+            if sv_tuple >= (1, 0):
+                episode = decoded.get("episode")
+                if episode is None:
+                    raise ValueError(
+                        f"Result envelope at line {line_number} in {path} "
+                        f"with schema {raw_version!r} is missing 'episode' field"
+                    )
+                if not isinstance(episode, Mapping):
+                    raise ValueError(
+                        f"Result envelope at line {line_number} in {path} "
+                        f"has 'episode' of type {type(episode).__name__}, "
+                        f"expected a JSON object"
+                    )
+
+            versions.add(str(raw_version))
     return versions
 
 

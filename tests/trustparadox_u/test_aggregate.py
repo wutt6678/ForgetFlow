@@ -116,8 +116,7 @@ def _write_valid_episodes(path: Path) -> None:
     result = _valid_result()
     result.metadata["run_mode"] = "test"
     result.metadata["semantic_threshold"] = 0.8
-    data = {
-        "schema_version": "1.1",
+    episode_data = {
         "run_id": result.run_id,
         "episode_id": result.episode_id,
         "scenario_id": result.scenario_id,
@@ -131,6 +130,10 @@ def _write_valid_episodes(path: Path) -> None:
         "cleaned_agents_exposed": result.cleaned_agents_exposed,
         "recontaminated_agents": result.recontaminated_agents,
         "metadata": result.metadata,
+    }
+    data = {
+        "schema_version": "1.1",
+        "episode": episode_data,
     }
     with open(path, "w") as f:
         f.write(json.dumps(data) + "\n")
@@ -306,10 +309,20 @@ class TestAggregationCLI:
             exit_code = main()
 
         assert exit_code == 0
+        # Full output files are now written with diagnostic provenance
         assert (output_dir / "metrics.json").exists()
-        assert (output_dir / "diagnostic_warning.txt").exists()
-        # Publication files should not exist
-        assert not (output_dir / "summary.json").exists()
+        assert (output_dir / "summary.json").exists()
+        assert (output_dir / "summary.md").exists()
+        assert (output_dir / "aggregation_manifest.json").exists()
+        # Verify diagnostic provenance
+        metrics = json.loads((output_dir / "metrics.json").read_text())
+        prov = metrics["artifact_provenance"]
+        assert prov["diagnostic"] is True
+        assert prov["release_certifying"] is False
+        assert prov["validation_mode"] == "missing_manifest_diagnostic"
+        # Verify markdown warning
+        md = (output_dir / "summary.md").read_text()
+        assert "No authoritative smoke manifest" in md
 
     def test_invalid_audit_blocks_aggregation(self, tmp_path: Path) -> None:
         """Invalid audit results should block aggregation."""
@@ -317,9 +330,8 @@ class TestAggregationCLI:
         input_dir.mkdir()
         output_dir = tmp_path / "output"
 
-        # Write a result with missing required metadata
-        data = {
-            "schema_version": "1.1",
+        # Write a result with missing required metadata, wrapped in proper envelope
+        episode_data = {
             "run_id": "run_0001",
             "episode_id": "ep1",
             "scenario_id": "s1",
@@ -329,6 +341,10 @@ class TestAggregationCLI:
             "contamination_states": {},
             "audit_entries": [],
             "metadata": {},  # Missing required fields
+        }
+        data = {
+            "schema_version": "1.1",
+            "episode": episode_data,
         }
         with open(input_dir / "episodes.jsonl", "w") as f:
             f.write(json.dumps(data) + "\n")
@@ -410,7 +426,7 @@ class TestLocateEpisodeResults:
 class TestCommitProvenanceValidation:
     """Section 5: Smoke artifact provenance validation."""
 
-    def _make_manifest(self, commit: str = "abc1234"):
+    def _make_manifest(self, commit: str = "a" * 40):
         from experiments.trustparadox_u.manifest import SmokeManifest
 
         return SmokeManifest(
@@ -435,8 +451,9 @@ class TestCommitProvenanceValidation:
         """Manifest commit matches expected commit -> release_certifying."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
-        manifest = self._make_manifest("abc1234")
-        result = validate_commit_provenance(manifest, expected_commit="abc1234")
+        full_sha = "a" * 40
+        manifest = self._make_manifest(full_sha)
+        result = validate_commit_provenance(manifest, expected_commit=full_sha)
         assert result["release_certifying"] is True
         assert result["historical"] is False
 
@@ -447,18 +464,18 @@ class TestCommitProvenanceValidation:
             validate_commit_provenance,
         )
 
-        manifest = self._make_manifest("aaaaaaa")
+        manifest = self._make_manifest("a" * 40)
         with pytest.raises(StaleArtifactError, match="Artifact commit mismatch"):
-            validate_commit_provenance(manifest, expected_commit="bbbbbbb")
+            validate_commit_provenance(manifest, expected_commit="b" * 40)
 
     def test_historical_override_returns_historical(self) -> None:
         """Historical mode returns historical metadata."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
-        manifest = self._make_manifest("aaaaaaa")
+        manifest = self._make_manifest("a" * 40)
         result = validate_commit_provenance(
             manifest,
-            expected_commit="bbbbbbb",
+            expected_commit="b" * 40,
             allow_historical=True,
         )
         assert result["historical"] is True
@@ -471,9 +488,10 @@ class TestCommitProvenanceValidation:
             validate_commit_provenance,
         )
 
-        manifest = self._make_manifest("abc1234-dirty")
+        full_sha = "a" * 40
+        manifest = self._make_manifest(f"{full_sha}-dirty")
         with pytest.raises(StaleArtifactError, match="Artifact commit mismatch"):
-            validate_commit_provenance(manifest, expected_commit="abc1234")
+            validate_commit_provenance(manifest, expected_commit=full_sha)
 
     def test_skip_check_returns_skipped(self) -> None:
         """skip_check returns without validation."""
@@ -481,7 +499,7 @@ class TestCommitProvenanceValidation:
 
         manifest = self._make_manifest("a" * 40)
         result = validate_commit_provenance(manifest, skip_check=True)
-        assert result["validation_mode"] == "skipped"
+        assert result["validation_mode"] == "diagnostic_skipped"
 
     def test_require_current_commit_checks_head(self) -> None:
         """--require-current-commit compares against current HEAD."""
@@ -507,8 +525,9 @@ class TestCommitProvenanceValidation:
         """Matching commit has diagnostic=False."""
         from experiments.trustparadox_u.aggregate import validate_commit_provenance
 
-        manifest = self._make_manifest("abc1234")
-        result = validate_commit_provenance(manifest, expected_commit="abc1234")
+        full_sha = "a" * 40
+        manifest = self._make_manifest(full_sha)
+        result = validate_commit_provenance(manifest, expected_commit=full_sha)
         assert result["diagnostic"] is False
         assert result["release_certifying"] is True
 
@@ -522,9 +541,8 @@ class TestSchemaCompatibility:
         input_dir.mkdir()
         output_dir = tmp_path / "output"
 
-        # Write episode with schema 1.0
-        data = {
-            "schema_version": "1.0",
+        # Write episode with schema 1.0 in proper envelope format
+        episode_data = {
             "run_id": "r1",
             "episode_id": "ep1",
             "scenario_id": "s1",
@@ -534,6 +552,10 @@ class TestSchemaCompatibility:
             "contamination_states": {},
             "audit_entries": [],
             "metadata": {"forbidden_strings": ["x"], "config_hash": "a" * 64, "seed": 42},
+        }
+        data = {
+            "schema_version": "1.0",
+            "episode": episode_data,
         }
         with open(input_dir / "episodes.jsonl", "w") as f:
             f.write(json.dumps(data) + "\n")
@@ -565,8 +587,7 @@ class TestSchemaCompatibility:
         result = _valid_result()
         result.metadata["run_mode"] = "test"
         result.metadata["semantic_threshold"] = 0.8
-        data = {
-            "schema_version": "1.0",
+        episode_data = {
             "run_id": result.run_id,
             "episode_id": result.episode_id,
             "scenario_id": result.scenario_id,
@@ -580,6 +601,10 @@ class TestSchemaCompatibility:
             "cleaned_agents_exposed": result.cleaned_agents_exposed,
             "recontaminated_agents": result.recontaminated_agents,
             "metadata": result.metadata,
+        }
+        data = {
+            "schema_version": "1.0",
+            "episode": episode_data,
         }
         with open(input_dir / "episodes.jsonl", "w") as f:
             f.write(json.dumps(data) + "\n")
@@ -662,3 +687,365 @@ class TestAggregationManifest:
         assert exit_code == 0
         md = (output_dir / "summary.md").read_text()
         assert "Diagnostic artifact analysis" in md
+
+
+class TestShortShaResolution:
+    """Section 2: Short SHA resolution in provenance comparison."""
+
+    def _make_manifest(self, commit: str = "a" * 40):
+        from experiments.trustparadox_u.manifest import SmokeManifest
+
+        return SmokeManifest(
+            repository_commit=commit,
+            generated_at_utc="2024-01-01T00:00:00Z",
+            run_mode="test",
+            config_hashes=("a" * 64,),
+            provider="fixed",
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep1",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+
+    def test_short_expected_sha_resolves_to_full(self) -> None:
+        """Short expected SHA resolves to full SHA before comparison."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        full_sha = "a" * 40
+        manifest = self._make_manifest(full_sha)
+        # Mock resolve_commit_sha to return the full SHA
+        from unittest.mock import patch
+
+        with patch(
+            "experiments.trustparadox_u.aggregate.resolve_commit_sha",
+            return_value=full_sha,
+        ):
+            result = validate_commit_provenance(
+                manifest, expected_commit="aaaaaaa"
+            )
+        assert result["release_certifying"] is True
+        assert result["validation_mode"] == "expected_commit"
+
+    def test_full_expected_sha_matches_directly(self) -> None:
+        """Full expected SHA matches without resolution."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        full_sha = "a" * 40
+        manifest = self._make_manifest(full_sha)
+        result = validate_commit_provenance(manifest, expected_commit=full_sha)
+        assert result["release_certifying"] is True
+
+    def test_unresolvable_short_sha_raises(self) -> None:
+        """Unresolvable short SHA raises StaleArtifactError."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.aggregate import (
+            StaleArtifactError,
+            validate_commit_provenance,
+        )
+
+        manifest = self._make_manifest("a" * 40)
+        with patch(
+            "experiments.trustparadox_u.aggregate.resolve_commit_sha",
+            side_effect=ValueError("Short SHA 'zzzzzzz' could not be resolved"),
+        ):
+            with pytest.raises(StaleArtifactError, match="Could not resolve"):
+                validate_commit_provenance(manifest, expected_commit="zzzzzzz")
+
+
+class TestFullShaRequirement:
+    """Section 3: Full manifest SHAs for release certification."""
+
+    def _make_manifest(self, commit: str):
+        from experiments.trustparadox_u.manifest import SmokeManifest
+
+        return SmokeManifest(
+            repository_commit=commit,
+            generated_at_utc="2024-01-01T00:00:00Z",
+            run_mode="test",
+            config_hashes=("a" * 64,),
+            provider="fixed",
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep1",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+
+    def test_full_sha_certifies_release(self) -> None:
+        """Full 40-char SHA certifies release."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        full_sha = "a" * 40
+        manifest = self._make_manifest(full_sha)
+        result = validate_commit_provenance(manifest, expected_commit=full_sha)
+        assert result["release_certifying"] is True
+
+    def test_short_sha_rejected_for_certification(self) -> None:
+        """Short SHA is rejected for release certification."""
+        from experiments.trustparadox_u.aggregate import (
+            StaleArtifactError,
+            validate_commit_provenance,
+        )
+
+        short_sha = "a" * 7
+        manifest = self._make_manifest(short_sha)
+        with pytest.raises(StaleArtifactError, match="full 40-character"):
+            validate_commit_provenance(manifest, expected_commit=short_sha)
+
+    def test_short_sha_allowed_in_historical_mode(self) -> None:
+        """Short SHA is allowed when historical mode is active."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        short_sha = "a" * 7
+        manifest = self._make_manifest(short_sha)
+        result = validate_commit_provenance(
+            manifest,
+            expected_commit="b" * 40,
+            allow_historical=True,
+        )
+        assert result["historical"] is True
+
+
+class TestFutureSchemaRejection:
+    """Section 4: Future schemas rejected during compatibility preflight."""
+
+    def test_schema_1_2_rejected(self, tmp_path: Path) -> None:
+        """Schema 1.2 is rejected with exit code 7."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        episode_data = {
+            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+            "trust_level": "default", "seed": 42, "turns": [],
+            "contamination_states": {}, "audit_entries": [], "metadata": {},
+        }
+        data = {"schema_version": "1.2", "episode": episode_data}
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 7  # SCHEMA
+
+    def test_schema_2_0_rejected(self, tmp_path: Path) -> None:
+        """Schema 2.0 is rejected with exit code 7."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        episode_data = {
+            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+            "trust_level": "default", "seed": 42, "turns": [],
+            "contamination_states": {}, "audit_entries": [], "metadata": {},
+        }
+        data = {"schema_version": "2.0", "episode": episode_data}
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 7
+
+    def test_schema_99_0_rejected(self, tmp_path: Path) -> None:
+        """Schema 99.0 is rejected with exit code 7."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        episode_data = {
+            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+            "trust_level": "default", "seed": 42, "turns": [],
+            "contamination_states": {}, "audit_entries": [], "metadata": {},
+        }
+        data = {"schema_version": "99.0", "episode": episode_data}
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 7
+
+    def test_mixed_1_1_and_1_2_rejected(self, tmp_path: Path) -> None:
+        """Mixed schemas 1.1 and 1.2 are rejected."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        ep1 = {
+            "schema_version": "1.1",
+            "episode": {
+                "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+                "trust_level": "default", "seed": 42, "turns": [],
+                "contamination_states": {}, "audit_entries": [], "metadata": {},
+            },
+        }
+        ep2 = {
+            "schema_version": "1.2",
+            "episode": {
+                "run_id": "r2", "episode_id": "ep2", "scenario_id": "s1",
+                "trust_level": "default", "seed": 43, "turns": [],
+                "contamination_states": {}, "audit_entries": [], "metadata": {},
+            },
+        }
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(ep1) + "\n" + json.dumps(ep2) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 7
+
+
+class TestProvenanceOnAllOutputs:
+    """Section 6: Provenance embedded in every standalone output."""
+
+    def test_unmatched_pairs_has_provenance(self, tmp_path: Path) -> None:
+        """unmatched_pairs.json carries artifact_provenance."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        unmatched = json.loads((output_dir / "unmatched_pairs.json").read_text())
+        assert "artifact_provenance" in unmatched
+        prov = unmatched["artifact_provenance"]
+        assert "diagnostic" in prov
+        assert "release_certifying" in prov
+
+    def test_all_outputs_agree_on_provenance(self, tmp_path: Path) -> None:
+        """All output files agree on commit and mode."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        # Check provenance consistency across outputs
+        metrics = json.loads((output_dir / "metrics.json").read_text())
+        counts = json.loads((output_dir / "metric_counts.json").read_text())
+        audit = json.loads((output_dir / "audit_report.json").read_text())
+        utility = json.loads((output_dir / "utility_pairing.json").read_text())
+        unmatched = json.loads((output_dir / "unmatched_pairs.json").read_text())
+
+        for output in [metrics, counts, audit, utility, unmatched]:
+            prov = output["artifact_provenance"]
+            assert prov["diagnostic"] is True
+            assert prov["release_certifying"] is False
+
+
+class TestHistoricalDiagnosticOverlap:
+    """Section 8: Historical and diagnostic mode overlap."""
+
+    def test_legacy_schema_plus_skip_check(self, tmp_path: Path) -> None:
+        """Legacy schema + skip-commit-check marks historical and diagnostic."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        result = _valid_result()
+        result.metadata["run_mode"] = "test"
+        result.metadata["semantic_threshold"] = 0.8
+        episode_data = {
+            "run_id": result.run_id, "episode_id": result.episode_id,
+            "scenario_id": result.scenario_id, "trust_level": result.trust_level,
+            "seed": result.seed, "turns": [], "contamination_states": {},
+            "audit_entries": [], "task_success": result.task_success,
+            "task_label": result.task_label,
+            "cleaned_agents_exposed": result.cleaned_agents_exposed,
+            "recontaminated_agents": result.recontaminated_agents,
+            "metadata": result.metadata,
+        }
+        data = {"schema_version": "1.0", "episode": episode_data}
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys, "argv",
+            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
+             "--skip-commit-check", "--allow-historical-artifacts"],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        agg = json.loads((output_dir / "aggregation_manifest.json").read_text())
+        prov = agg["artifact_provenance"]
+        assert prov["historical"] is True
+        assert prov["diagnostic"] is True
+        assert prov["release_certifying"] is False
+
+
+class TestAuditErrorCounting:
+    """Section 10: Audit error counting excludes warnings."""
+
+    def test_error_count_excludes_warnings(self, tmp_path: Path) -> None:
+        """Audit error message reports errors and warnings separately."""
+        from experiments.trustparadox_u.audit_results import AuditFinding, AuditReport
+
+        report = AuditReport(
+            findings=[
+                AuditFinding(level="error", code="E1", message="err1"),
+                AuditFinding(level="warning", code="W1", message="warn1"),
+                AuditFinding(level="warning", code="W2", message="warn2"),
+            ],
+            episodes_audited=1,
+            episodes_with_errors=1,
+        )
+        assert len(report.errors()) == 1
+        assert len(report.warnings()) == 2
+        assert report.has_errors is True

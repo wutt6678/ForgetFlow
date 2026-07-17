@@ -18,7 +18,9 @@ from experiments.trustparadox_u.evaluator import (
     evaluate_all,
 )
 from experiments.trustparadox_u.manifest import (
+    FULL_SHA_RE,
     SmokeManifest,
+    resolve_commit_sha,
     validate_manifest_against_results,
 )
 from experiments.trustparadox_u.paths import (
@@ -57,6 +59,27 @@ class SchemaCompatibilityError(AggregationError):
 
 class ResultAuditError(AggregationError):
     """Error auditing results."""
+
+
+def _dummy_manifest() -> SmokeManifest:
+    """Create a placeholder manifest for diagnostic no-manifest mode."""
+    return SmokeManifest(
+        repository_commit="unknown",
+        generated_at_utc="",
+        run_mode="diagnostic",
+        config_hashes=(),
+        provider=None,
+        model=None,
+        dimension=None,
+        semantic_threshold=0.0,
+        api_base_sanitized=None,
+        episode_ids=(),
+        seeds=(),
+        result_count=0,
+        audit_valid=True,
+        audit_error_count=0,
+        metric_counts={},
+    )
 
 
 def format_metric(metric: dict[str, Any]) -> str:
@@ -180,12 +203,13 @@ def write_aggregation_outputs(
     # Minimal provenance block for embedding in standalone outputs
     provenance_block = {
         "artifact_commit": prov.get("artifact_commit", ""),
+        "artifact_dirty": prov.get("artifact_dirty", False),
+        "expected_commit": prov.get("expected_commit", ""),
+        "historical": prov.get("historical", False),
+        "diagnostic": prov.get("diagnostic", False),
+        "validation_mode": prov.get("validation_mode", "unknown"),
         "release_certifying": prov.get("release_certifying", False),
     }
-    if prov.get("historical"):
-        provenance_block["historical"] = True
-    if prov.get("diagnostic"):
-        provenance_block["diagnostic"] = True
 
     # metrics.json
     metrics_dict = evaluation.to_dict()
@@ -272,7 +296,11 @@ def write_aggregation_outputs(
         )
     )
     (output_dir / "unmatched_pairs.json").write_text(
-        json.dumps(unmatched, indent=2, sort_keys=True)
+        json.dumps(
+            {"artifact_provenance": provenance_block, **unmatched},
+            indent=2,
+            sort_keys=True,
+        )
     )
 
     # aggregation_manifest.json
@@ -308,6 +336,12 @@ def write_aggregation_outputs(
             "> **Diagnostic artifact analysis.** "
             "> Repository commit validation was skipped. "
             "> These results cannot certify a release or experiment SHA.\n"
+        )
+    if prov.get("validation_mode") == "missing_manifest_diagnostic":
+        md_lines.append(
+            "> **Diagnostic artifact analysis.** "
+            "> No authoritative smoke manifest was available. "
+            "> These outputs cannot certify a release or experiment commit.\n"
         )
     md_lines.append(format_table(summary_data, title="Aggregation Summary"))
     (output_dir / "summary.md").write_text("\n".join(md_lines))
@@ -380,7 +414,7 @@ def validate_commit_provenance(
     }
 
     if skip_check:
-        provenance_meta["validation_mode"] = "skipped"
+        provenance_meta["validation_mode"] = "diagnostic_skipped"
         provenance_meta["diagnostic"] = True
         return provenance_meta
 
@@ -392,9 +426,17 @@ def validate_commit_provenance(
         provenance_meta["expected_commit"] = current_prov.commit
         provenance_meta["expected_dirty"] = current_prov.dirty
     elif expected_commit is not None:
-        expected_prov = parse_repository_provenance(expected_commit)
+        # Resolve short SHA to full 40-char SHA before comparison
+        try:
+            expected_full_sha = resolve_commit_sha(expected_commit)
+        except ValueError as exc:
+            raise StaleArtifactError(
+                f"Could not resolve expected commit {expected_commit!r}: {exc}"
+            ) from exc
+        expected_prov = parse_repository_provenance(expected_full_sha)
         provenance_meta["expected_commit"] = expected_prov.commit
         provenance_meta["expected_dirty"] = expected_prov.dirty
+        provenance_meta["validation_mode"] = "expected_commit"
     else:
         # allow_historical without expected
         provenance_meta["validation_mode"] = "historical_override"
@@ -415,6 +457,13 @@ def validate_commit_provenance(
                 )
             provenance_meta["historical"] = True
         else:
+            # Require full 40-char SHA for release certification
+            if not FULL_SHA_RE.match(artifact_prov.commit):
+                raise StaleArtifactError(
+                    f"Release-certifying manifests must contain a full 40-character "
+                    f"Git commit SHA, got {artifact_prov.commit!r} "
+                    f"({len(artifact_prov.commit)} chars)."
+                )
             provenance_meta["release_certifying"] = True
         return provenance_meta
 
@@ -530,9 +579,15 @@ def main() -> int:
         current = parse_schema_version(RESULT_SCHEMA_VERSION)
         for sv in schema_versions:
             sv_parsed = parse_schema_version(sv)
-            if sv_parsed >= current:
-                # Current or future schema — always supported
+            if sv_parsed == current:
+                # Exact current schema — supported
                 pass
+            elif sv_parsed > current:
+                # Future schema — not implemented, reject
+                raise SchemaCompatibilityError(
+                    f"Future result schema {sv!r} is unsupported; "
+                    f"current schema is {RESULT_SCHEMA_VERSION!r}"
+                )
             elif is_historical_mode or diagnostic_only:
                 # Legacy schema in historical/diagnostic mode — allowed
                 pass
@@ -543,6 +598,22 @@ def main() -> int:
                     f"Use --allow-historical-artifacts for legacy analysis."
                 )
 
+        # 5b. Update provenance for legacy schema content
+        if schema_versions:
+            contains_legacy_schema = any(
+                parse_schema_version(version) < current
+                for version in schema_versions
+            )
+            if contains_legacy_schema:
+                provenance_meta["historical"] = True
+                provenance_meta["release_certifying"] = False
+                if provenance_meta.get("validation_mode") not in (
+                    "historical_override",
+                    "diagnostic_skipped",
+                    "missing_manifest_diagnostic",
+                ):
+                    provenance_meta["validation_mode"] = "historical_diagnostic"
+
         # 6. Deserialize results
         try:
             results = load_episode_results(episodes_path)
@@ -552,8 +623,11 @@ def main() -> int:
         # 7. Audit results
         audit_report = audit_results(results)
         if audit_report.has_errors:
-            error_count = len(audit_report.findings)
-            raise ResultAuditError(f"Audit failed with {error_count} errors")
+            error_count = len(audit_report.errors())
+            warning_count = len(audit_report.warnings())
+            raise ResultAuditError(
+                f"Audit failed with {error_count} error(s) and {warning_count} warning(s)"
+            )
 
         # 8. Validate manifest against results
         if manifest is not None:
@@ -567,15 +641,24 @@ def main() -> int:
 
         # 11. Write outputs
         if diagnostic_only:
-            # Write limited diagnostic outputs
-            output_dir.mkdir(parents=True, exist_ok=True)
-            metrics_dict = evaluation.to_dict()
-            (output_dir / "metrics.json").write_text(
-                json.dumps(metrics_dict, indent=2, sort_keys=True)
-            )
-            (output_dir / "diagnostic_warning.txt").write_text(
-                "DIAGNOSTIC ONLY: No manifest was provided. "
-                "These results are not publication-ready.\n"
+            # Build diagnostic provenance for no-manifest mode
+            diagnostic_provenance: dict[str, Any] = {
+                "artifact_commit": None,
+                "artifact_dirty": None,
+                "expected_commit": None,
+                "historical": False,
+                "diagnostic": True,
+                "validation_mode": "missing_manifest_diagnostic",
+                "release_certifying": False,
+            }
+            provenance_meta = diagnostic_provenance
+            write_aggregation_outputs(
+                output_dir=output_dir,
+                results=results,
+                evaluation=evaluation,
+                manifest=manifest or _dummy_manifest(),
+                audit_report=audit_report,
+                provenance_meta=provenance_meta,
             )
         else:
             assert manifest is not None, "manifest must be set in non-diagnostic mode"

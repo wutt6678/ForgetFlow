@@ -91,8 +91,7 @@ def _write_episode_and_manifest(
 
     # Write episodes.jsonl
     episodes_file = tmp_path / EPISODE_RESULTS_FILENAME
-    episode_dict = {
-        "schema_version": "1.1",
+    episode_inner = {
         "run_id": episode.run_id,
         "episode_id": episode.episode_id,
         "scenario_id": episode.scenario_id,
@@ -130,6 +129,10 @@ def _write_episode_and_manifest(
         "cleaned_agents_exposed": episode.cleaned_agents_exposed,
         "recontaminated_agents": episode.recontaminated_agents,
         "metadata": episode.metadata,
+    }
+    episode_dict = {
+        "schema_version": "1.1",
+        "episode": episode_inner,
     }
     episodes_file.write_text(json.dumps(episode_dict) + "\n")
 
@@ -240,9 +243,9 @@ class TestRunnerToAggregationIntegration:
         episode = _create_realistic_episode()
         episodes_file, manifest_file = _write_episode_and_manifest(input_dir, episode)
 
-        # Corrupt the decision
+        # Corrupt the decision (data is wrapped in envelope)
         episode_dict = json.loads(episodes_file.read_text())
-        episode_dict["turns"][0]["decision"] = {"invalid": "structure"}
+        episode_dict["episode"]["turns"][0]["decision"] = {"invalid": "structure"}
         episodes_file.write_text(json.dumps(episode_dict) + "\n")
 
         with patch.object(
@@ -270,9 +273,9 @@ class TestRunnerToAggregationIntegration:
         episode = _create_realistic_episode()
         episodes_file, manifest_file = _write_episode_and_manifest(input_dir, episode)
 
-        # Corrupt the contamination status
+        # Corrupt the contamination status (data is wrapped in envelope)
         episode_dict = json.loads(episodes_file.read_text())
-        episode_dict["contamination_states"]["agent_A"] = "invalid_status"
+        episode_dict["episode"]["contamination_states"]["agent_A"] = "invalid_status"
         episodes_file.write_text(json.dumps(episode_dict) + "\n")
 
         with patch.object(

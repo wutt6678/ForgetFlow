@@ -1128,3 +1128,152 @@ class TestEvaluateReleasedExposure:
         )
         assert exposed == set()
         assert detection.matched_forget_ids == []
+
+
+class TestDetectorOnlyRunnerBranches:
+    """Section 9: Detector-only attribution through full run_episode() branches."""
+
+    def _config_with_detector(self, **overrides) -> ExperimentConfig:
+        """Create config with semantic detection disabled (text-only baseline)."""
+        kwargs = dict(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        kwargs.update(overrides)
+        return ExperimentConfig(**kwargs)
+
+    def _mock_detector_returning(self, forget_ids: list[str]):
+        """Create a mock HybridDetector that returns specific forget IDs."""
+        from unittest.mock import MagicMock
+
+        from marble.firewall.types import DetectorResult
+
+        mock_instance = MagicMock()
+        mock_instance.detect.return_value = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=tuple(forget_ids),
+            evidence=("mock_detection",),
+        )
+        return mock_instance
+
+    def test_firewall_active_detector_only(self) -> None:
+        """Detector-only match propagates through firewall-active path."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector()
+
+        # Get the forget_id from the episode
+        forget_id = ep.sensitive_items[0].forget_id
+
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=True)
+
+        # Find POST_FORGET_ATTACK turns
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        assert len(attack_turns) > 0
+        # At least one turn should have the detector-only exposure
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0
+        for t in exposed_turns:
+            assert t.target_exposed is True
+
+    def test_firewall_disabled_detector_only(self) -> None:
+        """Detector-only match propagates through firewall-disabled path."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector()
+        forget_id = ep.sensitive_items[0].forget_id
+
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=False)
+
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        assert len(attack_turns) > 0
+        # In firewall-disabled mode, all text is released, so detector matches
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0
+
+    def test_monitoring_continuous_detector_only(self) -> None:
+        """Detector-only match with continuous monitoring."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector(
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=10),
+        )
+        forget_id = ep.sensitive_items[0].forget_id
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=True)
+
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0
+
+    def test_monitoring_expired_detector_only(self) -> None:
+        """Detector-only match with expired monitoring (duration=0)."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector(
+            monitoring=MonitoringConfig(continuous=False, duration_rounds=0),
+        )
+        forget_id = ep.sensitive_items[0].forget_id
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=True)
+
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0
+
+    def test_rich_policy_detector_only(self) -> None:
+        """Detector-only match with rich policy enabled."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector(
+            policy=PolicyConfig(rich_actions_enabled=True),
+        )
+        forget_id = ep.sensitive_items[0].forget_id
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=True)
+
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0
+
+    def test_binary_policy_detector_only(self) -> None:
+        """Detector-only match with binary (non-rich) policy."""
+        from unittest.mock import patch
+
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        config = self._config_with_detector(
+            policy=PolicyConfig(rich_actions_enabled=False),
+        )
+        forget_id = ep.sensitive_items[0].forget_id
+        mock_det = self._mock_detector_returning([forget_id])
+
+        with patch("experiments.trustparadox_u.runner.HybridDetector", return_value=mock_det):
+            result = run_episode(ep, config, firewall_enabled=True)
+
+        attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
+        exposed_turns = [t for t in attack_turns if forget_id in t.exposed_forget_ids]
+        assert len(exposed_turns) > 0

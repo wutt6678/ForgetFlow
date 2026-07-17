@@ -1034,3 +1034,101 @@ class TestSchemaVersionConstants:
         data = {"field": {"nested": True}}
         with pytest.raises(ValueError, match="must be a list"):
             deserialize_id_tuple(data, "field")
+
+
+class TestInspectResultSchemaVersionsHardened:
+    """Section 5: Hardened schema envelope inspection."""
+
+    def _inspect(self, path: Path) -> set[str]:
+        from experiments.trustparadox_u.serialization import inspect_result_schema_versions
+        return inspect_result_schema_versions(path)
+
+    def test_list_envelope_rejected(self, tmp_path: Path) -> None:
+        """List envelope is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text("[]\n")
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            self._inspect(f)
+
+    def test_string_envelope_rejected(self, tmp_path: Path) -> None:
+        """String envelope is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text('"episode"\n')
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            self._inspect(f)
+
+    def test_null_envelope_rejected(self, tmp_path: Path) -> None:
+        """Null envelope is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text("null\n")
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            self._inspect(f)
+
+    def test_integer_envelope_rejected(self, tmp_path: Path) -> None:
+        """Integer envelope is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text("42\n")
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            self._inspect(f)
+
+    def test_numeric_schema_version_rejected(self, tmp_path: Path) -> None:
+        """Numeric (non-string) schema version is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({"schema_version": 1.1, "episode": {}}) + "\n")
+        with pytest.raises(ValueError, match="Invalid schema version"):
+            self._inspect(f)
+
+    def test_malformed_schema_string_rejected(self, tmp_path: Path) -> None:
+        """Malformed schema version string is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({"schema_version": "abc", "episode": {}}) + "\n")
+        with pytest.raises(ValueError, match="Invalid schema version"):
+            self._inspect(f)
+
+    def test_missing_episode_object_rejected(self, tmp_path: Path) -> None:
+        """Schema 1.1 without episode field is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({"schema_version": "1.1", "run_id": "r1"}) + "\n")
+        with pytest.raises(ValueError, match="missing 'episode' field"):
+            self._inspect(f)
+
+    def test_episode_wrong_type_rejected(self, tmp_path: Path) -> None:
+        """Schema 1.1 with non-mapping episode is rejected."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({"schema_version": "1.1", "episode": "not-a-dict"}) + "\n")
+        with pytest.raises(ValueError, match="expected a JSON object"):
+            self._inspect(f)
+
+    def test_line_number_in_error(self, tmp_path: Path) -> None:
+        """Error message includes line number."""
+        f = tmp_path / "episodes.jsonl"
+        valid = json.dumps({
+            "schema_version": "1.1",
+            "episode": {"run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+                        "trust_level": "default", "seed": 42, "turns": [],
+                        "contamination_states": {}, "metadata": {}},
+        })
+        f.write_text(valid + "\n" + "[]\n")
+        with pytest.raises(ValueError, match="line 2"):
+            self._inspect(f)
+
+    def test_valid_envelope_passes(self, tmp_path: Path) -> None:
+        """Valid envelope passes inspection."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({
+            "schema_version": "1.1",
+            "episode": {"run_id": "r1", "episode_id": "ep1"},
+        }) + "\n")
+        versions = self._inspect(f)
+        assert versions == {"1.1"}
+
+    def test_unversioned_no_episode_required(self, tmp_path: Path) -> None:
+        """Unversioned schema 0 does not require episode wrapper."""
+        f = tmp_path / "episodes.jsonl"
+        f.write_text(json.dumps({
+            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
+            "trust_level": "default", "seed": 42, "turns": [],
+            "contamination_states": {}, "metadata": {},
+        }) + "\n")
+        versions = self._inspect(f)
+        assert versions == {"0"}
