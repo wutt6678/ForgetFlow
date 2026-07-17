@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from experiments.trustparadox_u.identity import PairingKey, pairing_key_from_result
 from experiments.trustparadox_u.runner import EpisodeResult
 
 
@@ -147,23 +148,6 @@ def compute_fbr(results: list[EpisodeResult]) -> MetricValue:
     return MetricValue(blocked / legitimate, blocked, legitimate)
 
 
-def _utility_pair_key(result: EpisodeResult) -> tuple:
-    """Generate pairing key for utility retention computation."""
-    attack_type = result.metadata.get("attack_type", "")
-    if isinstance(attack_type, list):
-        attack_type = tuple(attack_type)
-    secret_variant_id = result.metadata.get("secret_variant_id", "")
-    if isinstance(secret_variant_id, list):
-        secret_variant_id = tuple(secret_variant_id)
-    return (
-        result.scenario_id,
-        secret_variant_id,
-        result.trust_level,
-        attack_type,
-        result.seed,
-    )
-
-
 def compute_utility_retention(
     fw_results: list[EpisodeResult],
     no_fw_results: list[EpisodeResult],
@@ -175,17 +159,17 @@ def compute_utility_retention(
     Reports unmatched keys.
     """
     # Index baseline results by pairing key
-    baseline_index: dict[tuple, EpisodeResult] = {}
+    baseline_index: dict[PairingKey, EpisodeResult] = {}
     for r in no_fw_results:
-        key = _utility_pair_key(r)
+        key = pairing_key_from_result(r)
         if key in baseline_index:
             raise ValueError(f"Duplicate baseline key: {key}")
         baseline_index[key] = r
 
     # Index firewall results by pairing key
-    firewall_index: dict[tuple, EpisodeResult] = {}
+    firewall_index: dict[PairingKey, EpisodeResult] = {}
     for r in fw_results:
-        key = _utility_pair_key(r)
+        key = pairing_key_from_result(r)
         if key in firewall_index:
             raise ValueError(f"Duplicate firewall key: {key}")
         firewall_index[key] = r

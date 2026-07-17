@@ -25,11 +25,11 @@ PAIRING_KEY_FIELDS = (
 def normalize_identity_component(value: object) -> str:
     """Normalize a metadata component to a stable string.
 
-    Lists are serialized as canonical JSON.  All other values are
-    converted via ``str()``.
+    Lists are sorted and serialized as canonical JSON.
+    All other values are converted via ``str()``.
     """
     if isinstance(value, list):
-        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        return json.dumps(sorted(value), sort_keys=True, separators=(",", ":"))
     return str(value)
 
 
