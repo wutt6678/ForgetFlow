@@ -19,6 +19,7 @@ from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
 from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
+from experiments.trustparadox_u.providers import sanitize_api_base
 from marble.firewall.audit import AuditLogger
 from marble.firewall.contamination import ContaminationTracker
 from marble.firewall.detectors import HybridDetector
@@ -267,6 +268,10 @@ def run_episode(
             "seed": config.seed,
         },
     }
+
+    # Add endpoint provenance metadata
+    if config.models.api_base:
+        result.metadata["api_base_sanitized"] = sanitize_api_base(config.models.api_base)
 
     # Update result with generated run_id
     result.run_id = run_id
