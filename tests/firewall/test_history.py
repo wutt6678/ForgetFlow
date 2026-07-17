@@ -106,3 +106,69 @@ class TestReconstructionChecker:
         score2 = checker.score("and 07", ctx2, [rec], meta)
 
         assert score1 > score2
+
+
+class TestMultiSenderHistory:
+    """ST-HIST-005: Sender identity does not replace recipient history."""
+
+    def _rec(self) -> ForgetRecord:
+        return ForgetRecord(
+            forget_id="F001",
+            canonical_target="0107",
+            target_type="credential",
+            aliases=(),
+            semantic_variants=(),
+            permitted_residuals=(),
+            active_from_turn=0,
+        )
+
+    def test_multi_sender_same_recipient_reconstructs(self) -> None:
+        """ST-HIST-005-A: Different senders contribute to same recipient transcript."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        # Sender A sends fragment "01" to recipient R
+        rh.append(
+            "R",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="first part is 01"
+            ),
+        )
+        # Sender B sends fragment "07" to recipient R
+        rh.append(
+            "R",
+            RecipientHistoryItem(
+                message_id="m2", turn_id=1, sender_id="B", released_text="second part is 07"
+            ),
+        )
+        ctx = rh.get_context("R", window_size=5)
+        meta = {"fragment_map": {"F001": {"target": "0107", "fragments": ["01", "07"]}}}
+        score = checker.score("follow-up", ctx, [self._rec()], meta)
+        assert score == 1.0  # Recipient R can reconstruct from both senders
+
+    def test_fragments_different_recipients_no_reconstruct(self) -> None:
+        """ST-HIST-005-B: Same fragments to different recipients don't reconstruct."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        # Sender A sends fragment "01" to R1
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="first part is 01"
+            ),
+        )
+        # Sender B sends fragment "07" to R2
+        rh.append(
+            "R2",
+            RecipientHistoryItem(
+                message_id="m2", turn_id=1, sender_id="B", released_text="second part is 07"
+            ),
+        )
+        meta = {"fragment_map": {"F001": {"target": "0107", "fragments": ["01", "07"]}}}
+        # R1 only has "01" -> no reconstruction
+        ctx_r1 = rh.get_context("R1", window_size=5)
+        score_r1 = checker.score("follow-up", ctx_r1, [self._rec()], meta)
+        assert score_r1 < 1.0
+        # R2 only has "07" -> no reconstruction
+        ctx_r2 = rh.get_context("R2", window_size=5)
+        score_r2 = checker.score("follow-up", ctx_r2, [self._rec()], meta)
+        assert score_r2 < 1.0

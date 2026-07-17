@@ -591,3 +591,67 @@ class TestRequireSingleMetadataValue:
 
         with pytest.raises(ValueError, match="cannot be null"):
             require_single_metadata_value([r1], "embedding_provider")
+
+
+class TestStrictConfigHashValidation:
+    """ST-MAN: Strict configuration hash validation (G12)."""
+
+    def test_missing_config_hash_raises(self) -> None:
+        """Missing config_hash is rejected."""
+        r = _make_result()
+        del r.metadata["config_hash"]
+        with pytest.raises(ValueError, match="no valid config_hash"):
+            from experiments.trustparadox_u.manifest import collect_config_hashes
+
+            collect_config_hashes([r])
+
+    def test_empty_string_config_hash_raises(self) -> None:
+        """Empty string config_hash is rejected."""
+        r = _make_result(config_hash="")
+        with pytest.raises(ValueError, match="no valid config_hash"):
+            from experiments.trustparadox_u.manifest import collect_config_hashes
+
+            collect_config_hashes([r])
+
+    def test_whitespace_only_config_hash_raises(self) -> None:
+        """Whitespace-only config_hash is rejected."""
+        r = _make_result(config_hash="   ")
+        with pytest.raises(ValueError, match="no valid config_hash"):
+            from experiments.trustparadox_u.manifest import collect_config_hashes
+
+            collect_config_hashes([r])
+
+    def test_non_string_config_hash_raises(self) -> None:
+        """Non-string config_hash is rejected."""
+        r = _make_result()
+        r.metadata["config_hash"] = 12345
+        with pytest.raises(ValueError, match="no valid config_hash"):
+            from experiments.trustparadox_u.manifest import collect_config_hashes
+
+            collect_config_hashes([r])
+
+    def test_valid_config_hash_passes(self) -> None:
+        """Valid config_hash is accepted."""
+        r = _make_result(config_hash="abc123def456")
+        from experiments.trustparadox_u.manifest import collect_config_hashes
+
+        hashes = collect_config_hashes([r])
+        assert hashes == ("abc123def456",)
+
+    def test_multiple_valid_hashes_deduplicated(self) -> None:
+        """Multiple results with same hash produce single entry."""
+        r1 = _make_result(episode_id="ep_a", config_hash="abc")
+        r2 = _make_result(episode_id="ep_b", config_hash="abc")
+        from experiments.trustparadox_u.manifest import collect_config_hashes
+
+        hashes = collect_config_hashes([r1, r2])
+        assert hashes == ("abc",)
+
+    def test_multiple_distinct_hashes(self) -> None:
+        """Multiple distinct hashes are sorted and returned."""
+        r1 = _make_result(episode_id="ep_a", config_hash="bbb")
+        r2 = _make_result(episode_id="ep_b", config_hash="aaa")
+        from experiments.trustparadox_u.manifest import collect_config_hashes
+
+        hashes = collect_config_hashes([r1, r2])
+        assert hashes == ("aaa", "bbb")

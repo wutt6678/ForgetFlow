@@ -90,3 +90,92 @@ class TestHybridDetector:
         det = HybridDetector(semantic_enabled=False)
         result = det.detect("The code is 0107", [_rec()])
         assert any("EXACT" in e for e in result.evidence)
+
+
+class TestSemanticThresholdBoundary:
+    """ST-SEM-003: Semantic threshold boundary behavior.
+
+    The production comparison is score >= threshold.
+    These tests freeze that contract.
+    """
+
+    def test_below_threshold_is_safe(self) -> None:
+        """ST-SEM-003-below: Score below threshold is not risky."""
+        from marble.firewall.policy import ForgetPolicy
+        from marble.firewall.types import DetectorResult
+
+        policy = ForgetPolicy(semantic_threshold=0.80)
+        # Score 0.79 should be safe
+        result = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.79,
+            reconstruction_score=0.0,
+            matched_forget_ids=(),
+            evidence=(),
+        )
+        action, _, _ = policy.decide(result, [], "1.0")
+        assert action == "allow"
+
+    def test_at_threshold_is_risky(self) -> None:
+        """ST-SEM-003-equal: Score at threshold is risky (>=)."""
+        from marble.firewall.policy import ForgetPolicy
+        from marble.firewall.types import DetectorResult
+
+        policy = ForgetPolicy(semantic_threshold=0.80)
+        result = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.80,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("SEMANTIC",),
+        )
+        action, _, _ = policy.decide(result, [], "1.0")
+        assert action in ("abstract", "block", "redact")
+
+    def test_above_threshold_is_risky(self) -> None:
+        """ST-SEM-003-above: Score above threshold is risky."""
+        from marble.firewall.policy import ForgetPolicy
+        from marble.firewall.types import DetectorResult
+
+        policy = ForgetPolicy(semantic_threshold=0.80)
+        result = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.81,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("SEMANTIC",),
+        )
+        action, _, _ = policy.decide(result, [], "1.0")
+        assert action in ("abstract", "block", "redact")
+
+    def test_precision_boundary(self) -> None:
+        """ST-SEM-003-precision: Boundary at machine precision."""
+        from marble.firewall.policy import ForgetPolicy
+        from marble.firewall.types import DetectorResult
+
+        policy = ForgetPolicy(semantic_threshold=0.80)
+        # Just below threshold
+        below = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.80 - 1e-12,
+            reconstruction_score=0.0,
+            matched_forget_ids=(),
+            evidence=(),
+        )
+        action_below, _, _ = policy.decide(below, [], "1.0")
+        assert action_below == "allow"
+        # At threshold
+        at = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.80,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("SEMANTIC",),
+        )
+        action_at, _, _ = policy.decide(at, [], "1.0")
+        assert action_at in ("abstract", "block", "redact")

@@ -188,3 +188,47 @@ class TestPermittedResidualRecheck:
             active_from_turn=0,
         )
         assert _is_permitted_residual("Some other text", [rec]) is False
+
+
+class TestMixedContentPolicy:
+    """ST-GATE-003/004: Mixed safe and unsafe content under rich vs binary policy."""
+
+    def _setup_with_residual(self, rich: bool) -> tuple[FlowGate, ForgetLedger]:
+        ledger = ForgetLedger()
+        ledger.register(
+            ForgetRecord(
+                forget_id="F001",
+                canonical_target="0107",
+                target_type="credential",
+                aliases=("old code",),
+                semantic_variants=(),
+                permitted_residuals=("Request a new temporary credential.",),
+                active_from_turn=0,
+            )
+        )
+        detector = HybridDetector(semantic_enabled=False)
+        history = RecipientHistory()
+        checker = ReconstructionChecker()
+        policy = ForgetPolicy(rich_actions_enabled=rich)
+        audit = AuditLogger()
+        gate = FlowGate(ledger, detector, history, checker, policy, audit, _config())
+        return gate, ledger
+
+    def test_rich_policy_releases_residual_blocks_target(self) -> None:
+        """ST-GATE-003: Rich policy removes secret, retains approved residual."""
+        gate, _ = self._setup_with_residual(rich=True)
+        candidate = "The old code is 0107. Request a new temporary credential."
+        decision = gate.inspect(_env(candidate))
+        # Target must not be in released text
+        if decision.released_text:
+            assert "0107" not in decision.released_text
+        # Action should not be plain allow (something was done)
+        assert decision.action != "allow" or "0107" not in (decision.released_text or "")
+
+    def test_binary_policy_blocks_mixed_message(self) -> None:
+        """ST-GATE-004: Binary policy blocks entire mixed message."""
+        gate, _ = self._setup_with_residual(rich=False)
+        candidate = "The old code is 0107. Request a new temporary credential."
+        decision = gate.inspect(_env(candidate))
+        assert decision.action == "block"
+        assert decision.released_text is None

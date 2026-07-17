@@ -122,6 +122,21 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
     findings.extend(audit_fragmentation_result(result))
     findings.extend(audit_attack_step_indices(result))
 
+    # Check for unexpected recontamination pairs
+    unexpected_count = result.metadata.get("unexpected_recontaminated_pair_count", 0)
+    if isinstance(unexpected_count, int) and unexpected_count > 0:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="UNEXPECTED_RECONTAMINATION_PAIRS",
+                message=(
+                    f"Episode has {unexpected_count} unexpected recontaminated pairs "
+                    "(recontamination without labeled attempt)"
+                ),
+                episode_id=ep_id,
+            )
+        )
+
     return findings
 
 

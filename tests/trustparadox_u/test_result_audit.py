@@ -1,5 +1,7 @@
 """Tests for experiment result auditor."""
 
+import pytest
+
 from experiments.trustparadox_u.audit_results import (
     InvalidExperimentResults,
     PolicyAblationPair,
@@ -944,3 +946,219 @@ class TestAttackStepIndexAudit:
         result = run_episode(ep, cfg)
         findings = audit_attack_step_indices(result)
         assert len(findings) == 0
+
+
+class TestPolicyComponentMatrix:
+    """G13: Complete policy-ablation equivalence matrix."""
+
+    @staticmethod
+    def _make_pair(
+        *,
+        binary_hashes: dict | None = None,
+        rich_hashes: dict | None = None,
+        binary_rich_actions: bool = False,
+        rich_rich_actions: bool = True,
+        pairing_key: str = "k1",
+        candidate: str = "same_msg",
+    ) -> PolicyAblationPair:
+        """Create a policy pair with configurable component hashes."""
+        default_hashes = {
+            "detector_hash": "abc123",
+            "history_hash": "def456",
+            "monitoring_hash": "ghi789",
+            "models_hash": "jkl012",
+            "policy_base_hash": "mno345",
+        }
+        b = _valid_result()
+        b.metadata["pairing_key"] = pairing_key
+        b.metadata["rich_actions_enabled"] = binary_rich_actions
+        for k, v in (binary_hashes or default_hashes).items():
+            b.metadata[k] = v
+        b.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text=candidate,
+            )
+        ]
+
+        r = _valid_result()
+        r.metadata["pairing_key"] = pairing_key
+        r.metadata["rich_actions_enabled"] = rich_rich_actions
+        for k, v in (rich_hashes or default_hashes).items():
+            r.metadata[k] = v
+        r.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text=candidate,
+            )
+        ]
+        return PolicyAblationPair(binary=b, rich=r, pairing_key=pairing_key)
+
+    @pytest.mark.parametrize(
+        "component",
+        ["detector_hash", "history_hash", "monitoring_hash", "models_hash", "policy_base_hash"],
+    )
+    def test_binary_missing_component(self, component: str) -> None:
+        """Binary missing a component hash produces an error."""
+        b_hashes = {
+            "detector_hash": "abc123",
+            "history_hash": "def456",
+            "monitoring_hash": "ghi789",
+            "models_hash": "jkl012",
+            "policy_base_hash": "mno345",
+        }
+        b_hashes[component] = ""
+        pair = self._make_pair(binary_hashes=b_hashes)
+        findings = audit_policy_ablation_pair(pair)
+        assert any(component.upper() in f.code and "MISSING_BINARY" in f.code for f in findings)
+
+    @pytest.mark.parametrize(
+        "component",
+        ["detector_hash", "history_hash", "monitoring_hash", "models_hash", "policy_base_hash"],
+    )
+    def test_rich_missing_component(self, component: str) -> None:
+        """Rich missing a component hash produces an error."""
+        r_hashes = {
+            "detector_hash": "abc123",
+            "history_hash": "def456",
+            "monitoring_hash": "ghi789",
+            "models_hash": "jkl012",
+            "policy_base_hash": "mno345",
+        }
+        r_hashes[component] = ""
+        pair = self._make_pair(rich_hashes=r_hashes)
+        findings = audit_policy_ablation_pair(pair)
+        assert any(component.upper() in f.code and "MISSING_RICH" in f.code for f in findings)
+
+    @pytest.mark.parametrize(
+        "component",
+        ["detector_hash", "history_hash", "monitoring_hash", "models_hash", "policy_base_hash"],
+    )
+    def test_component_mismatch(self, component: str) -> None:
+        """Binary and rich with different component hash produces an error."""
+        r_hashes = {
+            "detector_hash": "abc123",
+            "history_hash": "def456",
+            "monitoring_hash": "ghi789",
+            "models_hash": "jkl012",
+            "policy_base_hash": "mno345",
+        }
+        r_hashes[component] = "different_value"
+        pair = self._make_pair(rich_hashes=r_hashes)
+        findings = audit_policy_ablation_pair(pair)
+        assert any(component.upper() in f.code and "MISMATCH" in f.code for f in findings)
+
+    def test_valid_pair_no_errors(self) -> None:
+        """Valid pair with all matching components passes."""
+        pair = self._make_pair()
+        findings = audit_policy_ablation_pair(pair)
+        errors = [f for f in findings if f.level == "error"]
+        assert len(errors) == 0
+
+
+class TestPolicyOrientation:
+    """G13: Policy orientation — binary=false, rich=true."""
+
+    def test_binary_not_false_fails(self) -> None:
+        """Binary with rich_actions_enabled=True is rejected."""
+        pair = TestPolicyComponentMatrix._make_pair(
+            binary_rich_actions=True, rich_rich_actions=True
+        )
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_BINARY_NOT_FALSE" for f in findings)
+
+    def test_rich_not_true_fails(self) -> None:
+        """Rich with rich_actions_enabled=False is rejected."""
+        pair = TestPolicyComponentMatrix._make_pair(
+            binary_rich_actions=False, rich_rich_actions=False
+        )
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_RICH_NOT_TRUE" for f in findings)
+
+    def test_reversed_orientation_fails(self) -> None:
+        """Reversed orientation (binary=True, rich=False) produces two errors."""
+        pair = TestPolicyComponentMatrix._make_pair(
+            binary_rich_actions=True, rich_rich_actions=False
+        )
+        findings = audit_policy_ablation_pair(pair)
+        codes = [f.code for f in findings]
+        assert "POLICY_PAIR_BINARY_NOT_FALSE" in codes
+        assert "POLICY_PAIR_RICH_NOT_TRUE" in codes
+
+
+class TestEndpointEquivalence:
+    """G12: Endpoint provenance detects different sanitized endpoints."""
+
+    def test_different_endpoints_detected(self) -> None:
+        """Different api_base_sanitized values are detected by manifest validation."""
+        from experiments.trustparadox_u.manifest import (
+            build_manifest,
+            validate_manifest_against_results,
+        )
+
+        r1 = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "run_mode": "test",
+                "semantic_enabled": True,
+                "embedding_provider": "litellm",
+                "embedding_model": "openai/text-embedding-v3",
+                "embedding_dimension": 1024,
+                "semantic_threshold": 0.8,
+                "api_base_sanitized": "https://endpoint-a.example.com",
+            }
+        )
+        r2 = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "run_mode": "test",
+                "semantic_enabled": True,
+                "embedding_provider": "litellm",
+                "embedding_model": "openai/text-embedding-v3",
+                "embedding_dimension": 1024,
+                "semantic_threshold": 0.8,
+                "api_base_sanitized": "https://endpoint-b.example.com",
+            }
+        )
+        m = build_manifest(results=[r1])
+        findings = validate_manifest_against_results(m, [r2])
+        assert any("ENDPOINT" in f["code"] for f in findings)
+
+
+class TestUnexpectedRecontaminationAudit:
+    """ST-RR-005: Unexpected recontamination pairs are audited."""
+
+    def test_zero_unexpected_passes(self) -> None:
+        """ST-RR-005-zero: Zero unexpected pairs passes."""
+        result = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "unexpected_recontaminated_pair_count": 0,
+            }
+        )
+        findings = audit_episode_result(result)
+        unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
+        assert len(unexpected) == 0
+
+    def test_nonzero_unexpected_fails(self) -> None:
+        """ST-RR-005-one: Non-zero unexpected pairs produces audit error."""
+        result = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "unexpected_recontaminated_pair_count": 1,
+            }
+        )
+        findings = audit_episode_result(result)
+        unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
+        assert len(unexpected) == 1
+        assert unexpected[0].level == "error"

@@ -334,6 +334,51 @@ def load_episode(path: str | Path) -> TrustParadoxEpisode:
     return _build_episode(raw)
 
 
+def validate_single_target_episode(episode: TrustParadoxEpisode) -> None:
+    """Validate that an episode has exactly one sensitive item.
+
+    Raises ValueError if the episode does not meet single-target requirements.
+    """
+    count = len(episode.sensitive_items)
+    if count != 1:
+        raise ValueError(
+            f"Single-target episodes require exactly one sensitive item; found {count}"
+        )
+
+
+def load_single_target_episode(path: str | Path) -> TrustParadoxEpisode:
+    """Load an episode and validate it has exactly one sensitive item."""
+    episode = load_episode(path)
+    validate_single_target_episode(episode)
+    return episode
+
+
+def validate_attack_target_references(episode: TrustParadoxEpisode) -> None:
+    """Validate that recontamination attacks reference valid episode forget_ids.
+
+    Checks:
+    - Recontamination attempts must have non-empty target_forget_ids
+    - All target_forget_ids must exist in the episode's sensitive items
+
+    Raises ValueError if validation fails.
+    """
+    valid_ids = {item.forget_id for item in episode.sensitive_items}
+
+    for attack in episode.phases.post_forget:
+        targets = attack.label.target_forget_ids
+
+        if attack.label.is_recontamination_attempt and not targets:
+            raise ValueError(
+                "Recontamination attempts require non-empty target_forget_ids"
+            )
+
+        unknown = set(targets) - valid_ids
+        if unknown:
+            raise ValueError(
+                f"Unknown target_forget_ids: {sorted(unknown)}"
+            )
+
+
 def load_episodes_from_dir(directory: str | Path) -> list[TrustParadoxEpisode]:
     """Load all YAML episodes from a directory."""
     d = Path(directory)
