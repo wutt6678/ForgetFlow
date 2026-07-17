@@ -603,24 +603,57 @@ def audit_policy_ablation_pair(pair: PolicyAblationPair) -> list[AuditFinding]:
     for field_name in component_fields:
         b_val = pair.binary.metadata.get(field_name)
         r_val = pair.rich.metadata.get(field_name)
-        if b_val != r_val:
+
+        # Require nonempty string values
+        if not isinstance(b_val, str) or not b_val.strip():
             findings.append(
                 AuditFinding(
                     level="error",
-                    code=f"POLICY_PAIR_{field_name.upper()}_MISMATCH",
-                    message=f"Policy pair differs in {field_name}: binary={b_val!r}, rich={r_val!r}",
+                    code=f"POLICY_PAIR_{field_name.upper()}_MISSING_BINARY",
+                    message=f"Binary policy missing or empty {field_name}",
+                )
+            )
+        if not isinstance(r_val, str) or not r_val.strip():
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code=f"POLICY_PAIR_{field_name.upper()}_MISSING_RICH",
+                    message=f"Rich policy missing or empty {field_name}",
                 )
             )
 
-    # Verify that rich_actions_enabled actually differs
+        # Check values match (only if both are valid)
+        if isinstance(b_val, str) and b_val.strip() and isinstance(r_val, str) and r_val.strip():
+            if b_val != r_val:
+                findings.append(
+                    AuditFinding(
+                        level="error",
+                        code=f"POLICY_PAIR_{field_name.upper()}_MISMATCH",
+                        message=f"Policy pair differs in {field_name}: binary={b_val!r}, rich={r_val!r}",
+                    )
+                )
+
+    # Verify that rich_actions_enabled has correct orientation: binary=false, rich=true
     b_rich = pair.binary.metadata.get("rich_actions_enabled")
     r_rich = pair.rich.metadata.get("rich_actions_enabled")
-    if b_rich == r_rich:
+
+    # Check binary is explicitly false
+    if b_rich is not False:
         findings.append(
             AuditFinding(
                 level="error",
-                code="POLICY_PAIR_NO_ABLATION",
-                message=f"Policy pair has same rich_actions_enabled={b_rich!r}",
+                code="POLICY_PAIR_BINARY_NOT_FALSE",
+                message=f"Binary policy rich_actions_enabled should be False, got {b_rich!r}",
+            )
+        )
+
+    # Check rich is explicitly true
+    if r_rich is not True:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="POLICY_PAIR_RICH_NOT_TRUE",
+                message=f"Rich policy rich_actions_enabled should be True, got {r_rich!r}",
             )
         )
 

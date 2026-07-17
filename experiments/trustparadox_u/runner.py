@@ -34,6 +34,24 @@ from marble.firewall.types import (
 )
 
 
+def stable_component_hash(payload: object) -> str:
+    """Compute a canonical SHA-256 hash for a configuration payload.
+
+    Uses json.dumps with sort_keys for deterministic serialization.
+    Returns full 64-character hex digest.
+    """
+    import json
+
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+
+    return hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass
 class TurnResult:
     """Result of a single message turn in an episode."""
@@ -279,28 +297,26 @@ def run_episode(
 
     # Add component hashes for policy-ablation validation
     # These hashes exclude credentials, paths, timestamps, and rich_actions_enabled
-    detector_hash = hashlib.sha256(str(dataclasses.asdict(config.detector)).encode()).hexdigest()[
-        :16
-    ]
-    history_hash = hashlib.sha256(str(dataclasses.asdict(config.history)).encode()).hexdigest()[:16]
-    monitoring_hash = hashlib.sha256(
-        str(dataclasses.asdict(config.monitoring)).encode()
-    ).hexdigest()[:16]
-    models_hash = hashlib.sha256(
-        str(
-            {
-                "embedding_provider": config.models.embedding_provider,
-                "embedding_model": config.models.embedding_model,
-                "embedding_dimension": config.models.embedding_dimension,
-            }
-        ).encode()
-    ).hexdigest()[:16]
+    # Use canonical full SHA-256 hashes for determinism
+    detector_hash = stable_component_hash(dataclasses.asdict(config.detector))
+    history_hash = stable_component_hash(dataclasses.asdict(config.history))
+    monitoring_hash = stable_component_hash(dataclasses.asdict(config.monitoring))
+
+    # Models hash includes endpoint provenance
+    models_payload = {
+        "embedding_provider": config.models.embedding_provider,
+        "embedding_model": config.models.embedding_model,
+        "embedding_dimension": config.models.embedding_dimension,
+        "api_base_sanitized": sanitize_api_base(config.models.api_base),
+    }
+    models_hash = stable_component_hash(models_payload)
+
     # Policy base hash excludes rich_actions_enabled
     policy_base = {
         "privacy_utility_weight": config.policy.privacy_utility_weight,
         "trust_independent": config.policy.trust_independent,
     }
-    policy_base_hash = hashlib.sha256(str(policy_base).encode()).hexdigest()[:16]
+    policy_base_hash = stable_component_hash(policy_base)
 
     result.metadata["detector_hash"] = detector_hash
     result.metadata["history_hash"] = history_hash
