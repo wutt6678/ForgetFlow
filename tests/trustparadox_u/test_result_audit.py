@@ -389,6 +389,18 @@ class TestEmbeddingAudit:
         )
         assert any(f.code == "INVALID_EMBEDDING_DIMENSION" for f in findings)
 
+    def test_experiment_missing_dimension(self) -> None:
+        """Semantic experiment mode requires embedding_dimension."""
+        findings = audit_embedding_metadata(
+            {
+                "embedding_provider": "litellm",
+                "embedding_model": "text-embedding-3-small",
+            },
+            run_mode="experiment",
+            semantic_enabled=True,
+        )
+        assert any(f.code == "MISSING_EMBEDDING_DIMENSION" for f in findings)
+
     def test_experiment_valid_passes(self) -> None:
         findings = audit_embedding_metadata(
             {

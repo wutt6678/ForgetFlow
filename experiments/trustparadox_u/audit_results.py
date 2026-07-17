@@ -465,7 +465,15 @@ def audit_embedding_metadata(
                     message="embedding_model must not be 'default'",
                 )
             )
-        if dimension is not None and (not isinstance(dimension, int) or dimension <= 0):
+        if dimension is None:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_EMBEDDING_DIMENSION",
+                    message="Semantic experiment mode requires embedding_dimension in metadata",
+                )
+            )
+        elif not isinstance(dimension, int) or dimension <= 0:
             findings.append(
                 AuditFinding(
                     level="error",
@@ -481,6 +489,15 @@ def audit_embedding_metadata(
                     level="error",
                     code="TEST_MODE_NON_FIXED_PROVIDER",
                     message=f"Test mode requires provider='fixed', got {provider!r}",
+                )
+            )
+        # Test mode with semantic enabled requires positive dimension
+        if dimension is not None and (not isinstance(dimension, int) or dimension <= 0):
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="INVALID_EMBEDDING_DIMENSION",
+                    message=f"embedding_dimension must be positive int, got {dimension!r}",
                 )
             )
 
