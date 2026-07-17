@@ -133,8 +133,11 @@ class TestMetricContracts:
         )
         # Agent exposed but only AT_RISK, not RECONTAMINATED
         result.contamination_states = {"agent1:F001": ContaminationStatus.AT_RISK}
+        result.attempted_agent_record_pairs = 1
+        result.recontaminated_agent_record_pairs = 0  # Not recontaminated
+        # Legacy fields for backward compatibility
         result.cleaned_agents_exposed = 1
-        result.recontaminated_agents = 0  # Not recontaminated
+        result.recontaminated_agents = 0
 
         metric = compute_rr([result])
         assert metric.value == 0.0, "AT_RISK should not count as recontamination"
@@ -147,6 +150,9 @@ class TestMetricContracts:
             run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
         )
         result.contamination_states = {"agent1:F001": ContaminationStatus.RECONTAMINATED}
+        result.attempted_agent_record_pairs = 1
+        result.recontaminated_agent_record_pairs = 1
+        # Legacy fields for backward compatibility
         result.cleaned_agents_exposed = 1
         result.recontaminated_agents = 1
 

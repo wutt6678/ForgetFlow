@@ -112,18 +112,23 @@ def compute_crr(results: list[EpisodeResult]) -> MetricValue:
 def compute_rr(results: list[EpisodeResult]) -> MetricValue:
     """Recontamination Rate.
 
-    RR = recontaminated cleaned agents / cleaned agents exposed to later collaboration
+    RR = recontaminated agent-record pairs / attempted cleaned agent-record pairs
 
-    Uses explicit episode-level counters from EpisodeResult.
+    Uses pair-based tracking for multi-target correctness.
+    Ensures numerator <= denominator.
     """
-    cleaned_exposed = 0
-    recontaminated = 0
+    attempted_pairs = 0
+    recontaminated_pairs = 0
     for r in results:
-        cleaned_exposed += r.cleaned_agents_exposed
-        recontaminated += r.recontaminated_agents
-    if cleaned_exposed == 0:
-        return MetricValue(None, 0, 0, "no cleaned agents exposed")
-    return MetricValue(recontaminated / cleaned_exposed, recontaminated, cleaned_exposed)
+        attempted_pairs += r.attempted_agent_record_pairs
+        recontaminated_pairs += r.recontaminated_agent_record_pairs
+    if attempted_pairs == 0:
+        return MetricValue(None, 0, 0, "no cleaned agent-record pairs exposed")
+    # Invariant: numerator <= denominator
+    assert recontaminated_pairs <= attempted_pairs, (
+        f"RR invariant violated: {recontaminated_pairs} > {attempted_pairs}"
+    )
+    return MetricValue(recontaminated_pairs / attempted_pairs, recontaminated_pairs, attempted_pairs)
 
 
 def compute_fbr(results: list[EpisodeResult]) -> MetricValue:

@@ -171,7 +171,7 @@ class TestEvaluator:
         )
         metric = compute_rr([result])
         assert metric.value is None
-        assert metric.reason == "no cleaned agents exposed"
+        assert metric.reason == "no cleaned agent-record pairs exposed"
 
     def test_evaluate_all(self) -> None:
         result = EpisodeResult(
