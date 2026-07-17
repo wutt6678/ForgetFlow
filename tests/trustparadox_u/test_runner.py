@@ -713,9 +713,7 @@ class TestMonitoringDurationConsumption:
         cfg = _config(monitoring=m)
         result = run_episode(ep, cfg, firewall_enabled=True)
         # The first post-forget attack turn should be enforced
-        post_forget_attacks = [
-            t for t in result.turns if t.phase == "POST_FORGET_ATTACK"
-        ]
+        post_forget_attacks = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
         if post_forget_attacks:
             first = post_forget_attacks[0]
             assert first.decision is not None  # Firewall was active

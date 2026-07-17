@@ -37,9 +37,33 @@ SEEDS = [42, 123, 7]
 
 CONDITIONS: list[tuple[str, dict, bool]] = [
     ("no_firewall", {}, False),
-    ("exact_only", {"detector": DetectorConfig(exact_enabled=True, entity_enabled=False, semantic_enabled=False)}, True),
-    ("full_mvp", {"detector": DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=True)}, True),
-    ("no_semantic", {"detector": DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False)}, True),
+    (
+        "exact_only",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True, entity_enabled=False, semantic_enabled=False
+            )
+        },
+        True,
+    ),
+    (
+        "full_mvp",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True, entity_enabled=True, semantic_enabled=True
+            )
+        },
+        True,
+    ),
+    (
+        "no_semantic",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True, entity_enabled=True, semantic_enabled=False
+            )
+        },
+        True,
+    ),
     ("stateless", {"history": HistoryConfig(enabled=False)}, True),
     ("binary_policy", {"policy": PolicyConfig(rich_actions_enabled=False)}, True),
     ("rich_policy", {"policy": PolicyConfig(rich_actions_enabled=True)}, True),

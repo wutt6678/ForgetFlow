@@ -80,12 +80,12 @@ class TestCanonicalFixturePermittedResiduals:
 
         for residual in si.permitted_residuals:
             result = detector.detect(residual, [rec])
-            assert result.exact_score == 0.0, (
-                f"Permitted residual '{residual}' triggers exact detection"
-            )
-            assert result.entity_score == 0.0, (
-                f"Permitted residual '{residual}' triggers entity/alias detection"
-            )
+            assert (
+                result.exact_score == 0.0
+            ), f"Permitted residual '{residual}' triggers exact detection"
+            assert (
+                result.entity_score == 0.0
+            ), f"Permitted residual '{residual}' triggers entity/alias detection"
 
 
 class TestCanonicalFixtureDetectorPaths:

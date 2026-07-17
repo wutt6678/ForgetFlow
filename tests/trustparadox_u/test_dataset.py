@@ -111,9 +111,7 @@ class TestAttackTargetReferences:
                     is_recontamination_attempt=True,
                     target_forget_ids=(),
                 )
-                new_attacks.append(
-                    replace(atk, label=new_label)
-                )
+                new_attacks.append(replace(atk, label=new_label))
             else:
                 new_attacks.append(atk)
         new_phases = replace(ep.phases, post_forget=tuple(new_attacks))
@@ -136,9 +134,7 @@ class TestAttackTargetReferences:
                     is_recontamination_attempt=True,
                     target_forget_ids=("UNKNOWN",),
                 )
-                new_attacks.append(
-                    replace(atk, label=new_label)
-                )
+                new_attacks.append(replace(atk, label=new_label))
             else:
                 new_attacks.append(atk)
         new_phases = replace(ep.phases, post_forget=tuple(new_attacks))
@@ -162,9 +158,7 @@ class TestAttackTargetReferences:
                     is_recontamination_attempt=True,
                     target_forget_ids=(forget_id, "UNKNOWN"),
                 )
-                new_attacks.append(
-                    replace(atk, label=new_label)
-                )
+                new_attacks.append(replace(atk, label=new_label))
             else:
                 new_attacks.append(atk)
         new_phases = replace(ep.phases, post_forget=tuple(new_attacks))

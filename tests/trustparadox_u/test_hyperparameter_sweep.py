@@ -150,11 +150,7 @@ class TestMonitoringDurationSweep:
         assert result_finite.episode_id == ep.episode_id
 
         # Continuous should have at least as many protected turns
-        continuous_blocked = sum(
-            1 for t in result_continuous.turns if t.released_text is None
-        )
-        finite_blocked = sum(
-            1 for t in result_finite.turns if t.released_text is None
-        )
+        continuous_blocked = sum(1 for t in result_continuous.turns if t.released_text is None)
+        finite_blocked = sum(1 for t in result_finite.turns if t.released_text is None)
         # Continuous blocks >= finite (more protection)
         assert continuous_blocked >= finite_blocked

@@ -368,15 +368,11 @@ def validate_attack_target_references(episode: TrustParadoxEpisode) -> None:
         targets = attack.label.target_forget_ids
 
         if attack.label.is_recontamination_attempt and not targets:
-            raise ValueError(
-                "Recontamination attempts require non-empty target_forget_ids"
-            )
+            raise ValueError("Recontamination attempts require non-empty target_forget_ids")
 
         unknown = set(targets) - valid_ids
         if unknown:
-            raise ValueError(
-                f"Unknown target_forget_ids: {sorted(unknown)}"
-            )
+            raise ValueError(f"Unknown target_forget_ids: {sorted(unknown)}")
 
 
 def load_episodes_from_dir(directory: str | Path) -> list[TrustParadoxEpisode]:

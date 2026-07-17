@@ -231,7 +231,9 @@ class TestGoNoGoGate:
         loaded = load_episode_results(path)
         assert len(loaded) == 1
         assert loaded[0].attempted_agent_record_pairs == result.attempted_agent_record_pairs
-        assert loaded[0].recontaminated_agent_record_pairs == result.recontaminated_agent_record_pairs
+        assert (
+            loaded[0].recontaminated_agent_record_pairs == result.recontaminated_agent_record_pairs
+        )
 
         Path(path).unlink()
 
@@ -244,8 +246,11 @@ class TestGoNoGoGate:
         from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
         b = EpisodeResult(
-            run_id="r1", episode_id="ep1", scenario_id="s1",
-            trust_level="default", seed=42,
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
         )
         b.metadata = {
             "pairing_key": "k1",
@@ -256,12 +261,22 @@ class TestGoNoGoGate:
             "policy_base_hash": "mno",
             "rich_actions_enabled": False,
         }
-        b.turns = [TurnResult(turn_id=0, phase="POST_FORGET_ATTACK", sender_id="A",
-                              recipient_id="B", candidate_text="msg")]
+        b.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="msg",
+            )
+        ]
 
         r = EpisodeResult(
-            run_id="r2", episode_id="ep1", scenario_id="s1",
-            trust_level="default", seed=42,
+            run_id="r2",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
         )
         r.metadata = {
             "pairing_key": "k1",
@@ -272,8 +287,15 @@ class TestGoNoGoGate:
             "policy_base_hash": "mno",
             "rich_actions_enabled": True,
         }
-        r.turns = [TurnResult(turn_id=0, phase="POST_FORGET_ATTACK", sender_id="A",
-                              recipient_id="B", candidate_text="msg")]
+        r.turns = [
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="msg",
+            )
+        ]
 
         pair = PolicyAblationPair(binary=b, rich=r, pairing_key="k1")
         findings = audit_policy_ablation_pair(pair)

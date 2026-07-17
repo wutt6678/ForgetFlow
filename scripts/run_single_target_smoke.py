@@ -157,7 +157,9 @@ def run_smoke_study(output_dir: Path) -> dict[str, Any]:
     condition_results: dict[str, list[EpisodeResult]] = {}
     run_ids: set[str] = set()
 
-    print(f"Running smoke study: {len(FIXTURES)} fixtures x {len(SEEDS)} seeds x {len(CONDITIONS)} conditions")
+    print(
+        f"Running smoke study: {len(FIXTURES)} fixtures x {len(SEEDS)} seeds x {len(CONDITIONS)} conditions"
+    )
 
     for fixture_name in FIXTURES:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
@@ -166,6 +168,7 @@ def run_smoke_study(output_dir: Path) -> dict[str, Any]:
                 cfg = _make_config(seed, cond_overrides)
                 # Include condition name in run_id for uniqueness
                 import hashlib
+
                 run_id = hashlib.sha256(
                     f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
                 ).hexdigest()[:20]
@@ -207,7 +210,10 @@ def run_smoke_study(output_dir: Path) -> dict[str, Any]:
 
     # Write metric counts
     metric_counts = {
-        "pu_rer": {"numerator": evaluation.pu_rer.numerator, "denominator": evaluation.pu_rer.denominator},
+        "pu_rer": {
+            "numerator": evaluation.pu_rer.numerator,
+            "denominator": evaluation.pu_rer.denominator,
+        },
         "crr": {"numerator": evaluation.crr.numerator, "denominator": evaluation.crr.denominator},
         "rr": {"numerator": evaluation.rr.numerator, "denominator": evaluation.rr.denominator},
         "fbr": {"numerator": evaluation.fbr.numerator, "denominator": evaluation.fbr.denominator},
@@ -313,7 +319,9 @@ def run_smoke_study(output_dir: Path) -> dict[str, Any]:
     return report
 
 
-def _directional_checks(condition_results: dict[str, list[EpisodeResult]]) -> dict[str, dict[str, Any]]:
+def _directional_checks(
+    condition_results: dict[str, list[EpisodeResult]],
+) -> dict[str, dict[str, Any]]:
     """Run required directional checks from the plan."""
     checks: dict[str, dict[str, Any]] = {}
 
