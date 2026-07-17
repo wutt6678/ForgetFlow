@@ -15,6 +15,7 @@ from experiments.trustparadox_u.agent import (
     TrustParadoxAgent,
 )
 from experiments.trustparadox_u.attacks import build_attack
+from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
 from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
@@ -880,8 +881,8 @@ if __name__ == "__main__":
             failed.append({"episode_id": ep.episode_id, "error": str(exc)})
             print(f"Episode {ep.episode_id}: FAILED ({exc})")
 
-    # Write episode_results.jsonl
-    results_path = output_dir / "episode_results.jsonl"
+    # Write episodes.jsonl
+    results_path = output_dir / EPISODE_RESULTS_FILENAME
     with open(results_path, "w") as f:
         for r in results:
             record = dataclasses.asdict(r)

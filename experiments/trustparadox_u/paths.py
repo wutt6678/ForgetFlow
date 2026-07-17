@@ -1,0 +1,12 @@
+"""Canonical filenames for TrustParadox-U experiment artifacts."""
+
+EPISODE_RESULTS_FILENAME = "episodes.jsonl"
+LEGACY_EPISODE_RESULTS_FILENAME = "episode_results.jsonl"
+SMOKE_MANIFEST_FILENAME = "smoke_manifest.json"
+AUDIT_REPORT_FILENAME = "result_audit.json"
+METRICS_FILENAME = "metrics.json"
+METRIC_COUNTS_FILENAME = "metric_counts.json"
+SUMMARY_FILENAME = "summary.json"
+SUMMARY_MD_FILENAME = "summary.md"
+UTILITY_PAIRING_FILENAME = "utility_pairing.json"
+UNMATCHED_PAIRS_FILENAME = "unmatched_pairs.json"

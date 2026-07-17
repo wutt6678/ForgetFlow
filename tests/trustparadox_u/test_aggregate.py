@@ -311,3 +311,59 @@ class TestAggregationCLI:
             exit_code = main()
 
         assert exit_code == 1
+
+
+class TestLocateEpisodeResults:
+    """Tests for locate_episode_results."""
+
+    def test_canonical_filename_found(self, tmp_path: Path) -> None:
+        """Canonical episodes.jsonl is found."""
+        from experiments.trustparadox_u.aggregate import locate_episode_results
+        from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
+
+        canonical = tmp_path / EPISODE_RESULTS_FILENAME
+        canonical.touch()
+
+        result = locate_episode_results(tmp_path)
+        assert result == canonical
+
+    def test_legacy_filename_found_with_warning(self, tmp_path: Path) -> None:
+        """Legacy episode_results.jsonl is found with deprecation warning."""
+        import warnings
+
+        from experiments.trustparadox_u.aggregate import locate_episode_results
+        from experiments.trustparadox_u.paths import LEGACY_EPISODE_RESULTS_FILENAME
+
+        legacy = tmp_path / LEGACY_EPISODE_RESULTS_FILENAME
+        legacy.touch()
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = locate_episode_results(tmp_path)
+            assert result == legacy
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+    def test_canonical_preferred_over_legacy(self, tmp_path: Path) -> None:
+        """Canonical filename is preferred when both exist."""
+        from experiments.trustparadox_u.aggregate import locate_episode_results
+        from experiments.trustparadox_u.paths import (
+            EPISODE_RESULTS_FILENAME,
+            LEGACY_EPISODE_RESULTS_FILENAME,
+        )
+
+        canonical = tmp_path / EPISODE_RESULTS_FILENAME
+        canonical.touch()
+        legacy = tmp_path / LEGACY_EPISODE_RESULTS_FILENAME
+        legacy.touch()
+
+        result = locate_episode_results(tmp_path)
+        assert result == canonical
+
+    def test_missing_results_raises(self, tmp_path: Path) -> None:
+        """Missing results file raises FileNotFoundError."""
+        from experiments.trustparadox_u.aggregate import locate_episode_results
+
+        with pytest.raises(FileNotFoundError, match="No episode results found"):
+            locate_episode_results(tmp_path)

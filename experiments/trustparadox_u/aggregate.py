@@ -21,6 +21,10 @@ from experiments.trustparadox_u.manifest import (
     SmokeManifest,
     validate_manifest_against_results,
 )
+from experiments.trustparadox_u.paths import (
+    EPISODE_RESULTS_FILENAME,
+    LEGACY_EPISODE_RESULTS_FILENAME,
+)
 from experiments.trustparadox_u.runner import EpisodeResult
 from experiments.trustparadox_u.serialization import (
     load_episode_results,
@@ -218,6 +222,30 @@ def write_aggregation_outputs(
     (output_dir / "summary.md").write_text(md)
 
 
+def locate_episode_results(input_dir: Path) -> Path:
+    """Locate episode results file, supporting canonical and legacy filenames."""
+    canonical = input_dir / EPISODE_RESULTS_FILENAME
+    if canonical.exists():
+        return canonical
+
+    legacy = input_dir / LEGACY_EPISODE_RESULTS_FILENAME
+    if legacy.exists():
+        import warnings
+
+        warnings.warn(
+            f"{LEGACY_EPISODE_RESULTS_FILENAME} is deprecated; "
+            f"rename it to {EPISODE_RESULTS_FILENAME}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return legacy
+
+    raise FileNotFoundError(
+        f"No episode results found in {input_dir}. "
+        f"Expected {EPISODE_RESULTS_FILENAME} or {LEGACY_EPISODE_RESULTS_FILENAME}"
+    )
+
+
 def validate_manifest_or_raise(
     manifest: SmokeManifest,
     results: list[EpisodeResult],
@@ -248,7 +276,7 @@ def main() -> int:
 
     try:
         # 1. Load episode results
-        episodes_path = input_dir / "episodes.jsonl"
+        episodes_path = locate_episode_results(input_dir)
         results = load_episode_results(episodes_path)
 
         # 2. Load manifest
