@@ -482,7 +482,7 @@ class TestValidateManifestAgainstResults:
         assert any(f["code"] == "MANIFEST_THRESHOLD_MISMATCH" for f in findings)
 
 
-class TestGetRepositoryCommit:
+class TestGetRepositoryCommitDirtyDetection:
     """Tests for get_repository_commit with dirty tree detection."""
 
     def test_clean_tree_returns_commit(self) -> None:

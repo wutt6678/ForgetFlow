@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from marble.firewall.types import ContaminationStatus
-
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+from marble.firewall.types import ContaminationStatus
 
 
 def deserialize_turn(data: dict[str, Any]) -> TurnResult:
@@ -37,13 +36,8 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
 
 def deserialize_contamination_status(data: dict[str, Any]) -> ContaminationStatus:
     """Deserialize a ContaminationStatus from a JSON dict."""
-    return ContaminationStatus(
-        agent_id=data["agent_id"],
-        is_contaminated=data["is_contaminated"],
-        contamination_source=data.get("contamination_source"),
-        contamination_round=data.get("contamination_round"),
-        forgotten_records=list(data.get("forgotten_records", [])),
-    )
+    # ContaminationStatus is an Enum, so we just need the value
+    return ContaminationStatus(data["value"])
 
 
 def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
@@ -102,6 +96,9 @@ def load_smoke_manifest(path: str | Path) -> dict[str, Any]:
 
     try:
         with open(path) as f:
-            return json.load(f)
+            data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected dict in manifest, got {type(data).__name__}")
+            return data
     except json.JSONDecodeError as exc:
         raise ValueError(f"Malformed manifest JSON: {exc}") from exc

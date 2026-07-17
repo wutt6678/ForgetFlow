@@ -170,7 +170,9 @@ class TestAggregationCLI:
         _write_valid_episodes(input_dir / "episodes.jsonl")
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 0
@@ -190,7 +192,9 @@ class TestAggregationCLI:
 
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -203,7 +207,9 @@ class TestAggregationCLI:
 
         _write_valid_episodes(input_dir / "episodes.jsonl")
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -218,7 +224,9 @@ class TestAggregationCLI:
             f.write("not valid json\n")
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -240,7 +248,9 @@ class TestAggregationCLI:
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -254,8 +264,16 @@ class TestAggregationCLI:
         _write_valid_episodes(input_dir / "episodes.jsonl")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir), "--allow-missing-manifest"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-missing-manifest",
+            ],
         ):
             exit_code = main()
 
@@ -287,7 +305,9 @@ class TestAggregationCLI:
             f.write(json.dumps(data) + "\n")
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
-        with patch.object(sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]):
+        with patch.object(
+            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+        ):
             exit_code = main()
 
         assert exit_code == 1

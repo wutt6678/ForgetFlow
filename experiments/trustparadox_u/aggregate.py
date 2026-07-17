@@ -145,9 +145,7 @@ def write_aggregation_outputs(
 
     # metrics.json
     metrics_dict = evaluation.to_dict()
-    (output_dir / "metrics.json").write_text(
-        json.dumps(metrics_dict, indent=2, sort_keys=True)
-    )
+    (output_dir / "metrics.json").write_text(json.dumps(metrics_dict, indent=2, sort_keys=True))
 
     # metric_counts.json
     metric_counts = {
@@ -179,9 +177,7 @@ def write_aggregation_outputs(
         "episode_ids": sorted({r.episode_id for r in results}),
         "manifest": manifest.to_dict(),
     }
-    (output_dir / "summary.json").write_text(
-        json.dumps(summary_dict, indent=2, sort_keys=True)
-    )
+    (output_dir / "summary.json").write_text(json.dumps(summary_dict, indent=2, sort_keys=True))
 
     # audit_report.json
     (output_dir / "audit_report.json").write_text(
@@ -192,6 +188,9 @@ def write_aggregation_outputs(
     fw_results = [r for r in results if r.metadata.get("firewall_enabled", True)]
     no_fw_results = [r for r in results if not r.metadata.get("firewall_enabled", True)]
 
+    utility_pairing: dict[str, Any]
+    unmatched: dict[str, Any]
+
     if fw_results and no_fw_results:
         utility_result = compute_utility_retention(fw_results, no_fw_results)
         utility_pairing = {
@@ -199,12 +198,8 @@ def write_aggregation_outputs(
             "metric": utility_result.metric.to_dict(),
         }
         unmatched = {
-            "unmatched_firewall_keys": [
-                list(k) for k in utility_result.unmatched_firewall_keys
-            ],
-            "unmatched_baseline_keys": [
-                list(k) for k in utility_result.unmatched_baseline_keys
-            ],
+            "unmatched_firewall_keys": [list(k) for k in utility_result.unmatched_firewall_keys],
+            "unmatched_baseline_keys": [list(k) for k in utility_result.unmatched_baseline_keys],
         }
     else:
         utility_pairing = {"matched_keys": [], "metric": None}
@@ -238,9 +233,7 @@ def main() -> int:
     """Run the aggregation CLI."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Aggregate TrustParadox-U experiment results"
-    )
+    parser = argparse.ArgumentParser(description="Aggregate TrustParadox-U experiment results")
     parser.add_argument("--input", required=True, help="Input directory with episodes.jsonl")
     parser.add_argument("--output", required=True, help="Output directory for aggregation results")
     parser.add_argument(
@@ -306,6 +299,7 @@ def main() -> int:
                 "These results are not publication-ready.\n"
             )
         else:
+            assert manifest is not None, "manifest must be set in non-diagnostic mode"
             write_aggregation_outputs(
                 output_dir=output_dir,
                 results=results,
