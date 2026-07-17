@@ -185,3 +185,16 @@ def load_smoke_manifest(path: str | Path) -> dict[str, Any]:
             return data
     except json.JSONDecodeError as exc:
         raise ValueError(f"Malformed manifest JSON: {exc}") from exc
+
+
+def serialize_episode_result(result: EpisodeResult) -> dict[str, Any]:
+    """Serialize an EpisodeResult to a schema-versioned dict.
+    
+    Returns a dict with schema_version and episode keys.
+    """
+    import dataclasses
+    
+    return {
+        "schema_version": RESULT_SCHEMA_VERSION,
+        "episode": dataclasses.asdict(result),
+    }

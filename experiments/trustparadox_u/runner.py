@@ -887,10 +887,12 @@ if __name__ == "__main__":
             print(f"Episode {ep.episode_id}: FAILED ({exc})")
 
     # Write episodes.jsonl
+    from experiments.trustparadox_u.serialization import serialize_episode_result
+    
     results_path = output_dir / EPISODE_RESULTS_FILENAME
     with open(results_path, "w") as f:
         for r in results:
-            record = dataclasses.asdict(r)
+            record = serialize_episode_result(r)
             f.write(json.dumps(record, default=str) + "\n")
 
     # Write message_audit.jsonl
