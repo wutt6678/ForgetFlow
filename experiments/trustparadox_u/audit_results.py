@@ -600,15 +600,15 @@ def audit_policy_ablation_pair(pair: PolicyAblationPair) -> list[AuditFinding]:
         "models_hash",
         "policy_base_hash",
     ]
-    for field in component_fields:
-        b_val = pair.binary.metadata.get(field)
-        r_val = pair.rich.metadata.get(field)
+    for field_name in component_fields:
+        b_val = pair.binary.metadata.get(field_name)
+        r_val = pair.rich.metadata.get(field_name)
         if b_val != r_val:
             findings.append(
                 AuditFinding(
                     level="error",
-                    code=f"POLICY_PAIR_{field.upper()}_MISMATCH",
-                    message=f"Policy pair differs in {field}: binary={b_val!r}, rich={r_val!r}",
+                    code=f"POLICY_PAIR_{field_name.upper()}_MISMATCH",
+                    message=f"Policy pair differs in {field_name}: binary={b_val!r}, rich={r_val!r}",
                 )
             )
 

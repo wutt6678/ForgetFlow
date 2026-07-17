@@ -278,8 +278,6 @@ def run_episode(
 
     # Add component hashes for policy-ablation validation
     # These hashes exclude credentials, paths, timestamps, and rich_actions_enabled
-    import dataclasses
-
     detector_hash = hashlib.sha256(
         str(dataclasses.asdict(config.detector)).encode()
     ).hexdigest()[:16]
@@ -871,9 +869,7 @@ def _evaluate_task_success(
 
 if __name__ == "__main__":
     import argparse
-    import dataclasses
     import json
-    from datetime import datetime, timezone
     from pathlib import Path
 
     from experiments.trustparadox_u.config import load_config
