@@ -278,12 +278,10 @@ def run_episode(
 
     # Add component hashes for policy-ablation validation
     # These hashes exclude credentials, paths, timestamps, and rich_actions_enabled
-    detector_hash = hashlib.sha256(
-        str(dataclasses.asdict(config.detector)).encode()
-    ).hexdigest()[:16]
-    history_hash = hashlib.sha256(
-        str(dataclasses.asdict(config.history)).encode()
-    ).hexdigest()[:16]
+    detector_hash = hashlib.sha256(str(dataclasses.asdict(config.detector)).encode()).hexdigest()[
+        :16
+    ]
+    history_hash = hashlib.sha256(str(dataclasses.asdict(config.history)).encode()).hexdigest()[:16]
     monitoring_hash = hashlib.sha256(
         str(dataclasses.asdict(config.monitoring)).encode()
     ).hexdigest()[:16]

@@ -125,10 +125,12 @@ def compute_rr(results: list[EpisodeResult]) -> MetricValue:
     if attempted_pairs == 0:
         return MetricValue(None, 0, 0, "no cleaned agent-record pairs exposed")
     # Invariant: numerator <= denominator
-    assert recontaminated_pairs <= attempted_pairs, (
-        f"RR invariant violated: {recontaminated_pairs} > {attempted_pairs}"
+    assert (
+        recontaminated_pairs <= attempted_pairs
+    ), f"RR invariant violated: {recontaminated_pairs} > {attempted_pairs}"
+    return MetricValue(
+        recontaminated_pairs / attempted_pairs, recontaminated_pairs, attempted_pairs
     )
-    return MetricValue(recontaminated_pairs / attempted_pairs, recontaminated_pairs, attempted_pairs)
 
 
 def compute_fbr(results: list[EpisodeResult]) -> MetricValue:
