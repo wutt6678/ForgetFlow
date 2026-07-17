@@ -627,4 +627,3 @@ class TestRequireSingleMetadataValue:
 
         with pytest.raises(ValueError, match="Expected exactly one value"):
             require_single_metadata_value([r1], "provider")
-

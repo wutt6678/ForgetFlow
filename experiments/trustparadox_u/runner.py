@@ -15,10 +15,10 @@ from experiments.trustparadox_u.agent import (
     TrustParadoxAgent,
 )
 from experiments.trustparadox_u.attacks import build_attack
-from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode
 from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
+from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
 from experiments.trustparadox_u.providers import sanitize_api_base
 from marble.firewall.audit import AuditLogger
 from marble.firewall.contamination import ContaminationTracker
@@ -888,7 +888,7 @@ if __name__ == "__main__":
 
     # Write episodes.jsonl
     from experiments.trustparadox_u.serialization import serialize_episode_result
-    
+
     results_path = output_dir / EPISODE_RESULTS_FILENAME
     with open(results_path, "w") as f:
         for r in results:

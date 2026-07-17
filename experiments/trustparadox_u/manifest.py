@@ -117,9 +117,7 @@ def require_single_metadata_value(
         values.discard(None)
 
     if len(values) != 1:
-        raise ValueError(
-            f"Expected exactly one value for {field}, got {values!r}"
-        )
+        raise ValueError(f"Expected exactly one value for {field}, got {values!r}")
 
     return next(iter(values))
 

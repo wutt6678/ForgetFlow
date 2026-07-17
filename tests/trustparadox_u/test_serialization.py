@@ -7,10 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+from experiments.trustparadox_u.runner import EpisodeResult
 from experiments.trustparadox_u.serialization import (
     RESULT_SCHEMA_VERSION,
-    UnsupportedSchemaVersionError,
     deserialize_contamination_status,
     deserialize_detector_result,
     deserialize_firewall_decision,
@@ -517,4 +516,3 @@ class TestSchemaVersioning:
 
         results = load_episode_results(episodes_file)
         assert len(results) == 1
-

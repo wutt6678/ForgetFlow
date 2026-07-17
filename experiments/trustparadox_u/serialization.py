@@ -7,9 +7,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
-
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
 
 # Current schema version for episode results
 RESULT_SCHEMA_VERSION = "1.0"
@@ -41,7 +40,9 @@ def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> Firew
     if data is None:
         return None
     if not isinstance(data, Mapping):
-        raise TypeError(f"FirewallDecision payload must be a mapping or null, got {type(data).__name__}")
+        raise TypeError(
+            f"FirewallDecision payload must be a mapping or null, got {type(data).__name__}"
+        )
 
     detector_payload = data.get("detector_result")
     if detector_payload is None:
@@ -189,11 +190,11 @@ def load_smoke_manifest(path: str | Path) -> dict[str, Any]:
 
 def serialize_episode_result(result: EpisodeResult) -> dict[str, Any]:
     """Serialize an EpisodeResult to a schema-versioned dict.
-    
+
     Returns a dict with schema_version and episode keys.
     """
     import dataclasses
-    
+
     return {
         "schema_version": RESULT_SCHEMA_VERSION,
         "episode": dataclasses.asdict(result),

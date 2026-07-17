@@ -7,10 +7,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from experiments.trustparadox_u.aggregate import main as aggregate_main
-from experiments.trustparadox_u.manifest import SmokeManifest, get_repository_commit
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 from experiments.trustparadox_u.serialization import load_episode_results
 from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
