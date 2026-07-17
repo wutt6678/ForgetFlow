@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from experiments.trustparadox_u.manifest import (
     SmokeManifest,
     build_manifest,
@@ -478,3 +480,76 @@ class TestValidateManifestAgainstResults:
         )
         findings = validate_manifest_against_results(m, results)
         assert any(f["code"] == "MANIFEST_THRESHOLD_MISMATCH" for f in findings)
+
+
+class TestGetRepositoryCommit:
+    """Tests for get_repository_commit with dirty tree detection."""
+
+    def test_clean_tree_returns_commit(self) -> None:
+        """Clean working tree returns commit SHA."""
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            # First call: git rev-parse HEAD
+            rev_parse = MagicMock()
+            rev_parse.returncode = 0
+            rev_parse.stdout = "abc123def456\n"
+
+            # Second call: git status --porcelain (empty = clean)
+            status = MagicMock()
+            status.stdout = ""
+
+            mock_run.side_effect = [rev_parse, status]
+
+            from experiments.trustparadox_u.manifest import get_repository_commit
+
+            commit = get_repository_commit()
+            assert commit == "abc123def456"
+
+    def test_dirty_tree_appends_suffix(self) -> None:
+        """Dirty working tree appends '-dirty' suffix."""
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            rev_parse = MagicMock()
+            rev_parse.returncode = 0
+            rev_parse.stdout = "abc123def456\n"
+
+            status = MagicMock()
+            status.stdout = " M some_file.py\n"
+
+            mock_run.side_effect = [rev_parse, status]
+
+            from experiments.trustparadox_u.manifest import get_repository_commit
+
+            commit = get_repository_commit()
+            assert commit == "abc123def456-dirty"
+
+    def test_dirty_tree_rejected_raises(self) -> None:
+        """Dirty working tree with reject_dirty=True raises RuntimeError."""
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            rev_parse = MagicMock()
+            rev_parse.returncode = 0
+            rev_parse.stdout = "abc123def456\n"
+
+            status = MagicMock()
+            status.stdout = " M some_file.py\n"
+
+            mock_run.side_effect = [rev_parse, status]
+
+            from experiments.trustparadox_u.manifest import get_repository_commit
+
+            with pytest.raises(RuntimeError, match="clean working tree"):
+                get_repository_commit(reject_dirty=True)
+
+    def test_git_not_available_returns_unknown(self) -> None:
+        """Git not available returns 'unknown'."""
+        from unittest.mock import patch
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            from experiments.trustparadox_u.manifest import get_repository_commit
+
+            commit = get_repository_commit()
+            assert commit == "unknown"

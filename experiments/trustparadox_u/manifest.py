@@ -46,8 +46,19 @@ class SmokeManifest:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
 
-def get_repository_commit() -> str:
-    """Return the current HEAD commit SHA, or 'unknown'."""
+def get_repository_commit(*, reject_dirty: bool = False) -> str:
+    """Return the current HEAD commit SHA, or 'unknown'.
+
+    Args:
+        reject_dirty: If True, raise RuntimeError when working tree is dirty.
+                      If False, append '-dirty' suffix to the commit SHA.
+
+    Returns:
+        The commit SHA, optionally with '-dirty' suffix.
+
+    Raises:
+        RuntimeError: If reject_dirty=True and working tree is dirty.
+    """
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -55,11 +66,30 @@ def get_repository_commit() -> str:
             text=True,
             timeout=10,
         )
-        if result.returncode == 0:
-            return result.stdout.strip()
+        if result.returncode != 0:
+            return "unknown"
+        commit = result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
-    return "unknown"
+        return "unknown"
+
+    # Check for dirty working tree
+    try:
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        dirty = bool(status_result.stdout.strip())
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        dirty = False
+
+    if dirty:
+        if reject_dirty:
+            raise RuntimeError("Publication experiment requires a clean working tree")
+        return f"{commit}-dirty"
+
+    return commit
 
 
 def build_manifest(
