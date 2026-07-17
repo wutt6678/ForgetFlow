@@ -32,10 +32,11 @@ def build_real_embedding_provider(models: ModelsConfig) -> RealEmbeddingProvider
 
 
 def sanitize_api_base(api_base: str | None) -> str | None:
-    """Return ``scheme://host`` from *api_base*, stripping credentials.
+    """Return ``scheme://host[:port]`` from *api_base*, stripping credentials.
 
     Returns ``None`` when *api_base* is falsy.  Returns
     ``"<configured>"`` when the URL is malformed.
+    Preserves port numbers to distinguish between different local endpoints.
     """
     if not api_base:
         return None
@@ -45,4 +46,8 @@ def sanitize_api_base(api_base: str | None) -> str | None:
     if not parsed.scheme or not parsed.hostname:
         return "<configured>"
 
-    return f"{parsed.scheme}://{parsed.hostname}"
+    host = parsed.hostname
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+
+    return f"{parsed.scheme}://{host}"

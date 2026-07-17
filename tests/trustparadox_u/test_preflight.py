@@ -85,6 +85,21 @@ class TestSanitizeApiBase:
     def test_malformed_returns_configured(self) -> None:
         assert sanitize_api_base("not-a-url") == "<configured>"
 
+    def test_preserves_port(self) -> None:
+        """Port numbers are preserved in sanitized endpoint."""
+        assert sanitize_api_base("http://localhost:8000/v1") == "http://localhost:8000"
+        assert sanitize_api_base("https://example.test:9000/v1") == "https://example.test:9000"
+
+    def test_different_ports_are_distinct(self) -> None:
+        """Different ports produce different sanitized endpoints."""
+        ep1 = sanitize_api_base("http://localhost:8000/v1")
+        ep2 = sanitize_api_base("http://localhost:9000/v1")
+        assert ep1 != ep2
+
+    def test_strips_fragment(self) -> None:
+        """Fragment is stripped from sanitized endpoint."""
+        assert sanitize_api_base("https://example.test/v1#section") == "https://example.test"
+
 
 class TestPreflightIntegration:
     """Preflight uses the same provider builder as the runner."""
