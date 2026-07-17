@@ -53,9 +53,24 @@ def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> Firew
     if detector_payload is None:
         raise ValueError("FirewallDecision is missing detector_result")
 
+    # Validate action is one of the valid FirewallAction values
+    raw_action = str(data["action"])
+    valid_actions = {"allow", "redact", "abstract", "block"}
+    if raw_action not in valid_actions:
+        raise ValueError(f"Invalid firewall action: {raw_action!r}")
+
+    # Validate semantic constraints
+    released_text = None if data.get("released_text") is None else str(data["released_text"])
+    if raw_action == "block":
+        if released_text is not None:
+            raise ValueError("block action requires released_text to be null")
+    else:
+        if released_text is None:
+            raise ValueError(f"{raw_action} action requires released_text to be non-null")
+
     return FirewallDecision(
-        action=cast(FirewallAction, str(data["action"])),
-        released_text=None if data.get("released_text") is None else str(data["released_text"]),
+        action=cast(FirewallAction, raw_action),
+        released_text=released_text,
         detector_result=deserialize_detector_result(detector_payload),
         reason_codes=tuple(str(code) for code in data.get("reason_codes", [])),
         policy_version=str(data.get("policy_version", "")),
