@@ -139,6 +139,7 @@ def build_manifest(
     audit_valid: bool = True,
     audit_error_count: int = 0,
     metric_counts: dict[str, dict[str, int]] | None = None,
+    reject_dirty: bool = False,
 ) -> SmokeManifest:
     """Build a sanitised smoke manifest from run results.
 
@@ -150,12 +151,14 @@ def build_manifest(
         audit_valid: Whether the audit passed validation.
         audit_error_count: Number of audit errors found.
         metric_counts: Metric numerator/denominator counts.
+        reject_dirty: If True, raise RuntimeError when working tree is dirty.
 
     Returns:
         A SmokeManifest derived from the results.
 
     Raises:
         ValueError: If results are empty or have inconsistent metadata.
+        RuntimeError: If reject_dirty=True and working tree is dirty.
     """
     if not results:
         raise ValueError("Cannot build manifest from empty result set")
@@ -210,7 +213,7 @@ def build_manifest(
             )
 
     return SmokeManifest(
-        repository_commit=get_repository_commit(),
+        repository_commit=get_repository_commit(reject_dirty=reject_dirty),
         generated_at_utc=datetime.now(timezone.utc).isoformat(),
         run_mode=run_mode,
         config_hashes=config_hashes,

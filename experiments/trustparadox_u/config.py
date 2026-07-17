@@ -63,10 +63,22 @@ class MonitoringConfig:
 @dataclass(frozen=True)
 class RunConfig:
     mode: str = "test"  # "test" or "experiment"
+    require_clean_tree: bool | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in ("test", "experiment"):
             raise ValueError(f"mode must be 'test' or 'experiment', got {self.mode!r}")
+
+    @property
+    def effective_require_clean_tree(self) -> bool:
+        """Return whether clean tree is required based on mode.
+
+        If require_clean_tree is explicitly set, use that value.
+        Otherwise, default to True for experiment mode, False for test mode.
+        """
+        if self.require_clean_tree is not None:
+            return self.require_clean_tree
+        return self.mode == "experiment"
 
 
 @dataclass(frozen=True)

@@ -959,6 +959,7 @@ if __name__ == "__main__":
         audit_valid=not audit_report.has_errors,
         audit_error_count=len(audit_report.errors()),
         metric_counts=metric_counts,
+        reject_dirty=cfg.run.effective_require_clean_tree,
     )
     smoke_manifest_path = output_dir / "smoke_manifest.json"
     save_manifest(smoke_manifest, smoke_manifest_path)
