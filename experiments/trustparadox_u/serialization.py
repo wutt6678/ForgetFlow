@@ -140,6 +140,16 @@ def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
     for agent_id, status_data in data.get("contamination_states", {}).items():
         contamination_states[agent_id] = deserialize_contamination_status(status_data)
 
+    # Validate and extract pair-based counters
+    attempted_agent_record_pairs = int(data.get("attempted_agent_record_pairs", 0))
+    recontaminated_agent_record_pairs = int(data.get("recontaminated_agent_record_pairs", 0))
+
+    # Reject negative values
+    if attempted_agent_record_pairs < 0:
+        raise ValueError("attempted_agent_record_pairs must be non-negative")
+    if recontaminated_agent_record_pairs < 0:
+        raise ValueError("recontaminated_agent_record_pairs must be non-negative")
+
     return EpisodeResult(
         run_id=data["run_id"],
         episode_id=data["episode_id"],
@@ -153,6 +163,8 @@ def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
         task_label=data.get("task_label"),
         cleaned_agents_exposed=data.get("cleaned_agents_exposed", 0),
         recontaminated_agents=data.get("recontaminated_agents", 0),
+        attempted_agent_record_pairs=attempted_agent_record_pairs,
+        recontaminated_agent_record_pairs=recontaminated_agent_record_pairs,
         metadata=data.get("metadata", {}),
     )
 

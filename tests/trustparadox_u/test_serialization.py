@@ -14,6 +14,7 @@ from experiments.trustparadox_u.serialization import (
     deserialize_detector_result,
     deserialize_firewall_decision,
     load_episode_results,
+    serialize_episode_result,
 )
 from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
 
@@ -472,6 +473,86 @@ class TestSchemaVersioning:
 
         results = load_episode_results(episodes_file)
         assert len(results) == 1
+
+    def test_pair_counters_round_trip_nonzero(self, tmp_path: Path) -> None:
+        """Nonzero pair counters should survive serialization."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            attempted_agent_record_pairs=5,
+            recontaminated_agent_record_pairs=2,
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        assert loaded[0].attempted_agent_record_pairs == 5
+        assert loaded[0].recontaminated_agent_record_pairs == 2
+
+    def test_pair_counters_round_trip_zero(self, tmp_path: Path) -> None:
+        """Zero pair counters should survive serialization."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            attempted_agent_record_pairs=0,
+            recontaminated_agent_record_pairs=0,
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        assert loaded[0].attempted_agent_record_pairs == 0
+        assert loaded[0].recontaminated_agent_record_pairs == 0
+
+    def test_negative_attempted_pairs_rejected(self, tmp_path: Path) -> None:
+        """Negative attempted_agent_record_pairs should be rejected."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "attempted_agent_record_pairs": -1,
+            "recontaminated_agent_record_pairs": 0,
+            "metadata": {},
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(episode_data) + "\n")
+
+        with pytest.raises(ValueError, match="attempted_agent_record_pairs must be non-negative"):
+            load_episode_results(episodes_file)
+
+    def test_negative_recontaminated_pairs_rejected(self, tmp_path: Path) -> None:
+        """Negative recontaminated_agent_record_pairs should be rejected."""
+        episode_data = {
+            "run_id": "run_0001",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "attempted_agent_record_pairs": 0,
+            "recontaminated_agent_record_pairs": -1,
+            "metadata": {},
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(episode_data) + "\n")
+
+        with pytest.raises(
+            ValueError, match="recontaminated_agent_record_pairs must be non-negative"
+        ):
+            load_episode_results(episodes_file)
 
     def test_unsupported_schema_version_raises(self, tmp_path: Path) -> None:
         """Unsupported schema version should raise error."""
