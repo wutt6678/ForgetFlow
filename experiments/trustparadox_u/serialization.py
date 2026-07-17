@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
-from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallAction, FirewallDecision
+from marble.firewall.types import (
+    ContaminationStatus,
+    DetectorResult,
+    FirewallAction,
+    FirewallDecision,
+)
 
 # Current schema version for episode results
 RESULT_SCHEMA_VERSION = "1.0"
