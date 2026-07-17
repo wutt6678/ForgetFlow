@@ -39,6 +39,9 @@ class PairedUtilityResult:
     matched_keys: tuple[tuple, ...] = ()
     unmatched_firewall_keys: tuple[tuple, ...] = ()
     unmatched_baseline_keys: tuple[tuple, ...] = ()
+    expected_pairs: int = 0
+    matched_pairs: int = 0
+    baseline_successful_pairs: int = 0
 
 
 @dataclass
@@ -207,6 +210,9 @@ def compute_utility_retention(
         matched_keys=tuple(sorted(matched_keys)),
         unmatched_firewall_keys=tuple(sorted(unmatched_firewall)),
         unmatched_baseline_keys=tuple(sorted(unmatched_baseline)),
+        expected_pairs=len(baseline_keys | firewall_keys),
+        matched_pairs=len(matched_keys),
+        baseline_successful_pairs=baseline_successes,
     )
 
 

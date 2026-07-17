@@ -1,40 +1,90 @@
 {
-  "commit": "a0638eda068dbe8f206a5307b0f4f428cdb71016-dirty",
-  "total_runs": 90,
-  "unique_run_ids": 90,
-  "audit_valid": false,
-  "audit_error_count": 9,
+  "audit_valid": true,
+  "manifest_valid": true,
+  "directional_checks_pass": true,
+  "no_unmatched_pairs": true,
+  "utility_defined": true,
+  "repository_clean": false,
+  "artifacts_complete": true,
+  "no_duplicate_identities": true,
+  "all_passed": false,
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "failure_reasons": [
+    "Repository dirty: 62100b4c35bd69b37785a82af580663ef3ea3d2e-dirty"
+  ],
+  "repository_commit": "62100b4c35bd69b37785a82af580663ef3ea3d2e-dirty",
+  "generated_at": "2026-07-17T09:17:14.078785+00:00",
+  "mode": "diagnostic",
+  "total_runs": 81,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 9,
+  "audit_error_count": 0,
+  "duplicate_identity_count": 0,
+  "aggregate_metrics": {
+    "pu_rer": {
+      "value": 0.21296296296296297,
+      "numerator": 69,
+      "denominator": 324
+    },
+    "crr": {
+      "value": 0.08888888888888889,
+      "numerator": 12,
+      "denominator": 135
+    },
+    "rr": {
+      "value": 0.3333333333333333,
+      "numerator": 9,
+      "denominator": 27
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 108
+    }
+  },
   "directional_checks": {
     "privacy_mvp_better": {
-      "check": "full_mvp PU-RER <= no_firewall PU-RER",
-      "mvp_pu_rer": 0.16666666666666666,
-      "no_fw_pu_rer": 0.25,
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_firewall PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.3333333333333333,
       "passed": true
     },
     "semantic_protection": {
-      "check": "full_mvp PU-RER <= no_semantic PU-RER",
-      "full_pu_rer": 0.16666666666666666,
-      "no_sem_pu_rer": 0.16666666666666666,
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_semantic PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.16666666666666666,
       "passed": true
     },
     "stateful_reconstruction_safer": {
-      "check": "stateful CRR <= stateless CRR",
-      "stateful_crr": 0.0,
-      "stateless_crr": 0.2,
+      "claim_type": "strict_improvement",
+      "check": "stateful CRR < stateless CRR",
+      "lhs": 0.0,
+      "rhs": 0.2,
       "passed": true
     },
     "rich_utility_ge_binary": {
-      "check": "rich task_success >= binary task_success",
-      "rich_success": 0,
-      "binary_success": 0,
+      "claim_type": "non_inferiority",
+      "check": "full_mvp task_success >= binary task_success",
+      "lhs": 3,
+      "rhs": 3,
       "passed": true
     },
-    "continuous_rr_le_finite": {
-      "check": "continuous RR <= monitoring_0 RR",
-      "continuous_rr": 0.0,
-      "monitoring_0_rr": 0.0,
+    "continuous_rr_lt_finite": {
+      "claim_type": "strict_improvement",
+      "check": "continuous RR < monitoring_0 RR",
+      "lhs": 0.0,
+      "rhs": 1.0,
       "passed": true
     }
   },
-  "all_passed": true
+  "expected_pairs": 9,
+  "matched_pairs": 9,
+  "unmatched_pair_count": 0,
+  "baseline_successful_pairs": 3,
+  "utility_retention_value": 1.0,
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0"
 }

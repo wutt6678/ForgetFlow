@@ -1,0 +1,104 @@
+{
+  "conditions": [
+    {
+      "name": "no_firewall",
+      "config_hash": "8a2ee47fcdf36e93e533ee949ef00c5a37d86fd9b63d88442613da11b2e62459",
+      "firewall_enabled": false,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "exact_only",
+      "config_hash": "54401f34abfdba27d3c76de210786715811cb510ce8853794f9b2a84ce911dab",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=False, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "full_mvp",
+      "config_hash": "f5e6423cf9ca479884bc2435ec3dc3f15a808f7b4b7fe0a7a25d98f07f0e2c3e",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=True, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "no_semantic",
+      "config_hash": "8a2ee47fcdf36e93e533ee949ef00c5a37d86fd9b63d88442613da11b2e62459",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "stateless",
+      "config_hash": "c857b9b3d369fb4c68bcd2ae72aa40347e84f1987f18fcf6d5b6d449643b7ed0",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "binary_policy",
+      "config_hash": "d6ee59618de0b18e56f66dd4722afa946a12ee9cb0903357621c4f3fa0f7e6d4",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    },
+    {
+      "name": "monitoring_0",
+      "config_hash": "9fe280a26744b504a49e9c58b8062b5ecc294b08cacfbe8b050a0be5cd7630a2",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0)"
+      }
+    },
+    {
+      "name": "monitoring_1",
+      "config_hash": "6b76f38b4b6b4b5d91e46952a5da92af50885ddfbfcf21c88884d4a868c4754b",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=1)"
+      }
+    },
+    {
+      "name": "continuous",
+      "config_hash": "8a2ee47fcdf36e93e533ee949ef00c5a37d86fd9b63d88442613da11b2e62459",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False, semantic_threshold=0.8)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5)"
+      }
+    }
+  ],
+  "duplicate_identities": []
+}

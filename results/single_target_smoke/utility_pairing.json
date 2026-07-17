@@ -1,4 +1,8 @@
 {
+  "expected_pairs": 9,
+  "matched_pairs": 9,
+  "unmatched_pairs": 0,
+  "baseline_successful_pairs": 3,
   "matched_keys": [
     [
       "attribute_001",
@@ -65,9 +69,9 @@
     ]
   ],
   "metric": {
-    "value": null,
-    "numerator": 0,
-    "denominator": 0,
-    "reason": "no baseline-successful matched pairs"
+    "value": 1.0,
+    "numerator": 3,
+    "denominator": 3,
+    "reason": null
   }
 }
