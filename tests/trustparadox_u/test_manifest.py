@@ -655,3 +655,101 @@ class TestStrictConfigHashValidation:
 
         hashes = collect_config_hashes([r1, r2])
         assert hashes == ("aaa", "bbb")
+
+
+class TestStrictConfigHashValidation:
+    """Section 7: Strict config-hash validation in manifest validation."""
+
+    def test_missing_hash_fails(self) -> None:
+        """Missing config_hash produces MANIFEST_CONFIG_HASHES_INVALID."""
+        r = _make_result()
+        del r.metadata["config_hash"]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, [r])
+        assert any(f["code"] == "MANIFEST_CONFIG_HASHES_INVALID" for f in findings)
+
+    def test_empty_hash_fails(self) -> None:
+        """Empty config_hash produces MANIFEST_CONFIG_HASHES_INVALID."""
+        r = _make_result(config_hash="")
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, [r])
+        assert any(f["code"] == "MANIFEST_CONFIG_HASHES_INVALID" for f in findings)
+
+    def test_whitespace_hash_fails(self) -> None:
+        """Whitespace-only config_hash produces MANIFEST_CONFIG_HASHES_INVALID."""
+        r = _make_result(config_hash="   ")
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, [r])
+        assert any(f["code"] == "MANIFEST_CONFIG_HASHES_INVALID" for f in findings)
+
+    def test_non_string_hash_fails(self) -> None:
+        """Non-string config_hash produces MANIFEST_CONFIG_HASHES_INVALID."""
+        r = _make_result()
+        r.metadata["config_hash"] = 12345
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, [r])
+        assert any(f["code"] == "MANIFEST_CONFIG_HASHES_INVALID" for f in findings)

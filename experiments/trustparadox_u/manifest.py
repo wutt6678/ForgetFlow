@@ -364,9 +364,18 @@ def validate_manifest_against_results(
                 }
             )
 
-    # 7. Check config hashes match
-    actual_config_hashes = sorted({str(r.metadata.get("config_hash", "")) for r in results})
-    if list(manifest.config_hashes) != actual_config_hashes:
+    # 7. Check config hashes match (using strict validation)
+    try:
+        actual_config_hashes = list(collect_config_hashes(results))
+    except ValueError as exc:
+        findings.append(
+            {
+                "code": "MANIFEST_CONFIG_HASHES_INVALID",
+                "message": str(exc),
+            }
+        )
+        actual_config_hashes = None
+    if actual_config_hashes is not None and list(manifest.config_hashes) != actual_config_hashes:
         findings.append(
             {
                 "code": "MANIFEST_CONFIG_HASHES_MISMATCH",

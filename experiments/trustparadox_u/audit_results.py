@@ -128,7 +128,19 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
 
     # Check for unexpected recontamination pairs
     unexpected_count = result.metadata.get("unexpected_recontaminated_pair_count", 0)
-    if isinstance(unexpected_count, int) and unexpected_count > 0:
+    if not isinstance(unexpected_count, int) or unexpected_count < 0:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="UNEXPECTED_RECONTAMINATION_COUNT_INVALID",
+                message=(
+                    "Unexpected recontamination count must be "
+                    f"a non-negative integer; got {unexpected_count!r}"
+                ),
+                episode_id=ep_id,
+            )
+        )
+    elif unexpected_count > 0:
         findings.append(
             AuditFinding(
                 level="error",

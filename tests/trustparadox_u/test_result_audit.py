@@ -1162,3 +1162,31 @@ class TestUnexpectedRecontaminationAudit:
         unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
         assert len(unexpected) == 1
         assert unexpected[0].level == "error"
+
+    def test_negative_count_fails(self) -> None:
+        """Section 6: Negative unexpected count is invalid."""
+        result = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "unexpected_recontaminated_pair_count": -1,
+            }
+        )
+        findings = audit_episode_result(result)
+        invalid = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_COUNT_INVALID"]
+        assert len(invalid) == 1
+        assert invalid[0].level == "error"
+
+    def test_non_integer_count_fails(self) -> None:
+        """Section 6: Non-integer unexpected count is invalid."""
+        result = _valid_result(
+            metadata={
+                "forbidden_strings": ["secret"],
+                "config_hash": "a" * 64,
+                "unexpected_recontaminated_pair_count": "1",
+            }
+        )
+        findings = audit_episode_result(result)
+        invalid = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_COUNT_INVALID"]
+        assert len(invalid) == 1
+        assert invalid[0].level == "error"
