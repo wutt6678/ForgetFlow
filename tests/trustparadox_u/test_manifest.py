@@ -553,3 +553,78 @@ class TestGetRepositoryCommitDirtyDetection:
 
             commit = get_repository_commit()
             assert commit == "unknown"
+
+
+class TestRequireSingleMetadataValue:
+    """Tests for require_single_metadata_value helper."""
+
+    def test_single_consistent_value(self) -> None:
+        """Single consistent value should be returned."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        r1.metadata["provider"] = "openai"
+        r2 = _make_result(episode_id="ep_002")
+        r2.metadata["provider"] = "openai"
+
+        result = require_single_metadata_value([r1, r2], "provider")
+        assert result == "openai"
+
+    def test_inconsistent_values_raises(self) -> None:
+        """Inconsistent values should raise ValueError."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        r1.metadata["provider"] = "openai"
+        r2 = _make_result(episode_id="ep_002")
+        r2.metadata["provider"] = "anthropic"
+
+        with pytest.raises(ValueError, match="Expected exactly one value"):
+            require_single_metadata_value([r1, r2], "provider")
+
+    def test_none_values_discarded(self) -> None:
+        """None values should be discarded when allow_none=False."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        r1.metadata["provider"] = "openai"
+        r2 = _make_result(episode_id="ep_002")
+        # r2 has no provider (None)
+
+        result = require_single_metadata_value([r1, r2], "provider")
+        assert result == "openai"
+
+    def test_none_values_allowed(self) -> None:
+        """None values should be allowed when allow_none=True."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        r1.metadata["provider"] = None
+        r2 = _make_result(episode_id="ep_002")
+        r2.metadata["provider"] = None
+
+        result = require_single_metadata_value([r1, r2], "provider", allow_none=True)
+        assert result is None
+
+    def test_all_none_raises_without_allow_none(self) -> None:
+        """All None values should raise when allow_none=False."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        r1.metadata["provider"] = None
+        r2 = _make_result(episode_id="ep_002")
+        r2.metadata["provider"] = None
+
+        with pytest.raises(ValueError, match="Expected exactly one value"):
+            require_single_metadata_value([r1, r2], "provider")
+
+    def test_missing_field_raises(self) -> None:
+        """Missing field should raise ValueError."""
+        from experiments.trustparadox_u.manifest import require_single_metadata_value
+
+        r1 = _make_result()
+        # No provider field at all
+
+        with pytest.raises(ValueError, match="Expected exactly one value"):
+            require_single_metadata_value([r1], "provider")
+

@@ -92,6 +92,38 @@ def get_repository_commit(*, reject_dirty: bool = False) -> str:
     return commit
 
 
+def require_single_metadata_value(
+    results: list[Any],
+    field: str,
+    *,
+    allow_none: bool = False,
+) -> Any:
+    """Extract a single consistent metadata value from all results.
+
+    Args:
+        results: List of EpisodeResult objects.
+        field: Metadata field name to extract.
+        allow_none: If True, None values are allowed and discarded.
+
+    Returns:
+        The single consistent value.
+
+    Raises:
+        ValueError: If multiple inconsistent values are found.
+    """
+    values = {result.metadata.get(field) for result in results}
+
+    if not allow_none:
+        values.discard(None)
+
+    if len(values) != 1:
+        raise ValueError(
+            f"Expected exactly one value for {field}, got {values!r}"
+        )
+
+    return next(iter(values))
+
+
 def build_manifest(
     *,
     results: list[Any],
