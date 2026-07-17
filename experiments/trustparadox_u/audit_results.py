@@ -9,6 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from experiments.trustparadox_u.identity import (
+    ResearchRunIdentity,
+    research_run_identity_from_result,
+)
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
 
@@ -713,10 +717,8 @@ def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
     Uses ``ResearchRunIdentity`` (scenario + secret + trust + attack + seed + condition_id)
     so that different experiment conditions are properly distinguished.
     """
-    from experiments.trustparadox_u.identity import research_run_identity_from_result
-
     findings: list[AuditFinding] = []
-    seen: dict[object, int] = {}
+    seen: dict[ResearchRunIdentity, int] = {}
     for r in results:
         try:
             identity = research_run_identity_from_result(r)
@@ -730,13 +732,13 @@ def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
             )
             continue
         seen[identity] = seen.get(identity, 0) + 1
-    for identity, count in seen.items():
+    for dup_identity, count in seen.items():
         if count > 1:
             findings.append(
                 AuditFinding(
                     level="error",
                     code="RUN_IDENTITY_DUPLICATE",
-                    message=f"Run identity {identity!r} appears {count} times",
+                    message=f"Run identity {dup_identity!r} appears {count} times",
                 )
             )
     return findings
