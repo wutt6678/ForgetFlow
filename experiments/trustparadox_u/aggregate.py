@@ -32,6 +32,22 @@ from experiments.trustparadox_u.serialization import (
 )
 
 
+class AggregationError(Exception):
+    """Base exception for aggregation errors."""
+
+
+class ResultLoadError(AggregationError):
+    """Error loading episode results."""
+
+
+class ManifestValidationError(AggregationError):
+    """Error validating manifest against results."""
+
+
+class ResultAuditError(AggregationError):
+    """Error auditing results."""
+
+
 def format_metric(metric: dict[str, Any]) -> str:
     """Format a structured metric dict for display.
 
@@ -254,7 +270,7 @@ def validate_manifest_or_raise(
     findings = validate_manifest_against_results(manifest, results)
     if findings:
         codes = [f["code"] for f in findings]
-        raise ValueError(f"Manifest validation failed: {', '.join(codes)}")
+        raise ManifestValidationError(f"Manifest validation failed: {', '.join(codes)}")
 
 
 def main() -> int:
@@ -293,7 +309,7 @@ def main() -> int:
             diagnostic_only = True
             manifest = None
         else:
-            raise FileNotFoundError(
+            raise ManifestValidationError(
                 f"Manifest not found: {manifest_path}. "
                 "Use --allow-missing-manifest for diagnostic-only mode."
             )
@@ -302,7 +318,7 @@ def main() -> int:
         audit_report = audit_results(results)
         if audit_report.has_errors:
             error_count = len(audit_report.findings)
-            raise ValueError(f"Audit failed with {error_count} errors")
+            raise ResultAuditError(f"Audit failed with {error_count} errors")
 
         # 4. Validate manifest against results
         if manifest is not None:
@@ -336,7 +352,22 @@ def main() -> int:
                 audit_report=audit_report,
             )
 
-    except (FileNotFoundError, ValueError) as exc:
+    except FileNotFoundError as exc:
+        print(f"Aggregation failed [INPUT_MISSING]: {exc}", file=sys.stderr)
+        return 2
+    except ResultLoadError as exc:
+        print(f"Aggregation failed [RESULT_LOAD]: {exc}", file=sys.stderr)
+        return 3
+    except ResultAuditError as exc:
+        print(f"Aggregation failed [AUDIT]: {exc}", file=sys.stderr)
+        return 4
+    except ManifestValidationError as exc:
+        print(f"Aggregation failed [MANIFEST]: {exc}", file=sys.stderr)
+        return 5
+    except AggregationError as exc:
+        print(f"Aggregation failed: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
         print(f"Aggregation failed: {exc}", file=sys.stderr)
         return 1
 

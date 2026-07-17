@@ -245,7 +245,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1
+        assert exit_code == 1  # General error (ValueError from deserialization)
 
     def test_malformed_contamination_status_fails(self, tmp_path: Path) -> None:
         """Malformed contamination status should fail with clear error."""
@@ -268,7 +268,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1
+        assert exit_code == 1  # General error (ValueError from deserialization)
 
     def test_duplicate_results_blocked(self, tmp_path: Path) -> None:
         """Duplicate results should be blocked."""
@@ -295,8 +295,8 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        # Should fail due to duplicate run identity
-        assert exit_code == 1
+        # Should fail due to duplicate run identity (audit error)
+        assert exit_code == 4  # AUDIT
 
     def test_wrong_manifest_commit_fails(self, tmp_path: Path) -> None:
         """Wrong manifest commit should fail validation."""
@@ -319,7 +319,7 @@ class TestRunnerToAggregationIntegration:
                 mock_validate.side_effect = ValueError("Commit mismatch")
                 exit_code = aggregate_main()
 
-        assert exit_code == 1
+        assert exit_code == 1  # General ValueError
 
     def test_wrong_config_hash_fails(self, tmp_path: Path) -> None:
         """Wrong config hash in manifest should fail."""
@@ -342,8 +342,8 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        # Should fail due to config hash mismatch
-        assert exit_code == 1
+        # Should fail due to config hash mismatch (manifest validation)
+        assert exit_code == 5  # MANIFEST_VALIDATION
 
     def test_missing_results_file_fails(self, tmp_path: Path) -> None:
         """Missing results file should fail."""
@@ -379,7 +379,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1
+        assert exit_code == 2  # INPUT_MISSING
 
     def test_missing_manifest_fails(self, tmp_path: Path) -> None:
         """Missing manifest should fail."""
@@ -401,7 +401,7 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        assert exit_code == 1
+        assert exit_code == 5  # MANIFEST_VALIDATION
 
     def test_invalid_observed_dimension_fails(self, tmp_path: Path) -> None:
         """Invalid observed dimension should fail validation."""
@@ -424,5 +424,5 @@ class TestRunnerToAggregationIntegration:
         ):
             exit_code = aggregate_main()
 
-        # Should fail due to invalid dimension
-        assert exit_code == 1
+        # Should fail due to invalid dimension (manifest validation)
+        assert exit_code == 5  # MANIFEST_VALIDATION

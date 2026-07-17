@@ -197,7 +197,7 @@ class TestAggregationCLI:
         ):
             exit_code = main()
 
-        assert exit_code == 1
+        assert exit_code == 2  # INPUT_MISSING
 
     def test_missing_manifest(self, tmp_path: Path) -> None:
         """Missing manifest without --allow-missing-manifest should fail."""
@@ -212,7 +212,7 @@ class TestAggregationCLI:
         ):
             exit_code = main()
 
-        assert exit_code == 1
+        assert exit_code == 5  # MANIFEST_VALIDATION
 
     def test_malformed_jsonl(self, tmp_path: Path) -> None:
         """Malformed JSONL should fail."""
@@ -253,7 +253,7 @@ class TestAggregationCLI:
         ):
             exit_code = main()
 
-        assert exit_code == 1
+        assert exit_code == 5  # MANIFEST_VALIDATION
 
     def test_allow_missing_manifest_diagnostic(self, tmp_path: Path) -> None:
         """--allow-missing-manifest should produce diagnostic output."""
@@ -310,7 +310,7 @@ class TestAggregationCLI:
         ):
             exit_code = main()
 
-        assert exit_code == 1
+        assert exit_code == 4  # AUDIT
 
 
 class TestLocateEpisodeResults:
