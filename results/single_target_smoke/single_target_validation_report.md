@@ -1,11 +1,11 @@
-# Single-Target Validation Report: DIAGNOSTIC ONLY
+# Single-Target Validation Report: GO
 
 ## Run Identity
 
-- **Repository commit**: 62100b4c35bd69b37785a82af580663ef3ea3d2e-dirty
-- **Repository clean**: False
-- **Generated at**: 2026-07-17T09:17:14.078785+00:00
-- **Mode**: diagnostic
+- **Repository commit**: f87986b29f54771d9b1fdcd33b1fcaf5d1d5e28b
+- **Repository clean**: True
+- **Generated at**: 2026-07-17T09:18:07.892803+00:00
+- **Mode**: release
 
 ## Fixture Matrix
 
@@ -56,6 +56,4 @@
 
 ## GO/NO-GO Decision
 
-**DIAGNOSTIC ONLY**
-
-This run was in diagnostic mode and is not release-valid.
+**GO**

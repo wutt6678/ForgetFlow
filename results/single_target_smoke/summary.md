@@ -1,8 +1,8 @@
 # Single-Target Smoke Study Summary
 
-- **Status**: DIAGNOSTIC ONLY
-- **Commit**: 62100b4c35bd69b37785a82af580663ef3ea3d2e-dirty
-- **Mode**: diagnostic
+- **Status**: GO
+- **Commit**: f87986b29f54771d9b1fdcd33b1fcaf5d1d5e28b
+- **Mode**: release
 - **Fixtures**: 3
 - **Seeds**: 3
 - **Conditions**: 9
