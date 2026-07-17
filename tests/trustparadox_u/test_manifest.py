@@ -10,6 +10,7 @@ from experiments.trustparadox_u.manifest import (
     build_manifest,
     get_repository_commit,
     save_manifest,
+    validate_manifest_against_results,
 )
 from experiments.trustparadox_u.runner import EpisodeResult
 
@@ -198,3 +199,137 @@ class TestGetRepositoryCommit:
         commit = get_repository_commit()
         assert isinstance(commit, str)
         assert len(commit) > 0
+
+
+class TestValidateManifestAgainstResults:
+    """Tests for validate_manifest_against_results."""
+
+    def test_valid_manifest_passes(self) -> None:
+        """A valid manifest passes validation."""
+        results = [_make_result()]
+        m = build_manifest(
+            results=results,
+            run_mode="test",
+            config_hashes=["abc123"],
+        )
+        findings = validate_manifest_against_results(m, results)
+        # Filter out commit-related findings since we're testing in a real repo
+        non_commit_findings = [f for f in findings if "COMMIT" not in f["code"]]
+        assert len(non_commit_findings) == 0
+
+    def test_unknown_commit_fails(self) -> None:
+        """Unknown commit fails validation."""
+        results = [_make_result()]
+        m = SmokeManifest(
+            repository_commit="unknown",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_UNKNOWN_COMMIT" for f in findings)
+
+    def test_result_count_mismatch_fails(self) -> None:
+        """Result count mismatch fails validation."""
+        results = [_make_result()]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=5,  # Wrong count
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_RESULT_COUNT_MISMATCH" for f in findings)
+
+    def test_episode_ids_mismatch_fails(self) -> None:
+        """Episode IDs mismatch fails validation."""
+        results = [_make_result(episode_id="ep_001")]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_999",),  # Wrong episode ID
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_EPISODE_IDS_MISMATCH" for f in findings)
+
+    def test_audit_invalid_fails(self) -> None:
+        """Audit invalid fails validation."""
+        results = [_make_result()]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=False,  # Invalid audit
+            audit_error_count=3,
+            metric_counts={},
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_AUDIT_INVALID" for f in findings)
+
+    def test_metric_counts_mismatch_fails(self) -> None:
+        """Metric counts mismatch fails validation."""
+        results = [_make_result()]
+        m = SmokeManifest(
+            repository_commit="abc123def456",
+            generated_at_utc="2026-01-01T00:00:00+00:00",
+            run_mode="test",
+            config_hashes=("abc123",),
+            provider=None,
+            model=None,
+            dimension=None,
+            semantic_threshold=0.8,
+            api_base_sanitized=None,
+            episode_ids=("ep_001",),
+            seeds=(42,),
+            result_count=1,
+            audit_valid=True,
+            audit_error_count=0,
+            metric_counts={
+                "pu_rer": {"numerator": 999, "denominator": 999},  # Wrong counts
+            },
+        )
+        findings = validate_manifest_against_results(m, results)
+        assert any(f["code"] == "MANIFEST_METRIC_COUNTS_MISMATCH" for f in findings)

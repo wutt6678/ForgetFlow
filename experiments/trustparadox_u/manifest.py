@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -10,6 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from experiments.trustparadox_u.providers import sanitize_api_base
+
+# Regex for valid git commit SHA (7-40 hex characters)
+COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 @dataclass(frozen=True)
@@ -101,3 +105,88 @@ def save_manifest(manifest: SmokeManifest, output_path: str | Path) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(manifest.to_json())
     return p
+
+
+def validate_manifest_against_results(
+    manifest: SmokeManifest,
+    results: list[Any],
+) -> list[dict[str, str]]:
+    """Validate that manifest matches the actual result set.
+
+    Returns a list of findings (dicts with 'code' and 'message' keys).
+    Empty list means validation passed.
+    """
+    findings: list[dict[str, str]] = []
+
+    # 1. Check result_count
+    if manifest.result_count != len(results):
+        findings.append({
+            "code": "MANIFEST_RESULT_COUNT_MISMATCH",
+            "message": f"Manifest says {manifest.result_count} results, got {len(results)}",
+        })
+
+    # 2. Check episode IDs match
+    actual_episode_ids = sorted({r.episode_id for r in results})
+    if list(manifest.episode_ids) != actual_episode_ids:
+        findings.append({
+            "code": "MANIFEST_EPISODE_IDS_MISMATCH",
+            "message": f"Episode IDs don't match: manifest={manifest.episode_ids}, actual={actual_episode_ids}",
+        })
+
+    # 3. Check seeds match
+    actual_seeds = sorted({r.seed for r in results})
+    if list(manifest.seeds) != actual_seeds:
+        findings.append({
+            "code": "MANIFEST_SEEDS_MISMATCH",
+            "message": f"Seeds don't match: manifest={manifest.seeds}, actual={actual_seeds}",
+        })
+
+    # 4. Check audit status is true
+    if not manifest.audit_valid:
+        findings.append({
+            "code": "MANIFEST_AUDIT_INVALID",
+            "message": f"Manifest reports audit invalid with {manifest.audit_error_count} errors",
+        })
+
+    # 5. Check repository commit is valid
+    if manifest.repository_commit == "unknown":
+        findings.append({
+            "code": "MANIFEST_UNKNOWN_COMMIT",
+            "message": "Repository commit is 'unknown'",
+        })
+    elif not COMMIT_RE.match(manifest.repository_commit.replace("-dirty", "")):
+        findings.append({
+            "code": "MANIFEST_INVALID_COMMIT",
+            "message": f"Repository commit '{manifest.repository_commit}' is not a valid SHA",
+        })
+
+    # 6. Check metric counts match evaluator output
+    if manifest.metric_counts:
+        from experiments.trustparadox_u.evaluator import evaluate_all
+
+        evaluation = evaluate_all(results)
+        expected_counts = {
+            "pu_rer": {
+                "numerator": evaluation.pu_rer.numerator,
+                "denominator": evaluation.pu_rer.denominator,
+            },
+            "crr": {
+                "numerator": evaluation.crr.numerator,
+                "denominator": evaluation.crr.denominator,
+            },
+            "rr": {
+                "numerator": evaluation.rr.numerator,
+                "denominator": evaluation.rr.denominator,
+            },
+            "fbr": {
+                "numerator": evaluation.fbr.numerator,
+                "denominator": evaluation.fbr.denominator,
+            },
+        }
+        if manifest.metric_counts != expected_counts:
+            findings.append({
+                "code": "MANIFEST_METRIC_COUNTS_MISMATCH",
+                "message": "Metric counts don't match evaluator output",
+            })
+
+    return findings
