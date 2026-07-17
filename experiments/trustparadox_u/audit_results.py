@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
@@ -47,6 +48,24 @@ class AuditReport:
 
     def warnings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.level == "warning"]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to a JSON-serialisable dict."""
+        return {
+            "findings": [
+                {
+                    "level": f.level,
+                    "code": f.code,
+                    "message": f.message,
+                    "episode_id": f.episode_id,
+                    "turn_id": f.turn_id,
+                }
+                for f in self.findings
+            ],
+            "episodes_audited": self.episodes_audited,
+            "episodes_with_errors": self.episodes_with_errors,
+            "has_errors": self.has_errors,
+        }
 
 
 def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
