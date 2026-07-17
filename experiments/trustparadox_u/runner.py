@@ -924,6 +924,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+
+    # Preflight: check clean tree before any execution or artifact creation
+    from experiments.trustparadox_u.manifest import get_repository_commit
+
+    repository_commit = get_repository_commit(reject_dirty=cfg.run.effective_require_clean_tree)
+
     data_root = Path("data/trustparadox_u")
     scenarios_dir = data_root / "scenarios"
 
@@ -1002,6 +1008,7 @@ if __name__ == "__main__":
         audit_error_count=len(audit_report.errors()),
         metric_counts=metric_counts,
         reject_dirty=cfg.run.effective_require_clean_tree,
+        repository_commit=repository_commit,
     )
     smoke_manifest_path = output_dir / "smoke_manifest.json"
     save_manifest(smoke_manifest, smoke_manifest_path)

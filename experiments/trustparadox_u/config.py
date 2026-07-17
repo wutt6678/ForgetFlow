@@ -173,7 +173,10 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
     history = HistoryConfig(**hist_raw)
     policy = PolicyConfig(**pol_raw)
     monitoring = MonitoringConfig(**mon_raw)
-    run_config = RunConfig(mode=run.get("mode", "test"))
+    run_config = RunConfig(
+        mode=run.get("mode", "test"),
+        require_clean_tree=run.get("require_clean_tree"),
+    )
 
     models_raw = raw.get("models", {})
     models = ModelsConfig(
