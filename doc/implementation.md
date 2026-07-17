@@ -398,27 +398,32 @@ Runs the complete three-scenario pilot:
 
 ## 20. Testing Strategy
 
-- **360 tests** across 21 test files
+- **526 tests** across 26 test files
 - No live model API calls — all tests use `ScriptedResponder` and `FixedEmbeddingProvider`
 - Fixed seeds for determinism
-- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population, aggregation, embedding providers, config validation
+- Tests cover: validation, unit behavior, integration, end-to-end, metric contracts, audit, trust matrix, runner population, aggregation, embedding providers, config validation, serialization, manifest generation, preflight checks, identity normalization, policy-ablation pairs
 
 ### Test Categories
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_result_audit.py` | 49 | Extended audit rules |
-| `test_runner.py` | 34 | Episode execution + population |
-| `test_embedding.py` | 33 | Embedding providers + config |
+| `test_result_audit.py` | 65 | Extended audit rules + policy-ablation |
+| `test_runner.py` | 45 | Episode execution + population |
+| `test_serialization.py` | 43 | Serialization + schema versioning |
+| `test_embedding.py` | 37 | Embedding providers + config |
+| `test_manifest.py` | 33 | Manifest generation + validation |
 | `test_types.py` | 26 | Data type validation |
 | `test_config.py` | 25 | Configuration loading + validation |
 | `test_metric_contracts.py` | 24 | Metric correctness |
+| `test_identity.py` | 22 | Identity normalization |
 | `test_end_to_end.py` | 21 | Six paired research cases |
+| `test_preflight.py` | 19 | Preflight validation |
+| `test_attacks.py` | 19 | Attack generation |
 | `test_evaluator.py` | 17 | Metric computation |
-| `test_attacks.py` | 14 | Attack generation |
-| `test_aggregate.py` | 14 | Aggregation logic |
+| `test_aggregate.py` | 16 | Aggregation logic |
 | `test_detectors.py` | 12 | Exact/alias detection |
 | `test_schema.py` | 11 | Schema validation + dataset |
+| `test_pipeline_integration.py` | 11 | Runner-to-aggregation pipeline |
 | `test_matrix.py` | 11 | Matrix + trust triplet |
 | `test_registry.py` | 11 | ForgetLedger behavior |
 | `test_policy.py` | 10 | Policy decisions |

@@ -10,27 +10,32 @@ This document presents the key results from the ForgetFlow MVP prototype evaluat
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 360 |
-| Passed | 360 |
+| Total tests | 526 |
+| Passed | 526 |
 | Failed | 0 |
-| Execution time | ~0.93s |
+| Execution time | ~2.76s |
 
 ### Test Breakdown
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_result_audit.py` | 49 | PASS |
-| `test_runner.py` | 34 | PASS |
-| `test_embedding.py` | 33 | PASS |
+| `test_result_audit.py` | 65 | PASS |
+| `test_runner.py` | 45 | PASS |
+| `test_serialization.py` | 43 | PASS |
+| `test_embedding.py` | 37 | PASS |
+| `test_manifest.py` | 33 | PASS |
 | `test_types.py` | 26 | PASS |
 | `test_config.py` | 25 | PASS |
 | `test_metric_contracts.py` | 24 | PASS |
+| `test_identity.py` | 22 | PASS |
 | `test_end_to_end.py` | 21 | PASS |
+| `test_preflight.py` | 19 | PASS |
+| `test_attacks.py` | 19 | PASS |
 | `test_evaluator.py` | 17 | PASS |
-| `test_attacks.py` | 14 | PASS |
-| `test_aggregate.py` | 14 | PASS |
+| `test_aggregate.py` | 16 | PASS |
 | `test_detectors.py` | 12 | PASS |
 | `test_schema.py` | 11 | PASS |
+| `test_pipeline_integration.py` | 11 | PASS |
 | `test_matrix.py` | 11 | PASS |
 | `test_registry.py` | 11 | PASS |
 | `test_policy.py` | 10 | PASS |

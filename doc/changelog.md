@@ -4,6 +4,59 @@ All notable changes to the ForgetFlow project.
 
 ---
 
+## [0.7.0] — 2026-07-17
+
+### Added
+
+#### Target-Specific Recontamination Labels
+- `MessageLabel.target_forget_ids: tuple[str, ...]` field for explicit target identification
+- `TurnResult.target_forget_ids: tuple[str, ...]` field for per-turn tracking
+- YAML dataset parsing with normalization (deduplication, sorting) and validation
+- Recontamination attempts must specify `target_forget_ids`
+- Runner uses target-specific forget IDs for RR denominator tracking
+
+#### Multi-Target RR Accounting
+- `EpisodeResult.attempted_agent_record_pairs` and `recontaminated_agent_record_pairs` fields
+- RR numerator restricted to attempted pairs only (intersection)
+- Unexpected recontamination pairs tracked in metadata (`unexpected_recontaminated_pair_count`)
+- Numerator ≤ denominator enforced with AssertionError
+- Pair counters survive disk serialization with validation
+
+#### Canonical Component Hashing
+- `stable_component_hash()` helper using `json.dumps(sort_keys=True)` for deterministic serialization
+- Full 64-character SHA-256 hashes (not truncated 16-char)
+- Component hashes: `detector_hash`, `history_hash`, `monitoring_hash`, `models_hash`, `policy_base_hash`
+- `models_hash` includes `api_base_sanitized` for endpoint provenance
+
+#### Policy-Ablation Validation
+- Require nonempty string component hashes in audit
+- Enforce binary=false, rich=true orientation explicitly
+- `collect_config_hashes()` validates non-empty, non-whitespace config hashes
+- Preflight clean-tree check before execution in runner `__main__`
+
+#### Clean-Tree Configuration
+- `RunConfig.require_clean_tree: bool | None` field with `effective_require_clean_tree` property
+- YAML config loader passes `require_clean_tree` from run section
+- Pre-resolved `repository_commit` passed through pipeline to manifest
+
+### Changed
+
+- **526 total tests** (up from 360), all passing
+- Serialization includes pair-based counters with negative value rejection
+- Component hashes use canonical JSON serialization (deterministic key order)
+- Clean-tree verification happens before output directory creation
+- Policy-ablation audit requires explicit orientation, not just inequality
+
+### Fixed
+
+- RR pair counters now survive disk serialization (were reset to zero)
+- Multi-target RR no longer attributes attempts to all forgotten records
+- Component hashes are now deterministic and canonical
+- Policy-ablation pairs cannot pass with missing or reversed configuration
+- Dirty experiment runs fail before any execution or artifact creation
+
+---
+
 ## [0.6.0] — 2026-07-17
 
 ### Added
