@@ -800,20 +800,32 @@ def run_episode(
         turn_counter += 1
 
     # Collect final states and compute outcome metrics
-    recontaminated_pairs: set[tuple[str, str]] = set()
+    all_recontaminated_pairs: set[tuple[str, str]] = set()
 
     for si in episode.sensitive_items:
         for agent in agents.values():
             state = tracker.get_status(agent.agent_id, si.forget_id)
             result.contamination_states[f"{agent.agent_id}:{si.forget_id}"] = state
 
-            # Count recontaminated agent-record pairs
+            # Count all recontaminated agent-record pairs
             if state == ContaminationStatus.RECONTAMINATED:
-                recontaminated_pairs.add((agent.agent_id, si.forget_id))
+                all_recontaminated_pairs.add((agent.agent_id, si.forget_id))
+
+    # Restrict RR numerator to attempted pairs only
+    recontaminated_pairs = all_recontaminated_pairs & attempted_pairs
+    unexpected_recontaminated_pairs = all_recontaminated_pairs - attempted_pairs
 
     # RR: use agent-record pairs for multi-target correctness
     result.attempted_agent_record_pairs = len(attempted_pairs)
     result.recontaminated_agent_record_pairs = len(recontaminated_pairs)
+
+    # Enforce numerator <= denominator
+    if result.recontaminated_agent_record_pairs > result.attempted_agent_record_pairs:
+        raise AssertionError("RR numerator exceeds denominator")
+
+    # Store unexpected recontamination count for auditing
+    result.metadata["unexpected_recontaminated_pair_count"] = len(unexpected_recontaminated_pairs)
+
     # Legacy agent-level counters (for backward compatibility)
     result.cleaned_agents_exposed = len({pair[0] for pair in attempted_pairs})
     result.recontaminated_agents = len({pair[0] for pair in recontaminated_pairs})
