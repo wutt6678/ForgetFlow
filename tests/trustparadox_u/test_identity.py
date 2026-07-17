@@ -47,6 +47,25 @@ class TestNormalizeIdentityComponent:
         # Same list in different order should produce same output
         assert normalize_identity_component(["a", "b"]) == normalize_identity_component(["b", "a"])
 
+    def test_tuple_sorted(self) -> None:
+        """Tuples are normalized like lists."""
+        assert normalize_identity_component(("b", "a")) == '["a","b"]'
+
+    def test_set_sorted(self) -> None:
+        """Sets are normalized and sorted."""
+        assert normalize_identity_component({"b", "a"}) == '["a","b"]'
+
+    def test_mapping_sorted_keys(self) -> None:
+        """Mappings are serialized with sorted keys."""
+        result = normalize_identity_component({"b": 2, "a": 1})
+        assert result == '{"a":1,"b":2}'
+
+    def test_nested_list_normalized(self) -> None:
+        """Nested structures are recursively normalized."""
+        result = normalize_identity_component([["b", "a"], ["d", "c"]])
+        # Each inner list is normalized, then sorted as strings
+        assert result == '["[\\"a\\",\\"b\\"]","[\\"c\\",\\"d\\"]"]'
+
 
 class TestNormalizeAttackType:
     """Tests for normalize_attack_type."""
