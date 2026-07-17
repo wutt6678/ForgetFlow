@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from experiments.trustparadox_u.runner import EpisodeResult
+from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 from experiments.trustparadox_u.serialization import (
     RESULT_SCHEMA_VERSION,
     deserialize_contamination_status,
@@ -597,3 +597,173 @@ class TestSchemaVersioning:
 
         results = load_episode_results(episodes_file)
         assert len(results) == 1
+
+
+class TestMultiTargetDiskPipeline:
+    """Section 10: Full multi-target disk-pipeline coverage."""
+
+    def test_exposed_forget_ids_round_trip(self, tmp_path: Path) -> None:
+        """exposed_forget_ids survives disk round trip."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="secret",
+                released_text="secret",
+                target_exposed=True,
+                exposed_forget_ids=("F001", "F002"),
+                target_forget_ids=("F001",),
+                is_attack_attempt=True,
+                is_recontamination_attempt=True,
+            )
+        )
+        result.attempted_agent_record_pairs = 2
+        result.recontaminated_agent_record_pairs = 1
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        turn = loaded[0].turns[0]
+        assert turn.exposed_forget_ids == ("F001", "F002")
+        assert turn.target_forget_ids == ("F001",)
+        assert turn.target_exposed is True
+        assert turn.is_recontamination_attempt is True
+
+    def test_pair_counts_round_trip(self, tmp_path: Path) -> None:
+        """Pair counts survive disk round trip."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            attempted_agent_record_pairs=3,
+            recontaminated_agent_record_pairs=1,
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert loaded[0].attempted_agent_record_pairs == 3
+        assert loaded[0].recontaminated_agent_record_pairs == 1
+
+    def test_rr_unchanged_after_loading(self, tmp_path: Path) -> None:
+        """RR metric is unchanged after disk round trip."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            attempted_agent_record_pairs=4,
+            recontaminated_agent_record_pairs=2,
+        )
+        from experiments.trustparadox_u.evaluator import compute_rr
+
+        rr_before = compute_rr([result])
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        rr_after = compute_rr(loaded)
+
+        assert rr_before.value == rr_after.value
+        assert rr_before.numerator == rr_after.numerator
+        assert rr_before.denominator == rr_after.denominator
+
+    def test_unrelated_records_unchanged(self, tmp_path: Path) -> None:
+        """Unrelated records remain unchanged after round trip."""
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="A",
+                recipient_id="B",
+                candidate_text="msg",
+                released_text="msg",
+                target_exposed=False,
+                exposed_forget_ids=(),
+                target_forget_ids=("F001",),
+                is_attack_attempt=True,
+            )
+        )
+        result.contamination_states = {
+            "B:F002": ContaminationStatus.CLEAN,
+        }
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+
+        assert loaded[0].turns[0].exposed_forget_ids == ()
+        assert loaded[0].contamination_states["B:F002"] == ContaminationStatus.CLEAN
+
+    def test_unexpected_pairs_cause_audit_failure(self, tmp_path: Path) -> None:
+        """Unexpected pairs cause audit failure after loading."""
+        from experiments.trustparadox_u.audit_results import audit_episode_result
+
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.metadata = {
+            "config_hash": "a" * 64,
+            "forbidden_strings": [],
+            "unexpected_recontaminated_pair_count": 2,
+        }
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+
+        findings = audit_episode_result(loaded[0])
+        assert any(f.code == "UNEXPECTED_RECONTAMINATION_PAIRS" for f in findings)
+
+    def test_aggregation_produces_bounded_metrics(self, tmp_path: Path) -> None:
+        """Aggregation produces bounded metrics after disk round trip."""
+        from experiments.trustparadox_u.evaluator import compute_rr
+
+        results = []
+        for i in range(3):
+            r = EpisodeResult(
+                run_id=f"run_{i:04d}",
+                episode_id=f"ep{i}",
+                scenario_id="s1",
+                trust_level="default",
+                seed=42 + i,
+                attempted_agent_record_pairs=2,
+                recontaminated_agent_record_pairs=1,
+            )
+            results.append(r)
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        with open(episodes_file, "w") as f:
+            for r in results:
+                f.write(json.dumps(serialize_episode_result(r)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        metric = compute_rr(loaded)
+        assert metric.value is not None
+        assert 0.0 <= metric.value <= 1.0
+        assert metric.numerator <= metric.denominator

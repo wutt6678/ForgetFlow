@@ -117,6 +117,13 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         if isinstance(raw_ids, list):
             target_forget_ids = tuple(str(id_val) for id_val in raw_ids)
 
+    # Parse and normalize exposed_forget_ids
+    exposed_forget_ids: tuple[str, ...] = ()
+    if "exposed_forget_ids" in data:
+        raw_ids = data["exposed_forget_ids"]
+        if isinstance(raw_ids, list):
+            exposed_forget_ids = tuple(str(id_val) for id_val in raw_ids)
+
     return TurnResult(
         turn_id=data["turn_id"],
         phase=data["phase"],
@@ -133,6 +140,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         is_recontamination_attempt=data.get("is_recontamination_attempt", False),
         target_forget_ids=target_forget_ids,
         target_exposed=data.get("target_exposed", False),
+        exposed_forget_ids=exposed_forget_ids,
         target_reconstructed=data.get("target_reconstructed", False),
         target_reintroduced=data.get("target_reintroduced", False),
         task_relevant=data.get("task_relevant", False),

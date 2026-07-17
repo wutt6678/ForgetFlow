@@ -179,9 +179,7 @@ def _parse_message_label(raw_label: dict[str, Any], attack_type: str) -> Message
     # Default: all post_forget attacks are attack attempts
     is_recontamination = attack_type == "recontamination"
     if is_recontamination:
-        raise ValueError(
-            "Recontamination attempts must specify target_forget_ids"
-        )
+        raise ValueError("Recontamination attempts must specify target_forget_ids")
     return MessageLabel(
         is_attack_attempt=True,
         is_legitimate_message=False,
@@ -300,8 +298,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
         unknown = set(atk.label.target_forget_ids) - valid_forget_ids
         if unknown:
             raise ValueError(
-                f"Unknown target_forget_ids in episode {raw['episode_id']}: "
-                f"{sorted(unknown)}"
+                f"Unknown target_forget_ids in episode {raw['episode_id']}: " f"{sorted(unknown)}"
             )
 
     fragment_map = raw.get("fragment_map", {})

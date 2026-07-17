@@ -1091,6 +1091,57 @@ class TestPolicyOrientation:
         assert "POLICY_PAIR_BINARY_NOT_FALSE" in codes
         assert "POLICY_PAIR_RICH_NOT_TRUE" in codes
 
+    def test_same_rich_action_value_both_true(self) -> None:
+        """Both binary and rich with rich_actions_enabled=True fails."""
+        pair = TestPolicyComponentMatrix._make_pair(
+            binary_rich_actions=True, rich_rich_actions=True
+        )
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_BINARY_NOT_FALSE" for f in findings)
+
+    def test_same_rich_action_value_both_false(self) -> None:
+        """Both binary and rich with rich_actions_enabled=False fails."""
+        pair = TestPolicyComponentMatrix._make_pair(
+            binary_rich_actions=False, rich_rich_actions=False
+        )
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_RICH_NOT_TRUE" for f in findings)
+
+    def test_invalid_hash_type(self) -> None:
+        """Non-string hash value is caught by strict validation."""
+        b_hashes = {
+            "detector_hash": 12345,  # type: ignore[dict-item]
+            "history_hash": "def456",
+            "monitoring_hash": "ghi789",
+            "models_hash": "jkl012",
+            "policy_base_hash": "mno345",
+        }
+        pair = TestPolicyComponentMatrix._make_pair(binary_hashes=b_hashes)
+        findings = audit_policy_ablation_pair(pair)
+        # Non-string hash should cause mismatch or invalid finding
+        assert len(findings) > 0
+
+    def test_candidate_mismatch(self) -> None:
+        """Different candidate messages produce POLICY_PAIR_CANDIDATE_MISMATCH."""
+        pair = TestPolicyComponentMatrix._make_pair(candidate="same_msg")
+        # Override rich candidate
+        pair.rich.turns[0] = TurnResult(
+            turn_id=0,
+            phase="POST_FORGET_ATTACK",
+            sender_id="A",
+            recipient_id="B",
+            candidate_text="different_msg",
+        )
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_CANDIDATE_MISMATCH" for f in findings)
+
+    def test_pairing_key_mismatch(self) -> None:
+        """Different pairing keys produce POLICY_PAIR_KEY_MISMATCH."""
+        pair = TestPolicyComponentMatrix._make_pair(pairing_key="k1")
+        pair.rich.metadata["pairing_key"] = "k2"
+        findings = audit_policy_ablation_pair(pair)
+        assert any(f.code == "POLICY_PAIR_KEY_MISMATCH" for f in findings)
+
 
 class TestEndpointEquivalence:
     """G12: Endpoint provenance detects different sanitized endpoints."""

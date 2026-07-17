@@ -657,7 +657,7 @@ class TestStrictConfigHashValidation:
         assert hashes == ("aaa", "bbb")
 
 
-class TestStrictConfigHashValidation:
+class TestStrictConfigHashValidationInManifest:
     """Section 7: Strict config-hash validation in manifest validation."""
 
     def test_missing_hash_fails(self) -> None:

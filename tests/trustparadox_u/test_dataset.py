@@ -203,9 +203,7 @@ class TestDefaultRecontaminationValidation:
         from experiments.trustparadox_u.dataset import _parse_message_label
 
         with pytest.raises(ValueError, match="target_forget_ids"):
-            _parse_message_label(
-                {"is_recontamination_attempt": True}, "recontamination"
-            )
+            _parse_message_label({"is_recontamination_attempt": True}, "recontamination")
 
     def test_explicit_recontamination_with_targets_passes(self) -> None:
         """Explicit recontamination label with targets passes."""
@@ -258,9 +256,7 @@ class TestLoadingTargetValidation:
         ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
         # Should have recontamination with valid targets
         recontamination_attacks = [
-            atk
-            for atk in ep.phases.post_forget
-            if atk.label.is_recontamination_attempt
+            atk for atk in ep.phases.post_forget if atk.label.is_recontamination_attempt
         ]
         assert len(recontamination_attacks) > 0
 
@@ -317,9 +313,7 @@ class TestLoadingTargetValidation:
               forbidden_strings: []
               permitted_strings: []
         """)
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             with pytest.raises(ValueError, match="Unknown target_forget_ids"):

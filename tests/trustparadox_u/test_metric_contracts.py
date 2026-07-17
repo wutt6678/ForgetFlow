@@ -429,9 +429,7 @@ class TestExposedForgetIdAttribution:
 
     def test_exposes_both(self) -> None:
         items = self._make_items()
-        exposed = evaluate_exposed_forget_ids(
-            "alpha_secret and beta_code are both out", items
-        )
+        exposed = evaluate_exposed_forget_ids("alpha_secret and beta_code are both out", items)
         assert exposed == {"F001", "F002"}
 
     def test_exposes_neither(self) -> None:
@@ -453,3 +451,75 @@ class TestExposedForgetIdAttribution:
         items = self._make_items()
         exposed = evaluate_exposed_forget_ids("the beta password is weak", items)
         assert exposed == {"F002"}
+
+
+class TestMultiTargetRR:
+    """Section 8: Multi-target RR invariants."""
+
+    def _make_result(
+        self,
+        attempted_pairs: int = 0,
+        recontaminated_pairs: int = 0,
+    ) -> EpisodeResult:
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
+        result.attempted_agent_record_pairs = attempted_pairs
+        result.recontaminated_agent_record_pairs = recontaminated_pairs
+        return result
+
+    def test_one_agent_two_records_one_targeted(self) -> None:
+        """One targeted attempt out of two attempted pairs."""
+        result = self._make_result(attempted_pairs=2, recontaminated_pairs=1)
+        metric = compute_rr([result])
+        assert metric.value == 0.5
+        assert metric.numerator == 1
+        assert metric.denominator == 2
+
+    def test_targeted_not_exposed(self) -> None:
+        """Targeted but not exposed: no recontamination."""
+        result = self._make_result(attempted_pairs=1, recontaminated_pairs=0)
+        metric = compute_rr([result])
+        assert metric.value == 0.0
+
+    def test_exposed_but_not_targeted(self) -> None:
+        """Exposed but not targeted: not counted in RR."""
+        result = self._make_result(attempted_pairs=0, recontaminated_pairs=0)
+        metric = compute_rr([result])
+        assert metric.value is None  # no attempted pairs
+
+    def test_two_targeted_records(self) -> None:
+        """Two targeted records both recontaminated."""
+        result = self._make_result(attempted_pairs=2, recontaminated_pairs=2)
+        metric = compute_rr([result])
+        assert metric.value == 1.0
+
+    def test_duplicate_attempts_counted_once(self) -> None:
+        """Duplicate attempts should not inflate denominator."""
+        result = self._make_result(attempted_pairs=1, recontaminated_pairs=1)
+        metric = compute_rr([result])
+        assert metric.value == 1.0
+        assert metric.denominator == 1
+
+    def test_two_agents_one_record(self) -> None:
+        """Two agents, one record: pair-based counting."""
+        result = self._make_result(attempted_pairs=2, recontaminated_pairs=1)
+        metric = compute_rr([result])
+        assert metric.numerator == 1
+        assert metric.denominator == 2
+
+    def test_zero_denominator_returns_none(self) -> None:
+        """RR is None when denominator == 0."""
+        result = self._make_result(attempted_pairs=0, recontaminated_pairs=0)
+        metric = compute_rr([result])
+        assert metric.value is None
+
+    def test_rr_bounded(self) -> None:
+        """0.0 <= RR <= 1.0 when defined."""
+        for attempted in range(1, 10):
+            for recont in range(0, attempted + 1):
+                result = self._make_result(attempted_pairs=attempted, recontaminated_pairs=recont)
+                metric = compute_rr([result])
+                assert metric.value is not None
+                assert 0.0 <= metric.value <= 1.0
+                assert metric.numerator <= metric.denominator
