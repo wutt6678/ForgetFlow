@@ -601,8 +601,7 @@ def main() -> int:
         # 5b. Update provenance for legacy schema content
         if schema_versions:
             contains_legacy_schema = any(
-                parse_schema_version(version) < current
-                for version in schema_versions
+                parse_schema_version(version) < current for version in schema_versions
             )
             if contains_legacy_schema:
                 provenance_meta["historical"] = True

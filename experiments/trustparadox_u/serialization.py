@@ -281,9 +281,7 @@ def inspect_result_schema_versions(path: str | Path) -> set[str]:
             try:
                 decoded = json.loads(line)
             except json.JSONDecodeError as exc:
-                raise ValueError(
-                    f"Malformed JSON in {path} at line {line_number}: {exc}"
-                ) from exc
+                raise ValueError(f"Malformed JSON in {path} at line {line_number}: {exc}") from exc
 
             if not isinstance(decoded, Mapping):
                 raise ValueError(

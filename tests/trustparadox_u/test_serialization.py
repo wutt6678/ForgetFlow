@@ -1041,6 +1041,7 @@ class TestInspectResultSchemaVersionsHardened:
 
     def _inspect(self, path: Path) -> set[str]:
         from experiments.trustparadox_u.serialization import inspect_result_schema_versions
+
         return inspect_result_schema_versions(path)
 
     def test_list_envelope_rejected(self, tmp_path: Path) -> None:
@@ -1102,12 +1103,21 @@ class TestInspectResultSchemaVersionsHardened:
     def test_line_number_in_error(self, tmp_path: Path) -> None:
         """Error message includes line number."""
         f = tmp_path / "episodes.jsonl"
-        valid = json.dumps({
-            "schema_version": "1.1",
-            "episode": {"run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-                        "trust_level": "default", "seed": 42, "turns": [],
-                        "contamination_states": {}, "metadata": {}},
-        })
+        valid = json.dumps(
+            {
+                "schema_version": "1.1",
+                "episode": {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                },
+            }
+        )
         f.write_text(valid + "\n" + "[]\n")
         with pytest.raises(ValueError, match="line 2"):
             self._inspect(f)
@@ -1115,20 +1125,35 @@ class TestInspectResultSchemaVersionsHardened:
     def test_valid_envelope_passes(self, tmp_path: Path) -> None:
         """Valid envelope passes inspection."""
         f = tmp_path / "episodes.jsonl"
-        f.write_text(json.dumps({
-            "schema_version": "1.1",
-            "episode": {"run_id": "r1", "episode_id": "ep1"},
-        }) + "\n")
+        f.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.1",
+                    "episode": {"run_id": "r1", "episode_id": "ep1"},
+                }
+            )
+            + "\n"
+        )
         versions = self._inspect(f)
         assert versions == {"1.1"}
 
     def test_unversioned_no_episode_required(self, tmp_path: Path) -> None:
         """Unversioned schema 0 does not require episode wrapper."""
         f = tmp_path / "episodes.jsonl"
-        f.write_text(json.dumps({
-            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-            "trust_level": "default", "seed": 42, "turns": [],
-            "contamination_states": {}, "metadata": {},
-        }) + "\n")
+        f.write_text(
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                }
+            )
+            + "\n"
+        )
         versions = self._inspect(f)
         assert versions == {"0"}

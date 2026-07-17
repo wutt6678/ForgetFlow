@@ -726,9 +726,7 @@ class TestShortShaResolution:
             "experiments.trustparadox_u.aggregate.resolve_commit_sha",
             return_value=full_sha,
         ):
-            result = validate_commit_provenance(
-                manifest, expected_commit="aaaaaaa"
-            )
+            result = validate_commit_provenance(manifest, expected_commit="aaaaaaa")
         assert result["release_certifying"] is True
         assert result["validation_mode"] == "expected_commit"
 
@@ -828,9 +826,15 @@ class TestFutureSchemaRejection:
         output_dir = tmp_path / "output"
 
         episode_data = {
-            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-            "trust_level": "default", "seed": 42, "turns": [],
-            "contamination_states": {}, "audit_entries": [], "metadata": {},
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "metadata": {},
         }
         data = {"schema_version": "1.2", "episode": episode_data}
         with open(input_dir / "episodes.jsonl", "w") as f:
@@ -838,9 +842,16 @@ class TestFutureSchemaRejection:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -853,9 +864,15 @@ class TestFutureSchemaRejection:
         output_dir = tmp_path / "output"
 
         episode_data = {
-            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-            "trust_level": "default", "seed": 42, "turns": [],
-            "contamination_states": {}, "audit_entries": [], "metadata": {},
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "metadata": {},
         }
         data = {"schema_version": "2.0", "episode": episode_data}
         with open(input_dir / "episodes.jsonl", "w") as f:
@@ -863,9 +880,16 @@ class TestFutureSchemaRejection:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -878,9 +902,15 @@ class TestFutureSchemaRejection:
         output_dir = tmp_path / "output"
 
         episode_data = {
-            "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-            "trust_level": "default", "seed": 42, "turns": [],
-            "contamination_states": {}, "audit_entries": [], "metadata": {},
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "metadata": {},
         }
         data = {"schema_version": "99.0", "episode": episode_data}
         with open(input_dir / "episodes.jsonl", "w") as f:
@@ -888,9 +918,16 @@ class TestFutureSchemaRejection:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -905,17 +942,29 @@ class TestFutureSchemaRejection:
         ep1 = {
             "schema_version": "1.1",
             "episode": {
-                "run_id": "r1", "episode_id": "ep1", "scenario_id": "s1",
-                "trust_level": "default", "seed": 42, "turns": [],
-                "contamination_states": {}, "audit_entries": [], "metadata": {},
+                "run_id": "r1",
+                "episode_id": "ep1",
+                "scenario_id": "s1",
+                "trust_level": "default",
+                "seed": 42,
+                "turns": [],
+                "contamination_states": {},
+                "audit_entries": [],
+                "metadata": {},
             },
         }
         ep2 = {
             "schema_version": "1.2",
             "episode": {
-                "run_id": "r2", "episode_id": "ep2", "scenario_id": "s1",
-                "trust_level": "default", "seed": 43, "turns": [],
-                "contamination_states": {}, "audit_entries": [], "metadata": {},
+                "run_id": "r2",
+                "episode_id": "ep2",
+                "scenario_id": "s1",
+                "trust_level": "default",
+                "seed": 43,
+                "turns": [],
+                "contamination_states": {},
+                "audit_entries": [],
+                "metadata": {},
             },
         }
         with open(input_dir / "episodes.jsonl", "w") as f:
@@ -923,9 +972,16 @@ class TestFutureSchemaRejection:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -945,9 +1001,16 @@ class TestProvenanceOnAllOutputs:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -968,9 +1031,16 @@ class TestProvenanceOnAllOutputs:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -1001,10 +1071,15 @@ class TestHistoricalDiagnosticOverlap:
         result.metadata["run_mode"] = "test"
         result.metadata["semantic_threshold"] = 0.8
         episode_data = {
-            "run_id": result.run_id, "episode_id": result.episode_id,
-            "scenario_id": result.scenario_id, "trust_level": result.trust_level,
-            "seed": result.seed, "turns": [], "contamination_states": {},
-            "audit_entries": [], "task_success": result.task_success,
+            "run_id": result.run_id,
+            "episode_id": result.episode_id,
+            "scenario_id": result.scenario_id,
+            "trust_level": result.trust_level,
+            "seed": result.seed,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "task_success": result.task_success,
             "task_label": result.task_label,
             "cleaned_agents_exposed": result.cleaned_agents_exposed,
             "recontaminated_agents": result.recontaminated_agents,
@@ -1016,9 +1091,17 @@ class TestHistoricalDiagnosticOverlap:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir),
-             "--skip-commit-check", "--allow-historical-artifacts"],
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+                "--allow-historical-artifacts",
+            ],
         ):
             exit_code = main()
 
