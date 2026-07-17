@@ -521,8 +521,20 @@ class TestPolicyAblationAudit:
     def test_valid_pair_passes(self) -> None:
         b = _valid_result()
         b.metadata["pairing_key"] = "k1"
+        b.metadata["detector_hash"] = "abc123"
+        b.metadata["history_hash"] = "def456"
+        b.metadata["monitoring_hash"] = "ghi789"
+        b.metadata["models_hash"] = "jkl012"
+        b.metadata["policy_base_hash"] = "mno345"
+        b.metadata["rich_actions_enabled"] = False
         r = _valid_result()
         r.metadata["pairing_key"] = "k1"
+        r.metadata["detector_hash"] = "abc123"
+        r.metadata["history_hash"] = "def456"
+        r.metadata["monitoring_hash"] = "ghi789"
+        r.metadata["models_hash"] = "jkl012"
+        r.metadata["policy_base_hash"] = "mno345"
+        r.metadata["rich_actions_enabled"] = True
         b.turns = [
             TurnResult(
                 turn_id=0,

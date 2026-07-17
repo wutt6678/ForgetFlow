@@ -564,7 +564,7 @@ def audit_policy_ablation_pair(pair: PolicyAblationPair) -> list[AuditFinding]:
     Checks:
     - pairing key matches
     - candidate messages match
-    - only rich_actions_enabled differs in config
+    - only rich_actions_enabled differs in config (all other component hashes match)
     """
     findings: list[AuditFinding] = []
 
@@ -589,6 +589,38 @@ def audit_policy_ablation_pair(pair: PolicyAblationPair) -> list[AuditFinding]:
                 level="error",
                 code="POLICY_PAIR_CANDIDATE_MISMATCH",
                 message="Binary and rich policy runs have different candidate messages",
+            )
+        )
+
+    # Check component hashes match (all except rich_actions_enabled)
+    component_fields = [
+        "detector_hash",
+        "history_hash",
+        "monitoring_hash",
+        "models_hash",
+        "policy_base_hash",
+    ]
+    for field in component_fields:
+        b_val = pair.binary.metadata.get(field)
+        r_val = pair.rich.metadata.get(field)
+        if b_val != r_val:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code=f"POLICY_PAIR_{field.upper()}_MISMATCH",
+                    message=f"Policy pair differs in {field}: binary={b_val!r}, rich={r_val!r}",
+                )
+            )
+
+    # Verify that rich_actions_enabled actually differs
+    b_rich = pair.binary.metadata.get("rich_actions_enabled")
+    r_rich = pair.rich.metadata.get("rich_actions_enabled")
+    if b_rich == r_rich:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="POLICY_PAIR_NO_ABLATION",
+                message=f"Policy pair has same rich_actions_enabled={b_rich!r}",
             )
         )
 

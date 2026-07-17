@@ -273,6 +273,42 @@ def run_episode(
     if config.models.api_base:
         result.metadata["api_base_sanitized"] = sanitize_api_base(config.models.api_base)
 
+    # Add component hashes for policy-ablation validation
+    # These hashes exclude credentials, paths, timestamps, and rich_actions_enabled
+    import dataclasses
+
+    detector_hash = hashlib.sha256(
+        str(dataclasses.asdict(config.detector)).encode()
+    ).hexdigest()[:16]
+    history_hash = hashlib.sha256(
+        str(dataclasses.asdict(config.history)).encode()
+    ).hexdigest()[:16]
+    monitoring_hash = hashlib.sha256(
+        str(dataclasses.asdict(config.monitoring)).encode()
+    ).hexdigest()[:16]
+    models_hash = hashlib.sha256(
+        str(
+            {
+                "embedding_provider": config.models.embedding_provider,
+                "embedding_model": config.models.embedding_model,
+                "embedding_dimension": config.models.embedding_dimension,
+            }
+        ).encode()
+    ).hexdigest()[:16]
+    # Policy base hash excludes rich_actions_enabled
+    policy_base = {
+        "privacy_utility_weight": config.policy.privacy_utility_weight,
+        "trust_independent": config.policy.trust_independent,
+    }
+    policy_base_hash = hashlib.sha256(str(policy_base).encode()).hexdigest()[:16]
+
+    result.metadata["detector_hash"] = detector_hash
+    result.metadata["history_hash"] = history_hash
+    result.metadata["monitoring_hash"] = monitoring_hash
+    result.metadata["models_hash"] = models_hash
+    result.metadata["policy_base_hash"] = policy_base_hash
+    result.metadata["rich_actions_enabled"] = config.policy.rich_actions_enabled
+
     # Update result with generated run_id
     result.run_id = run_id
 
