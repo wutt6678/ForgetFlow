@@ -32,19 +32,31 @@ def run_preflight(config: ExperimentConfig, *, probe_provider: bool = False) -> 
     if config.run.mode == "experiment" and config.models.embedding_provider == "litellm":
         import os
 
-        # LiteLLM typically needs OPENAI_API_KEY or similar
-        # We just warn, don't fail, since keys may be set at runtime
-        known_keys = [
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "COHERE_API_KEY",
-            "AZURE_API_KEY",
-        ]
-        if not any(os.environ.get(k) for k in known_keys):
-            failures.append(
-                "No known embedding API key found in environment. "
-                "Set OPENAI_API_KEY or the appropriate provider key."
-            )
+        # Check for custom API key environment variable first
+        if config.models.api_key_env:
+            if not os.environ.get(config.models.api_key_env):
+                failures.append(
+                    f"Required API key environment variable {config.models.api_key_env} is not set."
+                )
+        elif config.models.api_base:
+            # Custom endpoint without api_key_env configured
+            # Don't require standard cloud-provider keys, but warn
+            pass
+        else:
+            # Standard provider - check for known keys
+            # LiteLLM typically needs OPENAI_API_KEY or similar
+            # We just warn, don't fail, since keys may be set at runtime
+            known_keys = [
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+                "COHERE_API_KEY",
+                "AZURE_API_KEY",
+            ]
+            if not any(os.environ.get(k) for k in known_keys):
+                failures.append(
+                    "No known embedding API key found in environment. "
+                    "Set OPENAI_API_KEY or the appropriate provider key."
+                )
 
     # 5. Output directory writability
     output_dir = Path("results/trustparadox_u")

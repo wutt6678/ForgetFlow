@@ -124,3 +124,112 @@ class TestPreflightIntegration:
         )
         failures = run_preflight(config, probe_provider=False)
         assert failures == []
+
+    def test_custom_endpoint_without_api_key_env_passes(self) -> None:
+        """Custom endpoint without api_key_env doesn't require standard keys."""
+        import os
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            ModelsConfig,
+            MonitoringConfig,
+            PolicyConfig,
+            RunConfig,
+        )
+        from experiments.trustparadox_u.preflight import run_preflight
+
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=True),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+            run=RunConfig(mode="experiment"),
+            models=ModelsConfig(
+                embedding_provider="litellm",
+                embedding_model="openai/text-embedding-v3",
+                api_base="http://localhost:8000/v1",
+            ),
+        )
+
+        # Clear any API keys from environment
+        with patch.dict(os.environ, {}, clear=True):
+            failures = run_preflight(config, probe_provider=False)
+            # Should not fail due to missing standard API keys
+            assert not any("API key" in f for f in failures)
+
+    def test_custom_endpoint_with_missing_api_key_env_fails(self) -> None:
+        """Custom endpoint with api_key_env requires that variable."""
+        import os
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            ModelsConfig,
+            MonitoringConfig,
+            PolicyConfig,
+            RunConfig,
+        )
+        from experiments.trustparadox_u.preflight import run_preflight
+
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=True),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+            run=RunConfig(mode="experiment"),
+            models=ModelsConfig(
+                embedding_provider="litellm",
+                embedding_model="openai/text-embedding-v3",
+                api_base="http://localhost:8000/v1",
+                api_key_env="CUSTOM_API_KEY",
+            ),
+        )
+
+        with patch.dict(os.environ, {}, clear=True):
+            failures = run_preflight(config, probe_provider=False)
+            assert any("CUSTOM_API_KEY" in f for f in failures)
+
+    def test_custom_endpoint_with_api_key_env_set_passes(self) -> None:
+        """Custom endpoint with api_key_env set passes."""
+        import os
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            ModelsConfig,
+            MonitoringConfig,
+            PolicyConfig,
+            RunConfig,
+        )
+        from experiments.trustparadox_u.preflight import run_preflight
+
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=True),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+            run=RunConfig(mode="experiment"),
+            models=ModelsConfig(
+                embedding_provider="litellm",
+                embedding_model="openai/text-embedding-v3",
+                api_base="http://localhost:8000/v1",
+                api_key_env="CUSTOM_API_KEY",
+            ),
+        )
+
+        with patch.dict(os.environ, {"CUSTOM_API_KEY": "test-key"}):
+            failures = run_preflight(config, probe_provider=False)
+            assert not any("CUSTOM_API_KEY" in f for f in failures)

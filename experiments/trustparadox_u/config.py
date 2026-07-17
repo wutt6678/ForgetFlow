@@ -75,6 +75,7 @@ class ModelsConfig:
     embedding_model: str | None = None
     embedding_dimension: int | None = None
     api_base: str | None = None
+    api_key_env: str | None = None
 
 
 @dataclass(frozen=True)
@@ -168,6 +169,7 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         embedding_model=models_raw.get("embedding_model"),
         embedding_dimension=models_raw.get("embedding_dimension"),
         api_base=models_raw.get("api_base"),
+        api_key_env=models_raw.get("api_key_env"),
     )
 
     return ExperimentConfig(
