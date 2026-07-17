@@ -427,4 +427,21 @@ def validate_manifest_against_results(
             }
         )
 
+    # 13. Check endpoint provenance
+    actual_endpoints = {r.metadata.get("api_base_sanitized") for r in results}
+    if len(actual_endpoints) > 1:
+        findings.append(
+            {
+                "code": "MANIFEST_MULTIPLE_ENDPOINTS",
+                "message": f"Results have multiple endpoints: {actual_endpoints}",
+            }
+        )
+    elif actual_endpoints and manifest.api_base_sanitized not in actual_endpoints:
+        findings.append(
+            {
+                "code": "MANIFEST_ENDPOINT_MISMATCH",
+                "message": f"Endpoint doesn't match: manifest={manifest.api_base_sanitized}, actual={actual_endpoints.pop()}",
+            }
+        )
+
     return findings
