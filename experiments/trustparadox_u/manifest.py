@@ -133,6 +133,33 @@ def require_single_metadata_value(
     return next(iter(values))
 
 
+def collect_config_hashes(results: list[Any]) -> tuple[str, ...]:
+    """Collect and validate config hashes from results.
+
+    Rejects missing, empty, or non-string config_hash values.
+
+    Args:
+        results: List of EpisodeResult objects.
+
+    Returns:
+        Sorted tuple of unique config hash strings.
+
+    Raises:
+        ValueError: If any result has a missing, empty, or non-string config_hash.
+    """
+    hashes: set[str] = set()
+
+    for result in results:
+        value = result.metadata.get("config_hash")
+
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Episode {result.episode_id} has no valid config_hash")
+
+        hashes.add(value)
+
+    return tuple(sorted(hashes))
+
+
 def build_manifest(
     *,
     results: list[Any],
@@ -188,8 +215,8 @@ def build_manifest(
         results, "api_base_sanitized", allow_none=True
     )
 
-    # Derive config hashes from results
-    config_hashes = tuple(sorted({str(r.metadata.get("config_hash", "")) for r in results}))
+    # Derive config hashes from results (with validation)
+    config_hashes = collect_config_hashes(results)
 
     # Derive episode IDs and seeds from results
     episode_ids = tuple(sorted({r.episode_id for r in results}))
