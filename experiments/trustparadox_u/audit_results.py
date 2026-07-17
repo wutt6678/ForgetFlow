@@ -708,18 +708,18 @@ def audit_fragmentation_result(result: EpisodeResult) -> list[AuditFinding]:
 
 
 def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
-    """Check for duplicate run identities before aggregation.
+    """Check for duplicate research-run identities before aggregation.
 
-    Uses ``RunIdentity`` (pairing key + config hash) so that different
-    experiment variants sharing the same pairing key are not rejected.
+    Uses ``ResearchRunIdentity`` (scenario + secret + trust + attack + seed + condition_id)
+    so that different experiment conditions are properly distinguished.
     """
-    from experiments.trustparadox_u.identity import run_identity_from_result
+    from experiments.trustparadox_u.identity import research_run_identity_from_result
 
     findings: list[AuditFinding] = []
-    seen: dict[tuple[tuple[str, str, str, str, int], str], int] = {}
+    seen: dict[object, int] = {}
     for r in results:
         try:
-            identity = run_identity_from_result(r)
+            identity = research_run_identity_from_result(r)
         except (KeyError, TypeError, ValueError) as exc:
             findings.append(
                 AuditFinding(

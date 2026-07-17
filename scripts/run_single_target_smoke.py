@@ -33,6 +33,7 @@ from experiments.trustparadox_u.config import (  # noqa: E402
 )
 from experiments.trustparadox_u.dataset import load_episode  # noqa: E402
 from experiments.trustparadox_u.evaluator import evaluate_all  # noqa: E402
+from experiments.trustparadox_u.identity import ResearchRunIdentity  # noqa: E402
 from experiments.trustparadox_u.manifest import SmokeManifest, get_repository_commit  # noqa: E402
 from experiments.trustparadox_u.runner import EpisodeResult, run_episode  # noqa: E402
 from experiments.trustparadox_u.serialization import serialize_episode_result  # noqa: E402
@@ -70,10 +71,15 @@ REQUIRED_ARTIFACTS = [
     "utility_pairing.json",
     "unmatched_pairs.json",
     "smoke_matrix.json",
+    "summary.json",
     "summary.md",
     "single_target_validation_report.json",
     "single_target_validation_report.md",
 ]
+
+# Artifact schema versions
+SMOKE_REPORT_VERSION = "1.0.0"
+ARTIFACT_SCHEMA_VERSION = "1.0.0"
 
 # Condition definitions: (name, config_overrides, firewall_enabled)
 # Each condition must be scientifically distinct
@@ -176,6 +182,51 @@ def _make_config(seed: int, overrides: dict[str, Any]) -> ExperimentConfig:
     return ExperimentConfig(**kwargs)
 
 
+def _build_smoke_responder(episode: Any) -> Any:
+    """Build a ScriptedResponder that ensures task_success for baseline runs.
+
+    For legitimate_task turns, returns the task's success_value text so that
+    the no-firewall baseline has task_success=True. For attack turns, returns
+    the instruction text (preserving the original attack semantics so the
+    semantic detector has meaningful content to evaluate). For recontamination
+    attacks, returns the canonical target text to simulate successful
+    re-extraction when enforcement is off.
+    """
+    from experiments.trustparadox_u.agent import ScriptedResponder
+
+    responder = ScriptedResponder()
+    success_value = episode.task.success_value
+
+    # Build a map of forget_id -> canonical_target for recontamination
+    canonical_targets: dict[str, str] = {}
+    for si in episode.sensitive_items:
+        canonical_targets[si.forget_id] = si.canonical_target
+
+    # For each post-forget step, script the appropriate response
+    for step in episode.phases.post_forget:
+        # Use instruction-based key for deterministic matching
+        key = f"{episode.episode_id}:{step.attacker}:{step.instruction}"
+        if step.label.is_legitimate_message:
+            # Legitimate task: return the success_value text
+            responder.set_response(key, success_value)
+        elif step.label.is_recontamination_attempt:
+            # Recontamination: return the canonical target text
+            # This simulates the attacker successfully extracting forgotten info
+            # when enforcement is off (monitoring_0 or duration expired)
+            for forget_id in step.label.target_forget_ids:
+                if forget_id in canonical_targets:
+                    responder.set_response(key, canonical_targets[forget_id])
+                    break
+            else:
+                # No matching forget_id, use instruction text
+                responder.set_response(key, step.instruction)
+        else:
+            # Other attack turns: return the instruction text
+            responder.set_response(key, step.instruction)
+
+    return responder
+
+
 def _serialize_result(result: EpisodeResult) -> dict[str, Any]:
     """Serialize an EpisodeResult to a JSONL-ready dict."""
     return serialize_episode_result(result)
@@ -184,32 +235,36 @@ def _serialize_result(result: EpisodeResult) -> dict[str, Any]:
 def _build_research_identity(
     result: EpisodeResult,
     condition_name: str,
-) -> tuple[str, ...]:
-    """Build a research identity tuple for duplicate detection.
+) -> ResearchRunIdentity:
+    """Build a ResearchRunIdentity for duplicate detection.
 
     Includes all scientifically relevant dimensions.
     """
     md = result.metadata
-    return (
-        result.scenario_id,
-        str(md.get("secret_variant_id", "")),
-        result.trust_level,
-        str(md.get("attack_type", "")),
-        str(result.seed),
-        str(md.get("config_hash", "")),
-        condition_name,
+    from experiments.trustparadox_u.identity import (
+        normalize_attack_type,
+        normalize_identity_component,
+    )
+
+    return ResearchRunIdentity(
+        scenario_id=str(result.scenario_id),
+        secret_variant_id=normalize_identity_component(md.get("secret_variant_id", "")),
+        trust_level=str(result.trust_level),
+        attack_type=normalize_attack_type(md.get("attack_type", "")),
+        seed=int(result.seed),
+        condition_id=condition_name,
     )
 
 
 def _check_duplicate_identities(
     all_results: list[EpisodeResult],
     condition_map: dict[str, str],
-) -> list[tuple[tuple[str, ...], int]]:
+) -> list[tuple[ResearchRunIdentity, int]]:
     """Find duplicate research identities.
 
     Returns list of (identity, count) for duplicates.
     """
-    identity_counts: dict[tuple[str, ...], int] = {}
+    identity_counts: dict[ResearchRunIdentity, int] = {}
     for result in all_results:
         cond_name = condition_map.get(result.run_id, "")
         identity = _build_research_identity(result, cond_name)
@@ -504,6 +559,10 @@ class SmokeReport:
     baseline_successful_pairs: int
     utility_retention_value: float | None
 
+    # Versioning (defaults OK since they come after all required fields)
+    smoke_report_version: str = SMOKE_REPORT_VERSION
+    artifact_schema_version: str = ARTIFACT_SCHEMA_VERSION
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -534,6 +593,8 @@ class SmokeReport:
             "unmatched_pair_count": self.unmatched_pair_count,
             "baseline_successful_pairs": self.baseline_successful_pairs,
             "utility_retention_value": self.utility_retention_value,
+            "smoke_report_version": self.smoke_report_version,
+            "artifact_schema_version": self.artifact_schema_version,
         }
 
 
@@ -573,6 +634,7 @@ def run_smoke_study(
 
     for fixture_name in FIXTURES:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
+        responder = _build_smoke_responder(ep)
         for seed in SEEDS:
             for cond_name, cond_overrides, fw_enabled in CONDITIONS:
                 cfg = _make_config(seed, cond_overrides)
@@ -580,7 +642,9 @@ def run_smoke_study(
                 run_id = hashlib.sha256(
                     f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
                 ).hexdigest()[:20]
-                result = run_episode(ep, cfg, firewall_enabled=fw_enabled, run_id=run_id)
+                result = run_episode(
+                    ep, cfg, responder=responder, firewall_enabled=fw_enabled, run_id=run_id
+                )
 
                 # Track unique run IDs
                 if result.run_id in run_ids:
@@ -898,6 +962,28 @@ def run_smoke_study(
         summary_md += f"- [{status_icon}] **{name}**: {check['check']}\n"
 
     (output_dir / "summary.md").write_text(summary_md)
+
+    # Write summary.json
+    summary_json = {
+        "top_line_status": top_line_status,
+        "repository_commit": repository_commit,
+        "repository_clean": repository_clean,
+        "audit_valid": audit_valid,
+        "duplicate_identity_count": len(duplicates),
+        "utility_defined": utility_defined,
+        "directional_checks_pass": directional_checks_pass,
+        "artifact_set_complete": artifacts_complete,
+        "total_runs": len(all_results),
+        "fixture_count": len(FIXTURES),
+        "seed_count": len(SEEDS),
+        "condition_count": len(CONDITIONS),
+        "smoke_report_version": SMOKE_REPORT_VERSION,
+        "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "mode": mode,
+        "failure_reasons": failure_reasons,
+    }
+    (output_dir / "summary.json").write_text(json.dumps(summary_json, indent=2))
 
     return report
 

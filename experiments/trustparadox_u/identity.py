@@ -8,10 +8,28 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 PairingKey = tuple[str, str, str, str, int]
 RunIdentity = tuple[PairingKey, str]
+
+
+@dataclass(frozen=True, order=True)
+class ResearchRunIdentity:
+    """Canonical research-run identity for duplicate detection.
+
+    Includes all scientifically relevant dimensions that distinguish
+    one experiment run from another.
+    """
+
+    scenario_id: str
+    secret_variant_id: str
+    trust_level: str
+    attack_type: str
+    seed: int
+    condition_id: str
+
 
 PAIRING_KEY_FIELDS = (
     "scenario_id",
@@ -116,3 +134,26 @@ def run_identity_from_result(result: Any) -> RunIdentity:
     if not config_hash:
         raise ValueError("EpisodeResult metadata missing config_hash")
     return (pairing_key_from_result(result), config_hash)
+
+
+def research_run_identity_from_result(result: Any) -> ResearchRunIdentity:
+    """Build a ResearchRunIdentity from an EpisodeResult.
+
+    Includes condition_id from smoke_condition metadata for proper
+    distinction between experiment conditions.
+    """
+    metadata = result.metadata
+    condition_id = str(metadata.get("smoke_condition", ""))
+    if not condition_id:
+        # Fall back to config_hash for non-smoke runs
+        condition_id = str(metadata.get("config_hash", ""))
+    if not condition_id:
+        raise ValueError("EpisodeResult metadata missing both smoke_condition and config_hash")
+    return ResearchRunIdentity(
+        scenario_id=str(result.scenario_id),
+        secret_variant_id=normalize_identity_component(metadata.get("secret_variant_id", "")),
+        trust_level=str(result.trust_level),
+        attack_type=normalize_attack_type(metadata.get("attack_type", "")),
+        seed=int(result.seed),
+        condition_id=condition_id,
+    )

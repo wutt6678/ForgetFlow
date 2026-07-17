@@ -3,10 +3,12 @@
 import pytest
 
 from experiments.trustparadox_u.identity import (
+    ResearchRunIdentity,
     normalize_attack_type,
     normalize_identity_component,
     normalize_pairing_key,
     pairing_key_from_result,
+    research_run_identity_from_result,
     run_identity_from_result,
 )
 from experiments.trustparadox_u.runner import EpisodeResult
@@ -188,3 +190,99 @@ class TestEvaluatorAuditorConsistency:
 
         # Should produce same pairing key due to normalization
         assert pairing_key_from_result(r1) == pairing_key_from_result(r2)
+
+
+class TestResearchRunIdentity:
+    """Tests for ResearchRunIdentity dataclass."""
+
+    def test_basic_construction(self) -> None:
+        identity = ResearchRunIdentity(
+            scenario_id="s1",
+            secret_variant_id="sv1",
+            trust_level="default",
+            attack_type="direct",
+            seed=42,
+            condition_id="full_mvp",
+        )
+        assert identity.scenario_id == "s1"
+        assert identity.condition_id == "full_mvp"
+        assert identity.seed == 42
+
+    def test_frozen(self) -> None:
+        identity = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        with pytest.raises(AttributeError):
+            identity.scenario_id = "s2"  # type: ignore[misc]
+
+    def test_orderable(self) -> None:
+        a = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "binary_policy")
+        b = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        assert a < b  # binary_policy < full_mvp alphabetically
+
+    def test_different_conditions_are_distinct(self) -> None:
+        """Same scenario/seed under different conditions are distinct."""
+        a = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "binary_policy")
+        b = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        assert a != b
+
+    def test_same_condition_repeated_is_duplicate(self) -> None:
+        """Identical identities are equal (duplicate)."""
+        a = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        b = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        assert a == b
+
+    def test_list_attack_type_normalizes_deterministically(self) -> None:
+        """List-valued attack types normalize to the same string."""
+        from experiments.trustparadox_u.identity import normalize_attack_type
+
+        a = normalize_attack_type(["direct", "indirect"])
+        b = normalize_attack_type(["indirect", "direct"])
+        assert a == b
+
+    def test_condition_order_does_not_affect_identity(self) -> None:
+        """condition_id is a string; order is irrelevant."""
+        a = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        b = ResearchRunIdentity("s1", "sv1", "default", "direct", 42, "full_mvp")
+        assert a == b
+
+
+class TestResearchRunIdentityFromResult:
+    """Tests for research_run_identity_from_result."""
+
+    def test_basic_identity(self) -> None:
+        result = _valid_result()
+        result.metadata["smoke_condition"] = "full_mvp"
+        identity = research_run_identity_from_result(result)
+        assert identity == ResearchRunIdentity(
+            scenario_id="s1",
+            secret_variant_id="sv1",
+            trust_level="default",
+            attack_type="direct",
+            seed=42,
+            condition_id="full_mvp",
+        )
+
+    def test_fallback_to_config_hash(self) -> None:
+        """Falls back to config_hash when smoke_condition is absent."""
+        result = _valid_result()
+        identity = research_run_identity_from_result(result)
+        assert identity.condition_id == "a" * 64
+
+    def test_missing_both_raises(self) -> None:
+        """Raises when neither smoke_condition nor config_hash is present."""
+        result = _valid_result()
+        del result.metadata["config_hash"]
+        with pytest.raises(ValueError, match="missing both"):
+            research_run_identity_from_result(result)
+
+    def test_different_conditions_distinct(self) -> None:
+        """Same pairing key, different conditions produce distinct identities."""
+        r1 = _valid_result()
+        r1.metadata["smoke_condition"] = "binary_policy"
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["smoke_condition"] = "full_mvp"
+
+        id1 = research_run_identity_from_result(r1)
+        id2 = research_run_identity_from_result(r2)
+        assert id1 != id2
+        assert id1.condition_id == "binary_policy"
+        assert id2.condition_id == "full_mvp"

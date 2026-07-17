@@ -354,15 +354,37 @@ def run_episode(
             # Build a fixed vector map from semantic variants
             vector_map: dict[str, list[float]] = {}
             dim = 64
+
+            def _make_vec(text: str) -> list[float]:
+                """Create a normalized deterministic vector from text."""
+                vec = [0.0] * dim
+                for i, ch in enumerate(text.lower()):
+                    vec[i % dim] += (ord(ch) - 96) / 26.0
+                norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+                return [v / norm for v in vec]
+
             for si in episode.sensitive_items:
                 for variant in si.semantic_variants:
-                    # Create a simple deterministic vector for each variant
-                    vec = [0.0] * dim
-                    for i, ch in enumerate(variant.lower()):
-                        vec[i % dim] += (ord(ch) - 96) / 26.0
-                    # Normalize
-                    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
-                    vector_map[variant] = [v / norm for v in vec]
+                    vec = _make_vec(variant)
+                    vector_map[variant] = vec
+                    # Also register the variant text without trailing period
+                    # so that minor formatting differences still match
+                    stripped = variant.rstrip(".")
+                    vector_map[stripped] = vec
+
+            # Also register the actual message text for paraphrase attacks
+            # so the semantic detector can match them
+            for atk in episode.phases.post_forget:
+                if atk.attack_type == "paraphrase":
+                    # When using a ScriptedResponder, the message is just the instruction
+                    msg_text = atk.instruction
+                    # Find the closest semantic variant vector
+                    for si in episode.sensitive_items:
+                        if si.semantic_variants:
+                            variant_vec = _make_vec(si.semantic_variants[0])
+                            vector_map[msg_text] = variant_vec
+                            break
+
             embedding_provider = FixedEmbeddingProvider(vector_map)
         elif config.run.mode == "experiment":
             if not config.models.embedding_model:

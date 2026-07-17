@@ -92,18 +92,23 @@ def smoke_results() -> tuple[list[EpisodeResult], dict[str, list[EpisodeResult]]
     """Run the smoke study and return (all_results, condition_results)."""
     import hashlib
 
+    from scripts.run_single_target_smoke import _build_smoke_responder
+
     all_results: list[EpisodeResult] = []
     condition_results: dict[str, list[EpisodeResult]] = {}
 
     for fixture_name in FIXTURES:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
+        responder = _build_smoke_responder(ep)
         for seed in SEEDS:
             for cond_name, cond_overrides, fw_enabled in CONDITIONS:
                 cfg = _make_config(seed, cond_overrides)
                 run_id = hashlib.sha256(
                     f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
                 ).hexdigest()[:20]
-                result = run_episode(ep, cfg, firewall_enabled=fw_enabled, run_id=run_id)
+                result = run_episode(
+                    ep, cfg, responder=responder, firewall_enabled=fw_enabled, run_id=run_id
+                )
                 result.metadata["smoke_condition"] = cond_name
                 result.metadata["firewall_enabled"] = fw_enabled
                 all_results.append(result)
@@ -141,16 +146,26 @@ class TestSmokeStudyArtifacts:
         assert set(condition_results.keys()) == expected
 
     def test_no_forbidden_string_leakage(self, smoke_results: tuple) -> None:
-        """No forbidden strings appear in released text."""
+        """No forbidden strings appear in released text for enforcing conditions.
+
+        Conditions without active enforcement (no_firewall, monitoring_0,
+        monitoring_1) are expected to leak for recontamination after
+        enforcement expires - they serve as baselines.
+        """
         all_results, _ = smoke_results
+        # Conditions without continuous enforcement (expected to leak)
+        non_enforcing = {"no_firewall", "monitoring_0", "monitoring_1"}
         for result in all_results:
+            condition = result.metadata.get("smoke_condition", "")
+            if condition in non_enforcing:
+                continue
             forbidden = result.metadata.get("forbidden_strings", [])
             for turn in result.turns:
                 if turn.released_text:
                     for f in forbidden:
                         assert f not in turn.released_text, (
                             f"Forbidden string {f!r} found in released text "
-                            f"(condition={result.metadata.get('smoke_condition')}, "
+                            f"(condition={condition}, "
                             f"episode={result.episode_id})"
                         )
 
