@@ -68,9 +68,9 @@ def normalize_pairing_key(value: object) -> PairingKey:
     if isinstance(value, tuple) and len(value) == 5:
         return (
             str(value[0]),
-            str(value[1]),
+            normalize_identity_component(value[1]),
             str(value[2]),
-            str(value[3]),
+            normalize_identity_component(value[3]),
             int(value[4]),
         )
 
@@ -81,9 +81,9 @@ def _coerce_fields(value: Mapping[str, Any]) -> PairingKey:
     """Extract and coerce the canonical fields from a mapping."""
     return (
         str(value["scenario_id"]),
-        str(value["secret_variant_id"]),
+        normalize_identity_component(value["secret_variant_id"]),
         str(value["trust_level"]),
-        str(value["attack_type"]),
+        normalize_identity_component(value["attack_type"]),
         int(value["seed"]),
     )
 
