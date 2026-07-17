@@ -878,9 +878,32 @@ if __name__ == "__main__":
 
     # Generate SmokeManifest
     from experiments.trustparadox_u.audit_results import audit_results
+    from experiments.trustparadox_u.evaluator import evaluate_all
     from experiments.trustparadox_u.manifest import build_manifest, save_manifest
 
     audit_report = audit_results(results)
+
+    # Compute metrics
+    evaluation = evaluate_all(results)
+    metric_counts = {
+        "pu_rer": {
+            "numerator": evaluation.pu_rer.numerator,
+            "denominator": evaluation.pu_rer.denominator,
+        },
+        "crr": {
+            "numerator": evaluation.crr.numerator,
+            "denominator": evaluation.crr.denominator,
+        },
+        "rr": {
+            "numerator": evaluation.rr.numerator,
+            "denominator": evaluation.rr.denominator,
+        },
+        "fbr": {
+            "numerator": evaluation.fbr.numerator,
+            "denominator": evaluation.fbr.denominator,
+        },
+    }
+
     config_hashes = list({cfg.config_hash()})
     smoke_manifest = build_manifest(
         results=results,
@@ -893,10 +916,23 @@ if __name__ == "__main__":
         api_base=cfg.models.api_base,
         audit_valid=not audit_report.has_errors,
         audit_error_count=len(audit_report.errors()),
+        metric_counts=metric_counts,
     )
     smoke_manifest_path = output_dir / "smoke_manifest.json"
     save_manifest(smoke_manifest, smoke_manifest_path)
     print(f"Smoke manifest written to {smoke_manifest_path}")
+
+    # Write metrics.json
+    metrics_path = output_dir / "metrics.json"
+    with open(metrics_path, "w") as f:
+        json.dump(evaluation.to_dict(), f, indent=2, default=str)
+    print(f"Metrics written to {metrics_path}")
+
+    # Write metric_counts.json
+    metric_counts_path = output_dir / "metric_counts.json"
+    with open(metric_counts_path, "w") as f:
+        json.dump(metric_counts, f, indent=2)
+    print(f"Metric counts written to {metric_counts_path}")
 
     print(f"\nWrote {len(results)} results to {output_dir}")
 
