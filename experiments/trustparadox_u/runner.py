@@ -832,7 +832,6 @@ if __name__ == "__main__":
     import argparse
     import dataclasses
     import json
-    import subprocess
     from datetime import datetime, timezone
     from pathlib import Path
 
@@ -901,30 +900,6 @@ if __name__ == "__main__":
         for r in results:
             for entry in r.audit_entries:
                 f.write(json.dumps(entry, default=str) + "\n")
-
-    # Write manifest.json
-    try:
-        repo_commit = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
-            .decode()
-            .strip()
-        )
-    except Exception:
-        repo_commit = "unknown"
-
-    manifest = {
-        "config_hash": cfg.config_hash(),
-        "seed": cfg.seed,
-        "run_mode": cfg.run.mode,
-        "embedding_model": cfg.models.embedding_model,
-        "scenario_ids": [ep.episode_id for ep in episodes],
-        "repository_commit": repo_commit,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "failed_episodes": failed,
-    }
-    manifest_path = output_dir / "manifest.json"
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
 
     # Generate SmokeManifest
     from experiments.trustparadox_u.audit_results import audit_results
