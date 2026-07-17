@@ -59,8 +59,9 @@ class TestRealEmbeddingSmoke:
             run=RunConfig(mode="experiment"),
             models=ModelsConfig(
                 embedding_provider="litellm",
-                embedding_model="openai/text-embedding-3-small",
-                embedding_dimension=1536,
+                embedding_model="openai/text-embedding-v3",
+                embedding_dimension=1024,
+                api_base="https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
             ),
         )
         assert cfg.models.embedding_provider != "fixed"
@@ -79,8 +80,9 @@ class TestRealEmbeddingSmoke:
             run=RunConfig(mode="experiment"),
             models=ModelsConfig(
                 embedding_provider="litellm",
-                embedding_model="openai/text-embedding-3-small",
-                embedding_dimension=1536,
+                embedding_model="openai/text-embedding-v3",
+                embedding_dimension=1024,
+                api_base="https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
             ),
         )
         result = run_episode(ep, cfg)
@@ -107,8 +109,9 @@ class TestRealEmbeddingSmoke:
             run=RunConfig(mode="experiment"),
             models=ModelsConfig(
                 embedding_provider="litellm",
-                embedding_model="openai/text-embedding-3-small",
-                embedding_dimension=1536,
+                embedding_model="openai/text-embedding-v3",
+                embedding_dimension=1024,
+                api_base="https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
             ),
         )
         result = run_episode(ep, cfg)
