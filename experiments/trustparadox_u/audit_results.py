@@ -591,41 +591,35 @@ def audit_fragmentation_result(result: EpisodeResult) -> list[AuditFinding]:
 
 
 def audit_duplicate_keys(results: list[EpisodeResult]) -> list[AuditFinding]:
-    """Check for duplicate pairing keys before aggregation."""
-    from experiments.trustparadox_u.identity import normalize_pairing_key
+    """Check for duplicate run identities before aggregation.
+
+    Uses ``RunIdentity`` (pairing key + config hash) so that different
+    experiment variants sharing the same pairing key are not rejected.
+    """
+    from experiments.trustparadox_u.identity import run_identity_from_result
 
     findings: list[AuditFinding] = []
-    seen: dict[tuple[str, str, str, str, int], int] = {}
+    seen: dict[tuple[tuple[str, str, str, str, int], str], int] = {}
     for r in results:
-        raw_key = r.metadata.get("pairing_key")
-        if raw_key is None:
-            findings.append(
-                AuditFinding(
-                    level="error",
-                    code="PAIRING_KEY_MISSING",
-                    message=f"Episode {r.episode_id} has no pairing_key",
-                )
-            )
-            continue
         try:
-            key = normalize_pairing_key(raw_key)
-        except (TypeError, ValueError) as exc:
+            identity = run_identity_from_result(r)
+        except (KeyError, ValueError) as exc:
             findings.append(
                 AuditFinding(
                     level="error",
-                    code="PAIRING_KEY_INVALID",
+                    code="RUN_IDENTITY_INVALID",
                     message=f"Episode {r.episode_id}: {exc}",
                 )
             )
             continue
-        seen[key] = seen.get(key, 0) + 1
-    for key, count in seen.items():
+        seen[identity] = seen.get(identity, 0) + 1
+    for identity, count in seen.items():
         if count > 1:
             findings.append(
                 AuditFinding(
                     level="error",
-                    code="PAIRING_KEY_DUPLICATE",
-                    message=f"Pairing key {key!r} appears {count} times",
+                    code="RUN_IDENTITY_DUPLICATE",
+                    message=f"Run identity {identity!r} appears {count} times",
                 )
             )
     return findings

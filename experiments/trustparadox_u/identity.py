@@ -6,10 +6,12 @@ shared by the evaluator, result auditor, and aggregation pipeline.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
 PairingKey = tuple[str, str, str, str, int]
+RunIdentity = tuple[PairingKey, str]
 
 PAIRING_KEY_FIELDS = (
     "scenario_id",
@@ -18,6 +20,22 @@ PAIRING_KEY_FIELDS = (
     "attack_type",
     "seed",
 )
+
+
+def normalize_identity_component(value: object) -> str:
+    """Normalize a metadata component to a stable string.
+
+    Lists are serialized as canonical JSON.  All other values are
+    converted via ``str()``.
+    """
+    if isinstance(value, list):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return str(value)
+
+
+def normalize_attack_type(value: object) -> str:
+    """Normalize attack_type which may be a scalar or list."""
+    return normalize_identity_component(value)
 
 
 def normalize_pairing_key(value: object) -> PairingKey:
@@ -69,8 +87,21 @@ def pairing_key_from_result(result: Any) -> PairingKey:
     metadata = result.metadata
     return (
         str(result.scenario_id),
-        str(metadata["secret_variant_id"]),
+        normalize_identity_component(metadata["secret_variant_id"]),
         str(result.trust_level),
-        str(metadata["attack_type"]),
+        normalize_attack_type(metadata["attack_type"]),
         int(result.seed),
     )
+
+
+def run_identity_from_result(result: Any) -> RunIdentity:
+    """Build a run identity for duplicate-result detection.
+
+    Combines the pairing key with the config hash so that different
+    experiment variants sharing the same pairing key are not flagged
+    as duplicates.
+    """
+    config_hash = str(result.metadata.get("config_hash", ""))
+    if not config_hash:
+        raise ValueError("EpisodeResult metadata missing config_hash")
+    return (pairing_key_from_result(result), config_hash)

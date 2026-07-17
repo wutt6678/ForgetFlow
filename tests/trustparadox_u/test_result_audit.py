@@ -606,72 +606,43 @@ class TestFragmentationAudit:
 class TestDuplicateKeys:
     """Duplicate pairing key detection."""
 
-    def test_duplicate_keys_flagged(self) -> None:
+    def test_duplicate_run_identities_flagged(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = {
-            "scenario_id": "s1",
-            "secret_variant_id": "sv1",
-            "trust_level": "default",
-            "attack_type": "direct",
-            "seed": 42,
-        }
         r2 = _valid_result(episode_id="ep2")
-        r2.metadata["pairing_key"] = {
-            "scenario_id": "s1",
-            "secret_variant_id": "sv1",
-            "trust_level": "default",
-            "attack_type": "direct",
-            "seed": 42,
-        }
+        # Same pairing key + same config_hash => duplicate run identity
         findings = audit_duplicate_keys([r1, r2])
-        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
+        assert any(f.code == "RUN_IDENTITY_DUPLICATE" for f in findings)
 
-    def test_unique_keys_pass(self) -> None:
+    def test_same_pairing_key_different_config_hash_passes(self) -> None:
+        """Same pairing key but different config_hash => valid separate variants."""
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = {
-            "scenario_id": "s1",
-            "secret_variant_id": "sv1",
-            "trust_level": "default",
-            "attack_type": "direct",
-            "seed": 42,
-        }
         r2 = _valid_result(episode_id="ep2")
-        r2.metadata["pairing_key"] = {
-            "scenario_id": "s1",
-            "secret_variant_id": "sv2",
-            "trust_level": "default",
-            "attack_type": "direct",
-            "seed": 42,
-        }
+        r2.metadata["config_hash"] = "b" * 64  # different config hash
         findings = audit_duplicate_keys([r1, r2])
-        dup_findings = [f for f in findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        dup_findings = [f for f in findings if f.code == "RUN_IDENTITY_DUPLICATE"]
         assert len(dup_findings) == 0
 
-    def test_missing_pairing_key(self) -> None:
+    def test_different_seed_distinct_run_identity(self) -> None:
         r1 = _valid_result()
-        del r1.metadata["pairing_key"]
-        findings = audit_duplicate_keys([r1])
-        assert any(f.code == "PAIRING_KEY_MISSING" for f in findings)
+        r2 = _valid_result(episode_id="ep2", seed=99)
+        r2.metadata["seed"] = 99
+        findings = audit_duplicate_keys([r1, r2])
+        dup_findings = [f for f in findings if f.code == "RUN_IDENTITY_DUPLICATE"]
+        assert len(dup_findings) == 0
 
-    def test_invalid_pairing_key_type(self) -> None:
+    def test_missing_config_hash_raises_error(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = "not_a_valid_key"
+        del r1.metadata["config_hash"]
         findings = audit_duplicate_keys([r1])
-        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
+        assert any(f.code == "RUN_IDENTITY_INVALID" for f in findings)
 
-    def test_missing_field_in_dict(self) -> None:
-        r1 = _valid_result()
-        r1.metadata["pairing_key"] = {"scenario_id": "s1"}
-        findings = audit_duplicate_keys([r1])
-        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
-
-    def test_tuple_pairing_key(self) -> None:
+    def test_tuple_pairing_key_duplicate(self) -> None:
         r1 = _valid_result()
         r1.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
         r2 = _valid_result(episode_id="ep2")
         r2.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
         findings = audit_duplicate_keys([r1, r2])
-        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
+        assert any(f.code == "RUN_IDENTITY_DUPLICATE" for f in findings)
 
     def test_evaluator_auditor_consistency(self) -> None:
         from experiments.trustparadox_u.identity import (
@@ -753,7 +724,7 @@ class TestRunnerAuditIntegration:
         result_b = run_episode(ep, config)
         report = audit_results([result_a, result_b])
         assert report.has_errors
-        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in report.findings)
+        assert any(f.code == "RUN_IDENTITY_DUPLICATE" for f in report.findings)
 
     def test_runner_distinct_seeds_pass(self) -> None:
         """Different seeds produce distinct pairing keys."""
@@ -791,15 +762,15 @@ class TestRunnerAuditIntegration:
         result_a = run_episode(ep, config_a)
         result_b = run_episode(ep, config_b)
         report = audit_results([result_a, result_b])
-        dup_findings = [f for f in report.findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        dup_findings = [f for f in report.findings if f.code == "RUN_IDENTITY_DUPLICATE"]
         assert len(dup_findings) == 0
 
-    def test_malformed_pairing_key_raises_not_typeerror(self) -> None:
-        """A malformed pairing key raises an audit error, not a raw TypeError."""
+    def test_missing_config_hash_raises_not_typeerror(self) -> None:
+        """A missing config_hash raises an audit error, not a raw KeyError."""
         import pytest
 
         result = _valid_result()
-        result.metadata["pairing_key"] = "bad_string_key"
+        del result.metadata["config_hash"]
         with pytest.raises(InvalidExperimentResults):
             validate_for_aggregation([result])
 
