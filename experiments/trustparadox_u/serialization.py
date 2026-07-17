@@ -3,11 +3,81 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
+
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
-from marble.firewall.types import ContaminationStatus
+
+
+def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult:
+    """Deserialize a DetectorResult from a JSON dict."""
+    if data is None:
+        raise ValueError("DetectorResult payload is null")
+    if not isinstance(data, Mapping):
+        raise TypeError(f"DetectorResult payload must be a mapping, got {type(data).__name__}")
+
+    return DetectorResult(
+        exact_score=float(data.get("exact_score", 0.0)),
+        entity_score=float(data.get("entity_score", 0.0)),
+        semantic_score=float(data.get("semantic_score", 0.0)),
+        reconstruction_score=float(data.get("reconstruction_score", 0.0)),
+        matched_forget_ids=tuple(str(v) for v in data.get("matched_forget_ids", [])),
+        evidence=tuple(str(v) for v in data.get("evidence", [])),
+    )
+
+
+def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> FirewallDecision | None:
+    """Deserialize a FirewallDecision from a JSON dict."""
+    if data is None:
+        return None
+    if not isinstance(data, Mapping):
+        raise TypeError(f"FirewallDecision payload must be a mapping or null, got {type(data).__name__}")
+
+    detector_payload = data.get("detector_result")
+    if detector_payload is None:
+        raise ValueError("FirewallDecision is missing detector_result")
+
+    return FirewallDecision(
+        action=str(data["action"]),
+        released_text=None if data.get("released_text") is None else str(data["released_text"]),
+        detector_result=deserialize_detector_result(detector_payload),
+        reason_codes=tuple(str(code) for code in data.get("reason_codes", [])),
+        policy_version=str(data.get("policy_version", "")),
+        latency_ms=float(data.get("latency_ms", 0.0)),
+    )
+
+
+def deserialize_contamination_status(data: Any) -> ContaminationStatus:
+    """Deserialize a ContaminationStatus from various JSON forms.
+
+    Supports:
+    - Raw string value: "clean"
+    - Mapping with value key: {"value": "clean"}
+    - Enum-style string: "ContaminationStatus.clean"
+    """
+    if isinstance(data, str):
+        value = data
+    elif isinstance(data, Mapping):
+        raw_value = data.get("value")
+        if raw_value is None:
+            raise ValueError("Contamination status mapping has no 'value'")
+        value = str(raw_value)
+    else:
+        raise TypeError(f"Invalid contamination status payload: {type(data).__name__}")
+
+    # Strip enum-style prefix
+    if value.startswith("ContaminationStatus."):
+        value = value.split(".", 1)[1]
+
+    value = value.lower()
+
+    try:
+        return ContaminationStatus(value)
+    except ValueError as exc:
+        raise ValueError(f"Unknown contamination status: {value!r}") from exc
 
 
 def deserialize_turn(data: dict[str, Any]) -> TurnResult:
@@ -19,7 +89,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         recipient_id=data["recipient_id"],
         candidate_text=data["candidate_text"],
         released_text=data.get("released_text"),
-        decision=data.get("decision"),
+        decision=deserialize_firewall_decision(data.get("decision")),
         attack_type=data.get("attack_type"),
         attack_step_index=data.get("attack_step_index"),
         is_attack_attempt=data.get("is_attack_attempt", False),
@@ -32,12 +102,6 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         task_relevant=data.get("task_relevant", False),
         task_contribution_successful=data.get("task_contribution_successful", False),
     )
-
-
-def deserialize_contamination_status(data: dict[str, Any]) -> ContaminationStatus:
-    """Deserialize a ContaminationStatus from a JSON dict."""
-    # ContaminationStatus is an Enum, so we just need the value
-    return ContaminationStatus(data["value"])
 
 
 def deserialize_episode_result(data: dict[str, Any]) -> EpisodeResult:
@@ -82,7 +146,7 @@ def load_episode_results(path: str | Path) -> list[EpisodeResult]:
                 results.append(deserialize_episode_result(data))
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Malformed JSONL at line {line_num}: {exc}") from exc
-            except (KeyError, TypeError) as exc:
+            except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"Malformed episode at line {line_num}: {exc}") from exc
 
     return results
