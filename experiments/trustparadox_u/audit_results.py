@@ -6,6 +6,7 @@ Validates that episode results are internally consistent before aggregation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
@@ -714,3 +715,37 @@ def audit_attack_step_indices(result: EpisodeResult) -> list[AuditFinding]:
             prev_index = idx
 
     return findings
+
+
+def write_audit_report(output_dir: str | Path, report: AuditReport) -> Path:
+    """Write audit report to JSON file.
+
+    Returns the path to the written file.
+    """
+    import json
+
+    output_path = Path(output_dir)
+    report_path = output_path / "result_audit.json"
+
+    report_dict = {
+        "findings": [
+            {
+                "level": f.level,
+                "code": f.code,
+                "message": f.message,
+                "episode_id": f.episode_id,
+                "turn_id": f.turn_id,
+            }
+            for f in report.findings
+        ],
+        "episodes_audited": report.episodes_audited,
+        "episodes_with_errors": report.episodes_with_errors,
+        "has_errors": report.has_errors,
+        "error_count": len(report.errors()),
+        "warning_count": len(report.warnings()),
+    }
+
+    with open(report_path, "w") as f:
+        json.dump(report_dict, f, indent=2)
+
+    return report_path

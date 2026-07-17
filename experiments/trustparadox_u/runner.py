@@ -797,6 +797,16 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="results/trustparadox_u")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--allow-invalid-results",
+        action="store_true",
+        help="Allow continuation despite audit errors",
+    )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Allow continuation despite failed episodes",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -889,3 +899,21 @@ if __name__ == "__main__":
     print(f"Smoke manifest written to {smoke_manifest_path}")
 
     print(f"\nWrote {len(results)} results to {output_dir}")
+
+    # Write audit report
+    from experiments.trustparadox_u.audit_results import write_audit_report
+
+    audit_report_path = output_dir / "result_audit.json"
+    write_audit_report(output_dir, audit_report)
+    print(f"Audit report written to {audit_report_path}")
+
+    # Check for partial run
+    if failed and not args.allow_partial:
+        print(f"\nERROR: {len(failed)} episode(s) failed. Use --allow-partial to continue.")
+        raise SystemExit(1)
+
+    # Check for audit errors
+    if audit_report.has_errors and not args.allow_invalid_results:
+        print(f"\nERROR: Audit found {len(audit_report.errors())} error(s). "
+              f"Use --allow-invalid-results to continue.")
+        raise SystemExit(1)
