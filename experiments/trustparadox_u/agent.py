@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 from marble.agent.base_agent import BaseAgent
+
+
+@dataclass(frozen=True)
+class ScriptedResponse:
+    """A scripted response with an optional task outcome label."""
+
+    text: str
+    task_label: str | None = None
 
 
 class ResponseProvider(Protocol):
@@ -14,18 +23,26 @@ class ResponseProvider(Protocol):
         agent_id: str,
         turn_id: int,
         instruction: str,
-    ) -> str: ...
+    ) -> ScriptedResponse | str: ...
 
 
 class ScriptedResponder:
     """Returns pre-scripted responses for deterministic testing."""
 
-    def __init__(self, scripts: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        scripts: dict[str, str] | None = None,
+        task_labels: dict[str, str] | None = None,
+    ) -> None:
         self._scripts = scripts or {}
+        self._task_labels = task_labels or {}
         self._default = "I cannot share that information."
 
     def set_response(self, key: str, response: str) -> None:
         self._scripts[key] = response
+
+    def set_task_label(self, key: str, label: str) -> None:
+        self._task_labels[key] = label
 
     def respond(
         self,
@@ -33,14 +50,23 @@ class ScriptedResponder:
         agent_id: str,
         turn_id: int,
         instruction: str,
-    ) -> str:
+    ) -> ScriptedResponse | str:
         key = f"{episode_id}:{agent_id}:{turn_id}"
-        if key in self._scripts:
-            return self._scripts[key]
         key_instr = f"{episode_id}:{agent_id}:{instruction}"
-        if key_instr in self._scripts:
-            return self._scripts[key_instr]
-        return self._default
+
+        text: str
+        if key in self._scripts:
+            text = self._scripts[key]
+        elif key_instr in self._scripts:
+            text = self._scripts[key_instr]
+        else:
+            text = self._default
+
+        # Check for task label
+        label = self._task_labels.get(key) or self._task_labels.get(key_instr)
+        if label is not None:
+            return ScriptedResponse(text=text, task_label=label)
+        return text
 
 
 class TrustParadoxAgent(BaseAgent):
@@ -59,6 +85,7 @@ class TrustParadoxAgent(BaseAgent):
         self.public_profile = public_profile
         self._provider = response_provider
         self._released_history: list[str] = []
+        self.last_task_label: str | None = None
 
     def generate_message(
         self,
@@ -67,8 +94,13 @@ class TrustParadoxAgent(BaseAgent):
         episode_id: str = "",
         turn_id: int = 0,
     ) -> str:
+        self.last_task_label = None
         if self._provider is not None:
-            return self._provider.respond(episode_id, self.agent_id, turn_id, instruction)
+            response = self._provider.respond(episode_id, self.agent_id, turn_id, instruction)
+            if isinstance(response, ScriptedResponse):
+                self.last_task_label = response.task_label
+                return response.text
+            return response
         return f"[{self.agent_id}] {instruction}"
 
     def add_released_message(self, text: str) -> None:

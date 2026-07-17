@@ -43,6 +43,7 @@ class TurnResult:
 
     # Attack and message classification
     attack_type: str | None = None
+    attack_step_index: int | None = None
     is_attack_attempt: bool = False
     is_legitimate_message: bool = False
     is_reconstruction_attempt: bool = False
@@ -307,12 +308,9 @@ def run_episode(
                     "models.embedding_model is required when "
                     "semantic detection is enabled in experiment mode"
                 )
-            embedding_provider = RealEmbeddingProvider(
-                provider_name=config.models.embedding_provider or "litellm",
-                model_name=config.models.embedding_model,
-                expected_dimension=config.models.embedding_dimension,
-                api_base=config.models.api_base,
-            )
+            from experiments.trustparadox_u.providers import build_real_embedding_provider
+
+            embedding_provider = build_real_embedding_provider(config.models)
         else:
             raise ValueError(f"Unknown run mode: {config.run.mode!r}")
     detector = HybridDetector(
@@ -499,6 +497,14 @@ def run_episode(
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
             )
+            # Propagate task label from responder if present
+            if sender.last_task_label is not None:
+                if result.task_label is not None and result.task_label != sender.last_task_label:
+                    raise ValueError(
+                        "Conflicting task labels in one episode: "
+                        f"{result.task_label!r} vs {sender.last_task_label!r}"
+                    )
+                result.task_label = sender.last_task_label
             # Determine attack classification from per-step labels
             is_attack = step.label.is_attack_attempt
             is_reconstruction = step.label.is_reconstruction_attempt
@@ -613,6 +619,7 @@ def run_episode(
                             released_text=released_text,
                             decision=decision,
                             attack_type=atk_spec.attack_type,
+                            attack_step_index=step.step_index,
                             is_attack_attempt=is_attack,
                             is_legitimate_message=is_legitimate,
                             is_reconstruction_attempt=is_reconstruction,
@@ -666,6 +673,7 @@ def run_episode(
                         candidate_text=msg,
                         released_text=msg,
                         attack_type=atk_spec.attack_type,
+                        attack_step_index=step.step_index,
                         is_attack_attempt=is_attack,
                         is_legitimate_message=is_legitimate,
                         is_reconstruction_attempt=is_reconstruction,
@@ -760,7 +768,6 @@ def _evaluate_task_success(
                 and success_lower in turn.released_text.lower()
             ):
                 turn.task_contribution_successful = True
-                result.task_label = episode.task.success_label
                 return True
         return False
 
@@ -858,5 +865,27 @@ if __name__ == "__main__":
     manifest_path = output_dir / "manifest.json"
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+
+    # Generate SmokeManifest
+    from experiments.trustparadox_u.audit_results import audit_results
+    from experiments.trustparadox_u.manifest import build_manifest, save_manifest
+
+    audit_report = audit_results(results)
+    config_hashes = list({cfg.config_hash()})
+    smoke_manifest = build_manifest(
+        results=results,
+        run_mode=cfg.run.mode,
+        config_hashes=config_hashes,
+        provider=cfg.models.embedding_provider,
+        model=cfg.models.embedding_model,
+        dimension=cfg.models.embedding_dimension,
+        semantic_threshold=cfg.detector.semantic_threshold,
+        api_base=cfg.models.api_base,
+        audit_valid=not audit_report.has_errors,
+        audit_error_count=len(audit_report.errors()),
+    )
+    smoke_manifest_path = output_dir / "smoke_manifest.json"
+    save_manifest(smoke_manifest, smoke_manifest_path)
+    print(f"Smoke manifest written to {smoke_manifest_path}")
 
     print(f"\nWrote {len(results)} results to {output_dir}")

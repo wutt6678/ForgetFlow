@@ -31,6 +31,13 @@ def _valid_result(**overrides) -> EpisodeResult:
         "attack_type": "direct",
         "config_hash": "a" * 64,
         "seed": 42,
+        "pairing_key": {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        },
     }
     for k, v in overrides.items():
         setattr(result, k, v)
@@ -601,16 +608,333 @@ class TestDuplicateKeys:
 
     def test_duplicate_keys_flagged(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = "dup"
-        r2 = _valid_result()
-        r2.metadata["pairing_key"] = "dup"
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
         findings = audit_duplicate_keys([r1, r2])
-        assert any(f.code == "DUPLICATE_PAIRING_KEY" for f in findings)
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
 
     def test_unique_keys_pass(self) -> None:
         r1 = _valid_result()
-        r1.metadata["pairing_key"] = "k1"
-        r2 = _valid_result()
-        r2.metadata["pairing_key"] = "k2"
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv2",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
         findings = audit_duplicate_keys([r1, r2])
+        dup_findings = [f for f in findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        assert len(dup_findings) == 0
+
+    def test_missing_pairing_key(self) -> None:
+        r1 = _valid_result()
+        del r1.metadata["pairing_key"]
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_MISSING" for f in findings)
+
+    def test_invalid_pairing_key_type(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = "not_a_valid_key"
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
+
+    def test_missing_field_in_dict(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = {"scenario_id": "s1"}
+        findings = audit_duplicate_keys([r1])
+        assert any(f.code == "PAIRING_KEY_INVALID" for f in findings)
+
+    def test_tuple_pairing_key(self) -> None:
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
+        r2 = _valid_result(episode_id="ep2")
+        r2.metadata["pairing_key"] = ("s1", "sv1", "default", "direct", 42)
+        findings = audit_duplicate_keys([r1, r2])
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in findings)
+
+    def test_evaluator_auditor_consistency(self) -> None:
+        from experiments.trustparadox_u.identity import (
+            normalize_pairing_key,
+            pairing_key_from_result,
+        )
+
+        r1 = _valid_result()
+        r1.metadata["pairing_key"] = {
+            "scenario_id": "s1",
+            "secret_variant_id": "sv1",
+            "trust_level": "default",
+            "attack_type": "direct",
+            "seed": 42,
+        }
+        from_dict = normalize_pairing_key(r1.metadata["pairing_key"])
+        from_result = pairing_key_from_result(r1)
+        assert from_dict == from_result
+
+
+class TestRunnerAuditIntegration:
+    """Integration tests using actual runner output."""
+
+    def test_runner_result_passes_aggregation_audit(self) -> None:
+        """A result from the real runner passes the full audit pipeline."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result = run_episode(ep, config)
+        report = audit_results([result])
+        assert not report.has_errors
+
+    def test_runner_duplicate_results_fail_audit(self) -> None:
+        """Two runs of the same episode with same identity are flagged."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result_a = run_episode(ep, config)
+        result_b = run_episode(ep, config)
+        report = audit_results([result_a, result_b])
+        assert report.has_errors
+        assert any(f.code == "PAIRING_KEY_DUPLICATE" for f in report.findings)
+
+    def test_runner_distinct_seeds_pass(self) -> None:
+        """Different seeds produce distinct pairing keys."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_results
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios_dir = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios_dir / "pilot_credential.yaml")
+        config_a = ExperimentConfig(
+            seed=1,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        config_b = ExperimentConfig(
+            seed=2,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result_a = run_episode(ep, config_a)
+        result_b = run_episode(ep, config_b)
+        report = audit_results([result_a, result_b])
+        dup_findings = [f for f in report.findings if f.code == "PAIRING_KEY_DUPLICATE"]
+        assert len(dup_findings) == 0
+
+    def test_malformed_pairing_key_raises_not_typeerror(self) -> None:
+        """A malformed pairing key raises an audit error, not a raw TypeError."""
+        import pytest
+
+        result = _valid_result()
+        result.metadata["pairing_key"] = "bad_string_key"
+        with pytest.raises(InvalidExperimentResults):
+            validate_for_aggregation([result])
+
+
+class TestAttackStepIndexAudit:
+    """Phase 8: attack-step index audit checks."""
+
+    def _attack_turn(
+        self,
+        turn_id: int = 0,
+        attack_type: str = "direct",
+        step_index: int | None = 0,
+    ) -> "TurnResult":
+        from experiments.trustparadox_u.runner import TurnResult
+
+        return TurnResult(
+            turn_id=turn_id,
+            phase="POST_FORGET_ATTACK",
+            sender_id="A",
+            recipient_id="B",
+            candidate_text="test",
+            released_text="test",
+            attack_type=attack_type,
+            attack_step_index=step_index,
+            is_attack_attempt=True,
+        )
+
+    def test_valid_attack_step_passes(self) -> None:
+        """Valid attack step index passes audit."""
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+        )
+        result.turns.append(self._attack_turn(turn_id=0, step_index=0))
+        result.turns.append(self._attack_turn(turn_id=1, step_index=1))
+        findings = audit_attack_step_indices(result)
+        assert len(findings) == 0
+
+    def test_missing_attack_step_index_fails(self) -> None:
+        """Missing attack step index is flagged."""
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+        )
+        result.turns.append(self._attack_turn(step_index=None))
+        findings = audit_attack_step_indices(result)
+        assert any(f.code == "ATTACK_STEP_INDEX_MISSING" for f in findings)
+
+    def test_negative_step_index_fails(self) -> None:
+        """Negative step index is flagged."""
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+        )
+        result.turns.append(self._attack_turn(step_index=-1))
+        findings = audit_attack_step_indices(result)
+        assert any(f.code == "ATTACK_STEP_INDEX_NEGATIVE" for f in findings)
+
+    def test_duplicate_step_index_fails(self) -> None:
+        """Duplicate step indices within one attack type are flagged."""
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+        )
+        result.turns.append(self._attack_turn(turn_id=0, step_index=0))
+        result.turns.append(self._attack_turn(turn_id=1, step_index=0))
+        findings = audit_attack_step_indices(result)
+        assert any(f.code == "ATTACK_STEP_INDEX_DUPLICATE" for f in findings)
+
+    def test_non_monotonic_step_index_fails(self) -> None:
+        """Non-monotonic step indices are flagged."""
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+        )
+        result.turns.append(self._attack_turn(turn_id=0, step_index=2))
+        result.turns.append(self._attack_turn(turn_id=1, step_index=1))
+        findings = audit_attack_step_indices(result)
+        assert any(f.code == "ATTACK_STEP_INDEX_NOT_MONOTONIC" for f in findings)
+
+    def test_real_runner_result_passes_step_audit(self) -> None:
+        """Real runner results pass the attack-step audit."""
+        from pathlib import Path
+
+        from experiments.trustparadox_u.audit_results import audit_attack_step_indices
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+        from experiments.trustparadox_u.dataset import load_episode
+        from experiments.trustparadox_u.runner import run_episode
+
+        scenarios = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
+        ep = load_episode(scenarios / "pilot_credential.yaml")
+        cfg = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        result = run_episode(ep, cfg)
+        findings = audit_attack_step_indices(result)
         assert len(findings) == 0

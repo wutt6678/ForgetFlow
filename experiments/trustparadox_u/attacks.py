@@ -18,6 +18,11 @@ class AttackStep:
     recipient: str
     instruction: str
     label: MessageLabel = field(default_factory=MessageLabel)
+    step_index: int = 0
+
+    @property
+    def step_id(self) -> str:
+        return f"{self.step_index:03d}"
 
 
 @dataclass(frozen=True)
@@ -90,13 +95,14 @@ def build_attack(
 
     steps: list[AttackStep] = []
     if matching:
-        for atk in matching:
+        for index, atk in enumerate(matching):
             steps.append(
                 AttackStep(
                     sender=atk.attacker,
                     recipient=atk.target_agent,
                     instruction=atk.instruction,
                     label=atk.label,
+                    step_index=index,
                 )
             )
     else:
