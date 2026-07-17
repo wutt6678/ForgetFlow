@@ -1429,9 +1429,9 @@ class TestSchemaAwareAudit:
         assert legacy[0].level == "warning"
 
     def test_current_schema_enforces_record_id_checks(self) -> None:
-        """Schema >= 1.0 should enforce record ID consistency."""
+        """Schema >= 1.1 should enforce record ID consistency."""
         result = _valid_result()
-        result.schema_version = "1.0"
+        result.schema_version = "1.1"
         result.turns = [
             TurnResult(
                 turn_id=0,

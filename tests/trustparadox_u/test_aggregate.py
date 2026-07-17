@@ -117,6 +117,7 @@ def _write_valid_episodes(path: Path) -> None:
     result.metadata["run_mode"] = "test"
     result.metadata["semantic_threshold"] = 0.8
     data = {
+        "schema_version": "1.1",
         "run_id": result.run_id,
         "episode_id": result.episode_id,
         "scenario_id": result.scenario_id,
@@ -234,7 +235,16 @@ class TestAggregationCLI:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -309,6 +319,7 @@ class TestAggregationCLI:
 
         # Write a result with missing required metadata
         data = {
+            "schema_version": "1.1",
             "run_id": "run_0001",
             "episode_id": "ep1",
             "scenario_id": "s1",
@@ -324,7 +335,16 @@ class TestAggregationCLI:
         _write_valid_manifest(input_dir / "smoke_manifest.json")
 
         with patch.object(
-            sys, "argv", ["aggregate", "--input", str(input_dir), "--output", str(output_dir)]
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = main()
 
@@ -473,3 +493,172 @@ class TestCommitProvenanceValidation:
         manifest = self._make_manifest("aaaaaaa")
         with pytest.raises(StaleArtifactError):
             validate_commit_provenance(manifest, require_current_commit=True)
+
+    def test_diagnostic_flag_in_provenance(self) -> None:
+        """skip_check sets diagnostic=True."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("a" * 40)
+        result = validate_commit_provenance(manifest, skip_check=True)
+        assert result["diagnostic"] is True
+        assert result["release_certifying"] is False
+
+    def test_strict_mode_no_diagnostic_flag(self) -> None:
+        """Matching commit has diagnostic=False."""
+        from experiments.trustparadox_u.aggregate import validate_commit_provenance
+
+        manifest = self._make_manifest("abc1234")
+        result = validate_commit_provenance(manifest, expected_commit="abc1234")
+        assert result["diagnostic"] is False
+        assert result["release_certifying"] is True
+
+
+class TestSchemaCompatibility:
+    """Section 4: Schema compatibility enforcement."""
+
+    def test_legacy_schema_rejected_in_strict_mode(self, tmp_path: Path) -> None:
+        """Schema 1.0 should fail in strict mode."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        # Write episode with schema 1.0
+        data = {
+            "schema_version": "1.0",
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "metadata": {"forbidden_strings": ["x"], "config_hash": "a" * 64, "seed": 42},
+        }
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 7  # SCHEMA
+
+    def test_legacy_schema_allowed_in_historical_mode(self, tmp_path: Path) -> None:
+        """Schema 1.0 should pass with --allow-historical-artifacts."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        # Use the valid episode helper but override schema_version to 1.0
+        result = _valid_result()
+        result.metadata["run_mode"] = "test"
+        result.metadata["semantic_threshold"] = 0.8
+        data = {
+            "schema_version": "1.0",
+            "run_id": result.run_id,
+            "episode_id": result.episode_id,
+            "scenario_id": result.scenario_id,
+            "trust_level": result.trust_level,
+            "seed": result.seed,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "task_success": result.task_success,
+            "task_label": result.task_label,
+            "cleaned_agents_exposed": result.cleaned_agents_exposed,
+            "recontaminated_agents": result.recontaminated_agents,
+            "metadata": result.metadata,
+        }
+        with open(input_dir / "episodes.jsonl", "w") as f:
+            f.write(json.dumps(data) + "\n")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+                "--allow-historical-artifacts",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+
+
+class TestAggregationManifest:
+    """Section 9: Aggregation manifest output."""
+
+    def test_aggregation_manifest_written(self, tmp_path: Path) -> None:
+        """aggregation_manifest.json should be written with provenance."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        agg_manifest = json.loads((output_dir / "aggregation_manifest.json").read_text())
+        assert "artifact_provenance" in agg_manifest
+        assert "result_schema_versions" in agg_manifest
+        assert "outputs" in agg_manifest
+        assert agg_manifest["artifact_provenance"]["diagnostic"] is True
+
+    def test_diagnostic_warning_in_markdown(self, tmp_path: Path) -> None:
+        """Skipped commit check should produce diagnostic markdown warning."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        md = (output_dir / "summary.md").read_text()
+        assert "Diagnostic artifact analysis" in md

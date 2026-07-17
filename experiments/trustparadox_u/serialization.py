@@ -15,12 +15,30 @@ from marble.firewall.types import (
     FirewallDecision,
 )
 
-# Current schema version for episode results
-RESULT_SCHEMA_VERSION = "1.0"
+# Schema version constants
+UNVERSIONED_RESULT_SCHEMA = "0"
+LEGACY_RESULT_SCHEMA_VERSION = "1.0"
+RESULT_SCHEMA_VERSION = "1.1"
 
 
 class UnsupportedSchemaVersionError(ValueError):
     """Raised when an unsupported schema version is encountered."""
+
+
+def parse_schema_version(value: str) -> tuple[int, ...]:
+    """Parse a schema version string into a numeric tuple for safe comparison.
+
+    Raises ValueError for non-string or non-numeric inputs.
+    """
+    if not isinstance(value, str):
+        raise ValueError("Schema version must be a string")
+
+    parts = value.split(".")
+
+    if not parts or any(not part.isdigit() for part in parts):
+        raise ValueError(f"Invalid schema version: {value!r}")
+
+    return tuple(int(part) for part in parts)
 
 
 def deserialize_id_tuple(data: Mapping[str, object], field: str) -> tuple[str, ...]:
@@ -168,7 +186,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
 
 def deserialize_episode_result(
     data: dict[str, Any],
-    schema_version: str = "1.0",
+    schema_version: str = RESULT_SCHEMA_VERSION,
 ) -> EpisodeResult:
     """Deserialize an EpisodeResult from a JSON dict."""
     turns = [deserialize_turn(t) for t in data.get("turns", [])]
@@ -222,13 +240,17 @@ def load_episode_results(path: str | Path) -> list[EpisodeResult]:
             try:
                 data = json.loads(line)
                 # Handle schema versioning
-                schema_version = str(data.get("schema_version", "0"))
-                if schema_version == "1.0":
-                    # Versioned envelope format
+                schema_version = str(data.get("schema_version", UNVERSIONED_RESULT_SCHEMA))
+                if schema_version == RESULT_SCHEMA_VERSION:
+                    # Current versioned envelope format
                     episode_data = data.get("episode", data)
                     results.append(deserialize_episode_result(episode_data, schema_version))
-                elif schema_version == "0":
-                    # Legacy format (no version field)
+                elif schema_version == LEGACY_RESULT_SCHEMA_VERSION:
+                    # Legacy v1.0 format (may lack per-record ID fields)
+                    episode_data = data.get("episode", data)
+                    results.append(deserialize_episode_result(episode_data, schema_version))
+                elif schema_version == UNVERSIONED_RESULT_SCHEMA:
+                    # Unversioned legacy format (no version field)
                     results.append(deserialize_episode_result(data, schema_version))
                 else:
                     raise UnsupportedSchemaVersionError(
@@ -240,6 +262,23 @@ def load_episode_results(path: str | Path) -> list[EpisodeResult]:
                 raise ValueError(f"Malformed episode at line {line_num}: {exc}") from exc
 
     return results
+
+
+def inspect_result_schema_versions(path: str | Path) -> set[str]:
+    """Peek at schema versions in a JSONL file without full deserialization.
+
+    Returns the set of distinct schema version strings found.
+    """
+    path = Path(path)
+    versions: set[str] = set()
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            versions.add(str(data.get("schema_version", UNVERSIONED_RESULT_SCHEMA)))
+    return versions
 
 
 def load_smoke_manifest(path: str | Path) -> dict[str, Any]:

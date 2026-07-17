@@ -27,8 +27,11 @@ from experiments.trustparadox_u.paths import (
 )
 from experiments.trustparadox_u.runner import EpisodeResult
 from experiments.trustparadox_u.serialization import (
+    RESULT_SCHEMA_VERSION,
+    inspect_result_schema_versions,
     load_episode_results,
     load_smoke_manifest,
+    parse_schema_version,
 )
 
 
@@ -46,6 +49,10 @@ class ManifestValidationError(AggregationError):
 
 class StaleArtifactError(AggregationError):
     """Error when artifact commit does not match expected commit."""
+
+
+class SchemaCompatibilityError(AggregationError):
+    """Error when result schema is incompatible with requested mode."""
 
 
 class ResultAuditError(AggregationError):
@@ -170,9 +177,25 @@ def write_aggregation_outputs(
 
     prov = provenance_meta or {}
 
+    # Minimal provenance block for embedding in standalone outputs
+    provenance_block = {
+        "artifact_commit": prov.get("artifact_commit", ""),
+        "release_certifying": prov.get("release_certifying", False),
+    }
+    if prov.get("historical"):
+        provenance_block["historical"] = True
+    if prov.get("diagnostic"):
+        provenance_block["diagnostic"] = True
+
     # metrics.json
     metrics_dict = evaluation.to_dict()
-    (output_dir / "metrics.json").write_text(json.dumps(metrics_dict, indent=2, sort_keys=True))
+    (output_dir / "metrics.json").write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, "metrics": metrics_dict},
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
     # metric_counts.json
     metric_counts = {
@@ -194,7 +217,11 @@ def write_aggregation_outputs(
         },
     }
     (output_dir / "metric_counts.json").write_text(
-        json.dumps(metric_counts, indent=2, sort_keys=True)
+        json.dumps(
+            {"artifact_provenance": provenance_block, "counts": metric_counts},
+            indent=2,
+            sort_keys=True,
+        )
     )
 
     # summary.json
@@ -209,7 +236,11 @@ def write_aggregation_outputs(
 
     # audit_report.json
     (output_dir / "audit_report.json").write_text(
-        json.dumps(audit_report.to_dict(), indent=2, sort_keys=True)
+        json.dumps(
+            {"artifact_provenance": provenance_block, **audit_report.to_dict()},
+            indent=2,
+            sort_keys=True,
+        )
     )
 
     # utility_pairing.json and unmatched_pairs.json
@@ -234,10 +265,32 @@ def write_aggregation_outputs(
         unmatched = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
 
     (output_dir / "utility_pairing.json").write_text(
-        json.dumps(utility_pairing, indent=2, sort_keys=True)
+        json.dumps(
+            {"artifact_provenance": provenance_block, **utility_pairing},
+            indent=2,
+            sort_keys=True,
+        )
     )
     (output_dir / "unmatched_pairs.json").write_text(
         json.dumps(unmatched, indent=2, sort_keys=True)
+    )
+
+    # aggregation_manifest.json
+    schema_versions = sorted({r.schema_version for r in results})
+    agg_manifest = {
+        "artifact_provenance": prov,
+        "result_schema_versions": schema_versions,
+        "outputs": {
+            "metrics": "metrics.json",
+            "metric_counts": "metric_counts.json",
+            "audit_report": "audit_report.json",
+            "summary": "summary.json",
+            "utility_pairing": "utility_pairing.json",
+            "unmatched_pairs": "unmatched_pairs.json",
+        },
+    }
+    (output_dir / "aggregation_manifest.json").write_text(
+        json.dumps(agg_manifest, indent=2, sort_keys=True)
     )
 
     # summary.md
@@ -249,6 +302,12 @@ def write_aggregation_outputs(
             f"> These results were produced by commit "
             f"> `{prov.get('artifact_commit', 'unknown')}` and do not "
             f"> validate the current implementation.\n"
+        )
+    if prov.get("diagnostic"):
+        md_lines.append(
+            "> **Diagnostic artifact analysis.** "
+            "> Repository commit validation was skipped. "
+            "> These results cannot certify a release or experiment SHA.\n"
         )
     md_lines.append(format_table(summary_data, title="Aggregation Summary"))
     (output_dir / "summary.md").write_text("\n".join(md_lines))
@@ -315,12 +374,14 @@ def validate_commit_provenance(
         "artifact_commit": artifact_prov.commit,
         "artifact_dirty": artifact_prov.dirty,
         "historical": False,
+        "diagnostic": False,
         "validation_mode": "strict",
         "release_certifying": False,
     }
 
     if skip_check:
         provenance_meta["validation_mode"] = "skipped"
+        provenance_meta["diagnostic"] = True
         return provenance_meta
 
     # Determine expected commit
@@ -416,12 +477,8 @@ def main() -> int:
     output_dir = Path(args.output)
 
     try:
-        # 1. Load episode results
+        # 1. Locate result and manifest files
         episodes_path = locate_episode_results(input_dir)
-        try:
-            results = load_episode_results(episodes_path)
-        except (TypeError, ValueError) as exc:
-            raise ResultLoadError(f"Failed to load {episodes_path}: {exc}") from exc
 
         # 2. Load manifest
         manifest_path = input_dir / "smoke_manifest.json"
@@ -442,13 +499,7 @@ def main() -> int:
                 "Use --allow-missing-manifest for diagnostic-only mode."
             )
 
-        # 3. Audit results
-        audit_report = audit_results(results)
-        if audit_report.has_errors:
-            error_count = len(audit_report.findings)
-            raise ResultAuditError(f"Audit failed with {error_count} errors")
-
-        # 4. Validate commit provenance
+        # 3. Validate commit provenance (before auditing)
         provenance_meta: dict[str, Any] = {}
         if manifest is not None:
             provenance_meta = validate_commit_provenance(
@@ -466,17 +517,55 @@ def main() -> int:
                     file=sys.stderr,
                 )
 
-        # 5. Validate manifest against results
+        # 4. Inspect result envelope schema versions
+        try:
+            schema_versions = inspect_result_schema_versions(episodes_path)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ResultLoadError(f"Failed to inspect {episodes_path}: {exc}") from exc
+        is_historical_mode = bool(
+            args.allow_historical_artifacts or provenance_meta.get("historical")
+        )
+
+        # 5. Validate schema compatibility
+        current = parse_schema_version(RESULT_SCHEMA_VERSION)
+        for sv in schema_versions:
+            sv_parsed = parse_schema_version(sv)
+            if sv_parsed >= current:
+                # Current or future schema — always supported
+                pass
+            elif is_historical_mode or diagnostic_only:
+                # Legacy schema in historical/diagnostic mode — allowed
+                pass
+            else:
+                raise SchemaCompatibilityError(
+                    f"Result schema {sv!r} is not supported for release certification. "
+                    f"Required: {RESULT_SCHEMA_VERSION}. "
+                    f"Use --allow-historical-artifacts for legacy analysis."
+                )
+
+        # 6. Deserialize results
+        try:
+            results = load_episode_results(episodes_path)
+        except (TypeError, ValueError) as exc:
+            raise ResultLoadError(f"Failed to load {episodes_path}: {exc}") from exc
+
+        # 7. Audit results
+        audit_report = audit_results(results)
+        if audit_report.has_errors:
+            error_count = len(audit_report.findings)
+            raise ResultAuditError(f"Audit failed with {error_count} errors")
+
+        # 8. Validate manifest against results
         if manifest is not None:
             validate_manifest_or_raise(manifest, results)
 
-        # 6. Validate for aggregation
+        # 9. Validate for aggregation
         validate_for_aggregation(results)
 
-        # 7. Aggregate
+        # 10. Aggregate
         evaluation = evaluate_all(results)
 
-        # 8. Write outputs
+        # 11. Write outputs
         if diagnostic_only:
             # Write limited diagnostic outputs
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -502,6 +591,9 @@ def main() -> int:
     except StaleArtifactError as exc:
         print(f"Aggregation failed [STALE_ARTIFACT]: {exc}", file=sys.stderr)
         return 6
+    except SchemaCompatibilityError as exc:
+        print(f"Aggregation failed [SCHEMA]: {exc}", file=sys.stderr)
+        return 7
     except FileNotFoundError as exc:
         print(f"Aggregation failed [INPUT_MISSING]: {exc}", file=sys.stderr)
         return 2

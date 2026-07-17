@@ -432,7 +432,7 @@ class TestSchemaVersioning:
 
     def test_current_schema_version(self) -> None:
         """Current schema version should be defined."""
-        assert RESULT_SCHEMA_VERSION == "1.0"
+        assert RESULT_SCHEMA_VERSION == "1.1"
 
     def test_legacy_format_no_version(self, tmp_path: Path) -> None:
         """Legacy format without schema_version should work."""
@@ -907,6 +907,101 @@ class TestDeserializeIdTuple:
         data = {"field": "not-a-list"}
         with pytest.raises(ValueError, match="must be a list"):
             deserialize_id_tuple(data, "field")
+
+
+class TestParseSchemaVersion:
+    """Section 3: Numeric schema version parsing."""
+
+    def test_simple_version(self) -> None:
+        """Simple version string parses correctly."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("1.1") == (1, 1)
+
+    def test_single_digit(self) -> None:
+        """Single digit version parses correctly."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("0") == (0,)
+
+    def test_multi_part_version(self) -> None:
+        """Multi-part version parses correctly."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("1.2.3") == (1, 2, 3)
+
+    def test_numeric_comparison_safe(self) -> None:
+        """Numeric comparison handles 1.10 > 1.2 correctly."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("1.10") > parse_schema_version("1.2")
+
+    def test_1_0_less_than_1_1(self) -> None:
+        """1.0 < 1.1 numerically."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("1.0") < parse_schema_version("1.1")
+
+    def test_equal_versions(self) -> None:
+        """Equal versions compare equal."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        assert parse_schema_version("1.1") == parse_schema_version("1.1")
+
+    def test_malformed_raises(self) -> None:
+        """Malformed version string raises ValueError."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        with pytest.raises(ValueError, match="Invalid schema version"):
+            parse_schema_version("abc")
+
+    def test_empty_string_raises(self) -> None:
+        """Empty string raises ValueError."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        with pytest.raises(ValueError, match="Invalid schema version"):
+            parse_schema_version("")
+
+    def test_non_string_raises(self) -> None:
+        """Non-string input raises ValueError."""
+        from experiments.trustparadox_u.serialization import parse_schema_version
+
+        with pytest.raises(ValueError, match="must be a string"):
+            parse_schema_version(123)  # type: ignore[arg-type]
+
+
+class TestSchemaVersionConstants:
+    """Schema version constants are defined correctly."""
+
+    def test_constants_defined(self) -> None:
+        """All schema version constants are defined."""
+        from experiments.trustparadox_u.serialization import (
+            LEGACY_RESULT_SCHEMA_VERSION,
+            RESULT_SCHEMA_VERSION,
+            UNVERSIONED_RESULT_SCHEMA,
+        )
+
+        assert UNVERSIONED_RESULT_SCHEMA == "0"
+        assert LEGACY_RESULT_SCHEMA_VERSION == "1.0"
+        assert RESULT_SCHEMA_VERSION == "1.1"
+
+    def test_new_records_use_current_schema(self, tmp_path: Path) -> None:
+        """Newly serialized records use schema 1.1."""
+        from experiments.trustparadox_u.serialization import (
+            RESULT_SCHEMA_VERSION,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        data = serialize_episode_result(result)
+        assert data["schema_version"] == RESULT_SCHEMA_VERSION
+        assert data["schema_version"] == "1.1"
 
     def test_non_string_item_raises(self) -> None:
         """Non-string items should raise ValueError."""

@@ -116,7 +116,7 @@ class EpisodeResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Schema version for compatibility tracking
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
 
 
 @dataclass(frozen=True)

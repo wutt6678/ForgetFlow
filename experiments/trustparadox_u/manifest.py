@@ -13,6 +13,9 @@ from typing import Any
 # Regex for valid git commit SHA (7-40 hex characters)
 COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
+# Full 40-character SHA for portable artifact certification
+FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
 
 @dataclass(frozen=True)
 class RepositoryProvenance:
@@ -36,6 +39,42 @@ def parse_repository_provenance(value: str) -> RepositoryProvenance:
         raise ValueError(f"Invalid repository commit: {value!r}")
 
     return RepositoryProvenance(commit=commit, dirty=dirty)
+
+
+def resolve_commit_sha(value: str) -> str:
+    """Resolve a commit string to a full 40-character SHA.
+
+    If the value is already a full SHA, return it.
+    If it's a short SHA, resolve via git rev-parse.
+    Raises ValueError for malformed or ambiguous values.
+    """
+    # Strip dirty suffix
+    commit = value.removesuffix("-dirty")
+
+    if FULL_SHA_RE.match(commit):
+        return commit
+
+    if COMMIT_RE.match(commit):
+        # Short SHA — resolve via git
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", commit + "^{commit}"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                resolved = result.stdout.strip()
+                if FULL_SHA_RE.match(resolved):
+                    return resolved
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        raise ValueError(
+            f"Short SHA {commit!r} could not be resolved to a full 40-character SHA. "
+            f"Use --expected-commit with a full SHA for portable certification."
+        )
+
+    raise ValueError(f"Invalid commit SHA: {value!r}")
 
 
 @dataclass(frozen=True)

@@ -92,6 +92,7 @@ def _write_episode_and_manifest(
     # Write episodes.jsonl
     episodes_file = tmp_path / EPISODE_RESULTS_FILENAME
     episode_dict = {
+        "schema_version": "1.1",
         "run_id": episode.run_id,
         "episode_id": episode.episode_id,
         "scenario_id": episode.scenario_id,
@@ -189,9 +190,11 @@ class TestRunnerToAggregationIntegration:
 
         # Verify metrics structure
         metrics = json.loads((output_dir / "metrics.json").read_text())
-        assert "pu_rer" in metrics
-        assert "crr" in metrics
-        assert "rr" in metrics
+        assert "artifact_provenance" in metrics
+        assert "metrics" in metrics
+        assert "pu_rer" in metrics["metrics"]
+        assert "crr" in metrics["metrics"]
+        assert "rr" in metrics["metrics"]
 
     def test_deserialized_decision_has_correct_attributes(self, tmp_path: Path) -> None:
         """Deserialized firewall decisions should have correct attributes."""
@@ -245,7 +248,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 
@@ -268,7 +278,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 
@@ -295,7 +312,14 @@ class TestRunnerToAggregationIntegration:
         with patch.object(
             sys,
             "argv",
-            ["aggregate", "--input", str(input_dir), "--output", str(output_dir)],
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
         ):
             exit_code = aggregate_main()
 

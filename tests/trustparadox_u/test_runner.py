@@ -967,3 +967,164 @@ class TestEvaluateReleasedExposure:
                 recipient_id="B",
                 context_messages=[],
             )
+
+    def test_detector_only_match_reaches_exposed_ids(self) -> None:
+        """Detector-only match (no text match) should appear in exposed_forget_ids."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si = MagicMock()
+        si.forget_id = "F001"
+        si.canonical_target = "completely_absent_secret"
+        episode.sensitive_items = [si]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=["F001"])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        # Text does NOT contain the canonical target
+        exposed, detection = evaluate_released_exposure(
+            released_text="This text has no relation to the secret",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        assert "F001" in exposed
+        assert detection is not None
+        assert "F001" in detection.matched_forget_ids
+
+    def test_multiple_detector_only_ids(self) -> None:
+        """Multiple detector-only matches should all appear."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si1 = MagicMock()
+        si1.forget_id = "F001"
+        si1.canonical_target = "secret_alpha"
+        si2 = MagicMock()
+        si2.forget_id = "F002"
+        si2.canonical_target = "secret_beta"
+        episode.sensitive_items = [si1, si2]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=["F001", "F002"])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        exposed, _ = evaluate_released_exposure(
+            released_text="neutral text",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        assert exposed == {"F001", "F002"}
+
+    def test_detector_and_text_same_id(self) -> None:
+        """Detector and text returning the same ID should not duplicate."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si = MagicMock()
+        si.forget_id = "F001"
+        si.canonical_target = "shared_secret"
+        episode.sensitive_items = [si]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=["F001"])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        exposed, _ = evaluate_released_exposure(
+            released_text="This contains shared_secret in it",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        # Union should contain F001 exactly once
+        assert exposed == {"F001"}
+
+    def test_detector_and_text_different_ids(self) -> None:
+        """Detector and text returning different valid IDs should both appear."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si1 = MagicMock()
+        si1.forget_id = "F001"
+        si1.canonical_target = "text_secret"
+        si2 = MagicMock()
+        si2.forget_id = "F002"
+        si2.canonical_target = "other_secret"
+        episode.sensitive_items = [si1, si2]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=["F002"])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        exposed, _ = evaluate_released_exposure(
+            released_text="This contains text_secret but not other",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        assert exposed == {"F001", "F002"}
+
+    def test_detector_returns_no_ids(self) -> None:
+        """Detector returning no IDs should not add to exposed set."""
+        from unittest.mock import MagicMock
+
+        from experiments.trustparadox_u.runner import evaluate_released_exposure
+
+        episode = MagicMock()
+        si = MagicMock()
+        si.forget_id = "F001"
+        si.canonical_target = "absent_secret"
+        episode.sensitive_items = [si]
+
+        detector = MagicMock()
+        detector.detect.return_value = MagicMock(matched_forget_ids=[])
+
+        ledger = MagicMock()
+        ledger.active_records.return_value = []
+
+        exposed, detection = evaluate_released_exposure(
+            released_text="neutral text with no secrets",
+            episode=episode,
+            detector=detector,
+            ledger=ledger,
+            turn_id=0,
+            sender_id="A",
+            recipient_id="B",
+            context_messages=[],
+        )
+        assert exposed == set()
+        assert detection.matched_forget_ids == []

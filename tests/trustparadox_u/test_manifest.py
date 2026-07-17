@@ -753,3 +753,47 @@ class TestStrictConfigHashValidationInManifest:
         )
         findings = validate_manifest_against_results(m, [r])
         assert any(f["code"] == "MANIFEST_CONFIG_HASHES_INVALID" for f in findings)
+
+
+class TestResolveCommitSha:
+    """Section 10: SHA comparison rules."""
+
+    def test_full_sha_passthrough(self) -> None:
+        """Full 40-char SHA returns unchanged."""
+        from experiments.trustparadox_u.manifest import resolve_commit_sha
+
+        sha = "a" * 40
+        assert resolve_commit_sha(sha) == sha
+
+    def test_full_sha_with_dirty_stripped(self) -> None:
+        """Dirty suffix is stripped from full SHA."""
+        from experiments.trustparadox_u.manifest import resolve_commit_sha
+
+        sha = "a" * 40
+        assert resolve_commit_sha(f"{sha}-dirty") == sha
+
+    def test_invalid_sha_raises(self) -> None:
+        """Invalid SHA raises ValueError."""
+        import pytest
+
+        from experiments.trustparadox_u.manifest import resolve_commit_sha
+
+        with pytest.raises(ValueError, match="Invalid commit SHA"):
+            resolve_commit_sha("not-a-sha")
+
+    def test_uppercase_sha_rejected(self) -> None:
+        """Uppercase hex is rejected (git uses lowercase)."""
+        import pytest
+
+        from experiments.trustparadox_u.manifest import resolve_commit_sha
+
+        with pytest.raises(ValueError):
+            resolve_commit_sha("A" * 40)
+
+    def test_full_sha_regex_defined(self) -> None:
+        """FULL_SHA_RE pattern is defined."""
+        from experiments.trustparadox_u.manifest import FULL_SHA_RE
+
+        assert FULL_SHA_RE.match("a" * 40)
+        assert not FULL_SHA_RE.match("a" * 7)
+        assert not FULL_SHA_RE.match("g" * 40)

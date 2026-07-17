@@ -14,6 +14,7 @@ from experiments.trustparadox_u.identity import (
     research_run_identity_from_result,
 )
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+from experiments.trustparadox_u.serialization import parse_schema_version
 
 
 class InvalidExperimentResults(Exception):
@@ -110,7 +111,9 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
     findings.extend(_audit_episode_rules(result, ep_id))
 
     # Check each turn
-    has_record_id_fields = result.schema_version >= "1.0"
+    has_record_id_fields = parse_schema_version(result.schema_version) >= parse_schema_version(
+        "1.1"
+    )
     for turn in result.turns:
         turn_findings = _audit_turn(turn, ep_id)
         findings.extend(turn_findings)
