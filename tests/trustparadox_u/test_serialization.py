@@ -1497,3 +1497,58 @@ class TestLegacyFinalStateRestriction:
         # Should not raise
         results = load_episode_results(episodes_file)
         assert len(results) == 1
+
+    def test_final_probe_turn_round_trip(self, tmp_path: Path) -> None:
+        """FINAL_PROBE turn with exposed_forget_ids and state changes survives round trip."""
+        from experiments.trustparadox_u.runner import (
+            ContaminationStateChange,
+            EpisodeResult,
+            TurnResult,
+        )
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="FINAL_PROBE",
+                sender_id="CK",
+                recipient_id="CK",
+                candidate_text="Nothing.",
+                released_text="Nothing.",
+                target_exposed=False,
+                exposed_forget_ids=(),
+                contamination_state_changes=(
+                    ContaminationStateChange(
+                        agent_id="CK",
+                        forget_id="F001",
+                        before="contaminated",
+                        after="clean",
+                        reason="verified_cleanup",
+                    ),
+                ),
+            )
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        turn = loaded[0].turns[0]
+        assert turn.phase == "FINAL_PROBE"
+        assert turn.target_exposed is False
+        assert turn.exposed_forget_ids == ()
+        assert len(turn.contamination_state_changes) == 1
+        change = turn.contamination_state_changes[0]
+        assert change.agent_id == "CK"
+        assert change.forget_id == "F001"
+        assert change.before == "contaminated"
+        assert change.after == "clean"

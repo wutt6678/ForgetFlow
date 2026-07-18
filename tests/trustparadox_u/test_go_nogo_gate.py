@@ -318,43 +318,37 @@ class TestProtectedUnexpectedGate:
         """All protected conditions at zero -> gate passes."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
-        assert check_protected_unexpected_gate({
-            "no_firewall": 3,
-            "exact_only": 0,
-            "full_mvp": 0,
-        }) is True
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 3, "exact_only": 0, "full_mvp": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is True
 
     def test_one_protected_nonzero_fails(self) -> None:
         """One protected condition nonzero -> gate fails."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
-        assert check_protected_unexpected_gate({
-            "no_firewall": 0,
-            "exact_only": 1,
-            "full_mvp": 0,
-        }) is False
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 0, "exact_only": 1, "full_mvp": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is False
 
     def test_baseline_nonzero_protected_zero_passes(self) -> None:
         """no_firewall nonzero but all protected zero -> gate passes."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
-        assert check_protected_unexpected_gate({
-            "no_firewall": 5,
-            "exact_only": 0,
-            "full_mvp": 0,
-            "binary_policy": 0,
-        }) is True
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 5, "exact_only": 0, "full_mvp": 0, "binary_policy": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp", "binary_policy"},
+        ) is True
 
     def test_multiple_protected_one_fails(self) -> None:
         """Multiple protected conditions, one nonzero -> gate fails."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
-        assert check_protected_unexpected_gate({
-            "no_firewall": 2,
-            "exact_only": 0,
-            "full_mvp": 0,
-            "binary_policy": 1,
-        }) is False
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 2, "exact_only": 0, "full_mvp": 0, "binary_policy": 1},
+            required_conditions={"no_firewall", "exact_only", "full_mvp", "binary_policy"},
+        ) is False
 
     # Fail-closed tests (s3: required_conditions parameter)
 

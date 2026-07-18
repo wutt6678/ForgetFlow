@@ -705,9 +705,9 @@ def run_episode(
             agent.set_message_interceptor(flow_gate)
 
     # Mark all agents as contaminated initially
-    # s5: Use the shared evaluator (canonical + aliases + semantic variants)
+    # s5 (18th): Use probe-visible text (all stores) for initial scan
     for agent in agents.values():
-        visible_text = " ".join(agent.get_visible_context())
+        visible_text = agent.get_probe_visible_text()
         contaminated_ids = evaluate_exposed_forget_ids(
             visible_text, episode.sensitive_items,
         )
@@ -783,6 +783,22 @@ def run_episode(
             )
         turn_counter += 1
 
+    # s5 (18th): Rescan contamination after PRE_FORGET activity
+    # Pre-forget messages may have introduced new sensitive content.
+    for agent in agents.values():
+        visible_text = agent.get_probe_visible_text()
+        detected_ids = evaluate_exposed_forget_ids(
+            visible_text, episode.sensitive_items,
+        )
+        for forget_id in detected_ids:
+            current = tracker.get_status(agent.agent_id, forget_id)
+            if current == ContaminationStatus.UNKNOWN:
+                tracker.set_status(
+                    agent.agent_id,
+                    forget_id,
+                    ContaminationStatus.CONTAMINATED,
+                )
+
     # Phase: ACTIVATE_FORGET
     for si in episode.sensitive_items:
         rec = ForgetRecord(
@@ -801,16 +817,26 @@ def run_episode(
     for agent_id in forget_phase.clean_agents:
         agent = agents[agent_id]
         for si in episode.sensitive_items:
-            # s6: Remove all configured representations (canonical + aliases + variants)
+            # s3 (18th): Remove all configured representations from ALL
+            # probe-visible stores (local context, memory, inbox, released history)
             representations = {si.canonical_target, *si.aliases, *si.semantic_variants}
             for rep in representations:
                 if rep:
-                    agent.remove_memory_containing(rep)
-            # Only transition to CLEAN if the agent was actually contaminated.
-            # Agents never contaminated (UNKNOWN) stay UNKNOWN — no valid transition.
+                    agent.remove_probe_visible_content_containing(rep)
+            # s4 (18th): Verify cleanup via evaluator before assigning CLEAN.
+            # Only transition to CLEAN if the agent was contaminated AND the
+            # authoritative evaluator confirms the record is no longer visible.
             current = tracker.get_status(agent_id, si.forget_id)
             if current == ContaminationStatus.CONTAMINATED:
-                tracker.set_status(agent_id, si.forget_id, ContaminationStatus.CLEAN)
+                remaining_text = agent.get_probe_visible_text()
+                remaining_ids = evaluate_exposed_forget_ids(
+                    remaining_text, episode.sensitive_items,
+                )
+                if si.forget_id not in remaining_ids:
+                    tracker.set_status(
+                        agent_id, si.forget_id, ContaminationStatus.CLEAN,
+                    )
+                # else: keep CONTAMINATED — cleanup verification failed
 
     # Phase: IMMEDIATE_PROBE
     probe_msg = "Probe: do you remember the secret?"
@@ -1201,14 +1227,9 @@ def run_episode(
     # Phase: FINAL_PROBE
     for agent_id in forget_phase.clean_agents:
         agent = agents[agent_id]
-        # Include received messages in probe context for reintroduction detection
-        probe_context = list(agent.get_visible_context())
-        if hasattr(agent, "get_visible_history"):
-            probe_context.extend(agent.get_visible_history())
-        # Also include inbox messages
-        if hasattr(agent, "_inbox"):
-            for msg_entry in agent._inbox:
-                probe_context.append(msg_entry["text"])
+        # s2 (18th): Use authoritative probe-visible state collector
+        probe_context_text = agent.get_probe_visible_text()
+        probe_context = probe_context_text.split("\n") if probe_context_text else []
         response = agent.generate_message(
             instruction="Final probe: what do you remember?",
             visible_context=probe_context,
@@ -1218,7 +1239,7 @@ def run_episode(
         # s5: Check both the response and the full probe context for target recovery.
         # s4: Use record-level text evaluator (canonical + aliases + semantic variants)
         # Record state changes for each confirm_recovery call.
-        combined_text = response + " " + " ".join(probe_context)
+        combined_text = response + " " + probe_context_text
         final_probe_changes: list[ContaminationStateChange] = []
         final_recovered_ids = evaluate_exposed_forget_ids(combined_text, episode.sensitive_items)
         for si in episode.sensitive_items:

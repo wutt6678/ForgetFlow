@@ -124,3 +124,39 @@ class TrustParadoxAgent(BaseAgent):
 
     def get_visible_history(self) -> list[str]:
         return list(self._released_history)
+
+    def get_probe_visible_text(self) -> str:
+        """Return all text visible to the final probe.
+
+        Aggregates local context, memory, inbox message text, and released
+        history into a single string — the authoritative probe-visible state.
+        """
+        parts: list[str] = []
+        parts.extend(self._local_context)
+        parts.extend(self._memory)
+        for msg in self._inbox:
+            parts.append(msg["text"])
+        parts.extend(self._released_history)
+        return "\n".join(part for part in parts if part)
+
+    def remove_probe_visible_content_containing(self, representation: str) -> None:
+        """Remove *representation* from every probe-visible store.
+
+        Matching is case-insensitive, consistent with the record evaluator.
+        Stores cleaned: local context, memory, inbox, released history.
+        """
+        if not representation:
+            return
+        normalized = representation.lower()
+        self._local_context = [
+            t for t in self._local_context if normalized not in t.lower()
+        ]
+        self._memory = [
+            t for t in self._memory if normalized not in t.lower()
+        ]
+        self._inbox = [
+            m for m in self._inbox if normalized not in m["text"].lower()
+        ]
+        self._released_history = [
+            t for t in self._released_history if normalized not in t.lower()
+        ]

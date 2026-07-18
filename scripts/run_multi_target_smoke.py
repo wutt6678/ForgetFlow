@@ -235,25 +235,21 @@ class MultiTargetAssertion:
 
 def check_protected_unexpected_gate(
     unexpected_by_condition: dict[str, int],
-    required_conditions: set[str] | None = None,
+    required_conditions: set[str],
 ) -> bool:
     """Return True when all required protected conditions have zero unexpected recontamination.
 
     The ``no_firewall`` baseline is excluded from the protected set.
 
-    When *required_conditions* is provided the gate fails closed: every
-    required protected condition must be present in *unexpected_by_condition*.
-    Missing conditions cause the gate to return ``False``.
+    *required_conditions* is mandatory: every required protected condition
+    must be present in *unexpected_by_condition*.  Missing conditions
+    cause the gate to return ``False``.
     """
-    if required_conditions is not None:
-        required_protected = {c for c in required_conditions if c != "no_firewall"}
-        observed = set(unexpected_by_condition)
-        if not required_protected.issubset(observed):
-            return False
-        return all(unexpected_by_condition[c] == 0 for c in required_protected)
-    # Legacy path: check only observed non-baseline conditions
-    protected_conditions = [cid for cid in unexpected_by_condition if cid != "no_firewall"]
-    return all(unexpected_by_condition.get(cid, 0) == 0 for cid in protected_conditions)
+    required_protected = {c for c in required_conditions if c != "no_firewall"}
+    observed = set(unexpected_by_condition)
+    if not required_protected.issubset(observed):
+        return False
+    return all(unexpected_by_condition[c] == 0 for c in required_protected)
 
 
 def _validate_multi_target(
@@ -264,11 +260,14 @@ def _validate_multi_target(
     assertions: list[MultiTargetAssertion] = []
 
     # 1. Positive F001-only and F002-only exposure cases (s3 + s4)
+    # s6 (18th): Only POST_FORGET_ATTACK turns count as attack evidence
     f001_only = 0
     f002_only = 0
     both = 0
     for r in all_results:
         for turn in r.turns:
+            if turn.phase != "POST_FORGET_ATTACK":
+                continue
             exposed = set(turn.exposed_forget_ids)
             has_f001 = "F001" in exposed
             has_f002 = "F002" in exposed
@@ -382,6 +381,9 @@ def _validate_multi_target(
     isolation_mismatches: list[str] = []
     for r in all_results:
         for turn in r.turns:
+            # s6 (18th): Only POST_FORGET_ATTACK turns count as attack evidence
+            if turn.phase != "POST_FORGET_ATTACK":
+                continue
             exposed_ids = set(getattr(turn, "exposed_forget_ids", ()))
             turn_changes = list(getattr(turn, "contamination_state_changes", ()))
             changed_ids = {c.forget_id for c in turn_changes}
@@ -651,10 +653,17 @@ def _validate_multi_target(
 
     # 13. s8: Protected-condition unexpected recontamination gate
     # Calculate unexpected recontamination per condition
-    # s4: Detect missing metadata — do not silently default to zero
+    # s4 (17th): Detect missing metadata — do not silently default to zero
+    # s7 (18th): Reject empty required-condition result batches
+    required_conditions = {name for name, _, _ in CONDITIONS}
     unexpected_by_condition: dict[str, int] = {}
     missing_unexpected_metadata = False
-    for condition_id, results in condition_results.items():
+    missing_result_conditions: list[str] = []
+    for condition_id in required_conditions:
+        results = condition_results.get(condition_id)
+        if not results:
+            missing_result_conditions.append(condition_id)
+            continue
         condition_has_missing = False
         for r in results:
             if "unexpected_recontaminated_pair_count" not in r.metadata:
@@ -667,10 +676,8 @@ def _validate_multi_target(
                 r.metadata["unexpected_recontaminated_pair_count"]
                 for r in results
             )
-    # Required protected conditions from experiment configuration
-    required_conditions = {name for name, _, _ in CONDITIONS}
     # Protected conditions (all except no_firewall baseline) must have zero unexpected
-    if missing_unexpected_metadata:
+    if missing_result_conditions or missing_unexpected_metadata:
         protected_unexpected_valid = False
     else:
         protected_unexpected_valid = check_protected_unexpected_gate(
