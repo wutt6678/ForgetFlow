@@ -705,15 +705,18 @@ def run_episode(
             agent.set_message_interceptor(flow_gate)
 
     # Mark all agents as contaminated initially
-    for si in episode.sensitive_items:
-        for agent in agents.values():
-            for ctx_text in agent.get_visible_context():
-                if si.canonical_target.lower() in ctx_text.lower():
-                    tracker.set_status(
-                        agent.agent_id,
-                        si.forget_id,
-                        ContaminationStatus.CONTAMINATED,
-                    )
+    # s5: Use the shared evaluator (canonical + aliases + semantic variants)
+    for agent in agents.values():
+        visible_text = " ".join(agent.get_visible_context())
+        contaminated_ids = evaluate_exposed_forget_ids(
+            visible_text, episode.sensitive_items,
+        )
+        for forget_id in contaminated_ids:
+            tracker.set_status(
+                agent.agent_id,
+                forget_id,
+                ContaminationStatus.CONTAMINATED,
+            )
 
     turn_counter = 0
 
@@ -798,9 +801,11 @@ def run_episode(
     for agent_id in forget_phase.clean_agents:
         agent = agents[agent_id]
         for si in episode.sensitive_items:
-            agent.remove_memory_containing(si.canonical_target)
-            for alias in si.aliases:
-                agent.remove_memory_containing(alias)
+            # s6: Remove all configured representations (canonical + aliases + variants)
+            representations = {si.canonical_target, *si.aliases, *si.semantic_variants}
+            for rep in representations:
+                if rep:
+                    agent.remove_memory_containing(rep)
             # Only transition to CLEAN if the agent was actually contaminated.
             # Agents never contaminated (UNKNOWN) stay UNKNOWN — no valid transition.
             current = tracker.get_status(agent_id, si.forget_id)
@@ -1243,6 +1248,8 @@ def run_episode(
                 recipient_id=agent_id,
                 candidate_text=response,
                 released_text=response,
+                target_exposed=bool(final_recovered_ids),
+                exposed_forget_ids=tuple(sorted(final_recovered_ids)),
                 contamination_state_changes=tuple(final_probe_changes),
             )
         )

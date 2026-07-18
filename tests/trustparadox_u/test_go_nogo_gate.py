@@ -312,7 +312,7 @@ class TestGoNoGoGate:
 
 
 class TestProtectedUnexpectedGate:
-    """s6: Protected-condition unexpected-recontamination gate."""
+    """s3/s6: Protected-condition unexpected-recontamination gate."""
 
     def test_all_protected_zero_passes(self) -> None:
         """All protected conditions at zero -> gate passes."""
@@ -345,18 +345,6 @@ class TestProtectedUnexpectedGate:
             "binary_policy": 0,
         }) is True
 
-    def test_empty_dict_passes(self) -> None:
-        """No conditions at all -> gate passes (vacuously true)."""
-        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
-
-        assert check_protected_unexpected_gate({}) is True
-
-    def test_only_baseline_passes(self) -> None:
-        """Only no_firewall present -> gate passes (no protected conditions)."""
-        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
-
-        assert check_protected_unexpected_gate({"no_firewall": 99}) is True
-
     def test_multiple_protected_one_fails(self) -> None:
         """Multiple protected conditions, one nonzero -> gate fails."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
@@ -367,3 +355,57 @@ class TestProtectedUnexpectedGate:
             "full_mvp": 0,
             "binary_policy": 1,
         }) is False
+
+    # Fail-closed tests (s3: required_conditions parameter)
+
+    def test_fail_closed_empty_map(self) -> None:
+        """s3: Empty condition map with required conditions -> fail."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {}, required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is False
+
+    def test_fail_closed_baseline_only(self) -> None:
+        """s3: Only no_firewall present, required conditions missing -> fail."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 2}, required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is False
+
+    def test_fail_closed_missing_one_protected(self) -> None:
+        """s3: One required protected condition missing -> fail."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 2, "exact_only": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is False
+
+    def test_fail_closed_all_required_present_zero(self) -> None:
+        """s3: All required protected conditions present and zero -> pass."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 3, "exact_only": 0, "full_mvp": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is True
+
+    def test_fail_closed_one_required_nonzero(self) -> None:
+        """s3: All required present but one nonzero -> fail."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 0, "exact_only": 1, "full_mvp": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is False
+
+    def test_fail_closed_baseline_nonzero_protected_zero(self) -> None:
+        """s3: Baseline nonzero but all required protected zero -> pass."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert check_protected_unexpected_gate(
+            {"no_firewall": 5, "exact_only": 0, "full_mvp": 0},
+            required_conditions={"no_firewall", "exact_only", "full_mvp"},
+        ) is True

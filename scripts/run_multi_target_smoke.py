@@ -235,12 +235,23 @@ class MultiTargetAssertion:
 
 def check_protected_unexpected_gate(
     unexpected_by_condition: dict[str, int],
+    required_conditions: set[str] | None = None,
 ) -> bool:
-    """Return True when all protected conditions have zero unexpected recontamination.
+    """Return True when all required protected conditions have zero unexpected recontamination.
 
     The ``no_firewall`` baseline is excluded from the protected set.
-    Missing counts (key absent) are treated as zero.
+
+    When *required_conditions* is provided the gate fails closed: every
+    required protected condition must be present in *unexpected_by_condition*.
+    Missing conditions cause the gate to return ``False``.
     """
+    if required_conditions is not None:
+        required_protected = {c for c in required_conditions if c != "no_firewall"}
+        observed = set(unexpected_by_condition)
+        if not required_protected.issubset(observed):
+            return False
+        return all(unexpected_by_condition[c] == 0 for c in required_protected)
+    # Legacy path: check only observed non-baseline conditions
     protected_conditions = [cid for cid in unexpected_by_condition if cid != "no_firewall"]
     return all(unexpected_by_condition.get(cid, 0) == 0 for cid in protected_conditions)
 
@@ -640,15 +651,31 @@ def _validate_multi_target(
 
     # 13. s8: Protected-condition unexpected recontamination gate
     # Calculate unexpected recontamination per condition
+    # s4: Detect missing metadata — do not silently default to zero
     unexpected_by_condition: dict[str, int] = {}
+    missing_unexpected_metadata = False
     for condition_id, results in condition_results.items():
-        unexpected_count = sum(
-            r.metadata.get("unexpected_recontaminated_pair_count", 0)
-            for r in results
-        )
-        unexpected_by_condition[condition_id] = unexpected_count
+        condition_has_missing = False
+        for r in results:
+            if "unexpected_recontaminated_pair_count" not in r.metadata:
+                condition_has_missing = True
+                break
+        if condition_has_missing:
+            missing_unexpected_metadata = True
+        else:
+            unexpected_by_condition[condition_id] = sum(
+                r.metadata["unexpected_recontaminated_pair_count"]
+                for r in results
+            )
+    # Required protected conditions from experiment configuration
+    required_conditions = {name for name, _, _ in CONDITIONS}
     # Protected conditions (all except no_firewall baseline) must have zero unexpected
-    protected_unexpected_valid = check_protected_unexpected_gate(unexpected_by_condition)
+    if missing_unexpected_metadata:
+        protected_unexpected_valid = False
+    else:
+        protected_unexpected_valid = check_protected_unexpected_gate(
+            unexpected_by_condition, required_conditions,
+        )
     assertions.append(
         MultiTargetAssertion(
             name="protected_unexpected_recontamination_zero",
