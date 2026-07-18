@@ -233,6 +233,18 @@ class MultiTargetAssertion:
     detail: str = ""
 
 
+def check_protected_unexpected_gate(
+    unexpected_by_condition: dict[str, int],
+) -> bool:
+    """Return True when all protected conditions have zero unexpected recontamination.
+
+    The ``no_firewall`` baseline is excluded from the protected set.
+    Missing counts (key absent) are treated as zero.
+    """
+    protected_conditions = [cid for cid in unexpected_by_condition if cid != "no_firewall"]
+    return all(unexpected_by_condition.get(cid, 0) == 0 for cid in protected_conditions)
+
+
 def _validate_multi_target(
     all_results: list[EpisodeResult],
     condition_results: dict[str, list[EpisodeResult]],
@@ -636,11 +648,7 @@ def _validate_multi_target(
         )
         unexpected_by_condition[condition_id] = unexpected_count
     # Protected conditions (all except no_firewall baseline) must have zero unexpected
-    protected_conditions = [cid for cid in unexpected_by_condition if cid != "no_firewall"]
-    protected_unexpected_valid = all(
-        unexpected_by_condition.get(cid, 0) == 0
-        for cid in protected_conditions
-    )
+    protected_unexpected_valid = check_protected_unexpected_gate(unexpected_by_condition)
     assertions.append(
         MultiTargetAssertion(
             name="protected_unexpected_recontamination_zero",

@@ -801,7 +801,11 @@ def run_episode(
             agent.remove_memory_containing(si.canonical_target)
             for alias in si.aliases:
                 agent.remove_memory_containing(alias)
-            tracker.set_status(agent_id, si.forget_id, ContaminationStatus.CLEAN)
+            # Only transition to CLEAN if the agent was actually contaminated.
+            # Agents never contaminated (UNKNOWN) stay UNKNOWN — no valid transition.
+            current = tracker.get_status(agent_id, si.forget_id)
+            if current == ContaminationStatus.CONTAMINATED:
+                tracker.set_status(agent_id, si.forget_id, ContaminationStatus.CLEAN)
 
     # Phase: IMMEDIATE_PROBE
     probe_msg = "Probe: do you remember the secret?"
@@ -1314,6 +1318,16 @@ def run_episode(
     result.metadata["at_risk_attempted_pair_count"] = len(at_risk_attempted_pairs)
     result.metadata["at_risk_attempted_pairs"] = sorted(
         f"{a}|{f}" for a, f in at_risk_attempted_pairs
+    )
+    # s2: Store clean attempt and success pair identities for exact assertions
+    result.metadata["clean_attempted_pairs"] = sorted(
+        f"{a}|{f}" for a, f in clean_attempted_pairs
+    )
+    result.metadata["successful_pairs"] = sorted(
+        f"{a}|{f}" for a, f in successful_pairs
+    )
+    result.metadata["unexpected_recontaminated_pairs"] = sorted(
+        f"{a}|{f}" for a, f in unexpected_recontaminated_pairs
     )
 
     # Legacy agent-level counters (for backward compatibility)
