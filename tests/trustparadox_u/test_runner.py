@@ -1160,8 +1160,20 @@ class TestDetectorOnlyRunnerBranches:
     def _mock_detector(self, forget_ids: list[str]):
         from unittest.mock import MagicMock
 
-        from marble.firewall.types import DetectorResult
+        from marble.firewall.types import DetectorResult, RecordDetectionEvidence
 
+        # r7: Mock detector must provide record_evidence for matched IDs
+        record_evidence = tuple(
+            RecordDetectionEvidence(
+                forget_id=fid,
+                exact_score=0.0,
+                entity_score=0.0,
+                semantic_score=0.0,
+                reconstruction_score=0.0,
+                matched=True,
+            )
+            for fid in forget_ids
+        )
         mock = MagicMock()
         mock.detect.return_value = DetectorResult(
             exact_score=0.0,
@@ -1170,6 +1182,7 @@ class TestDetectorOnlyRunnerBranches:
             reconstruction_score=0.0,
             matched_forget_ids=tuple(forget_ids),
             evidence=("mock",),
+            record_evidence=record_evidence,
         )
         return mock
 

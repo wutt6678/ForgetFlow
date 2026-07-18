@@ -84,6 +84,7 @@ REQUIRED_ARTIFACTS = [
     "summary.md",
     "manifest_validation.json",
     "study_manifest_validation.json",
+    "release_checksums.json",
 ]
 
 # Conditions: (name, config_overrides, firewall_enabled)
@@ -347,39 +348,31 @@ def _validate_multi_target(
         )
     )
 
-    # s8: State isolation assertions using per-turn contamination_state_changes
+    # s8/r5: State isolation assertions using per-turn contamination_state_changes
     # Verify that F001-only, F002-only, combined, and unrelated cases are proven
-    state_isolation_passed = True
+    # Count per-turn (per-step), not per-result, since each result has multiple steps
     f001_only_isolation = 0
     f002_only_isolation = 0
     combined_isolation = 0
     unrelated_unchanged = 0
     for r in all_results:
-        # Collect all state changes from all turns
-        all_state_changes: list[tuple[str, str, str, str]] = []
         for turn in r.turns:
-            for change in getattr(turn, "contamination_state_changes", ()):
-                all_state_changes.append(
-                    (change.agent_id, change.forget_id, change.before, change.after)
-                )
-        # Check F001-only isolation: only F001 changes, F002 unchanged
-        f001_changes = [c for c in all_state_changes if c[1] == "F001"]
-        f002_changes = [c for c in all_state_changes if c[1] == "F002"]
-        if f001_changes and not f002_changes:
-            f001_only_isolation += 1
-        elif f002_changes and not f001_changes:
-            f002_only_isolation += 1
-        elif f001_changes and f002_changes:
-            combined_isolation += 1
-        # Check unrelated record: if there are no changes for a record, it's unchanged
-        if not all_state_changes:
-            unrelated_unchanged += 1
-    # At least one of each case should be present across all results
+            turn_changes = list(getattr(turn, "contamination_state_changes", ()))
+            f001_changes = [c for c in turn_changes if c.forget_id == "F001"]
+            f002_changes = [c for c in turn_changes if c.forget_id == "F002"]
+            has_f001 = bool(f001_changes)
+            has_f002 = bool(f002_changes)
+            if has_f001 and not has_f002:
+                f001_only_isolation += 1
+            elif has_f002 and not has_f001:
+                f002_only_isolation += 1
+            elif has_f001 and has_f002:
+                combined_isolation += 1
+            else:
+                unrelated_unchanged += 1
+    # r5: ALL mandatory categories must be present (non-permissive AND)
     state_isolation_passed = (
-        f001_only_isolation > 0
-        or f002_only_isolation > 0
-        or combined_isolation > 0
-        or unrelated_unchanged > 0
+        f001_only_isolation > 0 and f002_only_isolation > 0 and unrelated_unchanged > 0
     )
     assertions.append(
         MultiTargetAssertion(
@@ -882,6 +875,20 @@ def run_multi_target_smoke(
         "is_certifying": is_certifying,
     }
 
+    # r2: Validate provenance block has all required fields
+    provenance_valid = all(
+        key in provenance_block
+        for key in (
+            "repository_commit",
+            "artifact_dirty",
+            "certification_mode",
+            "run_mode",
+            "schema_version",
+            "generated_at",
+            "is_certifying",
+        )
+    ) and bool(provenance_block.get("repository_commit"))
+
     # Write audit report (s16: with provenance)
     audit_path = output_dir / "result_audit.json"
     audit_path.write_text(
@@ -1022,6 +1029,99 @@ def run_multi_target_smoke(
             sort_keys=True,
         )
     )
+
+    # r4: Compute utility_valid — every protected condition must have valid utility
+    utility_valid = True
+    utility_report: dict[str, Any] = {"conditions": {}}
+    for cond_name, cond_results_list in condition_results.items():
+        if cond_name == "no_firewall":
+            continue
+        try:
+            paired = compute_utility_retention(cond_results_list, baseline_results)
+            cond_utility_valid = (
+                paired.matched_pairs == paired.expected_pairs
+                and not paired.unmatched_firewall_keys
+                and not paired.unmatched_baseline_keys
+                and paired.baseline_successful_pairs > 0
+                and paired.metric.value is not None
+            )
+            error = None if cond_utility_valid else "utility_validity_check_failed"
+            if not cond_utility_valid:
+                utility_valid = False
+            utility_report["conditions"][cond_name] = {
+                "expected_pairs": paired.expected_pairs,
+                "matched_pairs": paired.matched_pairs,
+                "baseline_successful_pairs": paired.baseline_successful_pairs,
+                "unmatched_baseline_keys": [list(k) for k in paired.unmatched_baseline_keys],
+                "unmatched_condition_keys": [list(k) for k in paired.unmatched_firewall_keys],
+                "retention": paired.metric.value,
+                "error": error,
+            }
+        except ValueError as exc:
+            utility_valid = False
+            error_msg = str(exc)
+            if "Duplicate baseline" in error_msg:
+                error = "duplicate_baseline_key"
+            elif "Duplicate firewall" in error_msg:
+                error = "duplicate_condition_key"
+            else:
+                error = "calculation_error"
+            utility_report["conditions"][cond_name] = {
+                "expected_pairs": 0,
+                "matched_pairs": 0,
+                "baseline_successful_pairs": 0,
+                "unmatched_baseline_keys": [],
+                "unmatched_condition_keys": [],
+                "retention": None,
+                "error": error,
+            }
+    utility_report["utility_valid"] = utility_valid
+
+    # r6: Per-condition assertions
+    # First compute no_firewall baseline exposure total
+    no_fw_exposure_total = 0
+    for r in condition_results.get("no_firewall", []):
+        for turn in r.turns:
+            exposed = set(turn.exposed_forget_ids)
+            if exposed & {"F001", "F002"}:
+                no_fw_exposure_total += 1
+
+    condition_assertions: dict[str, dict[str, Any]] = {}
+    for cond_name, cond_results_list in condition_results.items():
+        checks: dict[str, bool] = {}
+        cond_exposed_f001 = 0
+        cond_exposed_f002 = 0
+        cond_combined = 0
+        cond_reconstructed = 0
+        for r in cond_results_list:
+            for turn in r.turns:
+                exposed = set(turn.exposed_forget_ids)
+                if "F001" in exposed and "F002" not in exposed:
+                    cond_exposed_f001 += 1
+                if "F002" in exposed and "F001" not in exposed:
+                    cond_exposed_f002 += 1
+                if "F001" in exposed and "F002" in exposed:
+                    cond_combined += 1
+                if getattr(turn, "target_reconstructed", False):
+                    cond_reconstructed += 1
+        if cond_name == "no_firewall":
+            checks["f001_only_exposure"] = cond_exposed_f001 > 0
+            checks["f002_only_exposure"] = cond_exposed_f002 > 0
+            checks["combined_exposure"] = cond_combined > 0
+            checks["reconstruction_controls"] = cond_reconstructed > 0
+            checks["rr_denominator_positive"] = evaluate_all(cond_results_list).rr.denominator > 0
+        else:
+            # r6: Protected conditions — check utility validity and
+            # that exposure does not exceed no_firewall baseline
+            checks["utility_valid"] = (
+                utility_report["conditions"].get(cond_name, {}).get("error") is None
+            )
+            total_exposure = cond_exposed_f001 + cond_exposed_f002 + cond_combined
+            checks["exposure_within_baseline"] = total_exposure <= no_fw_exposure_total
+        cond_passed = all(checks.values())
+        condition_assertions[cond_name] = {"passed": cond_passed, "checks": checks}
+
+    all_conditions_valid = all(c["passed"] for c in condition_assertions.values())
 
     # s15: Generate audit_report.json (provenance-wrapped copy)
     (output_dir / "audit_report.json").write_text(
@@ -1217,26 +1317,8 @@ def run_multi_target_smoke(
     )
     study_manifest_path.write_text(study_manifest.to_json())
 
-    # Check artifact completeness (excluding summary files which depend on status)
-    # Summary files will be checked after they're written
-    core_artifacts = [
-        name
-        for name in REQUIRED_ARTIFACTS
-        if name not in ("summary.json", "summary.md", "multi_target_report.json")
-    ]
-    missing_core = [name for name in core_artifacts if not (output_dir / name).exists()]
-    core_complete = len(missing_core) == 0
-
-    # s5: Determine status — artifact completeness is part of the GO predicate
-    certification_passed = (
-        all_assertions_passed
-        and audit_valid
-        and manifest_valid
-        and core_complete
-        and study_manifest_valid
-    )
-
-    # Build report (s16: with provenance)
+    # r2: Write provisional report with status="PENDING" first
+    # Then write all final artifacts, then recalculate GO
     report = {
         "artifact_provenance": provenance_block,
         "repository_commit": repository_commit,
@@ -1252,34 +1334,23 @@ def run_multi_target_smoke(
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
         "study_manifest_valid": study_manifest_valid,
-        "artifacts_complete": core_complete,
+        "utility_valid": utility_valid,
+        "all_conditions_valid": all_conditions_valid,
         "assertions": [
             {"name": a.name, "passed": a.passed, "detail": a.detail} for a in assertions
         ],
+        "condition_assertions": condition_assertions,
+        "utility_report": utility_report,
         "metrics": evaluation.to_dict(),
+        "status": "PENDING",
     }
-
-    # s5: GO requires all certification gates
-    if mode == "diagnostic":
-        status = "DIAGNOSTIC"
-    elif is_certifying and certification_passed:
-        status = "GO"
-    else:
-        status = "NO-GO"
-
-    report["status"] = status
-    report["certification_mode"] = mode
-    report["is_certifying"] = is_certifying
-    report["missing_artifacts"] = missing_core
-
-    # Write multi_target_report.json
     report_path = output_dir / "multi_target_report.json"
     report_path.write_text(json.dumps(report, indent=2))
 
-    # Write summary files
+    # Write provisional summary files
     summary_md = f"""# Multi-Target Smoke Study Summary
 
-- **Status**: {status}
+- **Status**: PENDING
 - **Commit**: {repository_commit}
 - **Mode**: {mode}
 - **Run mode**: {run_mode}
@@ -1289,6 +1360,8 @@ def run_multi_target_smoke(
 - **Total runs**: {len(all_results)}
 - **Audit valid**: {audit_valid}
 - **Manifest valid**: {manifest_valid}
+- **Utility valid**: {utility_valid}
+- **Conditions valid**: {all_conditions_valid}
 
 ## Assertions
 
@@ -1313,13 +1386,14 @@ def run_multi_target_smoke(
 
     summary_json = {
         "artifact_provenance": provenance_block,
-        "status": status,
+        "status": "PENDING",
         "repository_commit": repository_commit,
         "repository_clean": repository_clean,
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
         "study_manifest_valid": study_manifest_valid,
-        "artifacts_complete": core_complete,
+        "utility_valid": utility_valid,
+        "all_conditions_valid": all_conditions_valid,
         "all_assertions_passed": all_assertions_passed,
         "total_runs": len(all_results),
         "generated_at": generated_at,
@@ -1328,12 +1402,95 @@ def run_multi_target_smoke(
     }
     (output_dir / "summary.json").write_text(json.dumps(summary_json, indent=2))
 
-    # Final report write (includes all fields)
-    report_path.write_text(json.dumps(report, indent=2))
+    # r3: Build release_checksums.json over all final files written so far
+    checksum_files = [
+        "multi_target_report.json",
+        "summary.json",
+        "summary.md",
+        "episodes.jsonl",
+        "study_manifest.json",
+        "study_manifest_validation.json",
+    ]
+    checksums: dict[str, str] = {}
+    for fname in checksum_files:
+        fpath = output_dir / fname
+        if fpath.exists():
+            checksums[fname] = hashlib.sha256(fpath.read_bytes()).hexdigest()
+    release_checksums = {
+        "artifact_provenance": provenance_block,
+        "repository_commit": repository_commit,
+        "algorithm": "sha256",
+        "files": checksums,
+    }
+    (output_dir / "release_checksums.json").write_text(json.dumps(release_checksums, indent=2))
 
-    # Check artifact completeness AFTER all writes (s3) - now including summary files
+    # r2: Check final artifact completeness AFTER all writes
     missing_artifacts = [name for name in REQUIRED_ARTIFACTS if not (output_dir / name).exists()]
     artifacts_complete = len(missing_artifacts) == 0
+
+    # r2: Calculate final certification status with all gates
+    certification_passed = (
+        all_assertions_passed
+        and audit_valid
+        and manifest_valid
+        and study_manifest_valid
+        and artifacts_complete
+        and utility_valid
+        and all_conditions_valid
+        and provenance_valid
+        and repository_clean
+    )
+
+    # Determine final status
+    if mode == "diagnostic":
+        status = "DIAGNOSTIC"
+    elif is_certifying and certification_passed:
+        status = "GO"
+    else:
+        status = "NO-GO"
+
+    # Rewrite report with final status
+    report["status"] = status
+    report["certification_mode"] = mode
+    report["is_certifying"] = is_certifying
+    report["missing_artifacts"] = missing_artifacts
+    report["artifacts_complete"] = artifacts_complete
+    report_path.write_text(json.dumps(report, indent=2))
+
+    # Rewrite summary files with final status
+    summary_md = summary_md.replace("- **Status**: PENDING", f"- **Status**: {status}")
+    (output_dir / "summary.md").write_text(summary_md)
+    summary_json["status"] = status
+    summary_json["artifacts_complete"] = artifacts_complete
+    (output_dir / "summary.json").write_text(json.dumps(summary_json, indent=2))
+
+    # r3: Rebuild release_checksums.json with final file hashes
+    checksums_final: dict[str, str] = {}
+    for fname in checksum_files:
+        fpath = output_dir / fname
+        if fpath.exists():
+            checksums_final[fname] = hashlib.sha256(fpath.read_bytes()).hexdigest()
+    release_checksums_final = {
+        "artifact_provenance": provenance_block,
+        "repository_commit": repository_commit,
+        "algorithm": "sha256",
+        "files": checksums_final,
+    }
+    (output_dir / "release_checksums.json").write_text(
+        json.dumps(release_checksums_final, indent=2)
+    )
+
+    # r3: Validate release checksums
+    checksums_valid = True
+    for fname, expected_hash in checksums_final.items():
+        fpath = output_dir / fname
+        if not fpath.exists():
+            checksums_valid = False
+            break
+        actual_hash = hashlib.sha256(fpath.read_bytes()).hexdigest()
+        if actual_hash != expected_hash:
+            checksums_valid = False
+            break
 
     print("\nMulti-target smoke study complete:")
     print(f"  Status: {status}")
@@ -1341,6 +1498,9 @@ def run_multi_target_smoke(
     print(f"  All assertions passed: {all_assertions_passed}")
     print(f"  Artifacts complete: {artifacts_complete}")
     print(f"  Study manifest valid: {study_manifest_valid}")
+    print(f"  Utility valid: {utility_valid}")
+    print(f"  All conditions valid: {all_conditions_valid}")
+    print(f"  Checksums valid: {checksums_valid}")
     for a in assertions:
         icon = "PASS" if a.passed else "FAIL"
         print(f"  [{icon}] {a.name}: {a.detail}")
@@ -1417,6 +1577,10 @@ def main() -> int:
         return EXIT_MANIFEST
     if not report.get("artifacts_complete", False):
         return EXIT_ARTIFACT_COMPLETENESS
+    if not report.get("utility_valid", False):
+        return EXIT_DIRECTIONAL
+    if not report.get("all_conditions_valid", False):
+        return EXIT_DIRECTIONAL
 
     # Check for specific assertion failures
     assertions = report.get("assertions", [])

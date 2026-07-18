@@ -347,3 +347,181 @@ class TestContaminationStatus:
 
     def test_is_str(self) -> None:
         assert isinstance(ContaminationStatus.CLEAN, str)
+
+
+# ── r7: Record Evidence Completeness Invariant ──────────────
+
+
+class TestRecordEvidenceCompleteness:
+    """r10: Regression tests for validate_record_evidence_completeness."""
+
+    def test_valid_evidence_passes(self) -> None:
+        """Matched IDs with corresponding evidence entries pass."""
+        from marble.firewall.types import (
+            DetectorResult,
+            RecordDetectionEvidence,
+            validate_record_evidence_completeness,
+        )
+
+        dr = DetectorResult(
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("EXACT",),
+            record_evidence=(
+                RecordDetectionEvidence(
+                    forget_id="F001",
+                    exact_score=1.0,
+                    entity_score=0.0,
+                    semantic_score=0.0,
+                    reconstruction_score=0.0,
+                    matched=True,
+                ),
+            ),
+        )
+        # Should not raise
+        validate_record_evidence_completeness(dr)
+
+    def test_missing_evidence_for_matched_id_fails(self) -> None:
+        """Matched ID without evidence entry fails."""
+        from marble.firewall.types import (
+            DetectorResult,
+            validate_record_evidence_completeness,
+        )
+
+        dr = DetectorResult(
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("EXACT",),
+            record_evidence=(),  # No evidence
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="Missing record evidence"):
+            validate_record_evidence_completeness(dr)
+
+    def test_matched_false_for_matched_id_fails(self) -> None:
+        """Matched ID with matched=False in evidence fails."""
+        from marble.firewall.types import (
+            DetectorResult,
+            RecordDetectionEvidence,
+            validate_record_evidence_completeness,
+        )
+
+        dr = DetectorResult(
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("EXACT",),
+            record_evidence=(
+                RecordDetectionEvidence(
+                    forget_id="F001",
+                    exact_score=1.0,
+                    entity_score=0.0,
+                    semantic_score=0.0,
+                    reconstruction_score=0.0,
+                    matched=False,  # Wrong!
+                ),
+            ),
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="matched=False"):
+            validate_record_evidence_completeness(dr)
+
+    def test_unmatched_id_with_matched_true_fails(self) -> None:
+        """Unmatched ID with matched=True in evidence fails."""
+        from marble.firewall.types import (
+            DetectorResult,
+            RecordDetectionEvidence,
+            validate_record_evidence_completeness,
+        )
+
+        dr = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=(),  # No matched IDs
+            evidence=(),
+            record_evidence=(
+                RecordDetectionEvidence(
+                    forget_id="F001",
+                    exact_score=0.0,
+                    entity_score=0.0,
+                    semantic_score=0.0,
+                    reconstruction_score=0.0,
+                    matched=True,  # Wrong!
+                ),
+            ),
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="matched=True"):
+            validate_record_evidence_completeness(dr)
+
+    def test_duplicate_evidence_fails(self) -> None:
+        """Duplicate evidence entries fail."""
+        from marble.firewall.types import (
+            DetectorResult,
+            RecordDetectionEvidence,
+            validate_record_evidence_completeness,
+        )
+
+        ev = RecordDetectionEvidence(
+            forget_id="F001",
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched=True,
+        )
+        dr = DetectorResult(
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=("EXACT",),
+            record_evidence=(ev, ev),  # Duplicate!
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="Duplicate"):
+            validate_record_evidence_completeness(dr)
+
+    def test_unmatched_id_with_matched_false_passes(self) -> None:
+        """Unmatched ID with matched=False in evidence passes."""
+        from marble.firewall.types import (
+            DetectorResult,
+            RecordDetectionEvidence,
+            validate_record_evidence_completeness,
+        )
+
+        dr = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=(),
+            evidence=(),
+            record_evidence=(
+                RecordDetectionEvidence(
+                    forget_id="F001",
+                    exact_score=0.0,
+                    entity_score=0.0,
+                    semantic_score=0.0,
+                    reconstruction_score=0.0,
+                    matched=False,  # Correct - not matched
+                ),
+            ),
+        )
+        # Should not raise
+        validate_record_evidence_completeness(dr)

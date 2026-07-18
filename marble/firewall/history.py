@@ -74,8 +74,12 @@ class ReconstructionChecker:
                             return partial
 
         # Mechanism B: Fact-chain reconstruction
-        # Support both fact_chain_map (keyed by forget_id) and legacy fact_chains
+        # r8: For multi-target episodes, require fact_chain_map
         fact_chain_map = episode_metadata.get("fact_chain_map", {})
+        active_forget_ids = [rec.forget_id for rec in active_records]
+        if forget_id is not None:
+            active_forget_ids = [fid for fid in active_forget_ids if fid == forget_id]
+
         if fact_chain_map and forget_id is not None:
             chains = fact_chain_map.get(forget_id, [])
         elif fact_chain_map:
@@ -84,8 +88,14 @@ class ReconstructionChecker:
             for fid_chains in fact_chain_map.values():
                 chains.extend(fid_chains)
         else:
-            # Legacy flat fact_chains list
-            chains = episode_metadata.get("fact_chains", [])
+            # r8: Legacy flat fact_chains — only allowed for single-target episodes
+            legacy_chains = episode_metadata.get("fact_chains", [])
+            if len(active_forget_ids) > 1 and legacy_chains:
+                raise ValueError(
+                    "Multi-target episodes require fact_chain_map; "
+                    "flat fact_chains fallback is not permitted"
+                )
+            chains = legacy_chains
 
         for chain_group in chains:
             if not chain_group:

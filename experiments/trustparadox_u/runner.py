@@ -33,6 +33,7 @@ from marble.firewall.types import (
     ForgetRecord,
     RecordDetectionEvidence,
     evidence_for,
+    validate_record_evidence_completeness,
 )
 
 
@@ -404,6 +405,9 @@ def _update_detector_and_record_exposure(
         reconstruction_score=max_recon,
         record_evidence=tuple(updated_record_evidence),
     )
+
+    # r7: Enforce complete runtime record evidence invariant
+    validate_record_evidence_completeness(detector_result)
 
     detector_matched = set(detector_result.matched_forget_ids)
     for si in episode.sensitive_items:

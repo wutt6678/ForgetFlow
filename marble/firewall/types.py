@@ -137,6 +137,40 @@ def evidence_for(
     return None
 
 
+def validate_record_evidence_completeness(
+    detector_result: DetectorResult,
+) -> None:
+    """r7: Enforce complete runtime record evidence invariant.
+
+    Every matched forget ID must have a corresponding record-evidence
+    entry with matched=True. No unmatched forget ID should have
+    matched=True. No duplicate evidence entries allowed.
+    Raises ValueError if invariant is violated.
+    """
+    matched_ids = set(detector_result.matched_forget_ids)
+
+    # Check for duplicate evidence entries
+    evidence_ids = [ev.forget_id for ev in detector_result.record_evidence]
+    if len(evidence_ids) != len(set(evidence_ids)):
+        raise ValueError("Duplicate record evidence entries detected")
+
+    # Build map of evidence entries
+    evidence_map = {ev.forget_id: ev for ev in detector_result.record_evidence}
+
+    # Every matched ID must have evidence with matched=True
+    for mid in matched_ids:
+        ev = evidence_map.get(mid)
+        if ev is None:
+            raise ValueError(f"Missing record evidence for matched ID: {mid}")
+        if not ev.matched:
+            raise ValueError(f"Matched ID {mid} has matched=False in record evidence")
+
+    # No unmatched ID should have matched=True
+    for ev in detector_result.record_evidence:
+        if ev.matched and ev.forget_id not in matched_ids:
+            raise ValueError(f"Unmatched ID {ev.forget_id} has matched=True in record evidence")
+
+
 @dataclass(frozen=True)
 class FirewallDecision:
     """A firewall enforcement decision."""

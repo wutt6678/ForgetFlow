@@ -172,3 +172,99 @@ class TestMultiSenderHistory:
         ctx_r2 = rh.get_context("R2", window_size=5)
         score_r2 = checker.score("follow-up", ctx_r2, [self._rec()], meta)
         assert score_r2 < 1.0
+
+
+# ── r8: Fact-Chain Fallback Restriction ─────────────────────
+
+
+class TestFactChainRestriction:
+    """r10: Regression tests for multi-target fact-chain restriction."""
+
+    def _rec(self, forget_id: str = "F001") -> ForgetRecord:
+        return ForgetRecord(
+            forget_id=forget_id,
+            target_type="credential",
+            canonical_target="secret",
+            aliases=[],
+            semantic_variants=[],
+            permitted_residuals=[],
+            active_from_turn=0,
+        )
+
+    def test_single_target_legacy_fallback_passes(self) -> None:
+        """Single-target episode with legacy flat fact_chains passes."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="subject predicate object"
+            ),
+        )
+        meta = {
+            "fact_chains": [[("subject", "predicate", "object")]],
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        # Single record -> legacy fallback allowed
+        score = checker.score("follow-up", ctx, [self._rec()], meta)
+        assert score == 1.0
+
+    def test_multi_target_with_fact_chain_map_passes(self) -> None:
+        """Multi-target episode with fact_chain_map passes."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1 o1"
+            ),
+        )
+        meta = {
+            "fact_chain_map": {
+                "F001": [[("s1", "p1", "o1")]],
+                "F002": [[("s2", "p2", "o2")]],
+            },
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # Multi-target with fact_chain_map -> allowed
+        score = checker.score("follow-up", ctx, records, meta, forget_id="F001")
+        assert score == 1.0
+
+    def test_multi_target_with_legacy_fallback_fails(self) -> None:
+        """Multi-target episode with only flat fact_chains fails."""
+        import pytest
+
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s p o"),
+        )
+        meta = {
+            "fact_chains": [[("s", "p", "o")]],
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # Multi-target with only legacy flat chains -> raises
+        with pytest.raises(ValueError, match="Multi-target episodes require fact_chain_map"):
+            checker.score("follow-up", ctx, records, meta)
+
+    def test_multi_target_empty_legacy_chains_passes(self) -> None:
+        """Multi-target episode with empty legacy fact_chains passes (no fallback needed)."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="some text"
+            ),
+        )
+        meta = {
+            "fact_chains": [],  # Empty - no fallback needed
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # Multi-target with empty legacy chains -> allowed (no fallback used)
+        score = checker.score("follow-up", ctx, records, meta)
+        assert score == 0.0  # No reconstruction possible
