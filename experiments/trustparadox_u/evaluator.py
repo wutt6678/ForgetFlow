@@ -152,7 +152,9 @@ def compute_rr_clean(results: list[EpisodeResult]) -> MetricValue:
         recontaminated += getattr(r, "recontaminated_clean_pairs", 0)
     if attempted == 0:
         return MetricValue(None, 0, 0, "no clean/verified pair attempts")
-    assert recontaminated <= attempted, f"RR_clean invariant violated: {recontaminated} > {attempted}"
+    assert (
+        recontaminated <= attempted
+    ), f"RR_clean invariant violated: {recontaminated} > {attempted}"
     return MetricValue(recontaminated / attempted, recontaminated, attempted)
 
 

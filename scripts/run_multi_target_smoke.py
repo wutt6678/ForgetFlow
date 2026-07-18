@@ -449,8 +449,7 @@ def _validate_multi_target(
             name="positive_F002_reconstruction",
             passed=f002_recon_turns > 0,
             detail=(
-                f"F002-only reconstruction turns: {f002_recon_turns} "
-                f"(both={both_recon_turns})"
+                f"F002-only reconstruction turns: {f002_recon_turns} " f"(both={both_recon_turns})"
             ),
         )
     )
@@ -637,9 +636,7 @@ def _validate_disk_round_trip(
 
         # final_contamination_states
         if loaded.final_contamination_states != original.final_contamination_states:
-            record_field_errors.append(
-                f"run_id={run_id}: final_contamination_states mismatch"
-            )
+            record_field_errors.append(f"run_id={run_id}: final_contamination_states mismatch")
 
         # Pair-based counters
         if loaded.attempted_agent_record_pairs != original.attempted_agent_record_pairs:
@@ -660,9 +657,7 @@ def _validate_disk_round_trip(
             )
             continue
 
-        for turn_idx, (orig_turn, loaded_turn) in enumerate(
-            zip(original.turns, loaded.turns)
-        ):
+        for turn_idx, (orig_turn, loaded_turn) in enumerate(zip(original.turns, loaded.turns)):
             for field_name in (
                 "exposed_forget_ids",
                 "reconstructed_forget_ids",
@@ -772,7 +767,8 @@ def run_multi_target_smoke(
         for seed in SEEDS:
             for cond_name, cond_overrides, fw_enabled in CONDITIONS:
                 cfg = _make_config(
-                    seed, cond_overrides,
+                    seed,
+                    cond_overrides,
                     mode=run_mode,
                     require_clean_tree=require_clean,
                     models=models_config,
@@ -819,8 +815,14 @@ def run_multi_target_smoke(
         },
         "crr": {"numerator": evaluation.crr.numerator, "denominator": evaluation.crr.denominator},
         "rr": {"numerator": evaluation.rr.numerator, "denominator": evaluation.rr.denominator},
-        "rr_clean": {"numerator": evaluation.rr_clean.numerator, "denominator": evaluation.rr_clean.denominator},
-        "rr_at_risk": {"numerator": evaluation.rr_at_risk.numerator, "denominator": evaluation.rr_at_risk.denominator},
+        "rr_clean": {
+            "numerator": evaluation.rr_clean.numerator,
+            "denominator": evaluation.rr_clean.denominator,
+        },
+        "rr_at_risk": {
+            "numerator": evaluation.rr_at_risk.numerator,
+            "denominator": evaluation.rr_at_risk.denominator,
+        },
         "fbr": {"numerator": evaluation.fbr.numerator, "denominator": evaluation.fbr.denominator},
     }
     counts_path = output_dir / "metric_counts.json"

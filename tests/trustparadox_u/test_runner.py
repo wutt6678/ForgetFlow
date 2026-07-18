@@ -1553,7 +1553,9 @@ class TestMultiTargetIntegration:
         fcs = result.final_contamination_states
         # At least one record should have transitioned from clean
         at_risk_or_worse = [
-            status for status in fcs.values() if status in ("at_risk", "recontaminated", "contaminated")
+            status
+            for status in fcs.values()
+            if status in ("at_risk", "recontaminated", "contaminated")
         ]
         assert len(at_risk_or_worse) > 0
 

@@ -252,9 +252,7 @@ def deserialize_episode_result(
                 raise ValueError(f"Invalid status at index {index}: {status!r}")
             status_lower = status.lower()
             if status_lower not in VALID_CONTAMINATION_STATUSES:
-                raise ValueError(
-                    f"Invalid status at index {index}: {status!r}"
-                )
+                raise ValueError(f"Invalid status at index {index}: {status!r}")
             key = (agent_id, forget_id)
             if key in final_contamination_states:
                 raise ValueError(f"Duplicate final state for {key}")
@@ -268,9 +266,7 @@ def deserialize_episode_result(
                     raise ValueError(f"Duplicate final state for {key}")
                 final_contamination_states[key] = str(v)
     elif raw_fcs:
-        raise ValueError(
-            f"final_contamination_states must be a list, got {type(raw_fcs).__name__}"
-        )
+        raise ValueError(f"final_contamination_states must be a list, got {type(raw_fcs).__name__}")
 
     return EpisodeResult(
         run_id=data["run_id"],
