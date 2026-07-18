@@ -34,7 +34,10 @@ from experiments.trustparadox_u.config import (  # noqa: E402
     RunConfig,
 )
 from experiments.trustparadox_u.dataset import load_episode  # noqa: E402
-from experiments.trustparadox_u.evaluator import evaluate_all  # noqa: E402
+from experiments.trustparadox_u.evaluator import (  # noqa: E402
+    compute_utility_retention,
+    evaluate_all,
+)
 from experiments.trustparadox_u.manifest import get_repository_commit  # noqa: E402
 from experiments.trustparadox_u.runner import EpisodeResult, run_episode  # noqa: E402
 from experiments.trustparadox_u.serialization import (  # noqa: E402
@@ -893,10 +896,16 @@ def run_multi_target_smoke(
     evaluation = evaluate_all(all_results)
 
     # Write aggregate metrics (s16: with provenance)
+    # Utility is omitted at aggregate level — reported per-condition against no_firewall
+    agg_metrics_dict = evaluation.to_dict()
+    agg_metrics_dict["utility_retention"] = {
+        "value": None,
+        "reason": "utility retention is reported per condition against no_firewall",
+    }
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(
         json.dumps(
-            {"artifact_provenance": provenance_block, **evaluation.to_dict()},
+            {"artifact_provenance": provenance_block, **agg_metrics_dict},
             indent=2,
             sort_keys=True,
         )
@@ -929,10 +938,23 @@ def run_multi_target_smoke(
         )
     )
 
-    # Write per-condition metrics
+    # Write per-condition metrics with per-condition utility retention
+    baseline_results = condition_results.get("no_firewall", [])
     per_condition_metrics: dict[str, dict[str, Any]] = {}
-    for cond_name, results in condition_results.items():
-        per_condition_metrics[cond_name] = evaluate_all(results).to_dict()
+    for cond_name, cond_results_list in condition_results.items():
+        metrics = evaluate_all(cond_results_list)
+        if cond_name == "no_firewall":
+            utility = None
+        else:
+            try:
+                paired_utility = compute_utility_retention(cond_results_list, baseline_results)
+                utility = paired_utility.metric
+            except ValueError:
+                utility = None
+        metrics_payload = metrics.to_dict()
+        if utility is not None:
+            metrics_payload["utility_retention"] = utility.to_dict()
+        per_condition_metrics[cond_name] = metrics_payload
     (output_dir / "metrics_by_condition.json").write_text(
         json.dumps(
             {
@@ -943,38 +965,42 @@ def run_multi_target_smoke(
         )
     )
 
-    # s15: Generate utility_pairing.json and unmatched_pairs.json
-    from experiments.trustparadox_u.evaluator import compute_utility_retention
+    # s15: Generate utility_pairing.json with per-condition pairing detail
+    utility_pairing_data: dict[str, Any] = {
+        "baseline_condition": "no_firewall",
+        "conditions": {},
+    }
+    all_unmatched_fw: list[Any] = []
+    all_unmatched_bl: list[Any] = []
 
-    fw_results = [r for r in all_results if r.metadata.get("firewall_enabled", True)]
-    no_fw_results = [r for r in all_results if not r.metadata.get("firewall_enabled", True)]
-
-    if fw_results and no_fw_results:
+    for cond_name, cond_results_list in condition_results.items():
+        if cond_name == "no_firewall":
+            continue
         try:
-            utility_result = compute_utility_retention(fw_results, no_fw_results)
-            utility_pairing_data: dict[str, Any] = {
-                "matched_keys": [list(k) for k in utility_result.matched_keys],
-                "metric": utility_result.metric.to_dict(),
+            paired = compute_utility_retention(cond_results_list, baseline_results)
+            cond_entry: dict[str, Any] = {
+                "matched_pair_count": paired.matched_pairs,
+                "unmatched_baseline_keys": [list(k) for k in paired.unmatched_baseline_keys],
+                "unmatched_firewall_keys": [list(k) for k in paired.unmatched_firewall_keys],
+                "baseline_successful_pairs": paired.baseline_successful_pairs,
+                "protected_successful_pairs": paired.metric.numerator,
+                "utility_retention": paired.metric.to_dict(),
             }
-            unmatched_data: dict[str, Any] = {
-                "unmatched_firewall_keys": [
-                    list(k) for k in utility_result.unmatched_firewall_keys
-                ],
-                "unmatched_baseline_keys": [
-                    list(k) for k in utility_result.unmatched_baseline_keys
-                ],
-            }
+            all_unmatched_fw.extend([list(k) for k in paired.unmatched_firewall_keys])
+            all_unmatched_bl.extend([list(k) for k in paired.unmatched_baseline_keys])
         except ValueError:
-            # Duplicate pairing keys (e.g. multi-seed smoke study) — skip pairing
-            utility_pairing_data = {
-                "matched_keys": [],
-                "metric": None,
-                "reason": "duplicate_pairing_keys",
+            cond_entry = {
+                "matched_pair_count": 0,
+                "unmatched_baseline_keys": [],
+                "unmatched_firewall_keys": [],
+                "baseline_successful_pairs": 0,
+                "protected_successful_pairs": 0,
+                "utility_retention": {
+                    "value": None,
+                    "reason": "duplicate_pairing_keys",
+                },
             }
-            unmatched_data = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
-    else:
-        utility_pairing_data = {"matched_keys": [], "metric": None}
-        unmatched_data = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
+        utility_pairing_data["conditions"][cond_name] = cond_entry
 
     (output_dir / "utility_pairing.json").write_text(
         json.dumps(
@@ -983,6 +1009,12 @@ def run_multi_target_smoke(
             sort_keys=True,
         )
     )
+
+    # unmatched_pairs.json — aggregated unmatched keys across all conditions
+    unmatched_data: dict[str, Any] = {
+        "unmatched_firewall_keys": all_unmatched_fw,
+        "unmatched_baseline_keys": all_unmatched_bl,
+    }
     (output_dir / "unmatched_pairs.json").write_text(
         json.dumps(
             {"artifact_provenance": provenance_block, **unmatched_data},
