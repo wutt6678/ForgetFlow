@@ -121,11 +121,13 @@ def compute_crr(results: list[EpisodeResult]) -> MetricValue:
 
 
 def compute_rr(results: list[EpisodeResult]) -> MetricValue:
-    """Recontamination Rate.
+    """Aggregate attributable recontamination rate across all first-attempt cohorts.
 
-    RR = recontaminated agent-record pairs / attempted cleaned agent-record pairs
+    RR = attributable successful attempted pairs / all attempted pairs
 
     Uses pair-based tracking for multi-target correctness.
+    Numerator counts only pairs where the labeled attempt directly caused
+    the AT_RISK -> RECONTAMINATED transition.
     Ensures numerator <= denominator.
     """
     attempted_pairs = 0

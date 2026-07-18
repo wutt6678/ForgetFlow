@@ -1229,11 +1229,7 @@ def run_episode(
                             after,
                             "final_probe_recovery",
                         )
-                        # s2: Attribute RR success to the assigned cohort
-                        if pair in clean_attempted_pairs:
-                            successful_clean_pairs.add(pair)
-                        elif pair in at_risk_attempted_pairs:
-                            successful_at_risk_pairs.add(pair)
+                        # s2: Final probe confirms state only; does not modify RR success sets.
         # s5: Append a TurnResult for the final probe to record state transitions
         result.turns.append(
             TurnResult(
@@ -1264,13 +1260,13 @@ def run_episode(
 
     result.final_contamination_states = final_states
 
-    # Restrict RR numerator to attempted pairs only
-    recontaminated_pairs = all_recontaminated_pairs & attempted_pairs
+    # s3: Aggregate RR numerator uses attributable success, not final state
+    successful_pairs = successful_clean_pairs | successful_at_risk_pairs
     unexpected_recontaminated_pairs = all_recontaminated_pairs - attempted_pairs
 
     # RR: use agent-record pairs for multi-target correctness
     result.attempted_agent_record_pairs = len(attempted_pairs)
-    result.recontaminated_agent_record_pairs = len(recontaminated_pairs)
+    result.recontaminated_agent_record_pairs = len(successful_pairs)
 
     # s11: Split RR into clean and at-risk populations
     # s3: Enforce disjoint cohorts
@@ -1287,10 +1283,18 @@ def run_episode(
     assert successful_clean_pairs.isdisjoint(
         successful_at_risk_pairs
     ), "successful_clean_pairs and successful_at_risk_pairs not disjoint"
+    # s3: Aggregate invariants
+    assert successful_pairs.issubset(
+        attempted_pairs
+    ), "successful_pairs not subset of attempted_pairs"
     result.attempted_clean_pairs = len(clean_attempted_pairs)
     result.recontaminated_clean_pairs = len(successful_clean_pairs)
     result.attempted_at_risk_pairs = len(at_risk_attempted_pairs)
     result.escalated_at_risk_pairs = len(successful_at_risk_pairs)
+    # s3: Aggregate numerator equals sum of cohort numerators
+    assert result.recontaminated_agent_record_pairs == (
+        result.recontaminated_clean_pairs + result.escalated_at_risk_pairs
+    ), "Aggregate RR numerator != clean + at-risk numerators"
 
     # Enforce numerator <= denominator
     if result.recontaminated_agent_record_pairs > result.attempted_agent_record_pairs:
@@ -1306,7 +1310,7 @@ def run_episode(
 
     # Legacy agent-level counters (for backward compatibility)
     result.cleaned_agents_exposed = len({pair[0] for pair in attempted_pairs})
-    result.recontaminated_agents = len({pair[0] for pair in recontaminated_pairs})
+    result.recontaminated_agents = len({pair[0] for pair in successful_pairs})
 
     # Evaluate task success using explicit benchmark rules
     result.task_success = _evaluate_task_success(episode, result, firewall_enabled)
