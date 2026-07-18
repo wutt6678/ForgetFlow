@@ -166,14 +166,8 @@ class TrustParadoxAgent(BaseAgent):
             stripped = text.replace(REDACTION_PLACEHOLDER, "").strip()
             return not stripped
 
-        self._local_context = [
-            r for t in self._local_context
-            if not _is_empty(r := _redact(t))
-        ]
-        self._memory = [
-            r for t in self._memory
-            if not _is_empty(r := _redact(t))
-        ]
+        self._local_context = [r for t in self._local_context if not _is_empty(r := _redact(t))]
+        self._memory = [r for t in self._memory if not _is_empty(r := _redact(t))]
         # Preserve inbox metadata: replace text, keep sender/ordering
         new_inbox: list[dict[str, Any]] = []
         for m in self._inbox:
@@ -182,6 +176,5 @@ class TrustParadoxAgent(BaseAgent):
                 new_inbox.append({**m, "text": redacted})
         self._inbox = new_inbox
         self._released_history = [
-            r for t in self._released_history
-            if not _is_empty(r := _redact(t))
+            r for t in self._released_history if not _is_empty(r := _redact(t))
         ]

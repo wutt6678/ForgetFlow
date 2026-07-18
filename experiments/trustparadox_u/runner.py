@@ -727,7 +727,8 @@ def run_episode(
     for agent in agents.values():
         visible_text = agent.get_probe_visible_text()
         contaminated_ids = evaluate_exposed_forget_ids(
-            visible_text, episode.sensitive_items,
+            visible_text,
+            episode.sensitive_items,
         )
         for forget_id in contaminated_ids:
             tracker.set_status(
@@ -816,7 +817,8 @@ def run_episode(
     for agent in agents.values():
         visible_text = agent.get_probe_visible_text()
         detected_ids = evaluate_exposed_forget_ids(
-            visible_text, episode.sensitive_items,
+            visible_text,
+            episode.sensitive_items,
         )
         for forget_id in detected_ids:
             current = tracker.get_status(agent.agent_id, forget_id)
@@ -858,11 +860,14 @@ def run_episode(
             if current == ContaminationStatus.CONTAMINATED:
                 remaining_text = agent.get_probe_visible_text()
                 remaining_ids = evaluate_exposed_forget_ids(
-                    remaining_text, episode.sensitive_items,
+                    remaining_text,
+                    episode.sensitive_items,
                 )
                 if si.forget_id not in remaining_ids:
                     tracker.set_status(
-                        agent_id, si.forget_id, ContaminationStatus.CLEAN,
+                        agent_id,
+                        si.forget_id,
+                        ContaminationStatus.CLEAN,
                     )
                 # else: keep CONTAMINATED — cleanup verification failed
 
@@ -1391,12 +1396,8 @@ def run_episode(
         f"{a}|{f}" for a, f in at_risk_attempted_pairs
     )
     # s2: Store clean attempt and success pair identities for exact assertions
-    result.metadata["clean_attempted_pairs"] = sorted(
-        f"{a}|{f}" for a, f in clean_attempted_pairs
-    )
-    result.metadata["successful_pairs"] = sorted(
-        f"{a}|{f}" for a, f in successful_pairs
-    )
+    result.metadata["clean_attempted_pairs"] = sorted(f"{a}|{f}" for a, f in clean_attempted_pairs)
+    result.metadata["successful_pairs"] = sorted(f"{a}|{f}" for a, f in successful_pairs)
     result.metadata["unexpected_recontaminated_pairs"] = sorted(
         f"{a}|{f}" for a, f in unexpected_recontaminated_pairs
     )

@@ -673,15 +673,15 @@ def _validate_multi_target(
             missing_unexpected_metadata = True
         else:
             unexpected_by_condition[condition_id] = sum(
-                r.metadata["unexpected_recontaminated_pair_count"]
-                for r in results
+                r.metadata["unexpected_recontaminated_pair_count"] for r in results
             )
     # Protected conditions (all except no_firewall baseline) must have zero unexpected
     if missing_result_conditions or missing_unexpected_metadata:
         protected_unexpected_valid = False
     else:
         protected_unexpected_valid = check_protected_unexpected_gate(
-            unexpected_by_condition, required_conditions,
+            unexpected_by_condition,
+            required_conditions,
         )
     assertions.append(
         MultiTargetAssertion(
