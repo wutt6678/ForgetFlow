@@ -52,8 +52,18 @@ class ContaminationTracker:
         reconstruction_threshold: float = 0.60,
         reconstruction_score: float | None = None,
         evidence: RecordDetectionEvidence | None = None,
+        exact_threshold: float = 1.0,
+        entity_threshold: float = 0.5,
+        semantic_threshold: float = 0.5,
     ) -> None:
         """Record exposure for a specific agent/forget_id pair.
+
+        s9: A released record-level detector match is confirmed exposure when
+        ANY configured threshold is met (OR rule):
+        - exact_score >= exact_threshold OR
+        - entity_score >= entity_threshold OR
+        - semantic_score >= semantic_threshold OR
+        - reconstruction_score >= reconstruction_threshold
 
         If per-record evidence is provided, use its scores instead of the
         aggregate detector_result scores.
@@ -61,21 +71,36 @@ class ContaminationTracker:
         current = self.get_status(agent_id, forget_id)
         if current in (ContaminationStatus.CLEAN, ContaminationStatus.VERIFIED):
             if evidence is not None:
-                # Use per-record evidence
-                score = (
+                # Use per-record evidence scores
+                recon_score = (
                     reconstruction_score
                     if reconstruction_score is not None
                     else evidence.reconstruction_score
                 )
-                if evidence.exact_score == 1.0 or score >= reconstruction_threshold:
+                # s9: OR rule - any threshold met confirms exposure
+                confirmed_exposure = (
+                    evidence.exact_score >= exact_threshold
+                    or evidence.entity_score >= entity_threshold
+                    or evidence.semantic_score >= semantic_threshold
+                    or recon_score >= reconstruction_threshold
+                )
+                if confirmed_exposure:
                     self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
             else:
-                score = (
+                # Use aggregate detector_result scores
+                recon_score = (
                     reconstruction_score
                     if reconstruction_score is not None
                     else detector_result.reconstruction_score
                 )
-                if detector_result.exact_score == 1.0 or score >= reconstruction_threshold:
+                # s9: OR rule - any threshold met confirms exposure
+                confirmed_exposure = (
+                    detector_result.exact_score >= exact_threshold
+                    or detector_result.entity_score >= entity_threshold
+                    or detector_result.semantic_score >= semantic_threshold
+                    or recon_score >= reconstruction_threshold
+                )
+                if confirmed_exposure:
                     self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
 
     def record_confirmed_text_exposure(

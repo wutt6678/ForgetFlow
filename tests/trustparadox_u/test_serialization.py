@@ -10,13 +10,19 @@ import pytest
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 from experiments.trustparadox_u.serialization import (
     RESULT_SCHEMA_VERSION,
+    UNVERSIONED_RESULT_SCHEMA,
     deserialize_contamination_status,
     deserialize_detector_result,
     deserialize_firewall_decision,
+    deserialize_record_evidence,
     load_episode_results,
     serialize_episode_result,
 )
-from marble.firewall.types import ContaminationStatus, DetectorResult, FirewallDecision
+from marble.firewall.types import (
+    ContaminationStatus,
+    DetectorResult,
+    FirewallDecision,
+)
 
 
 class TestDeserializeDetectorResult:
@@ -978,7 +984,6 @@ class TestSchemaVersionConstants:
         from experiments.trustparadox_u.serialization import (
             LEGACY_RESULT_SCHEMA_VERSION,
             RESULT_SCHEMA_VERSION,
-            UNVERSIONED_RESULT_SCHEMA,
         )
 
         assert UNVERSIONED_RESULT_SCHEMA == "0"
@@ -1327,3 +1332,168 @@ class TestFinalContaminationStates:
         assert loaded[0].recontaminated_clean_pairs == 3
         assert loaded[0].attempted_at_risk_pairs == 5
         assert loaded[0].escalated_at_risk_pairs == 2
+
+
+class TestDeserializeRecordEvidence:
+    """Tests for strict per-record detector evidence deserialization (s13)."""
+
+    def test_valid_evidence(self) -> None:
+        """Valid evidence should deserialize correctly."""
+        raw = [
+            {
+                "forget_id": "F001",
+                "exact_score": 1.0,
+                "entity_score": 0.5,
+                "semantic_score": 0.3,
+                "reconstruction_score": 0.0,
+                "matched": True,
+            },
+            {
+                "forget_id": "F002",
+                "exact_score": 0.0,
+                "entity_score": 0.0,
+                "semantic_score": 0.0,
+                "reconstruction_score": 0.0,
+                "matched": False,
+            },
+        ]
+        result = deserialize_record_evidence(raw, ("F001",))
+        assert len(result) == 2
+        assert result[0].forget_id == "F001"
+        assert result[0].matched is True
+        assert result[1].forget_id == "F002"
+        assert result[1].matched is False
+
+    def test_empty_evidence(self) -> None:
+        """Empty list should deserialize to empty tuple."""
+        result = deserialize_record_evidence([], ())
+        assert result == ()
+
+    def test_duplicate_forget_id(self) -> None:
+        """Duplicate forget IDs should raise ValueError."""
+        raw = [
+            {"forget_id": "F001", "exact_score": 0.0, "matched": False},
+            {"forget_id": "F001", "exact_score": 0.5, "matched": True},
+        ]
+        with pytest.raises(ValueError, match="duplicate forget_id"):
+            deserialize_record_evidence(raw, ())
+
+    def test_missing_forget_id(self) -> None:
+        """Missing forget_id should raise ValueError."""
+        raw = [{"exact_score": 0.5, "matched": False}]
+        with pytest.raises(ValueError, match="nonempty string"):
+            deserialize_record_evidence(raw, ())
+
+    def test_empty_forget_id(self) -> None:
+        """Empty forget_id should raise ValueError."""
+        raw = [{"forget_id": "", "exact_score": 0.5, "matched": False}]
+        with pytest.raises(ValueError, match="nonempty string"):
+            deserialize_record_evidence(raw, ())
+
+    def test_invalid_score_type(self) -> None:
+        """Non-numeric score should raise ValueError."""
+        raw = [{"forget_id": "F001", "exact_score": "high", "matched": False}]
+        with pytest.raises(ValueError, match="must be numeric"):
+            deserialize_record_evidence(raw, ())
+
+    def test_bool_score_rejected(self) -> None:
+        """Boolean score should raise ValueError."""
+        raw = [{"forget_id": "F001", "exact_score": True, "matched": False}]
+        with pytest.raises(ValueError, match="must be numeric, not bool"):
+            deserialize_record_evidence(raw, ())
+
+    def test_out_of_range_score(self) -> None:
+        """Score outside [0, 1] should raise ValueError."""
+        raw = [{"forget_id": "F001", "exact_score": 1.5, "matched": False}]
+        with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
+            deserialize_record_evidence(raw, ())
+
+    def test_negative_score(self) -> None:
+        """Negative score should raise ValueError."""
+        raw = [{"forget_id": "F001", "exact_score": -0.1, "matched": False}]
+        with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
+            deserialize_record_evidence(raw, ())
+
+    def test_non_boolean_matched(self) -> None:
+        """Non-boolean matched should raise ValueError."""
+        raw = [{"forget_id": "F001", "exact_score": 0.5, "matched": 1}]
+        with pytest.raises(ValueError, match="must be boolean"):
+            deserialize_record_evidence(raw, ())
+
+    def test_mismatch_with_matched_ids(self) -> None:
+        """matched_forget_ids must match evidence with matched=True."""
+        raw = [
+            {"forget_id": "F001", "exact_score": 1.0, "matched": True},
+        ]
+        # F001 is matched in evidence but matched_forget_ids says F002
+        with pytest.raises(ValueError, match="does not match"):
+            deserialize_record_evidence(raw, ("F002",))
+
+    def test_non_object_entry(self) -> None:
+        """Non-object entry should raise ValueError."""
+        raw = ["not_an_object"]
+        with pytest.raises(ValueError, match="must be an object"):
+            deserialize_record_evidence(raw, ())
+
+    def test_non_list_input(self) -> None:
+        """Non-list input should raise ValueError."""
+        with pytest.raises(ValueError, match="must be a list"):
+            deserialize_record_evidence("not_a_list", ())
+
+    def test_integer_score_accepted(self) -> None:
+        """Integer scores (0 and 1) should be accepted."""
+        raw = [
+            {"forget_id": "F001", "exact_score": 1, "entity_score": 0, "matched": True},
+        ]
+        result = deserialize_record_evidence(raw, ("F001",))
+        assert result[0].exact_score == 1.0
+        assert result[0].entity_score == 0.0
+
+
+class TestLegacyFinalStateRestriction:
+    """Tests for s14: legacy dict form restricted to old schemas."""
+
+    def test_schema_1_1_rejects_dict_form(self, tmp_path: Path) -> None:
+        """Schema 1.1 must reject legacy dict form."""
+        episode_data = {
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "final_contamination_states": {
+                '["CK", "F001"]': "clean",
+            },
+        }
+        record = {
+            "schema_version": RESULT_SCHEMA_VERSION,
+            "episode": episode_data,
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(record) + "\n")
+        with pytest.raises(ValueError, match="must be a list for schema"):
+            load_episode_results(episodes_file)
+
+    def test_legacy_schema_accepts_dict_form(self, tmp_path: Path) -> None:
+        """Schema 1.0 should still accept legacy dict form."""
+        episode_data = {
+            "run_id": "r1",
+            "episode_id": "ep1",
+            "scenario_id": "s1",
+            "trust_level": "default",
+            "seed": 42,
+            "turns": [],
+            "contamination_states": {},
+            "final_contamination_states": {},
+        }
+        record = {
+            "schema_version": "1.0",
+            "episode": episode_data,
+        }
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(record) + "\n")
+        # Should not raise
+        results = load_episode_results(episodes_file)
+        assert len(results) == 1

@@ -75,40 +75,141 @@ def deserialize_id_tuple(data: Mapping[str, object], field: str) -> tuple[str, .
     return tuple(values)
 
 
-def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult:
+def deserialize_record_evidence(
+    raw: object,
+    matched_forget_ids: tuple[str, ...] = (),
+) -> tuple[RecordDetectionEvidence, ...]:
+    """Strictly deserialize per-record detector evidence (s13).
+
+    Validates:
+    - raw must be a list
+    - every entry must be a mapping
+    - forget_id must be a nonempty string
+    - forget IDs must be unique
+    - scores must be numeric and in [0, 1]
+    - matched must be boolean
+    - matched_forget_ids must equal the set of forget_ids where matched=True
+    """
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError(f"record_evidence must be a list, got {type(raw).__name__}")
+
+    evidence: list[RecordDetectionEvidence] = []
+    seen_ids: set[str] = set()
+    score_fields = ("exact_score", "entity_score", "semantic_score", "reconstruction_score")
+
+    for index, item in enumerate(raw):
+        if not isinstance(item, Mapping):
+            raise ValueError(
+                f"record_evidence[{index}] must be an object, " f"got {type(item).__name__}"
+            )
+
+        # forget_id: required nonempty string
+        forget_id = item.get("forget_id")
+        if not isinstance(forget_id, str) or not forget_id:
+            raise ValueError(f"record_evidence[{index}].forget_id must be a nonempty string")
+        if forget_id in seen_ids:
+            raise ValueError(f"record_evidence contains duplicate forget_id: {forget_id!r}")
+        seen_ids.add(forget_id)
+
+        # scores: must be numeric and in [0, 1]
+        scores: dict[str, float] = {}
+        for field in score_fields:
+            value = item.get(field, 0.0)
+            if isinstance(value, bool):
+                raise ValueError(f"record_evidence[{index}].{field} must be numeric, not bool")
+            if not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"record_evidence[{index}].{field} must be numeric, "
+                    f"got {type(value).__name__}"
+                )
+            fval = float(value)
+            if fval < 0.0 or fval > 1.0:
+                raise ValueError(f"record_evidence[{index}].{field} must be in [0, 1], got {fval}")
+            scores[field] = fval
+
+        # matched: must be boolean
+        matched = item.get("matched", False)
+        if not isinstance(matched, bool):
+            raise ValueError(
+                f"record_evidence[{index}].matched must be boolean, "
+                f"got {type(matched).__name__}"
+            )
+
+        evidence.append(
+            RecordDetectionEvidence(
+                forget_id=forget_id,
+                exact_score=scores["exact_score"],
+                entity_score=scores["entity_score"],
+                semantic_score=scores["semantic_score"],
+                reconstruction_score=scores["reconstruction_score"],
+                matched=matched,
+            )
+        )
+
+    # matched_forget_ids must equal the set of forget_ids where matched=True
+    # Only cross-check when record_evidence is non-empty
+    if evidence:
+        matched_evidence_ids = tuple(sorted(e.forget_id for e in evidence if e.matched))
+        expected_matched = tuple(sorted(matched_forget_ids))
+        if matched_evidence_ids != expected_matched:
+            raise ValueError(
+                f"matched_forget_ids {expected_matched} does not match "
+                f"evidence with matched=True {matched_evidence_ids}"
+            )
+
+    return tuple(evidence)
+
+
+def deserialize_detector_result(
+    data: Mapping[str, Any] | Any,
+    *,
+    strict: bool = True,
+) -> DetectorResult:
     """Deserialize a DetectorResult from a JSON dict."""
     if data is None:
         raise ValueError("DetectorResult payload is null")
     if not isinstance(data, Mapping):
         raise TypeError(f"DetectorResult payload must be a mapping, got {type(data).__name__}")
 
+    matched_forget_ids = tuple(str(v) for v in data.get("matched_forget_ids", []))
+
     # Deserialize per-record evidence
-    record_evidence: list[RecordDetectionEvidence] = []
-    for item in data.get("record_evidence", []):
-        if isinstance(item, Mapping):
-            record_evidence.append(
-                RecordDetectionEvidence(
-                    forget_id=str(item["forget_id"]),
-                    exact_score=float(item.get("exact_score", 0.0)),
-                    entity_score=float(item.get("entity_score", 0.0)),
-                    semantic_score=float(item.get("semantic_score", 0.0)),
-                    reconstruction_score=float(item.get("reconstruction_score", 0.0)),
-                    matched=bool(item.get("matched", False)),
+    raw_evidence = data.get("record_evidence", [])
+    if strict:
+        record_evidence = deserialize_record_evidence(raw_evidence, matched_forget_ids)
+    else:
+        # Legacy lenient path for old schemas
+        record_evidence_list: list[RecordDetectionEvidence] = []
+        for item in raw_evidence:
+            if isinstance(item, Mapping):
+                record_evidence_list.append(
+                    RecordDetectionEvidence(
+                        forget_id=str(item["forget_id"]),
+                        exact_score=float(item.get("exact_score", 0.0)),
+                        entity_score=float(item.get("entity_score", 0.0)),
+                        semantic_score=float(item.get("semantic_score", 0.0)),
+                        reconstruction_score=float(item.get("reconstruction_score", 0.0)),
+                        matched=bool(item.get("matched", False)),
+                    )
                 )
-            )
+        record_evidence = tuple(record_evidence_list)
 
     return DetectorResult(
         exact_score=float(data.get("exact_score", 0.0)),
         entity_score=float(data.get("entity_score", 0.0)),
         semantic_score=float(data.get("semantic_score", 0.0)),
         reconstruction_score=float(data.get("reconstruction_score", 0.0)),
-        matched_forget_ids=tuple(str(v) for v in data.get("matched_forget_ids", [])),
+        matched_forget_ids=matched_forget_ids,
         evidence=tuple(str(v) for v in data.get("evidence", [])),
-        record_evidence=tuple(record_evidence),
+        record_evidence=record_evidence,
     )
 
 
-def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> FirewallDecision | None:
+def deserialize_firewall_decision(
+    data: Mapping[str, Any] | None | Any,
+    *,
+    strict: bool = True,
+) -> FirewallDecision | None:
     """Deserialize a FirewallDecision from a JSON dict."""
     if data is None:
         return None
@@ -139,7 +240,7 @@ def deserialize_firewall_decision(data: Mapping[str, Any] | None | Any) -> Firew
     return FirewallDecision(
         action=cast(FirewallAction, raw_action),
         released_text=released_text,
-        detector_result=deserialize_detector_result(detector_payload),
+        detector_result=deserialize_detector_result(detector_payload, strict=strict),
         reason_codes=tuple(str(code) for code in data.get("reason_codes", [])),
         policy_version=str(data.get("policy_version", "")),
         latency_ms=float(data.get("latency_ms", 0.0)),
@@ -176,13 +277,32 @@ def deserialize_contamination_status(data: Any) -> ContaminationStatus:
         raise ValueError(f"Unknown contamination status: {value!r}") from exc
 
 
-def deserialize_turn(data: dict[str, Any]) -> TurnResult:
+def deserialize_turn(
+    data: dict[str, Any],
+    *,
+    schema_version: str = RESULT_SCHEMA_VERSION,
+) -> TurnResult:
     """Deserialize a TurnResult from a JSON dict."""
+    strict = parse_schema_version(schema_version) >= (1, 1)
     # Parse and normalize ID fields using strict validation
     target_forget_ids = deserialize_id_tuple(data, "target_forget_ids")
     exposed_forget_ids = deserialize_id_tuple(data, "exposed_forget_ids")
     reconstructed_forget_ids = deserialize_id_tuple(data, "reconstructed_forget_ids")
     reintroduced_forget_ids = deserialize_id_tuple(data, "reintroduced_forget_ids")
+
+    # Deserialize contamination state changes
+    from experiments.trustparadox_u.runner import ContaminationStateChange
+
+    contamination_state_changes = tuple(
+        ContaminationStateChange(
+            agent_id=change["agent_id"],
+            forget_id=change["forget_id"],
+            before=change["before"],
+            after=change["after"],
+            reason=change["reason"],
+        )
+        for change in data.get("contamination_state_changes", [])
+    )
 
     return TurnResult(
         turn_id=data["turn_id"],
@@ -191,7 +311,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         recipient_id=data["recipient_id"],
         candidate_text=data["candidate_text"],
         released_text=data.get("released_text"),
-        decision=deserialize_firewall_decision(data.get("decision")),
+        decision=deserialize_firewall_decision(data.get("decision"), strict=strict),
         attack_type=data.get("attack_type"),
         attack_step_index=data.get("attack_step_index"),
         is_attack_attempt=data.get("is_attack_attempt", False),
@@ -207,6 +327,7 @@ def deserialize_turn(data: dict[str, Any]) -> TurnResult:
         reintroduced_forget_ids=reintroduced_forget_ids,
         task_relevant=data.get("task_relevant", False),
         task_contribution_successful=data.get("task_contribution_successful", False),
+        contamination_state_changes=contamination_state_changes,
     )
 
 
@@ -215,7 +336,7 @@ def deserialize_episode_result(
     schema_version: str = RESULT_SCHEMA_VERSION,
 ) -> EpisodeResult:
     """Deserialize an EpisodeResult from a JSON dict."""
-    turns = [deserialize_turn(t) for t in data.get("turns", [])]
+    turns = [deserialize_turn(t, schema_version=schema_version) for t in data.get("turns", [])]
 
     contamination_states = {}
     for agent_id, status_data in data.get("contamination_states", {}).items():
@@ -258,6 +379,12 @@ def deserialize_episode_result(
                 raise ValueError(f"Duplicate final state for {key}")
             final_contamination_states[key] = status_lower
     elif isinstance(raw_fcs, dict):
+        # s14: Allow legacy dict form only for schema 0 and 1.0
+        if schema_version == RESULT_SCHEMA_VERSION:
+            raise ValueError(
+                f"final_contamination_states must be a list for schema "
+                f"{schema_version}, got dict"
+            )
         # Handle legacy dict form with tuple-like keys
         for k, v in raw_fcs.items():
             if isinstance(k, (list, tuple)) and len(k) == 2:

@@ -54,6 +54,37 @@ def stable_component_hash(payload: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _record_state_change(
+    changes: list[ContaminationStateChange],
+    agent_id: str,
+    forget_id: str,
+    before: ContaminationStatus,
+    after: ContaminationStatus,
+    reason: str,
+) -> None:
+    """Record a contamination state change."""
+    changes.append(
+        ContaminationStateChange(
+            agent_id=agent_id,
+            forget_id=forget_id,
+            before=before.value,
+            after=after.value,
+            reason=reason,
+        )
+    )
+
+
+@dataclass
+class ContaminationStateChange:
+    """Record a contamination state transition."""
+
+    agent_id: str
+    forget_id: str
+    before: str
+    after: str
+    reason: str
+
+
 @dataclass
 class TurnResult:
     """Result of a single message turn in an episode."""
@@ -87,6 +118,9 @@ class TurnResult:
     # Task contribution
     task_relevant: bool = False
     task_contribution_successful: bool = False
+
+    # Contamination state changes
+    contamination_state_changes: tuple[ContaminationStateChange, ...] = ()
 
 
 @dataclass
@@ -879,6 +913,7 @@ def run_episode(
                     reintroduced_ids = exposed_ids & targeted_ids
                     target_reintroduced = is_recontamination and bool(reintroduced_ids)
                     # Transition for reintroduced records
+                    turn_state_changes: list[ContaminationStateChange] = []
                     if target_reintroduced:
                         for forget_id in reintroduced_ids:
                             current = tracker.get_status(step.recipient, forget_id)
@@ -886,10 +921,26 @@ def run_episode(
                                 ContaminationStatus.CLEAN,
                                 ContaminationStatus.VERIFIED,
                             ):
+                                _record_state_change(
+                                    turn_state_changes,
+                                    step.recipient,
+                                    forget_id,
+                                    current,
+                                    ContaminationStatus.AT_RISK,
+                                    "recontamination",
+                                )
                                 tracker.set_status(
                                     step.recipient, forget_id, ContaminationStatus.AT_RISK
                                 )
                             elif current == ContaminationStatus.AT_RISK:
+                                _record_state_change(
+                                    turn_state_changes,
+                                    step.recipient,
+                                    forget_id,
+                                    current,
+                                    ContaminationStatus.RECONTAMINATED,
+                                    "confirmed_recontamination",
+                                )
                                 tracker.confirm_recovery(
                                     step.recipient,
                                     forget_id,
@@ -917,6 +968,7 @@ def run_episode(
                             target_reintroduced=target_reintroduced,
                             reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
                             task_relevant=task_rel,
+                            contamination_state_changes=tuple(turn_state_changes),
                         )
                     )
 
@@ -979,6 +1031,7 @@ def run_episode(
                 reintroduced_ids = exposed_ids & targeted_ids
                 target_reintroduced = is_recontamination and bool(reintroduced_ids)
                 # Transition for reintroduced records
+                turn_state_changes_no_fw: list[ContaminationStateChange] = []
                 if target_reintroduced:
                     for forget_id in reintroduced_ids:
                         current = tracker.get_status(step.recipient, forget_id)
@@ -986,10 +1039,26 @@ def run_episode(
                             ContaminationStatus.CLEAN,
                             ContaminationStatus.VERIFIED,
                         ):
+                            _record_state_change(
+                                turn_state_changes_no_fw,
+                                step.recipient,
+                                forget_id,
+                                current,
+                                ContaminationStatus.AT_RISK,
+                                "recontamination",
+                            )
                             tracker.set_status(
                                 step.recipient, forget_id, ContaminationStatus.AT_RISK
                             )
                         elif current == ContaminationStatus.AT_RISK:
+                            _record_state_change(
+                                turn_state_changes_no_fw,
+                                step.recipient,
+                                forget_id,
+                                current,
+                                ContaminationStatus.RECONTAMINATED,
+                                "confirmed_recontamination",
+                            )
                             tracker.confirm_recovery(
                                 step.recipient,
                                 forget_id,
@@ -1016,6 +1085,7 @@ def run_episode(
                         target_reintroduced=target_reintroduced,
                         reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
                         task_relevant=task_rel,
+                        contamination_state_changes=tuple(turn_state_changes_no_fw),
                     )
                 )
 

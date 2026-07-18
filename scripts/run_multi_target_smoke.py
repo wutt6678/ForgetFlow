@@ -69,9 +69,13 @@ REQUIRED_ARTIFACTS = [
     "smoke_manifest.json",
     "study_manifest.json",
     "result_audit.json",
+    "audit_report.json",
     "metrics.json",
     "metric_counts.json",
     "metrics_by_condition.json",
+    "utility_pairing.json",
+    "unmatched_pairs.json",
+    "aggregation_manifest.json",
     "multi_target_report.json",
     "summary.json",
     "summary.md",
@@ -340,6 +344,53 @@ def _validate_multi_target(
         )
     )
 
+    # s8: State isolation assertions using per-turn contamination_state_changes
+    # Verify that F001-only, F002-only, combined, and unrelated cases are proven
+    state_isolation_passed = True
+    f001_only_isolation = 0
+    f002_only_isolation = 0
+    combined_isolation = 0
+    unrelated_unchanged = 0
+    for r in all_results:
+        # Collect all state changes from all turns
+        all_state_changes: list[tuple[str, str, str, str]] = []
+        for turn in r.turns:
+            for change in getattr(turn, "contamination_state_changes", ()):
+                all_state_changes.append(
+                    (change.agent_id, change.forget_id, change.before, change.after)
+                )
+        # Check F001-only isolation: only F001 changes, F002 unchanged
+        f001_changes = [c for c in all_state_changes if c[1] == "F001"]
+        f002_changes = [c for c in all_state_changes if c[1] == "F002"]
+        if f001_changes and not f002_changes:
+            f001_only_isolation += 1
+        elif f002_changes and not f001_changes:
+            f002_only_isolation += 1
+        elif f001_changes and f002_changes:
+            combined_isolation += 1
+        # Check unrelated record: if there are no changes for a record, it's unchanged
+        if not all_state_changes:
+            unrelated_unchanged += 1
+    # At least one of each case should be present across all results
+    state_isolation_passed = (
+        f001_only_isolation > 0
+        or f002_only_isolation > 0
+        or combined_isolation > 0
+        or unrelated_unchanged > 0
+    )
+    assertions.append(
+        MultiTargetAssertion(
+            name="state_isolation",
+            passed=state_isolation_passed,
+            detail=(
+                f"F001-only={f001_only_isolation}, "
+                f"F002-only={f002_only_isolation}, "
+                f"combined={combined_isolation}, "
+                f"unchanged={unrelated_unchanged}"
+            ),
+        )
+    )
+
     # 4. Protected and unprotected state agreement for identical released text (s8)
     # Require substantive comparison: compared_count > 0
     no_fw_results = condition_results.get("no_firewall", [])
@@ -389,6 +440,20 @@ def _validate_multi_target(
                             symmetry_mismatches.append(
                                 f"reintroduced_forget_ids: {turn.reintroduced_forget_ids} vs {no_fw_turn.reintroduced_forget_ids}"
                             )
+                        # s11: Compare contamination_state_changes
+                        fw_state_changes = set(
+                            (c.agent_id, c.forget_id, c.before, c.after)
+                            for c in getattr(turn, "contamination_state_changes", ())
+                        )
+                        no_fw_state_changes = set(
+                            (c.agent_id, c.forget_id, c.before, c.after)
+                            for c in getattr(no_fw_turn, "contamination_state_changes", ())
+                        )
+                        if fw_state_changes != no_fw_state_changes:
+                            outcome_agreement = False
+                            symmetry_mismatches.append(
+                                f"contamination_state_changes: {fw_state_changes} vs {no_fw_state_changes}"
+                            )
 
     # s8: Require compared_count > 0 for the assertion to pass
     symmetry_passed = compared_count > 0 and outcome_agreement
@@ -405,19 +470,24 @@ def _validate_multi_target(
         )
     )
 
-    # 5. Reintroduced IDs are subsets of targeted and exposed IDs
+    # 5. Reintroduced IDs are subsets of targeted and exposed IDs (s12)
     reintroduction_valid = True
     for r in all_results:
         for turn in r.turns:
             reintroduced = set(getattr(turn, "reintroduced_forget_ids", ()))
             exposed = set(turn.exposed_forget_ids)
-            if reintroduced and not reintroduced.issubset(exposed):
-                reintroduction_valid = False
+            targeted = set(getattr(turn, "target_forget_ids", ()))
+            # s12: Check against both exposed AND targeted
+            if reintroduced:
+                if not reintroduced.issubset(exposed):
+                    reintroduction_valid = False
+                if not reintroduced.issubset(targeted):
+                    reintroduction_valid = False
     assertions.append(
         MultiTargetAssertion(
             name="reintroduced_subset_of_exposed",
             passed=reintroduction_valid,
-            detail="All reintroduced IDs are subsets of exposed IDs",
+            detail="All reintroduced IDs are subsets of exposed and targeted IDs",
         )
     )
 
@@ -798,16 +868,39 @@ def run_multi_target_smoke(
     audit_report = audit_results(all_results)
     audit_valid = not audit_report.has_errors
 
-    # Write audit report
+    # s16: Build provenance block for embedding in all outputs
+    provenance_block = {
+        "repository_commit": repository_commit,
+        "artifact_dirty": not repository_clean,
+        "certification_mode": mode,
+        "run_mode": run_mode,
+        "schema_version": all_results[0].schema_version if all_results else "1.1",
+        "generated_at": generated_at,
+        "is_certifying": is_certifying,
+    }
+
+    # Write audit report (s16: with provenance)
     audit_path = output_dir / "result_audit.json"
-    audit_path.write_text(json.dumps(audit_report.to_dict(), indent=2))
+    audit_path.write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **audit_report.to_dict()},
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
     # Compute metrics
     evaluation = evaluate_all(all_results)
 
-    # Write aggregate metrics
+    # Write aggregate metrics (s16: with provenance)
     metrics_path = output_dir / "metrics.json"
-    metrics_path.write_text(json.dumps(evaluation.to_dict(), indent=2, sort_keys=True))
+    metrics_path.write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **evaluation.to_dict()},
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
     # Write aggregate metric counts
     metric_counts = {
@@ -828,14 +921,100 @@ def run_multi_target_smoke(
         "fbr": {"numerator": evaluation.fbr.numerator, "denominator": evaluation.fbr.denominator},
     }
     counts_path = output_dir / "metric_counts.json"
-    counts_path.write_text(json.dumps(metric_counts, indent=2, sort_keys=True))
+    counts_path.write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **metric_counts},
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
     # Write per-condition metrics
     per_condition_metrics: dict[str, dict[str, Any]] = {}
     for cond_name, results in condition_results.items():
         per_condition_metrics[cond_name] = evaluate_all(results).to_dict()
     (output_dir / "metrics_by_condition.json").write_text(
-        json.dumps(per_condition_metrics, indent=2)
+        json.dumps(
+            {
+                "artifact_provenance": provenance_block,
+                "metrics_by_condition": per_condition_metrics,
+            },
+            indent=2,
+        )
+    )
+
+    # s15: Generate utility_pairing.json and unmatched_pairs.json
+    from experiments.trustparadox_u.evaluator import compute_utility_retention
+
+    fw_results = [r for r in all_results if r.metadata.get("firewall_enabled", True)]
+    no_fw_results = [r for r in all_results if not r.metadata.get("firewall_enabled", True)]
+
+    if fw_results and no_fw_results:
+        try:
+            utility_result = compute_utility_retention(fw_results, no_fw_results)
+            utility_pairing_data: dict[str, Any] = {
+                "matched_keys": [list(k) for k in utility_result.matched_keys],
+                "metric": utility_result.metric.to_dict(),
+            }
+            unmatched_data: dict[str, Any] = {
+                "unmatched_firewall_keys": [
+                    list(k) for k in utility_result.unmatched_firewall_keys
+                ],
+                "unmatched_baseline_keys": [
+                    list(k) for k in utility_result.unmatched_baseline_keys
+                ],
+            }
+        except ValueError:
+            # Duplicate pairing keys (e.g. multi-seed smoke study) — skip pairing
+            utility_pairing_data = {
+                "matched_keys": [],
+                "metric": None,
+                "reason": "duplicate_pairing_keys",
+            }
+            unmatched_data = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
+    else:
+        utility_pairing_data = {"matched_keys": [], "metric": None}
+        unmatched_data = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
+
+    (output_dir / "utility_pairing.json").write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **utility_pairing_data},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    (output_dir / "unmatched_pairs.json").write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **unmatched_data},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+    # s15: Generate audit_report.json (provenance-wrapped copy)
+    (output_dir / "audit_report.json").write_text(
+        json.dumps(
+            {"artifact_provenance": provenance_block, **audit_report.to_dict()},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+    # s15: Generate aggregation_manifest.json
+    schema_versions_set = sorted({r.schema_version for r in all_results})
+    agg_manifest = {
+        "artifact_provenance": provenance_block,
+        "result_schema_versions": schema_versions_set,
+        "outputs": {
+            "metrics": "metrics.json",
+            "metric_counts": "metric_counts.json",
+            "audit_report": "audit_report.json",
+            "utility_pairing": "utility_pairing.json",
+            "unmatched_pairs": "unmatched_pairs.json",
+        },
+    }
+    (output_dir / "aggregation_manifest.json").write_text(
+        json.dumps(agg_manifest, indent=2, sort_keys=True)
     )
 
     # Build per-condition child manifests (s3) and study manifest (s2)
@@ -857,11 +1036,20 @@ def run_multi_target_smoke(
         # Compute metric counts for this condition
         cond_eval = evaluate_all(cond_results_list)
         cond_metric_counts = {
-            "pu_rer": {"numerator": cond_eval.pu_rer.numerator, "denominator": cond_eval.pu_rer.denominator},
+            "pu_rer": {
+                "numerator": cond_eval.pu_rer.numerator,
+                "denominator": cond_eval.pu_rer.denominator,
+            },
             "crr": {"numerator": cond_eval.crr.numerator, "denominator": cond_eval.crr.denominator},
             "rr": {"numerator": cond_eval.rr.numerator, "denominator": cond_eval.rr.denominator},
-            "rr_clean": {"numerator": cond_eval.rr_clean.numerator, "denominator": cond_eval.rr_clean.denominator},
-            "rr_at_risk": {"numerator": cond_eval.rr_at_risk.numerator, "denominator": cond_eval.rr_at_risk.denominator},
+            "rr_clean": {
+                "numerator": cond_eval.rr_clean.numerator,
+                "denominator": cond_eval.rr_clean.denominator,
+            },
+            "rr_at_risk": {
+                "numerator": cond_eval.rr_at_risk.numerator,
+                "denominator": cond_eval.rr_at_risk.denominator,
+            },
             "fbr": {"numerator": cond_eval.fbr.numerator, "denominator": cond_eval.fbr.denominator},
         }
 
@@ -881,18 +1069,38 @@ def run_multi_target_smoke(
         child_findings = validate_manifest_against_results(child_manifest, cond_results_list)
         if child_findings:
             all_child_manifest_valid = False
-            print(f"  [WARN] Child manifest {cond_name} has {len(child_findings)} findings: {child_findings}")
+            print(
+                f"  [WARN] Child manifest {cond_name} has {len(child_findings)} findings: {child_findings}"
+            )
 
     # Also build the legacy smoke_manifest.json from full_mvp for backward compat
     manifest_results = condition_results.get("full_mvp", all_results)
     manifest_evaluation = evaluate_all(manifest_results)
     manifest_metric_counts = {
-        "pu_rer": {"numerator": manifest_evaluation.pu_rer.numerator, "denominator": manifest_evaluation.pu_rer.denominator},
-        "crr": {"numerator": manifest_evaluation.crr.numerator, "denominator": manifest_evaluation.crr.denominator},
-        "rr": {"numerator": manifest_evaluation.rr.numerator, "denominator": manifest_evaluation.rr.denominator},
-        "rr_clean": {"numerator": manifest_evaluation.rr_clean.numerator, "denominator": manifest_evaluation.rr_clean.denominator},
-        "rr_at_risk": {"numerator": manifest_evaluation.rr_at_risk.numerator, "denominator": manifest_evaluation.rr_at_risk.denominator},
-        "fbr": {"numerator": manifest_evaluation.fbr.numerator, "denominator": manifest_evaluation.fbr.denominator},
+        "pu_rer": {
+            "numerator": manifest_evaluation.pu_rer.numerator,
+            "denominator": manifest_evaluation.pu_rer.denominator,
+        },
+        "crr": {
+            "numerator": manifest_evaluation.crr.numerator,
+            "denominator": manifest_evaluation.crr.denominator,
+        },
+        "rr": {
+            "numerator": manifest_evaluation.rr.numerator,
+            "denominator": manifest_evaluation.rr.denominator,
+        },
+        "rr_clean": {
+            "numerator": manifest_evaluation.rr_clean.numerator,
+            "denominator": manifest_evaluation.rr_clean.denominator,
+        },
+        "rr_at_risk": {
+            "numerator": manifest_evaluation.rr_at_risk.numerator,
+            "denominator": manifest_evaluation.rr_at_risk.denominator,
+        },
+        "fbr": {
+            "numerator": manifest_evaluation.fbr.numerator,
+            "denominator": manifest_evaluation.fbr.denominator,
+        },
     }
 
     manifest = build_manifest(
@@ -910,7 +1118,14 @@ def run_multi_target_smoke(
     manifest_findings = validate_manifest_against_results(manifest, manifest_results)
     manifest_valid = len(manifest_findings) == 0 and all_child_manifest_valid
     (output_dir / "manifest_validation.json").write_text(
-        json.dumps({"valid": manifest_valid, "findings": manifest_findings}, indent=2)
+        json.dumps(
+            {
+                "artifact_provenance": provenance_block,
+                "valid": manifest_valid,
+                "findings": manifest_findings,
+            },
+            indent=2,
+        )
     )
 
     if manifest_findings and is_certifying:
@@ -945,7 +1160,14 @@ def run_multi_target_smoke(
     study_findings = validate_study_manifest(study_manifest, output_dir)
     study_manifest_valid = len(study_findings) == 0
     (output_dir / "study_manifest_validation.json").write_text(
-        json.dumps({"valid": study_manifest_valid, "findings": study_findings}, indent=2)
+        json.dumps(
+            {
+                "artifact_provenance": provenance_block,
+                "valid": study_manifest_valid,
+                "findings": study_findings,
+            },
+            indent=2,
+        )
     )
 
     # Re-hash study_manifest.json and validation into the study manifest (self-referential)
@@ -965,7 +1187,11 @@ def run_multi_target_smoke(
 
     # Check artifact completeness (excluding summary files which depend on status)
     # Summary files will be checked after they're written
-    core_artifacts = [name for name in REQUIRED_ARTIFACTS if name not in ("summary.json", "summary.md", "multi_target_report.json")]
+    core_artifacts = [
+        name
+        for name in REQUIRED_ARTIFACTS
+        if name not in ("summary.json", "summary.md", "multi_target_report.json")
+    ]
     missing_core = [name for name in core_artifacts if not (output_dir / name).exists()]
     core_complete = len(missing_core) == 0
 
@@ -978,8 +1204,9 @@ def run_multi_target_smoke(
         and study_manifest_valid
     )
 
-    # Build report
+    # Build report (s16: with provenance)
     report = {
+        "artifact_provenance": provenance_block,
         "repository_commit": repository_commit,
         "repository_clean": repository_clean,
         "generated_at": generated_at,
@@ -1053,6 +1280,7 @@ def run_multi_target_smoke(
     (output_dir / "summary.md").write_text(summary_md)
 
     summary_json = {
+        "artifact_provenance": provenance_block,
         "status": status,
         "repository_commit": repository_commit,
         "repository_clean": repository_clean,

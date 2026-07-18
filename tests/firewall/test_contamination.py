@@ -138,3 +138,98 @@ class TestContaminationTracker:
         # Per-record score is below threshold
         t.record_exposure("A", "F001", det, reconstruction_score=0.3)
         assert t.get_status("A", "F001") == ContaminationStatus.CLEAN
+
+    # s9: Tests for each detector channel
+    def test_record_exposure_entity_only_transition(self) -> None:
+        """s9: Entity-only match (entity_score >= threshold) triggers transition."""
+        t = ContaminationTracker()
+        t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F001", ContaminationStatus.CLEAN)
+        det = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.6,  # >= entity_threshold (0.5)
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=(),
+        )
+        t.record_exposure("A", "F001", det)
+        assert t.get_status("A", "F001") == ContaminationStatus.AT_RISK
+
+    def test_record_exposure_semantic_only_transition(self) -> None:
+        """s9: Semantic-only match (semantic_score >= threshold) triggers transition."""
+        t = ContaminationTracker()
+        t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F001", ContaminationStatus.CLEAN)
+        det = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.6,  # >= semantic_threshold (0.5)
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=(),
+        )
+        t.record_exposure("A", "F001", det)
+        assert t.get_status("A", "F001") == ContaminationStatus.AT_RISK
+
+    def test_record_exposure_reconstruction_only_transition(self) -> None:
+        """s9: Reconstruction-only match triggers transition."""
+        t = ContaminationTracker()
+        t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F001", ContaminationStatus.CLEAN)
+        det = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.7,  # >= reconstruction_threshold (0.6)
+            matched_forget_ids=("F001",),
+            evidence=(),
+        )
+        t.record_exposure("A", "F001", det)
+        assert t.get_status("A", "F001") == ContaminationStatus.AT_RISK
+
+    def test_record_exposure_below_all_thresholds_no_transition(self) -> None:
+        """s9: Below-threshold evidence produces no transition."""
+        t = ContaminationTracker()
+        t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F001", ContaminationStatus.CLEAN)
+        det = DetectorResult(
+            exact_score=0.5,  # < exact_threshold (1.0)
+            entity_score=0.3,  # < entity_threshold (0.5)
+            semantic_score=0.3,  # < semantic_threshold (0.5)
+            reconstruction_score=0.4,  # < reconstruction_threshold (0.6)
+            matched_forget_ids=("F001",),
+            evidence=(),
+        )
+        t.record_exposure("A", "F001", det)
+        assert t.get_status("A", "F001") == ContaminationStatus.CLEAN
+
+    def test_record_exposure_one_record_cannot_affect_another(self) -> None:
+        """s9: One record's evidence cannot affect another record."""
+        t = ContaminationTracker()
+        t.set_status("A", "F001", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F002", ContaminationStatus.CONTAMINATED)
+        t.set_status("A", "F001", ContaminationStatus.CLEAN)
+        t.set_status("A", "F002", ContaminationStatus.CLEAN)
+        # F001 has high scores, F002 has low scores
+        det_f001 = DetectorResult(
+            exact_score=1.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F001",),
+            evidence=(),
+        )
+        det_f002 = DetectorResult(
+            exact_score=0.0,
+            entity_score=0.0,
+            semantic_score=0.0,
+            reconstruction_score=0.0,
+            matched_forget_ids=("F002",),
+            evidence=(),
+        )
+        t.record_exposure("A", "F001", det_f001)
+        t.record_exposure("A", "F002", det_f002)
+        # F001 should transition, F002 should not
+        assert t.get_status("A", "F001") == ContaminationStatus.AT_RISK
+        assert t.get_status("A", "F002") == ContaminationStatus.CLEAN

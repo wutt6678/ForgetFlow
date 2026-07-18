@@ -275,7 +275,9 @@ def build_manifest(
     semantic_threshold_raw = require_single_metadata_value(
         results, "semantic_threshold", allow_none=not semantic_enabled
     )
-    semantic_threshold = float(semantic_threshold_raw) if semantic_threshold_raw is not None else 0.0
+    semantic_threshold = (
+        float(semantic_threshold_raw) if semantic_threshold_raw is not None else 0.0
+    )
 
     # API base is optional
     api_base_sanitized = require_single_metadata_value(
@@ -537,7 +539,11 @@ def validate_manifest_against_results(
                 "message": f"Results have multiple thresholds: {actual_thresholds}",
             }
         )
-    elif not semantic_disabled and actual_thresholds and manifest.semantic_threshold not in actual_thresholds:
+    elif (
+        not semantic_disabled
+        and actual_thresholds
+        and manifest.semantic_threshold not in actual_thresholds
+    ):
         findings.append(
             {
                 "code": "MANIFEST_THRESHOLD_MISMATCH",
@@ -667,70 +673,88 @@ def validate_study_manifest(
     # 1. Check repository commit
     commit_clean = manifest.repository_commit.replace("-dirty", "")
     if not COMMIT_RE.match(commit_clean):
-        findings.append({
-            "code": "STUDY_INVALID_COMMIT",
-            "message": f"Invalid commit: {manifest.repository_commit!r}",
-        })
+        findings.append(
+            {
+                "code": "STUDY_INVALID_COMMIT",
+                "message": f"Invalid commit: {manifest.repository_commit!r}",
+            }
+        )
 
     # 2. Check dirty flag for certification
     if manifest.release_certifying and manifest.artifact_dirty:
-        findings.append({
-            "code": "STUDY_DIRTY_ARTIFACT",
-            "message": "Release-certifying manifest has dirty artifact flag",
-        })
+        findings.append(
+            {
+                "code": "STUDY_DIRTY_ARTIFACT",
+                "message": "Release-certifying manifest has dirty artifact flag",
+            }
+        )
 
     # 3. Check result count
     if manifest.result_count <= 0:
-        findings.append({
-            "code": "STUDY_NO_RESULTS",
-            "message": f"Result count is {manifest.result_count}",
-        })
+        findings.append(
+            {
+                "code": "STUDY_NO_RESULTS",
+                "message": f"Result count is {manifest.result_count}",
+            }
+        )
 
     # 4. Check schema versions
     if not manifest.result_schema_versions:
-        findings.append({
-            "code": "STUDY_NO_SCHEMA",
-            "message": "No schema versions recorded",
-        })
+        findings.append(
+            {
+                "code": "STUDY_NO_SCHEMA",
+                "message": "No schema versions recorded",
+            }
+        )
 
     # 5. Check condition manifests exist
     for cond_name, cond_path in manifest.condition_manifests.items():
         full_path = output_dir / cond_path
         if not full_path.exists():
-            findings.append({
-                "code": "STUDY_MISSING_CONDITION_MANIFEST",
-                "message": f"Missing condition manifest: {cond_name} at {cond_path}",
-            })
+            findings.append(
+                {
+                    "code": "STUDY_MISSING_CONDITION_MANIFEST",
+                    "message": f"Missing condition manifest: {cond_name} at {cond_path}",
+                }
+            )
 
     # 6. Check output files exist and hashes match
     for file_key, file_rel in manifest.output_files.items():
         full_path = output_dir / file_rel
         if not full_path.exists():
-            findings.append({
-                "code": "STUDY_MISSING_OUTPUT",
-                "message": f"Missing output file: {file_key}",
-            })
+            findings.append(
+                {
+                    "code": "STUDY_MISSING_OUTPUT",
+                    "message": f"Missing output file: {file_key}",
+                }
+            )
         elif file_key in manifest.output_hashes:
             actual_hash = sha256_file(full_path)
             expected_hash = manifest.output_hashes[file_key]
             if actual_hash != expected_hash:
-                findings.append({
-                    "code": "STUDY_HASH_MISMATCH",
-                    "message": f"Hash mismatch for {file_key}: expected {expected_hash[:16]}..., got {actual_hash[:16]}...",
-                })
+                findings.append(
+                    {
+                        "code": "STUDY_HASH_MISMATCH",
+                        "message": f"Hash mismatch for {file_key}: expected {expected_hash[:16]}..., got {actual_hash[:16]}...",
+                    }
+                )
 
     # 7. Check audit valid
     if not manifest.audit_valid:
-        findings.append({
-            "code": "STUDY_AUDIT_INVALID",
-            "message": "Study manifest records audit as invalid",
-        })
+        findings.append(
+            {
+                "code": "STUDY_AUDIT_INVALID",
+                "message": "Study manifest records audit as invalid",
+            }
+        )
 
     # 8. Check manifest valid
     if not manifest.manifest_valid:
-        findings.append({
-            "code": "STUDY_MANIFEST_INVALID",
-            "message": "Study manifest records child manifest validation as invalid",
-        })
+        findings.append(
+            {
+                "code": "STUDY_MANIFEST_INVALID",
+                "message": "Study manifest records child manifest validation as invalid",
+            }
+        )
 
     return findings
