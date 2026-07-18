@@ -47,6 +47,7 @@ class ReconstructionChecker:
         episode_metadata: Mapping[str, Any],
         history_enabled: bool = True,
         reconstruction_threshold: float = 0.60,
+        forget_id: str | None = None,
     ) -> float:
         if not history_enabled:
             return 0.0
@@ -58,6 +59,8 @@ class ReconstructionChecker:
         fragment_map = episode_metadata.get("fragment_map", {})
         for rec in active_records:
             fid = rec.forget_id
+            if forget_id is not None and fid != forget_id:
+                continue
             if fid in fragment_map:
                 fdata = fragment_map[fid]
                 fragments = fdata.get("fragments", [])

@@ -1,6 +1,7 @@
 """Tests for episode runner."""
 
 from pathlib import Path
+from typing import Any
 
 from experiments.trustparadox_u.config import (
     DetectorConfig,
@@ -1415,3 +1416,130 @@ class TestDetectorOnlyRunnerBranches:
             assert forget_id in ids
         for tid, ids in unprot_exposed.items():
             assert forget_id in ids
+
+
+class TestMultiTargetIntegration:
+    """Multi-target scenario integration tests.
+
+    Validates cross-record isolation, recontamination targeting,
+    reconstruction specificity, and final contamination states.
+    """
+
+    def _multi_config(self, **overrides: Any) -> ExperimentConfig:
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+
+        defaults = dict(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True, entity_enabled=True, semantic_enabled=False
+            ),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        defaults.update(overrides)
+        return ExperimentConfig(**defaults)
+
+    def _build_responder(self, ep: Any) -> Any:
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        canonical_targets: dict[str, str] = {}
+        for si in ep.sensitive_items:
+            canonical_targets[si.forget_id] = si.canonical_target
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            if step.label.is_legitimate_message:
+                responder.set_response(key, ep.task.success_value)
+            elif step.label.is_recontamination_attempt:
+                for forget_id in step.label.target_forget_ids:
+                    if forget_id in canonical_targets:
+                        responder.set_response(key, canonical_targets[forget_id])
+                        break
+                else:
+                    responder.set_response(key, step.instruction)
+            else:
+                responder.set_response(key, step.instruction)
+        return responder
+
+    def test_multi_target_has_two_sensitive_items(self) -> None:
+        """Multi-target scenario has exactly 2 sensitive items."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        assert len(ep.sensitive_items) == 2
+        forget_ids = {si.forget_id for si in ep.sensitive_items}
+        assert forget_ids == {"F001", "F002"}
+
+    def test_multi_target_has_recontamination_steps(self) -> None:
+        """Multi-target scenario has recontamination steps with target_forget_ids."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        recontamination_steps = [
+            step for step in ep.phases.post_forget if step.label.is_recontamination_attempt
+        ]
+        assert len(recontamination_steps) >= 3
+        # Check that F001-only, F002-only, and combined are all present
+        target_sets = [set(step.label.target_forget_ids) for step in recontamination_steps]
+        assert {"F001"} in target_sets
+        assert {"F002"} in target_sets
+        assert {"F001", "F002"} in target_sets
+
+    def test_multi_target_has_f002_reconstruction_steps(self) -> None:
+        """Multi-target scenario has reconstruction steps for F002."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        recon_steps = [
+            step for step in ep.phases.post_forget if step.label.is_reconstruction_attempt
+        ]
+        # Should have reconstruction steps for both F001 and F002
+        assert len(recon_steps) >= 4  # 2 for F001, 2 for F002
+
+    def test_multi_target_final_states_populated(self) -> None:
+        """Multi-target run populates final_contamination_states."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=True)
+        fcs = result.final_contamination_states
+        # Should have states for both agents and both records
+        assert ("CK", "F001") in fcs
+        assert ("CK", "F002") in fcs
+        assert ("SK", "F001") in fcs
+        assert ("SK", "F002") in fcs
+
+    def test_multi_target_rr_denominator_positive(self) -> None:
+        """Multi-target run with recontamination has positive RR denominator."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        # Use no-firewall to ensure recontamination passes through
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        assert result.attempted_agent_record_pairs > 0
+
+    def test_multi_target_exposure_isolation(self) -> None:
+        """Exposure of F001 does not automatically expose F002."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Check that there are turns where only F001 or only F002 is exposed
+        f001_only = 0
+        f002_only = 0
+        for turn in result.turns:
+            exposed = set(turn.exposed_forget_ids)
+            if exposed == {"F001"}:
+                f001_only += 1
+            elif exposed == {"F002"}:
+                f002_only += 1
+        # At least one of F001-only or F002-only should exist
+        assert f001_only > 0 or f002_only > 0
+
+    def test_multi_target_reconstruction_specificity(self) -> None:
+        """Reconstruction is specific to the record being reconstructed."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Check that reconstructed IDs are always subsets of {F001, F002}
+        for turn in result.turns:
+            for fid in turn.reconstructed_forget_ids:
+                assert fid in ("F001", "F002")

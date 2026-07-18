@@ -50,14 +50,31 @@ class ContaminationTracker:
         forget_id: str,
         detector_result: DetectorResult,
         reconstruction_threshold: float = 0.60,
+        reconstruction_score: float | None = None,
     ) -> None:
         current = self.get_status(agent_id, forget_id)
         if current in (ContaminationStatus.CLEAN, ContaminationStatus.VERIFIED):
-            if (
-                detector_result.exact_score == 1.0
-                or detector_result.reconstruction_score >= reconstruction_threshold
-            ):
+            score = (
+                reconstruction_score
+                if reconstruction_score is not None
+                else detector_result.reconstruction_score
+            )
+            if detector_result.exact_score == 1.0 or score >= reconstruction_threshold:
                 self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
+
+    def record_confirmed_text_exposure(
+        self,
+        agent_id: str,
+        forget_id: str,
+    ) -> None:
+        """Record that a forget target was confirmed exposed via text evaluation.
+
+        Transitions CLEAN/VERIFIED → AT_RISK when text-based evaluation
+        (not detector) confirms the sensitive content was released.
+        """
+        current = self.get_status(agent_id, forget_id)
+        if current in (ContaminationStatus.CLEAN, ContaminationStatus.VERIFIED):
+            self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
 
     def confirm_recovery(
         self,

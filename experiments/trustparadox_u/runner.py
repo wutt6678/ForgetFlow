@@ -112,6 +112,9 @@ class EpisodeResult:
     attempted_agent_record_pairs: int = 0
     recontaminated_agent_record_pairs: int = 0
 
+    # Final per-record contamination states: (agent_id, forget_id) → status
+    final_contamination_states: dict[tuple[str, str], str] = field(default_factory=dict)
+
     # Experiment metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -309,30 +312,53 @@ def _update_detector_and_record_exposure(
     context_messages: Any,
     config: Any,
 ) -> Any:
-    """Update detector with reconstruction score and record exposure (shared path)."""
+    """Update detector with per-record reconstruction scores and record exposure (shared path).
+
+    For each exposed forget_id:
+    - If in detector matched_forget_ids: use record_exposure with per-record reconstruction score
+    - If only in text-based exposed_ids: use record_confirmed_text_exposure
+    """
     if detector_result is None:
         return None
-    recon_score = checker.score(
-        released_text or "",
-        context_messages,
-        ledger.active_records(turn_id, sender_id, recipient_id),
-        {
-            "fragment_map": episode.fragment_map,
-            "fact_chains": episode.fact_chains,
-        },
-        history_enabled=config.history.enabled,
-        reconstruction_threshold=config.history.reconstruction_threshold,
-    )
-    detector_result = dataclasses.replace(detector_result, reconstruction_score=recon_score)
+    # Compute per-record reconstruction scores
+    recon_scores: dict[str, float] = {}
+    active_records = ledger.active_records(turn_id, sender_id, recipient_id)
     for si in episode.sensitive_items:
-        if si.forget_id not in detector_result.matched_forget_ids:
+        if si.forget_id in exposed_ids:
+            score = checker.score(
+                released_text or "",
+                context_messages,
+                active_records,
+                {
+                    "fragment_map": episode.fragment_map,
+                    "fact_chains": episode.fact_chains,
+                },
+                history_enabled=config.history.enabled,
+                reconstruction_threshold=config.history.reconstruction_threshold,
+                forget_id=si.forget_id,
+            )
+            recon_scores[si.forget_id] = score
+
+    # Update detector result with max reconstruction score (for backward compat)
+    max_recon = max(recon_scores.values()) if recon_scores else 0.0
+    detector_result = dataclasses.replace(detector_result, reconstruction_score=max_recon)
+
+    detector_matched = set(detector_result.matched_forget_ids)
+    for si in episode.sensitive_items:
+        fid = si.forget_id
+        if fid not in exposed_ids:
             continue
-        tracker.record_exposure(
-            recipient_id,
-            si.forget_id,
-            detector_result,
-            config.history.reconstruction_threshold,
-        )
+        if fid in detector_matched:
+            tracker.record_exposure(
+                recipient_id,
+                fid,
+                detector_result,
+                config.history.reconstruction_threshold,
+                reconstruction_score=recon_scores.get(fid, 0.0),
+            )
+        else:
+            # Text-only exposure: update tracker state directly
+            tracker.record_confirmed_text_exposure(recipient_id, fid)
     return detector_result
 
 
@@ -704,6 +730,7 @@ def run_episode(
 
     # Track cleaned agent-record pairs that receive recontamination attempts (for RR denominator)
     attempted_pairs: set[tuple[str, str]] = set()
+    at_risk_attempted_pairs: set[tuple[str, str]] = set()
 
     # Process each unique attack type once to avoid build_attack duplication
     seen_types: set[str] = set()
@@ -743,7 +770,8 @@ def run_episode(
             task_rel = step.label.task_relevant
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
-            # Include AT_RISK: record_exposure may have transitioned before this step
+            # Include all statuses (CLEAN, VERIFIED, AT_RISK) in denominator
+            # Track AT_RISK attempts separately for reporting
             if is_recontamination:
                 for forget_id in step.label.target_forget_ids:
                     status = tracker.get_status(step.recipient, forget_id)
@@ -753,6 +781,8 @@ def run_episode(
                         ContaminationStatus.AT_RISK,
                     ):
                         attempted_pairs.add((step.recipient, forget_id))
+                        if status == ContaminationStatus.AT_RISK:
+                            at_risk_attempted_pairs.add((step.recipient, forget_id))
 
             if firewall_enabled and enforcement_is_active(
                 monitoring=config.monitoring,
@@ -999,15 +1029,19 @@ def run_episode(
 
     # Collect final states and compute outcome metrics
     all_recontaminated_pairs: set[tuple[str, str]] = set()
+    final_states: dict[tuple[str, str], str] = {}
 
     for si in episode.sensitive_items:
         for agent in agents.values():
             state = tracker.get_status(agent.agent_id, si.forget_id)
             result.contamination_states[f"{agent.agent_id}:{si.forget_id}"] = state
+            final_states[(agent.agent_id, si.forget_id)] = state.value
 
             # Count all recontaminated agent-record pairs
             if state == ContaminationStatus.RECONTAMINATED:
                 all_recontaminated_pairs.add((agent.agent_id, si.forget_id))
+
+    result.final_contamination_states = final_states
 
     # Restrict RR numerator to attempted pairs only
     recontaminated_pairs = all_recontaminated_pairs & attempted_pairs
@@ -1023,6 +1057,11 @@ def run_episode(
 
     # Store unexpected recontamination count for auditing
     result.metadata["unexpected_recontaminated_pair_count"] = len(unexpected_recontaminated_pairs)
+    # Store AT_RISK attempt metadata for RR denominator analysis
+    result.metadata["at_risk_attempted_pair_count"] = len(at_risk_attempted_pairs)
+    result.metadata["at_risk_attempted_pairs"] = sorted(
+        f"{a}|{f}" for a, f in at_risk_attempted_pairs
+    )
 
     # Legacy agent-level counters (for backward compatibility)
     result.cleaned_agents_exposed = len({pair[0] for pair in attempted_pairs})

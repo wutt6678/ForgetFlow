@@ -205,6 +205,21 @@ def deserialize_episode_result(
     if recontaminated_agent_record_pairs < 0:
         raise ValueError("recontaminated_agent_record_pairs must be non-negative")
 
+    # Extract final_contamination_states
+    final_contamination_states: dict[tuple[str, str], str] = {}
+    raw_fcs = data.get("final_contamination_states", [])
+    if isinstance(raw_fcs, list):
+        for entry in raw_fcs:
+            if isinstance(entry, dict) and "agent_id" in entry and "forget_id" in entry:
+                final_contamination_states[(str(entry["agent_id"]), str(entry["forget_id"]))] = str(
+                    entry.get("status", "unknown")
+                )
+    elif isinstance(raw_fcs, dict):
+        # Handle legacy dict form with tuple-like keys
+        for k, v in raw_fcs.items():
+            if isinstance(k, (list, tuple)) and len(k) == 2:
+                final_contamination_states[(str(k[0]), str(k[1]))] = str(v)
+
     return EpisodeResult(
         run_id=data["run_id"],
         episode_id=data["episode_id"],
@@ -220,6 +235,7 @@ def deserialize_episode_result(
         recontaminated_agents=data.get("recontaminated_agents", 0),
         attempted_agent_record_pairs=attempted_agent_record_pairs,
         recontaminated_agent_record_pairs=recontaminated_agent_record_pairs,
+        final_contamination_states=final_contamination_states,
         metadata=data.get("metadata", {}),
         schema_version=schema_version,
     )
@@ -341,7 +357,15 @@ def serialize_episode_result(result: EpisodeResult) -> dict[str, Any]:
     """
     import dataclasses
 
+    episode_data = dataclasses.asdict(result)
+    # Convert final_contamination_states tuple keys to serializable form
+    fcs = episode_data.get("final_contamination_states", {})
+    serialized_fcs = [
+        {"agent_id": k[0], "forget_id": k[1], "status": v} for k, v in sorted(fcs.items())
+    ]
+    episode_data["final_contamination_states"] = serialized_fcs
+
     return {
         "schema_version": RESULT_SCHEMA_VERSION,
-        "episode": dataclasses.asdict(result),
+        "episode": episode_data,
     }

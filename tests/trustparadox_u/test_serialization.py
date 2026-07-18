@@ -1157,3 +1157,48 @@ class TestInspectResultSchemaVersionsHardened:
         )
         versions = self._inspect(f)
         assert versions == {"0"}
+
+
+class TestFinalContaminationStates:
+    """final_contamination_states serialization round trip."""
+
+    def test_final_states_round_trip(self, tmp_path: Path) -> None:
+        """final_contamination_states survives disk round trip."""
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.final_contamination_states = {
+            ("CK", "F001"): "at_risk",
+            ("CK", "F002"): "clean",
+            ("SK", "F001"): "unknown",
+        }
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        fcs = loaded[0].final_contamination_states
+        assert fcs[("CK", "F001")] == "at_risk"
+        assert fcs[("CK", "F002")] == "clean"
+        assert fcs[("SK", "F001")] == "unknown"
+
+    def test_empty_final_states_round_trip(self, tmp_path: Path) -> None:
+        """Empty final_contamination_states survives disk round trip."""
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert loaded[0].final_contamination_states == {}
