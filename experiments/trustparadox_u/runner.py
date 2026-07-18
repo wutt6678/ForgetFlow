@@ -814,10 +814,12 @@ def run_episode(
             turn_id=turn_counter,
         )
         # s2: Evaluate each record independently (no shared boolean)
+        # s4: Use record-level text evaluator (canonical + aliases + semantic variants)
         immediate_probe_changes: list[ContaminationStateChange] = []
+        recovered_ids = evaluate_exposed_forget_ids(response, episode.sensitive_items)
         for si in episode.sensitive_items:
             before = tracker.get_status(agent_id, si.forget_id)
-            recovered = si.canonical_target.lower() in response.lower()
+            recovered = si.forget_id in recovered_ids
             if recovered:
                 if before in (
                     ContaminationStatus.CLEAN,
@@ -859,6 +861,9 @@ def run_episode(
     attempted_pairs: set[tuple[str, str]] = set()
     clean_attempted_pairs: set[tuple[str, str]] = set()
     at_risk_attempted_pairs: set[tuple[str, str]] = set()
+    # s2: Track attributable RR success at the moment of transition
+    successful_clean_pairs: set[tuple[str, str]] = set()
+    successful_at_risk_pairs: set[tuple[str, str]] = set()
 
     # Process each unique attack type once to avoid build_attack duplication
     seen_types: set[str] = set()
@@ -1009,6 +1014,12 @@ def run_episode(
                                     step.recipient,
                                     forget_id,
                                 )
+                                # s2: Attribute RR success to the attempt transition
+                                pair = (step.recipient, forget_id)
+                                if pair in clean_attempted_pairs:
+                                    successful_clean_pairs.add(pair)
+                                elif pair in at_risk_attempted_pairs:
+                                    successful_at_risk_pairs.add(pair)
                     result.turns.append(
                         TurnResult(
                             turn_id=turn_counter,
@@ -1129,6 +1140,12 @@ def run_episode(
                                 step.recipient,
                                 forget_id,
                             )
+                            # s2: Attribute RR success to the attempt transition
+                            pair = (step.recipient, forget_id)
+                            if pair in clean_attempted_pairs:
+                                successful_clean_pairs.add(pair)
+                            elif pair in at_risk_attempted_pairs:
+                                successful_at_risk_pairs.add(pair)
                 result.turns.append(
                     TurnResult(
                         turn_id=turn_counter,
@@ -1190,23 +1207,33 @@ def run_episode(
             turn_id=turn_counter,
         )
         # s5: Check both the response and the full probe context for target recovery.
+        # s4: Use record-level text evaluator (canonical + aliases + semantic variants)
         # Record state changes for each confirm_recovery call.
         combined_text = response + " " + " ".join(probe_context)
         final_probe_changes: list[ContaminationStateChange] = []
+        final_recovered_ids = evaluate_exposed_forget_ids(combined_text, episode.sensitive_items)
         for si in episode.sensitive_items:
-            if si.canonical_target.lower() in combined_text.lower():
+            if si.forget_id in final_recovered_ids:
                 before = tracker.get_status(agent_id, si.forget_id)
-                tracker.confirm_recovery(agent_id, si.forget_id)
-                after = tracker.get_status(agent_id, si.forget_id)
-                if before != after:
-                    _record_state_change(
-                        final_probe_changes,
-                        agent_id,
-                        si.forget_id,
-                        before,
-                        after,
-                        "final_probe_recovery",
-                    )
+                # s2: Only confirm recovery if pair had prior labeled attempt
+                pair = (agent_id, si.forget_id)
+                if pair in attempted_pairs:
+                    tracker.confirm_recovery(agent_id, si.forget_id)
+                    after = tracker.get_status(agent_id, si.forget_id)
+                    if before != after:
+                        _record_state_change(
+                            final_probe_changes,
+                            agent_id,
+                            si.forget_id,
+                            before,
+                            after,
+                            "final_probe_recovery",
+                        )
+                        # s2: Attribute RR success to the assigned cohort
+                        if pair in clean_attempted_pairs:
+                            successful_clean_pairs.add(pair)
+                        elif pair in at_risk_attempted_pairs:
+                            successful_at_risk_pairs.add(pair)
         # s5: Append a TurnResult for the final probe to record state transitions
         result.turns.append(
             TurnResult(
@@ -1250,12 +1277,20 @@ def run_episode(
     assert clean_attempted_pairs.isdisjoint(at_risk_attempted_pairs), (
         "RR cohorts not disjoint: " f"{clean_attempted_pairs & at_risk_attempted_pairs}"
     )
-    recontaminated_clean = all_recontaminated_pairs & clean_attempted_pairs
-    recontaminated_at_risk = all_recontaminated_pairs & at_risk_attempted_pairs
+    # s2: Use attributable success sets for numerators
+    assert successful_clean_pairs.issubset(
+        clean_attempted_pairs
+    ), "successful_clean_pairs not subset of clean_attempted_pairs"
+    assert successful_at_risk_pairs.issubset(
+        at_risk_attempted_pairs
+    ), "successful_at_risk_pairs not subset of at_risk_attempted_pairs"
+    assert successful_clean_pairs.isdisjoint(
+        successful_at_risk_pairs
+    ), "successful_clean_pairs and successful_at_risk_pairs not disjoint"
     result.attempted_clean_pairs = len(clean_attempted_pairs)
-    result.recontaminated_clean_pairs = len(recontaminated_clean)
+    result.recontaminated_clean_pairs = len(successful_clean_pairs)
     result.attempted_at_risk_pairs = len(at_risk_attempted_pairs)
-    result.escalated_at_risk_pairs = len(recontaminated_at_risk)
+    result.escalated_at_risk_pairs = len(successful_at_risk_pairs)
 
     # Enforce numerator <= denominator
     if result.recontaminated_agent_record_pairs > result.attempted_agent_record_pairs:

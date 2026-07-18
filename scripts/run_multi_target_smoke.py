@@ -378,13 +378,10 @@ def _validate_multi_target(
             elif exposed_ids == {"F001", "F002"}:
                 combined_transition_cases += 1
     # s5: Gate requires both F001-only and F002-only isolation proven
-    state_isolation_passed = f001_only_isolated_cases > 0 and f002_only_isolated_cases > 0
-    if not state_isolation_passed:
-        isolation_mismatches.append(
-            f"F001-only={f001_only_isolated_cases}, "
-            f"F002-only={f002_only_isolated_cases}, "
-            f"combined={combined_transition_cases}"
-        )
+    # s3: Any cross-record mismatch also fails the gate
+    state_isolation_passed = (
+        f001_only_isolated_cases > 0 and f002_only_isolated_cases > 0 and not isolation_mismatches
+    )
     assertions.append(
         MultiTargetAssertion(
             name="state_isolation",
@@ -392,7 +389,8 @@ def _validate_multi_target(
             detail=(
                 f"F001-only={f001_only_isolated_cases}, "
                 f"F002-only={f002_only_isolated_cases}, "
-                f"combined={combined_transition_cases}"
+                f"combined={combined_transition_cases}, "
+                f"mismatches={len(isolation_mismatches)}"
             ),
         )
     )
