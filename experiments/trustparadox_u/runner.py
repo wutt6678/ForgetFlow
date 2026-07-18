@@ -79,7 +79,7 @@ def _deliver_released_text(
     sender: TrustParadoxAgent,
     recipient: TrustParadoxAgent,
     sender_id: str,
-    released_text: str,
+    released_text: str | None,
 ) -> None:
     """Deliver released text consistently across all branches.
 
