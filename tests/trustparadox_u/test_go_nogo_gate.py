@@ -189,7 +189,7 @@ class TestGoNoGoGate:
         assert result.attempted_agent_record_pairs == 0
 
     def test_go_unexpected_recontamination_audited(self) -> None:
-        """GO: Unexpected recontamination fails audit."""
+        """GO: Unexpected recontamination produces audit info finding."""
         from experiments.trustparadox_u.audit_results import audit_episode_result
         from experiments.trustparadox_u.runner import EpisodeResult
 
@@ -208,7 +208,8 @@ class TestGoNoGoGate:
         findings = audit_episode_result(result)
         unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
         assert len(unexpected) == 1
-        assert unexpected[0].level == "error"
+        # s2: Unexpected recontamination is now info, not error
+        assert unexpected[0].level == "info"
 
     def test_go_disk_aggregation_preserves_counts(self) -> None:
         """GO: RR pair counts survive serialization and disk loading."""

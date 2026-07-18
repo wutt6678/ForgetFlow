@@ -1201,7 +1201,7 @@ class TestUnexpectedRecontaminationAudit:
         assert len(unexpected) == 0
 
     def test_nonzero_unexpected_fails(self) -> None:
-        """ST-RR-005-one: Non-zero unexpected pairs produces audit error."""
+        """ST-RR-005-one: Non-zero unexpected pairs produces audit info finding."""
         result = _valid_result(
             metadata={
                 "forbidden_strings": ["secret"],
@@ -1212,7 +1212,8 @@ class TestUnexpectedRecontaminationAudit:
         findings = audit_episode_result(result)
         unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
         assert len(unexpected) == 1
-        assert unexpected[0].level == "error"
+        # s2: Unexpected recontamination is now info, not error
+        assert unexpected[0].level == "info"
 
     def test_negative_count_fails(self) -> None:
         """Section 6: Negative unexpected count is invalid."""

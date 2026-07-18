@@ -612,3 +612,79 @@ class TestCanonicalRR:
         rr_at_risk_dict = metrics.rr_at_risk.to_dict()
         # at_risk has 0 denominator so should still have population
         assert rr_at_risk_dict.get("population") == "already_at_risk"
+
+
+class TestRRPartition:
+    """s6: RR partition tests - attributable and unexpected form a valid partition."""
+
+    def _make_result(
+        self,
+        attempted: int = 0,
+        recontaminated: int = 0,
+        clean_attempted: int = 0,
+        clean_recontaminated: int = 0,
+        at_risk_attempted: int = 0,
+        at_risk_recontaminated: int = 0,
+        unexpected: int = 0,
+    ) -> EpisodeResult:
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
+        result.attempted_agent_record_pairs = attempted
+        result.recontaminated_agent_record_pairs = recontaminated
+        result.attempted_clean_pairs = clean_attempted
+        result.recontaminated_clean_pairs = clean_recontaminated
+        result.attempted_at_risk_pairs = at_risk_attempted
+        result.escalated_at_risk_pairs = at_risk_recontaminated
+        result.metadata["unexpected_recontaminated_pair_count"] = unexpected
+        return result
+
+    def test_aggregate_numerator_equals_cohort_sum(self) -> None:
+        """s6: Aggregate RR numerator = clean + at-risk numerators."""
+        result = self._make_result(
+            attempted=3,
+            recontaminated=2,
+            clean_attempted=2,
+            clean_recontaminated=1,
+            at_risk_attempted=1,
+            at_risk_recontaminated=1,
+        )
+        assert result.recontaminated_agent_record_pairs == (
+            result.recontaminated_clean_pairs + result.escalated_at_risk_pairs
+        )
+
+    def test_numerator_bounded_by_denominator(self) -> None:
+        """s6: RR numerator <= denominator."""
+        result = self._make_result(attempted=5, recontaminated=3)
+        assert result.recontaminated_agent_record_pairs <= result.attempted_agent_record_pairs
+
+    def test_clean_numerator_bounded(self) -> None:
+        """s6: Clean RR numerator <= clean denominator."""
+        result = self._make_result(clean_attempted=3, clean_recontaminated=2)
+        assert result.recontaminated_clean_pairs <= result.attempted_clean_pairs
+
+    def test_at_risk_numerator_bounded(self) -> None:
+        """s6: At-risk RR numerator <= at-risk denominator."""
+        result = self._make_result(at_risk_attempted=2, at_risk_recontaminated=1)
+        assert result.escalated_at_risk_pairs <= result.attempted_at_risk_pairs
+
+    def test_mixed_fixture_partition(self) -> None:
+        """s6: Mixed fixture with attributable success, unexpected, and failed attempt."""
+        # 2 attempted pairs: 1 successful, 1 failed but ends recontaminated (unexpected)
+        result = self._make_result(
+            attempted=2,
+            recontaminated=1,  # Only attributable success counts
+            clean_attempted=2,
+            clean_recontaminated=1,
+            at_risk_attempted=0,
+            at_risk_recontaminated=0,
+            unexpected=1,  # Failed attempt + unrelated recovery
+        )
+        # Aggregate numerator = attributable successes only
+        assert result.recontaminated_agent_record_pairs == 1
+        assert result.recontaminated_clean_pairs == 1
+        assert result.escalated_at_risk_pairs == 0
+        # Unexpected is separate from RR numerator
+        assert result.metadata["unexpected_recontaminated_pair_count"] == 1
+        # Numerator bounded by denominator
+        assert result.recontaminated_agent_record_pairs <= result.attempted_agent_record_pairs

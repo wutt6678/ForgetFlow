@@ -162,13 +162,16 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
             )
         )
     elif unexpected_count > 0:
+        # s2: Unexpected recontamination is a valid classified outcome,
+        # not an error. It means pairs ended RECONTAMINATED without
+        # attributable RR success (e.g., failed attempt + unrelated recovery).
         findings.append(
             AuditFinding(
-                level="error",
+                level="info",
                 code="UNEXPECTED_RECONTAMINATION_PAIRS",
                 message=(
                     f"Episode has {unexpected_count} unexpected recontaminated pairs "
-                    "(recontamination without labeled attempt)"
+                    "(recontamination without attributable RR success)"
                 ),
                 episode_id=ep_id,
             )

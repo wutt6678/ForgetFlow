@@ -1262,7 +1262,8 @@ def run_episode(
 
     # s3: Aggregate RR numerator uses attributable success, not final state
     successful_pairs = successful_clean_pairs | successful_at_risk_pairs
-    unexpected_recontaminated_pairs = all_recontaminated_pairs - attempted_pairs
+    # s2: Unexpected = final recontaminated minus attributable successes (not all attempted)
+    unexpected_recontaminated_pairs = all_recontaminated_pairs - successful_pairs
 
     # RR: use agent-record pairs for multi-target correctness
     result.attempted_agent_record_pairs = len(attempted_pairs)
@@ -1302,6 +1303,13 @@ def run_episode(
 
     # Store unexpected recontamination count for auditing
     result.metadata["unexpected_recontaminated_pair_count"] = len(unexpected_recontaminated_pairs)
+    # s2: Invariants for outcome classification
+    assert successful_pairs.isdisjoint(
+        unexpected_recontaminated_pairs
+    ), "successful_pairs and unexpected_recontaminated_pairs not disjoint"
+    assert (
+        successful_pairs | unexpected_recontaminated_pairs
+    ) == all_recontaminated_pairs, "successful + unexpected != all_recontaminated_pairs"
     # Store AT_RISK attempt metadata for RR denominator analysis
     result.metadata["at_risk_attempted_pair_count"] = len(at_risk_attempted_pairs)
     result.metadata["at_risk_attempted_pairs"] = sorted(
