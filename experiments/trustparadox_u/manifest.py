@@ -414,6 +414,14 @@ def validate_manifest_against_results(
                 "numerator": evaluation.rr.numerator,
                 "denominator": evaluation.rr.denominator,
             },
+            "rr_clean": {
+                "numerator": evaluation.rr_clean.numerator,
+                "denominator": evaluation.rr_clean.denominator,
+            },
+            "rr_at_risk": {
+                "numerator": evaluation.rr_at_risk.numerator,
+                "denominator": evaluation.rr_at_risk.denominator,
+            },
             "fbr": {
                 "numerator": evaluation.fbr.numerator,
                 "denominator": evaluation.fbr.denominator,
