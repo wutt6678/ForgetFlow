@@ -153,14 +153,34 @@ class TrustParadoxAgent(BaseAgent):
         """
         if not representation:
             return
+        self._redact_all([representation])
+
+    def remove_probe_visible_content_containing_any(
+        self,
+        representations: list[str],
+    ) -> None:
+        """Redact all *representations* in a single deterministic pass.
+
+        Representations are sorted longest-first so that overlapping
+        strings are handled consistently.  A combined regex ensures one
+        replacement cannot alter the input seen by later replacements.
+        """
+        filtered = [v for v in representations if v and v.strip()]
+        if not filtered:
+            return
+        # Sort longest-first, then alphabetically for determinism
+        sorted_reps = sorted(filtered, key=lambda v: (-len(v), v.casefold()))
+        self._redact_all(sorted_reps)
+
+    def _redact_all(self, sorted_reps: list[str]) -> None:
+        """Apply combined regex from *sorted_reps* to all probe-visible stores."""
+        pattern = re.compile(
+            "|".join(re.escape(v) for v in sorted_reps),
+            flags=re.IGNORECASE,
+        )
 
         def _redact(text: str) -> str:
-            return re.sub(
-                re.escape(representation),
-                REDACTION_PLACEHOLDER,
-                text,
-                flags=re.IGNORECASE,
-            )
+            return pattern.sub(REDACTION_PLACEHOLDER, text)
 
         def _is_empty(text: str) -> bool:
             stripped = text.replace(REDACTION_PLACEHOLDER, "").strip()

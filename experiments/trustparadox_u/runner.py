@@ -847,12 +847,21 @@ def run_episode(
     for agent_id in forget_phase.clean_agents:
         agent = agents[agent_id]
         for si in episode.sensitive_items:
-            # s3 (18th): Remove all configured representations from ALL
-            # probe-visible stores (local context, memory, inbox, released history)
-            representations = {si.canonical_target, *si.aliases, *si.semantic_variants}
-            for rep in representations:
-                if rep:
-                    agent.remove_probe_visible_content_containing(rep)
+            # s2 (20th): Deterministic longest-first redaction
+            # Build sorted representation list and redact in one pass
+            representations = sorted(
+                {
+                    value
+                    for value in {
+                        si.canonical_target,
+                        *si.aliases,
+                        *si.semantic_variants,
+                    }
+                    if value and value.strip()
+                },
+                key=lambda value: (-len(value), value.casefold()),
+            )
+            agent.remove_probe_visible_content_containing_any(representations)
             # s4 (18th): Verify cleanup via evaluator before assigning CLEAN.
             # Only transition to CLEAN if the agent was contaminated AND the
             # authoritative evaluator confirms the record is no longer visible.

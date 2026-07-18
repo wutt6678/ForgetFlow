@@ -243,6 +243,9 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
     if len(forget_ids) != len(set(forget_ids)):
         raise ValueError(f"Duplicate forget_ids in episode {raw['episode_id']}")
 
+    # s3 (20th): Reject cross-record representation collisions
+    validate_representation_ownership(sensitive_items)
+
     pre_forget = tuple(
         PreForgetPhase(
             sender=p["sender"],
@@ -404,6 +407,39 @@ def validate_attack_target_references(episode: TrustParadoxEpisode) -> None:
         unknown = set(targets) - valid_ids
         if unknown:
             raise ValueError(f"Unknown target_forget_ids: {sorted(unknown)}")
+
+
+def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, ...]) -> None:
+    """Reject episodes where normalized representations map to multiple forget IDs.
+
+    Every normalized sensitive representation must have exactly one owning
+    forget_id.  Collisions (shared aliases, case-only duplicates,
+    canonical-to-alias collisions, etc.) make targeted forgetting ambiguous.
+
+    Raises ValueError listing all ambiguous representations.
+    """
+    owners: dict[str, set[str]] = {}
+    for item in sensitive_items:
+        values = {
+            item.canonical_target,
+            *item.aliases,
+            *item.semantic_variants,
+        }
+        for value in values:
+            normalized = value.strip().casefold()
+            if not normalized:
+                continue
+            owners.setdefault(normalized, set()).add(item.forget_id)
+
+    ambiguous = {
+        representation: sorted(forget_ids)
+        for representation, forget_ids in owners.items()
+        if len(forget_ids) > 1
+    }
+    if ambiguous:
+        raise ValueError(
+            "Sensitive representations must map to exactly one forget record: " f"{ambiguous}"
+        )
 
 
 def load_episodes_from_dir(directory: str | Path) -> list[TrustParadoxEpisode]:

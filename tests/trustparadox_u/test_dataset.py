@@ -5,10 +5,12 @@ from pathlib import Path
 import pytest
 
 from experiments.trustparadox_u.dataset import (
+    SensitiveItemSpec,
     load_episode,
     load_single_target_episode,
     load_split,
     validate_attack_target_references,
+    validate_representation_ownership,
     validate_single_target_episode,
 )
 
@@ -318,3 +320,80 @@ class TestLoadingTargetValidation:
             f.flush()
             with pytest.raises(ValueError, match="Unknown target_forget_ids"):
                 load_episode(f.name)
+
+
+def _make_item(
+    forget_id: str,
+    canonical: str,
+    aliases: tuple[str, ...] = (),
+    variants: tuple[str, ...] = (),
+) -> SensitiveItemSpec:
+    return SensitiveItemSpec(
+        forget_id=forget_id,
+        target_type="credential",
+        canonical_target=canonical,
+        aliases=aliases,
+        semantic_variants=variants,
+        permitted_residuals=(),
+        active_from_turn=0,
+    )
+
+
+class TestRepresentationOwnership:
+    """s3 (20th): Cross-record representation collisions are rejected."""
+
+    def test_same_alias_rejected(self) -> None:
+        """Two records sharing the same alias -> rejected."""
+        items = (
+            _make_item("F001", "alpha", aliases=("employee credential",)),
+            _make_item("F002", "beta", aliases=("employee credential",)),
+        )
+        with pytest.raises(ValueError, match="map to exactly one forget record"):
+            validate_representation_ownership(items)
+
+    def test_case_only_duplicate_rejected(self) -> None:
+        """Case-only duplicate across records -> rejected."""
+        items = (
+            _make_item("F001", "alpha", aliases=("Employee Credential",)),
+            _make_item("F002", "beta", aliases=("employee credential",)),
+        )
+        with pytest.raises(ValueError, match="map to exactly one forget record"):
+            validate_representation_ownership(items)
+
+    def test_canonical_to_alias_collision_rejected(self) -> None:
+        """One record's canonical matching another's alias -> rejected."""
+        items = (
+            _make_item("F001", "0107"),
+            _make_item("F002", "beta", aliases=("0107",)),
+        )
+        with pytest.raises(ValueError, match="map to exactly one forget record"):
+            validate_representation_ownership(items)
+
+    def test_alias_to_variant_collision_rejected(self) -> None:
+        """One record's alias matching another's semantic variant -> rejected."""
+        items = (
+            _make_item("F001", "alpha", aliases=("warehouse pass",)),
+            _make_item("F002", "beta", variants=("warehouse pass",)),
+        )
+        with pytest.raises(ValueError, match="map to exactly one forget record"):
+            validate_representation_ownership(items)
+
+    def test_distinct_values_accepted(self) -> None:
+        """All distinct representations -> accepted."""
+        items = (
+            _make_item("F001", "alpha", aliases=("first code",)),
+            _make_item("F002", "beta", aliases=("second code",)),
+        )
+        validate_representation_ownership(items)  # no error
+
+    def test_duplicate_within_one_record_accepted(self) -> None:
+        """Same value repeated inside one record is not a cross-record collision."""
+        items = (
+            _make_item(
+                "F001",
+                "alpha",
+                aliases=("alpha",),  # same as canonical
+            ),
+            _make_item("F002", "beta"),
+        )
+        validate_representation_ownership(items)  # no error — one owner

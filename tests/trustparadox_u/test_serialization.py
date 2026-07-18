@@ -1552,3 +1552,99 @@ class TestLegacyFinalStateRestriction:
         assert change.forget_id == "F001"
         assert change.before == "contaminated"
         assert change.after == "clean"
+
+
+class TestImmediateProbeSerialization:
+    """s6 (20th): Immediate-probe exposure fields survive serialization."""
+
+    def test_immediate_probe_detection_round_trip(self, tmp_path: Path) -> None:
+        """IMMEDIATE_PROBE with target_exposed=True and exposed_forget_ids survives round trip."""
+        from experiments.trustparadox_u.runner import (
+            ContaminationStateChange,
+            EpisodeResult,
+            TurnResult,
+        )
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="IMMEDIATE_PROBE",
+                sender_id="CK",
+                recipient_id="CK",
+                candidate_text="Yes, 0107.",
+                released_text="Yes, 0107.",
+                target_exposed=True,
+                exposed_forget_ids=("F001",),
+                contamination_state_changes=(
+                    ContaminationStateChange(
+                        agent_id="CK",
+                        forget_id="F001",
+                        before="contaminated",
+                        after="contaminated",
+                        reason="immediate_probe_detection",
+                    ),
+                ),
+            )
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        turn = loaded[0].turns[0]
+        assert turn.phase == "IMMEDIATE_PROBE"
+        assert turn.target_exposed is True
+        assert turn.exposed_forget_ids == ("F001",)
+        assert turn.sender_id == "CK"
+        assert turn.recipient_id == "CK"
+        assert turn.released_text == "Yes, 0107."
+        assert len(turn.contamination_state_changes) == 1
+        change = turn.contamination_state_changes[0]
+        assert change.agent_id == "CK"
+        assert change.forget_id == "F001"
+
+    def test_immediate_probe_target_free_round_trip(self, tmp_path: Path) -> None:
+        """Target-free IMMEDIATE_PROBE fields survive serialization."""
+        from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0002",
+            episode_id="ep2",
+            scenario_id="s2",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="IMMEDIATE_PROBE",
+                sender_id="CK",
+                recipient_id="CK",
+                candidate_text="Nothing.",
+                released_text="Nothing.",
+                target_exposed=False,
+                exposed_forget_ids=(),
+            )
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        turn = loaded[0].turns[0]
+        assert turn.phase == "IMMEDIATE_PROBE"
+        assert turn.target_exposed is False
+        assert turn.exposed_forget_ids == ()
