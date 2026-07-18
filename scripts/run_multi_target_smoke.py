@@ -67,6 +67,7 @@ EXIT_DIRECTIONAL = 1
 REQUIRED_ARTIFACTS = [
     "episodes.jsonl",
     "smoke_manifest.json",
+    "study_manifest.json",
     "result_audit.json",
     "metrics.json",
     "metric_counts.json",
@@ -75,6 +76,7 @@ REQUIRED_ARTIFACTS = [
     "summary.json",
     "summary.md",
     "manifest_validation.json",
+    "study_manifest_validation.json",
 ]
 
 # Conditions: (name, config_overrides, firewall_enabled)
@@ -836,43 +838,61 @@ def run_multi_target_smoke(
         json.dumps(per_condition_metrics, indent=2)
     )
 
-    # Build smoke manifest using authoritative builder (s4)
-    # Use results from a single consistent condition for manifest derivation
+    # Build per-condition child manifests (s3) and study manifest (s2)
     from experiments.trustparadox_u.manifest import (
         build_manifest,
+        build_study_manifest,
         validate_manifest_against_results,
+        validate_study_manifest,
     )
 
-    # Pick the full_mvp condition results for manifest derivation (consistent config)
-    manifest_results = condition_results.get("full_mvp", all_results)
+    # Create manifests/ subdirectory for child manifests
+    manifests_dir = output_dir / "manifests"
+    manifests_dir.mkdir(exist_ok=True)
 
-    # Compute metric counts from the same subset used for manifest
+    condition_manifests: dict[str, str] = {}
+    all_child_manifest_valid = True
+
+    for cond_name, cond_results_list in condition_results.items():
+        # Compute metric counts for this condition
+        cond_eval = evaluate_all(cond_results_list)
+        cond_metric_counts = {
+            "pu_rer": {"numerator": cond_eval.pu_rer.numerator, "denominator": cond_eval.pu_rer.denominator},
+            "crr": {"numerator": cond_eval.crr.numerator, "denominator": cond_eval.crr.denominator},
+            "rr": {"numerator": cond_eval.rr.numerator, "denominator": cond_eval.rr.denominator},
+            "rr_clean": {"numerator": cond_eval.rr_clean.numerator, "denominator": cond_eval.rr_clean.denominator},
+            "rr_at_risk": {"numerator": cond_eval.rr_at_risk.numerator, "denominator": cond_eval.rr_at_risk.denominator},
+            "fbr": {"numerator": cond_eval.fbr.numerator, "denominator": cond_eval.fbr.denominator},
+        }
+
+        child_manifest = build_manifest(
+            results=cond_results_list,
+            audit_valid=audit_valid,
+            audit_error_count=len(audit_report.errors()),
+            metric_counts=cond_metric_counts,
+            reject_dirty=False,
+            repository_commit=repository_commit,
+        )
+        child_path = f"manifests/{cond_name}.json"
+        (output_dir / child_path).write_text(child_manifest.to_json())
+        condition_manifests[cond_name] = child_path
+
+        # Validate child manifest
+        child_findings = validate_manifest_against_results(child_manifest, cond_results_list)
+        if child_findings:
+            all_child_manifest_valid = False
+            print(f"  [WARN] Child manifest {cond_name} has {len(child_findings)} findings: {child_findings}")
+
+    # Also build the legacy smoke_manifest.json from full_mvp for backward compat
+    manifest_results = condition_results.get("full_mvp", all_results)
     manifest_evaluation = evaluate_all(manifest_results)
     manifest_metric_counts = {
-        "pu_rer": {
-            "numerator": manifest_evaluation.pu_rer.numerator,
-            "denominator": manifest_evaluation.pu_rer.denominator,
-        },
-        "crr": {
-            "numerator": manifest_evaluation.crr.numerator,
-            "denominator": manifest_evaluation.crr.denominator,
-        },
-        "rr": {
-            "numerator": manifest_evaluation.rr.numerator,
-            "denominator": manifest_evaluation.rr.denominator,
-        },
-        "rr_clean": {
-            "numerator": manifest_evaluation.rr_clean.numerator,
-            "denominator": manifest_evaluation.rr_clean.denominator,
-        },
-        "rr_at_risk": {
-            "numerator": manifest_evaluation.rr_at_risk.numerator,
-            "denominator": manifest_evaluation.rr_at_risk.denominator,
-        },
-        "fbr": {
-            "numerator": manifest_evaluation.fbr.numerator,
-            "denominator": manifest_evaluation.fbr.denominator,
-        },
+        "pu_rer": {"numerator": manifest_evaluation.pu_rer.numerator, "denominator": manifest_evaluation.pu_rer.denominator},
+        "crr": {"numerator": manifest_evaluation.crr.numerator, "denominator": manifest_evaluation.crr.denominator},
+        "rr": {"numerator": manifest_evaluation.rr.numerator, "denominator": manifest_evaluation.rr.denominator},
+        "rr_clean": {"numerator": manifest_evaluation.rr_clean.numerator, "denominator": manifest_evaluation.rr_clean.denominator},
+        "rr_at_risk": {"numerator": manifest_evaluation.rr_at_risk.numerator, "denominator": manifest_evaluation.rr_at_risk.denominator},
+        "fbr": {"numerator": manifest_evaluation.fbr.numerator, "denominator": manifest_evaluation.fbr.denominator},
     }
 
     manifest = build_manifest(
@@ -888,7 +908,7 @@ def run_multi_target_smoke(
 
     # Validate manifest against the same results used to build it (s4)
     manifest_findings = validate_manifest_against_results(manifest, manifest_results)
-    manifest_valid = len(manifest_findings) == 0
+    manifest_valid = len(manifest_findings) == 0 and all_child_manifest_valid
     (output_dir / "manifest_validation.json").write_text(
         json.dumps({"valid": manifest_valid, "findings": manifest_findings}, indent=2)
     )
@@ -905,6 +925,57 @@ def run_multi_target_smoke(
 
     all_assertions_passed = all(a.passed for a in assertions)
 
+    # Check artifact completeness AFTER all writes (s3)
+    missing_artifacts = [name for name in REQUIRED_ARTIFACTS if not (output_dir / name).exists()]
+    artifacts_complete = len(missing_artifacts) == 0
+
+    # Build study manifest (s2) after all other artifacts are written
+    schema_versions = tuple(sorted({r.schema_version for r in all_results}))
+    study_manifest = build_study_manifest(
+        repository_commit=repository_commit,
+        artifact_dirty=not repository_clean,
+        result_schema_versions=schema_versions,
+        result_count=len(all_results),
+        condition_manifests=condition_manifests,
+        output_dir=output_dir,
+        audit_valid=audit_valid,
+        manifest_valid=manifest_valid,
+        release_certifying=is_certifying,
+    )
+    study_manifest_path = output_dir / "study_manifest.json"
+    study_manifest_path.write_text(study_manifest.to_json())
+
+    # Validate study manifest
+    study_findings = validate_study_manifest(study_manifest, output_dir)
+    study_manifest_valid = len(study_findings) == 0
+    (output_dir / "study_manifest_validation.json").write_text(
+        json.dumps({"valid": study_manifest_valid, "findings": study_findings}, indent=2)
+    )
+
+    # Re-hash study_manifest.json and validation into the study manifest (self-referential)
+    # We do a second pass to include the study manifest's own hash
+    study_manifest = build_study_manifest(
+        repository_commit=repository_commit,
+        artifact_dirty=not repository_clean,
+        result_schema_versions=schema_versions,
+        result_count=len(all_results),
+        condition_manifests=condition_manifests,
+        output_dir=output_dir,
+        audit_valid=audit_valid,
+        manifest_valid=manifest_valid and study_manifest_valid,
+        release_certifying=is_certifying,
+    )
+    study_manifest_path.write_text(study_manifest.to_json())
+
+    # s5: Determine status — artifact completeness is part of the GO predicate
+    certification_passed = (
+        all_assertions_passed
+        and audit_valid
+        and manifest_valid
+        and artifacts_complete
+        and study_manifest_valid
+    )
+
     # Build report
     report = {
         "repository_commit": repository_commit,
@@ -919,16 +990,18 @@ def run_multi_target_smoke(
         "all_assertions_passed": all_assertions_passed,
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
+        "study_manifest_valid": study_manifest_valid,
+        "artifacts_complete": artifacts_complete,
         "assertions": [
             {"name": a.name, "passed": a.passed, "detail": a.detail} for a in assertions
         ],
         "metrics": evaluation.to_dict(),
     }
 
-    # Determine status
+    # s5: GO requires all certification gates
     if mode == "diagnostic":
         status = "DIAGNOSTIC"
-    elif all_assertions_passed and audit_valid and manifest_valid:
+    elif is_certifying and certification_passed:
         status = "GO"
     else:
         status = "NO-GO"
@@ -936,6 +1009,7 @@ def run_multi_target_smoke(
     report["status"] = status
     report["certification_mode"] = mode
     report["is_certifying"] = is_certifying
+    report["missing_artifacts"] = missing_artifacts
 
     # Write multi_target_report.json
     report_path = output_dir / "multi_target_report.json"
@@ -982,6 +1056,8 @@ def run_multi_target_smoke(
         "repository_clean": repository_clean,
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
+        "study_manifest_valid": study_manifest_valid,
+        "artifacts_complete": artifacts_complete,
         "all_assertions_passed": all_assertions_passed,
         "total_runs": len(all_results),
         "generated_at": generated_at,
@@ -990,13 +1066,7 @@ def run_multi_target_smoke(
     }
     (output_dir / "summary.json").write_text(json.dumps(summary_json, indent=2))
 
-    # Check artifact completeness AFTER all writes (s3)
-    missing_artifacts = [name for name in REQUIRED_ARTIFACTS if not (output_dir / name).exists()]
-    artifacts_complete = len(missing_artifacts) == 0
-
-    # Update report with completeness info
-    report["artifacts_complete"] = artifacts_complete
-    report["missing_artifacts"] = missing_artifacts
+    # Final report write (includes all fields)
     report_path.write_text(json.dumps(report, indent=2))
 
     print("\nMulti-target smoke study complete:")
@@ -1004,6 +1074,7 @@ def run_multi_target_smoke(
     print(f"  Total runs: {len(all_results)}")
     print(f"  All assertions passed: {all_assertions_passed}")
     print(f"  Artifacts complete: {artifacts_complete}")
+    print(f"  Study manifest valid: {study_manifest_valid}")
     for a in assertions:
         icon = "PASS" if a.passed else "FAIL"
         print(f"  [{icon}] {a.name}: {a.detail}")
@@ -1064,17 +1135,19 @@ def main() -> int:
         print(f"Execution error: {exc}", file=sys.stderr)
         return EXIT_EXECUTION
 
-    # Determine exit code
+    # s6: Determine exit code — check completeness before returning 0
     status = report.get("status", "NO-GO")
     if status == "GO":
         return EXIT_SUCCESS
     if status == "DIAGNOSTIC":
         return EXIT_SUCCESS
 
-    # NO-GO: determine specific failure category
+    # NO-GO: determine specific failure category (s6)
     if not report.get("audit_valid", False):
         return EXIT_AUDIT
     if not report.get("manifest_valid", False):
+        return EXIT_MANIFEST
+    if not report.get("study_manifest_valid", False):
         return EXIT_MANIFEST
     if not report.get("artifacts_complete", False):
         return EXIT_ARTIFACT_COMPLETENESS

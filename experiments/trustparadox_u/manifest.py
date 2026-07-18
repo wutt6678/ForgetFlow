@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -270,8 +271,11 @@ def build_manifest(
         results, "embedding_dimension", allow_none=not semantic_enabled
     )
 
-    # Semantic threshold is always required
-    semantic_threshold = float(require_single_metadata_value(results, "semantic_threshold"))
+    # Semantic threshold is always present in metadata but may be None when semantic is disabled
+    semantic_threshold_raw = require_single_metadata_value(
+        results, "semantic_threshold", allow_none=not semantic_enabled
+    )
+    semantic_threshold = float(semantic_threshold_raw) if semantic_threshold_raw is not None else 0.0
 
     # API base is optional
     api_base_sanitized = require_single_metadata_value(
@@ -524,6 +528,8 @@ def validate_manifest_against_results(
 
     # 12. Check semantic threshold matches
     actual_thresholds = {r.metadata.get("semantic_threshold") for r in results}
+    # Skip threshold check when semantic is disabled (all thresholds are None)
+    semantic_disabled = actual_thresholds == {None}
     if len(actual_thresholds) > 1:
         findings.append(
             {
@@ -531,7 +537,7 @@ def validate_manifest_against_results(
                 "message": f"Results have multiple thresholds: {actual_thresholds}",
             }
         )
-    elif actual_thresholds and manifest.semantic_threshold not in actual_thresholds:
+    elif not semantic_disabled and actual_thresholds and manifest.semantic_threshold not in actual_thresholds:
         findings.append(
             {
                 "code": "MANIFEST_THRESHOLD_MISMATCH",
@@ -555,5 +561,176 @@ def validate_manifest_against_results(
                 "message": f"Endpoint doesn't match: manifest={manifest.api_base_sanitized}, actual={actual_endpoints.pop()}",
             }
         )
+
+    return findings
+
+
+def sha256_file(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+@dataclass(frozen=True)
+class StudyManifest:
+    """Whole-study manifest covering all conditions and outputs.
+
+    References per-condition child manifests and hashes all output files.
+    """
+
+    repository_commit: str
+    artifact_dirty: bool
+    result_schema_versions: tuple[str, ...]
+    result_count: int
+    condition_manifests: dict[str, str]
+    output_files: dict[str, str]
+    output_hashes: dict[str, str]
+    audit_valid: bool
+    manifest_valid: bool
+    release_certifying: bool
+    generated_at_utc: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to a JSON-serialisable dict."""
+        return asdict(self)
+
+    def to_json(self, *, indent: int = 2) -> str:
+        """Deterministic JSON serialisation."""
+        return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
+
+
+def build_study_manifest(
+    *,
+    repository_commit: str,
+    artifact_dirty: bool,
+    result_schema_versions: tuple[str, ...],
+    result_count: int,
+    condition_manifests: dict[str, str],
+    output_dir: Path,
+    audit_valid: bool,
+    manifest_valid: bool,
+    release_certifying: bool,
+) -> StudyManifest:
+    """Build a study-level manifest from completed run outputs.
+
+    Computes SHA-256 hashes for all output files in the directory.
+    """
+    output_files: dict[str, str] = {}
+    output_hashes: dict[str, str] = {}
+
+    # Exclude study manifest files from self-hashing (circular dependency)
+    excluded_files = {"study_manifest.json", "study_manifest_validation.json"}
+
+    for fpath in sorted(output_dir.iterdir()):
+        if fpath.is_file() and fpath.name not in excluded_files:
+            rel = fpath.name
+            output_files[rel] = rel
+            output_hashes[rel] = sha256_file(fpath)
+
+    # Also hash files in manifests/ subdirectory
+    manifests_dir = output_dir / "manifests"
+    if manifests_dir.is_dir():
+        for fpath in sorted(manifests_dir.iterdir()):
+            if fpath.is_file():
+                rel = f"manifests/{fpath.name}"
+                output_files[rel] = rel
+                output_hashes[rel] = sha256_file(fpath)
+
+    return StudyManifest(
+        repository_commit=repository_commit,
+        artifact_dirty=artifact_dirty,
+        result_schema_versions=result_schema_versions,
+        result_count=result_count,
+        condition_manifests=condition_manifests,
+        output_files=output_files,
+        output_hashes=output_hashes,
+        audit_valid=audit_valid,
+        manifest_valid=manifest_valid,
+        release_certifying=release_certifying,
+        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+def validate_study_manifest(
+    manifest: StudyManifest,
+    output_dir: Path,
+) -> list[dict[str, str]]:
+    """Validate a study manifest against the output directory.
+
+    Returns a list of findings. Empty list means validation passed.
+    """
+    findings: list[dict[str, str]] = []
+
+    # 1. Check repository commit
+    commit_clean = manifest.repository_commit.replace("-dirty", "")
+    if not COMMIT_RE.match(commit_clean):
+        findings.append({
+            "code": "STUDY_INVALID_COMMIT",
+            "message": f"Invalid commit: {manifest.repository_commit!r}",
+        })
+
+    # 2. Check dirty flag for certification
+    if manifest.release_certifying and manifest.artifact_dirty:
+        findings.append({
+            "code": "STUDY_DIRTY_ARTIFACT",
+            "message": "Release-certifying manifest has dirty artifact flag",
+        })
+
+    # 3. Check result count
+    if manifest.result_count <= 0:
+        findings.append({
+            "code": "STUDY_NO_RESULTS",
+            "message": f"Result count is {manifest.result_count}",
+        })
+
+    # 4. Check schema versions
+    if not manifest.result_schema_versions:
+        findings.append({
+            "code": "STUDY_NO_SCHEMA",
+            "message": "No schema versions recorded",
+        })
+
+    # 5. Check condition manifests exist
+    for cond_name, cond_path in manifest.condition_manifests.items():
+        full_path = output_dir / cond_path
+        if not full_path.exists():
+            findings.append({
+                "code": "STUDY_MISSING_CONDITION_MANIFEST",
+                "message": f"Missing condition manifest: {cond_name} at {cond_path}",
+            })
+
+    # 6. Check output files exist and hashes match
+    for file_key, file_rel in manifest.output_files.items():
+        full_path = output_dir / file_rel
+        if not full_path.exists():
+            findings.append({
+                "code": "STUDY_MISSING_OUTPUT",
+                "message": f"Missing output file: {file_key}",
+            })
+        elif file_key in manifest.output_hashes:
+            actual_hash = sha256_file(full_path)
+            expected_hash = manifest.output_hashes[file_key]
+            if actual_hash != expected_hash:
+                findings.append({
+                    "code": "STUDY_HASH_MISMATCH",
+                    "message": f"Hash mismatch for {file_key}: expected {expected_hash[:16]}..., got {actual_hash[:16]}...",
+                })
+
+    # 7. Check audit valid
+    if not manifest.audit_valid:
+        findings.append({
+            "code": "STUDY_AUDIT_INVALID",
+            "message": "Study manifest records audit as invalid",
+        })
+
+    # 8. Check manifest valid
+    if not manifest.manifest_valid:
+        findings.append({
+            "code": "STUDY_MANIFEST_INVALID",
+            "message": "Study manifest records child manifest validation as invalid",
+        })
 
     return findings
