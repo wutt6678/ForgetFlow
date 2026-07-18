@@ -1,4 +1,5 @@
 results/trustparadox_u/
+results/single_target_smoke*/
 __pycache__/
 *.pyc
 .mypy_cache/
