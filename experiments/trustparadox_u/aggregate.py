@@ -61,6 +61,10 @@ class ResultAuditError(AggregationError):
     """Error auditing results."""
 
 
+class ProvenanceError(AggregationError):
+    """Error determining repository provenance (exit code 6)."""
+
+
 def _dummy_manifest() -> SmokeManifest:
     """Create a placeholder manifest for diagnostic no-manifest mode."""
     return SmokeManifest(
@@ -337,7 +341,14 @@ def write_aggregation_outputs(
             "> Repository commit validation was skipped. "
             "> These results cannot certify a release or experiment SHA.\n"
         )
-    if prov.get("validation_mode") == "missing_manifest_diagnostic":
+    if prov.get("validation_mode") == "historical_missing_manifest_diagnostic":
+        md_lines.append(
+            "> **Historical diagnostic analysis.** "
+            "> The artifacts use a legacy result schema and no authoritative "
+            "> smoke manifest was available. "
+            "> These outputs cannot certify a release.\n"
+        )
+    elif prov.get("validation_mode") == "missing_manifest_diagnostic":
         md_lines.append(
             "> **Diagnostic artifact analysis.** "
             "> No authoritative smoke manifest was available. "
@@ -402,7 +413,10 @@ def validate_commit_provenance(
         parse_repository_provenance,
     )
 
-    artifact_prov = parse_repository_provenance(manifest.repository_commit)
+    try:
+        artifact_prov = parse_repository_provenance(manifest.repository_commit)
+    except ValueError as exc:
+        raise StaleArtifactError(f"Manifest repository provenance is invalid: {exc}") from exc
 
     provenance_meta: dict[str, Any] = {
         "artifact_commit": artifact_prov.commit,
@@ -416,11 +430,15 @@ def validate_commit_provenance(
     if skip_check:
         provenance_meta["validation_mode"] = "diagnostic_skipped"
         provenance_meta["diagnostic"] = True
+        if allow_historical:
+            provenance_meta["historical"] = True
         return provenance_meta
 
     # Determine expected commit
     if require_current_commit or (expected_commit is None and not allow_historical):
         current_raw = get_repository_commit()
+        if current_raw == "unknown":
+            raise StaleArtifactError("Current Git commit could not be determined")
         current_prov = parse_repository_provenance(current_raw)
         expected_prov = current_prov
         provenance_meta["expected_commit"] = current_prov.commit
@@ -492,34 +510,34 @@ def main() -> int:
         action="store_true",
         help="Allow aggregation without a manifest (diagnostic only)",
     )
-    parser.add_argument(
+    commit_group = parser.add_mutually_exclusive_group()
+    commit_group.add_argument(
         "--expected-commit",
         default=None,
         help="Require manifest commit to match this SHA",
     )
-    parser.add_argument(
+    commit_group.add_argument(
         "--require-current-commit",
         action="store_true",
         help="Require manifest commit to match the current HEAD",
+    )
+    commit_group.add_argument(
+        "--skip-commit-check",
+        action="store_true",
+        help="Skip commit provenance check (diagnostic only)",
     )
     parser.add_argument(
         "--allow-historical-artifacts",
         action="store_true",
         help="Allow artifacts from a different commit (marked historical)",
     )
-    parser.add_argument(
-        "--skip-commit-check",
-        action="store_true",
-        help="Skip commit provenance check (diagnostic only)",
-    )
     args = parser.parse_args()
 
     # Default: require current commit unless explicitly overridden
-    if (
-        args.expected_commit is None
-        and not args.allow_historical_artifacts
-        and not args.skip_commit_check
-    ):
+    any_commit_flag = (
+        args.expected_commit is not None or args.require_current_commit or args.skip_commit_check
+    )
+    if not any_commit_flag and not args.allow_historical_artifacts:
         args.require_current_commit = True
 
     input_dir = Path(args.input)
@@ -640,17 +658,23 @@ def main() -> int:
 
         # 11. Write outputs
         if diagnostic_only:
-            # Build diagnostic provenance for no-manifest mode
-            diagnostic_provenance: dict[str, Any] = {
-                "artifact_commit": None,
-                "artifact_dirty": None,
-                "expected_commit": None,
-                "historical": False,
-                "diagnostic": True,
-                "validation_mode": "missing_manifest_diagnostic",
-                "release_certifying": False,
-            }
-            provenance_meta = diagnostic_provenance
+            # Preserve historical flag from schema inspection
+            historical = bool(provenance_meta.get("historical", False))
+            provenance_meta.update(
+                {
+                    "artifact_commit": None,
+                    "artifact_dirty": None,
+                    "expected_commit": None,
+                    "historical": historical,
+                    "diagnostic": True,
+                    "validation_mode": (
+                        "historical_missing_manifest_diagnostic"
+                        if historical
+                        else "missing_manifest_diagnostic"
+                    ),
+                    "release_certifying": False,
+                }
+            )
             write_aggregation_outputs(
                 output_dir=output_dir,
                 results=results,
@@ -672,6 +696,9 @@ def main() -> int:
 
     except StaleArtifactError as exc:
         print(f"Aggregation failed [STALE_ARTIFACT]: {exc}", file=sys.stderr)
+        return 6
+    except ProvenanceError as exc:
+        print(f"Aggregation failed [PROVENANCE]: {exc}", file=sys.stderr)
         return 6
     except SchemaCompatibilityError as exc:
         print(f"Aggregation failed [SCHEMA]: {exc}", file=sys.stderr)

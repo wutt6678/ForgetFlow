@@ -1132,3 +1132,317 @@ class TestAuditErrorCounting:
         assert len(report.errors()) == 1
         assert len(report.warnings()) == 2
         assert report.has_errors is True
+
+
+class TestHistoricalNoManifest:
+    """Section 6: Preserve historical status in no-manifest diagnostic mode."""
+
+    def _write_episodes(self, path: Path, schema_version: str = "1.1") -> None:
+        """Write episodes with the given schema version."""
+        result = _valid_result()
+        result.metadata["run_mode"] = "test"
+        result.metadata["semantic_threshold"] = 0.8
+        episode_data = {
+            "run_id": result.run_id,
+            "episode_id": result.episode_id,
+            "scenario_id": result.scenario_id,
+            "trust_level": result.trust_level,
+            "seed": result.seed,
+            "turns": [],
+            "contamination_states": {},
+            "audit_entries": [],
+            "task_success": result.task_success,
+            "task_label": result.task_label,
+            "cleaned_agents_exposed": result.cleaned_agents_exposed,
+            "recontaminated_agents": result.recontaminated_agents,
+            "metadata": result.metadata,
+        }
+        data = {"schema_version": schema_version, "episode": episode_data}
+        with open(path, "w") as f:
+            f.write(json.dumps(data) + "\n")
+
+    def test_current_schema_no_manifest(self, tmp_path: Path) -> None:
+        """Current schema + no manifest = diagnostic, not historical."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        self._write_episodes(input_dir / "episodes.jsonl", "1.1")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-missing-manifest",
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        prov = json.loads((output_dir / "summary.json").read_text())["artifact_provenance"]
+        assert prov["diagnostic"] is True
+        assert prov["historical"] is False
+        assert prov["validation_mode"] == "missing_manifest_diagnostic"
+        assert prov["release_certifying"] is False
+
+    def test_legacy_schema_no_manifest(self, tmp_path: Path) -> None:
+        """Legacy schema + no manifest = both historical and diagnostic."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        self._write_episodes(input_dir / "episodes.jsonl", "1.0")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-missing-manifest",
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        prov = json.loads((output_dir / "summary.json").read_text())["artifact_provenance"]
+        assert prov["historical"] is True
+        assert prov["diagnostic"] is True
+        assert prov["validation_mode"] == "historical_missing_manifest_diagnostic"
+        assert prov["release_certifying"] is False
+
+    def test_all_outputs_preserve_flags(self, tmp_path: Path) -> None:
+        """All standalone outputs preserve both historical and diagnostic flags."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        self._write_episodes(input_dir / "episodes.jsonl", "1.0")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-missing-manifest",
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        for fname in [
+            "metrics.json",
+            "metric_counts.json",
+            "audit_report.json",
+            "unmatched_pairs.json",
+            "utility_pairing.json",
+        ]:
+            data = json.loads((output_dir / fname).read_text())
+            prov = data["artifact_provenance"]
+            assert prov["historical"] is True, f"{fname} missing historical"
+            assert prov["diagnostic"] is True, f"{fname} missing diagnostic"
+
+
+class TestConflictingProvenanceFlags:
+    """Section 8: Reject conflicting provenance CLI flags."""
+
+    def test_expected_plus_current_rejected(self, tmp_path: Path) -> None:
+        """--expected-commit + --require-current-commit rejected by argparse."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--expected-commit",
+                "a" * 40,
+                "--require-current-commit",
+            ],
+        ):
+            with pytest.raises(SystemExit):
+                main()
+
+    def test_expected_plus_skip_rejected(self, tmp_path: Path) -> None:
+        """--expected-commit + --skip-commit-check rejected by argparse."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--expected-commit",
+                "a" * 40,
+                "--skip-commit-check",
+            ],
+        ):
+            with pytest.raises(SystemExit):
+                main()
+
+    def test_current_plus_skip_rejected(self, tmp_path: Path) -> None:
+        """--require-current-commit + --skip-commit-check rejected by argparse."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--require-current-commit",
+                "--skip-commit-check",
+            ],
+        ):
+            with pytest.raises(SystemExit):
+                main()
+
+    def test_historical_plus_expected_accepted(self, tmp_path: Path) -> None:
+        """--allow-historical-artifacts + --expected-commit is allowed."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-historical-artifacts",
+                "--expected-commit",
+                "a" * 40,
+            ],
+        ):
+            with patch(
+                "experiments.trustparadox_u.aggregate.resolve_commit_sha",
+                return_value="a" * 40,
+            ):
+                exit_code = main()
+
+        # Should not crash (may be 0 or 6 depending on commit match)
+        assert exit_code in (0, 6)
+
+    def test_historical_plus_skip_accepted(self, tmp_path: Path) -> None:
+        """--allow-historical-artifacts + --skip-commit-check is allowed."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(input_dir / "smoke_manifest.json")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--allow-historical-artifacts",
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 0
+        prov = json.loads((output_dir / "summary.json").read_text())["artifact_provenance"]
+        assert prov["historical"] is True
+        assert prov["diagnostic"] is True
+
+
+class TestProvenanceExitCode6:
+    """Section 7: Invalid Git provenance maps to exit code 6."""
+
+    def test_invalid_manifest_sha_exits_6(self, tmp_path: Path) -> None:
+        """Manifest with invalid SHA exits with code 6."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(
+            input_dir / "smoke_manifest.json",
+            commit="not-a-valid-sha!!!",
+        )
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--skip-commit-check",
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 6
+
+    def test_unknown_commit_exits_6(self, tmp_path: Path) -> None:
+        """Manifest with 'unknown' commit exits with code 6."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        _write_valid_episodes(input_dir / "episodes.jsonl")
+        _write_valid_manifest(
+            input_dir / "smoke_manifest.json",
+            commit="unknown",
+        )
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "aggregate",
+                "--input",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--require-current-commit",
+            ],
+        ):
+            with patch(
+                "experiments.trustparadox_u.manifest.get_repository_commit",
+                return_value="unknown",
+            ):
+                exit_code = main()
+
+        assert exit_code == 6

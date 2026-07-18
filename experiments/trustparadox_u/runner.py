@@ -294,6 +294,72 @@ def _determine_fragment_count(episode: TrustParadoxEpisode) -> int:
     return max(counts, default=0)
 
 
+def _update_detector_and_record_exposure(
+    *,
+    detector_result: Any,
+    exposed_ids: set[str],
+    episode: Any,
+    checker: Any,
+    ledger: Any,
+    tracker: Any,
+    turn_id: int,
+    sender_id: str,
+    recipient_id: str,
+    released_text: str | None,
+    context_messages: Any,
+    config: Any,
+) -> Any:
+    """Update detector with reconstruction score and record exposure (shared path)."""
+    if detector_result is None:
+        return None
+    recon_score = checker.score(
+        released_text or "",
+        context_messages,
+        ledger.active_records(turn_id, sender_id, recipient_id),
+        {
+            "fragment_map": episode.fragment_map,
+            "fact_chains": episode.fact_chains,
+        },
+        history_enabled=config.history.enabled,
+        reconstruction_threshold=config.history.reconstruction_threshold,
+    )
+    detector_result = dataclasses.replace(detector_result, reconstruction_score=recon_score)
+    for si in episode.sensitive_items:
+        if si.forget_id not in detector_result.matched_forget_ids:
+            continue
+        tracker.record_exposure(
+            recipient_id,
+            si.forget_id,
+            detector_result,
+            config.history.reconstruction_threshold,
+        )
+    return detector_result
+
+
+def _evaluate_reconstruction_evidence(
+    *,
+    recipient_transcript: list[str],
+    sensitive_items: Any,
+    is_reconstruction: bool,
+) -> set[str]:
+    """Evaluate reconstruction evidence from released transcript (shared path)."""
+    reconstructed_ids: set[str] = set()
+    if not is_reconstruction:
+        return reconstructed_ids
+    for si in sensitive_items:
+        if si.reconstruction:
+            if evaluate_reconstruction_success(
+                released_transcript=recipient_transcript,
+                reconstruction_metadata=ReconstructionMetadata(
+                    type=si.reconstruction.get("type", ""),
+                    fragments=tuple(si.reconstruction.get("fragments", [])),
+                    required_facts=tuple(si.reconstruction.get("required_facts", [])),
+                ),
+            ):
+                reconstructed_ids.add(si.forget_id)
+    return reconstructed_ids
+
+
 def run_episode(
     episode: TrustParadoxEpisode,
     config: ExperimentConfig,
@@ -677,13 +743,14 @@ def run_episode(
             task_rel = step.label.task_relevant
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
-            # Use target-specific forget IDs from the label
+            # Include AT_RISK: record_exposure may have transitioned before this step
             if is_recontamination:
                 for forget_id in step.label.target_forget_ids:
                     status = tracker.get_status(step.recipient, forget_id)
                     if status in (
                         ContaminationStatus.CLEAN,
                         ContaminationStatus.VERIFIED,
+                        ContaminationStatus.AT_RISK,
                     ):
                         attempted_pairs.add((step.recipient, forget_id))
 
@@ -719,56 +786,34 @@ def run_episode(
                         recipient_id=step.recipient,
                         context_messages=released_context,
                     )
-                    # Update detector with reconstruction score
-                    if released_detection is not None:
-                        released_recon = checker.score(
-                            released_text or "",
-                            released_context,
-                            ledger.active_records(turn_counter, step.sender, step.recipient),
-                            {
-                                "fragment_map": episode.fragment_map,
-                                "fact_chains": episode.fact_chains,
-                            },
-                            history_enabled=config.history.enabled,
-                            reconstruction_threshold=(config.history.reconstruction_threshold),
-                        )
-                        released_detection = dataclasses.replace(
-                            released_detection, reconstruction_score=released_recon
-                        )
-                        for si in episode.sensitive_items:
-                            if si.forget_id not in released_detection.matched_forget_ids:
-                                continue
-                            tracker.record_exposure(
-                                step.recipient,
-                                si.forget_id,
-                                released_detection,
-                                config.history.reconstruction_threshold,
-                            )
+                    # Shared: update detector + record exposure
+                    released_detection = _update_detector_and_record_exposure(
+                        detector_result=released_detection,
+                        exposed_ids=exposed_ids,
+                        episode=episode,
+                        checker=checker,
+                        ledger=ledger,
+                        tracker=tracker,
+                        turn_id=turn_counter,
+                        sender_id=step.sender,
+                        recipient_id=step.recipient,
+                        released_text=released_text,
+                        context_messages=released_context,
+                        config=config,
+                    )
                     target_exposed = bool(exposed_ids)
-                    # Per-record reconstruction attribution
-                    reconstructed_ids: set[str] = set()
-                    if is_reconstruction:
-                        for si in episode.sensitive_items:
-                            if si.reconstruction:
-                                if evaluate_reconstruction_success(
-                                    released_transcript=recipient_transcript.get(
-                                        step.recipient, []
-                                    ),
-                                    reconstruction_metadata=ReconstructionMetadata(
-                                        type=si.reconstruction.get("type", ""),
-                                        fragments=tuple(si.reconstruction.get("fragments", [])),
-                                        required_facts=tuple(
-                                            si.reconstruction.get("required_facts", [])
-                                        ),
-                                    ),
-                                ):
-                                    reconstructed_ids.add(si.forget_id)
+                    # Shared: reconstruction evidence
+                    reconstructed_ids = _evaluate_reconstruction_evidence(
+                        recipient_transcript=recipient_transcript.get(step.recipient, []),
+                        sensitive_items=episode.sensitive_items,
+                        is_reconstruction=is_reconstruction,
+                    )
                     target_reconstructed = bool(reconstructed_ids)
                     # Reintroduction: only targeted AND exposed records
                     targeted_ids = set(step.label.target_forget_ids)
                     reintroduced_ids = exposed_ids & targeted_ids
                     target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                    # Transition to AT_RISK only for reintroduced records
+                    # Transition for reintroduced records
                     if target_reintroduced:
                         for forget_id in reintroduced_ids:
                             current = tracker.get_status(step.recipient, forget_id)
@@ -778,6 +823,11 @@ def run_episode(
                             ):
                                 tracker.set_status(
                                     step.recipient, forget_id, ContaminationStatus.AT_RISK
+                                )
+                            elif current == ContaminationStatus.AT_RISK:
+                                tracker.confirm_recovery(
+                                    step.recipient,
+                                    forget_id,
                                 )
                     result.turns.append(
                         TurnResult(
@@ -826,7 +876,7 @@ def run_episode(
                 recipient_transcript.setdefault(step.recipient, []).append(msg)
                 # Shared exposure evaluation (text + detector)
                 released_context = history.get_context(step.recipient, config.history.window_size)
-                exposed_ids, _released_detection = evaluate_released_exposure(
+                exposed_ids, released_detection = evaluate_released_exposure(
                     released_text=msg,
                     episode=episode,
                     detector=detector,
@@ -836,29 +886,34 @@ def run_episode(
                     recipient_id=step.recipient,
                     context_messages=released_context,
                 )
+                # Shared: update detector + record exposure
+                released_detection = _update_detector_and_record_exposure(
+                    detector_result=released_detection,
+                    exposed_ids=exposed_ids,
+                    episode=episode,
+                    checker=checker,
+                    ledger=ledger,
+                    tracker=tracker,
+                    turn_id=turn_counter,
+                    sender_id=step.sender,
+                    recipient_id=step.recipient,
+                    released_text=msg,
+                    context_messages=released_context,
+                    config=config,
+                )
                 target_exposed = bool(exposed_ids)
-                # Per-record reconstruction attribution
-                reconstructed_ids = set()
-                if is_reconstruction:
-                    for si in episode.sensitive_items:
-                        if si.reconstruction:
-                            if evaluate_reconstruction_success(
-                                released_transcript=recipient_transcript.get(step.recipient, []),
-                                reconstruction_metadata=ReconstructionMetadata(
-                                    type=si.reconstruction.get("type", ""),
-                                    fragments=tuple(si.reconstruction.get("fragments", [])),
-                                    required_facts=tuple(
-                                        si.reconstruction.get("required_facts", [])
-                                    ),
-                                ),
-                            ):
-                                reconstructed_ids.add(si.forget_id)
+                # Shared: reconstruction evidence
+                reconstructed_ids = _evaluate_reconstruction_evidence(
+                    recipient_transcript=recipient_transcript.get(step.recipient, []),
+                    sensitive_items=episode.sensitive_items,
+                    is_reconstruction=is_reconstruction,
+                )
                 target_reconstructed = bool(reconstructed_ids)
                 # Reintroduction: only targeted AND exposed records
                 targeted_ids = set(step.label.target_forget_ids)
                 reintroduced_ids = exposed_ids & targeted_ids
                 target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                # Transition to AT_RISK only for reintroduced records
+                # Transition for reintroduced records
                 if target_reintroduced:
                     for forget_id in reintroduced_ids:
                         current = tracker.get_status(step.recipient, forget_id)
@@ -868,6 +923,11 @@ def run_episode(
                         ):
                             tracker.set_status(
                                 step.recipient, forget_id, ContaminationStatus.AT_RISK
+                            )
+                        elif current == ContaminationStatus.AT_RISK:
+                            tracker.confirm_recovery(
+                                step.recipient,
+                                forget_id,
                             )
                 result.turns.append(
                     TurnResult(
