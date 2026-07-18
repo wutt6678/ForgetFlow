@@ -626,6 +626,29 @@ def _validate_multi_target(
         )
     )
 
+    # 13. s8: Protected-condition unexpected recontamination gate
+    # Calculate unexpected recontamination per condition
+    unexpected_by_condition: dict[str, int] = {}
+    for condition_id, results in condition_results.items():
+        unexpected_count = sum(
+            r.metadata.get("unexpected_recontaminated_pair_count", 0)
+            for r in results
+        )
+        unexpected_by_condition[condition_id] = unexpected_count
+    # Protected conditions (all except no_firewall baseline) must have zero unexpected
+    protected_conditions = [cid for cid in unexpected_by_condition if cid != "no_firewall"]
+    protected_unexpected_valid = all(
+        unexpected_by_condition.get(cid, 0) == 0
+        for cid in protected_conditions
+    )
+    assertions.append(
+        MultiTargetAssertion(
+            name="protected_unexpected_recontamination_zero",
+            passed=protected_unexpected_valid,
+            detail=f"Unexpected by condition: {unexpected_by_condition}",
+        )
+    )
+
     return assertions
 
 

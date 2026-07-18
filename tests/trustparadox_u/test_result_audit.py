@@ -1200,7 +1200,7 @@ class TestUnexpectedRecontaminationAudit:
         unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
         assert len(unexpected) == 0
 
-    def test_nonzero_unexpected_fails(self) -> None:
+    def test_nonzero_unexpected_reports_info(self) -> None:
         """ST-RR-005-one: Non-zero unexpected pairs produces audit info finding."""
         result = _valid_result(
             metadata={

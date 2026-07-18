@@ -188,7 +188,7 @@ class TestGoNoGoGate:
         result = run_episode(ep, _config())
         assert result.attempted_agent_record_pairs == 0
 
-    def test_go_unexpected_recontamination_audited(self) -> None:
+    def test_go_unexpected_recontamination_reports_info(self) -> None:
         """GO: Unexpected recontamination produces audit info finding."""
         from experiments.trustparadox_u.audit_results import audit_episode_result
         from experiments.trustparadox_u.runner import EpisodeResult
