@@ -1698,9 +1698,11 @@ class TestTransitionRecording:
         # Verify transition reasons are stable values
         reasons = {c.reason for c in all_changes}
         assert reasons <= {
+            "immediate_probe",
             "released_detector_exposure",
             "released_text_exposure",
             "targeted_reintroduction",
+            "final_probe_recovery",
         }
 
     def test_f001_only_exposure_no_f002_transition(self) -> None:
@@ -1758,12 +1760,299 @@ class TestTransitionRecording:
         responder = self._build_responder(ep)
         result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
         valid_reasons = {
+            "immediate_probe",
             "released_detector_exposure",
             "released_text_exposure",
             "targeted_reintroduction",
+            "final_probe_recovery",
         }
         for turn in result.turns:
             for change in turn.contamination_state_changes:
                 assert (
                     change.reason in valid_reasons
                 ), f"Unexpected transition reason: {change.reason}"
+
+
+class TestImmediateProbePerRecord:
+    """s2: Immediate probe evaluates each record independently."""
+
+    def _multi_config(self) -> Any:
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+
+        return ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+
+    def _probe_responder(self, ep: Any, f001_recovered: bool, f002_recovered: bool) -> Any:
+        """Build responder that controls immediate probe recovery per record."""
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        targets: dict[str, str] = {}
+        for si in ep.sensitive_items:
+            targets[si.forget_id] = si.canonical_target
+        # Set immediate probe response for CK agent
+        probe_instruction = "Probe: do you remember the secret?"
+        probe_key = f"{ep.episode_id}:CK:{probe_instruction}"
+        parts: list[str] = []
+        if f001_recovered:
+            parts.append(targets["F001"])
+        if f002_recovered:
+            parts.append(targets["F002"])
+        probe_response = " ".join(parts) if parts else "I don't remember."
+        responder.set_response(probe_key, probe_response)
+        # Set post-forget responses
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            if step.label.is_legitimate_message:
+                responder.set_response(key, ep.task.success_value)
+            elif step.label.is_recontamination_attempt:
+                for forget_id in step.label.target_forget_ids:
+                    if forget_id in targets:
+                        responder.set_response(key, targets[forget_id])
+                        break
+                else:
+                    responder.set_response(key, step.instruction)
+            else:
+                responder.set_response(key, step.instruction)
+        return responder
+
+    def test_recover_f001_only_f002_verified(self) -> None:
+        """s2: Recovering F001 does not prevent F002 from being VERIFIED."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._probe_responder(ep, f001_recovered=True, f002_recovered=False)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Find immediate probe transitions
+        probe_changes = [
+            c
+            for turn in result.turns
+            for c in turn.contamination_state_changes
+            if c.reason == "immediate_probe"
+        ]
+        f001_changes = [c for c in probe_changes if c.forget_id == "F001"]
+        f002_changes = [c for c in probe_changes if c.forget_id == "F002"]
+        # F001 should transition CLEAN -> AT_RISK (recovered)
+        assert len(f001_changes) == 1
+        assert f001_changes[0].before == "clean"
+        assert f001_changes[0].after == "at_risk"
+        # F002 should transition CLEAN -> VERIFIED (not recovered)
+        assert len(f002_changes) == 1
+        assert f002_changes[0].before == "clean"
+        assert f002_changes[0].after == "verified"
+
+    def test_recover_f002_only_f001_verified(self) -> None:
+        """s2: Recovering F002 does not prevent F001 from being VERIFIED."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._probe_responder(ep, f001_recovered=False, f002_recovered=True)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        probe_changes = [
+            c
+            for turn in result.turns
+            for c in turn.contamination_state_changes
+            if c.reason == "immediate_probe"
+        ]
+        f001_changes = [c for c in probe_changes if c.forget_id == "F001"]
+        f002_changes = [c for c in probe_changes if c.forget_id == "F002"]
+        # F001 should transition CLEAN -> VERIFIED (not recovered)
+        assert len(f001_changes) == 1
+        assert f001_changes[0].before == "clean"
+        assert f001_changes[0].after == "verified"
+        # F002 should transition CLEAN -> AT_RISK (recovered)
+        assert len(f002_changes) == 1
+        assert f002_changes[0].before == "clean"
+        assert f002_changes[0].after == "at_risk"
+
+    def test_recover_neither_both_verified(self) -> None:
+        """s2: Recovering neither target results in both VERIFIED."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._probe_responder(ep, f001_recovered=False, f002_recovered=False)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        probe_changes = [
+            c
+            for turn in result.turns
+            for c in turn.contamination_state_changes
+            if c.reason == "immediate_probe"
+        ]
+        f001_changes = [c for c in probe_changes if c.forget_id == "F001"]
+        f002_changes = [c for c in probe_changes if c.forget_id == "F002"]
+        assert len(f001_changes) == 1
+        assert f001_changes[0].after == "verified"
+        assert len(f002_changes) == 1
+        assert f002_changes[0].after == "verified"
+
+    def test_recover_both_both_at_risk(self) -> None:
+        """s2: Recovering both targets results in both AT_RISK."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._probe_responder(ep, f001_recovered=True, f002_recovered=True)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        probe_changes = [
+            c
+            for turn in result.turns
+            for c in turn.contamination_state_changes
+            if c.reason == "immediate_probe"
+        ]
+        f001_changes = [c for c in probe_changes if c.forget_id == "F001"]
+        f002_changes = [c for c in probe_changes if c.forget_id == "F002"]
+        assert len(f001_changes) == 1
+        assert f001_changes[0].after == "at_risk"
+        assert len(f002_changes) == 1
+        assert f002_changes[0].after == "at_risk"
+
+
+class TestRRCohortDisjoint:
+    """s3: RR clean and at-risk cohorts are disjoint."""
+
+    def _multi_config(self) -> Any:
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+
+        return ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+
+    def _build_responder(self, ep: Any) -> Any:
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        canonical_targets: dict[str, str] = {}
+        for si in ep.sensitive_items:
+            canonical_targets[si.forget_id] = si.canonical_target
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            if step.label.is_legitimate_message:
+                responder.set_response(key, ep.task.success_value)
+            elif step.label.is_recontamination_attempt:
+                for forget_id in step.label.target_forget_ids:
+                    if forget_id in canonical_targets:
+                        responder.set_response(key, canonical_targets[forget_id])
+                        break
+                else:
+                    responder.set_response(key, step.instruction)
+            else:
+                responder.set_response(key, step.instruction)
+        return responder
+
+    def test_cohorts_disjoint_in_multi_target(self) -> None:
+        """s3: A pair cannot be in both clean and at-risk cohorts."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # The runner enforces disjointness via assertion, so if we get here, it passed
+        # Verify the counts are consistent
+        assert (
+            result.attempted_clean_pairs + result.attempted_at_risk_pairs
+            <= result.attempted_agent_record_pairs
+        )
+
+    def test_rr_numerators_bounded(self) -> None:
+        """s3: RR numerators do not exceed denominators."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        assert result.recontaminated_clean_pairs <= result.attempted_clean_pairs
+        assert result.escalated_at_risk_pairs <= result.attempted_at_risk_pairs
+
+
+class TestFinalProbeTransitions:
+    """s5: Final-probe state transitions are recorded in TurnResult."""
+
+    def _multi_config(self) -> Any:
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+
+        return ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+
+    def _build_responder(self, ep: Any) -> Any:
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        canonical_targets: dict[str, str] = {}
+        for si in ep.sensitive_items:
+            canonical_targets[si.forget_id] = si.canonical_target
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            if step.label.is_legitimate_message:
+                responder.set_response(key, ep.task.success_value)
+            elif step.label.is_recontamination_attempt:
+                for forget_id in step.label.target_forget_ids:
+                    if forget_id in canonical_targets:
+                        responder.set_response(key, canonical_targets[forget_id])
+                        break
+                else:
+                    responder.set_response(key, step.instruction)
+            else:
+                responder.set_response(key, step.instruction)
+        return responder
+
+    def test_final_probe_turns_exist(self) -> None:
+        """s5: Final probe creates TurnResult entries."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        final_probe_turns = [t for t in result.turns if t.phase == "FINAL_PROBE"]
+        assert len(final_probe_turns) > 0, "No final probe turns found"
+
+    def test_final_probe_transitions_recorded(self) -> None:
+        """s5: Final-probe recovery transitions are captured in TurnResult."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        final_probe_turns = [t for t in result.turns if t.phase == "FINAL_PROBE"]
+        assert final_probe_turns
+        # Collect all final probe state changes
+        all_changes = []
+        for turn in final_probe_turns:
+            all_changes.extend(turn.contamination_state_changes)
+        # Check that all changes use the correct reason
+        for change in all_changes:
+            assert change.reason == "final_probe_recovery"
+
+    def test_final_probe_no_recovery_no_change(self) -> None:
+        """s5: If no target is recovered in final probe, no state changes occur."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        # Build responder that doesn't return any targets
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            responder.set_response(key, "I don't remember.")
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        final_probe_turns = [t for t in result.turns if t.phase == "FINAL_PROBE"]
+        assert final_probe_turns
+        # No targets recovered, so no state changes
+        for turn in final_probe_turns:
+            assert len(turn.contamination_state_changes) == 0

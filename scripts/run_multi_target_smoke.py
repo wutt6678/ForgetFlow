@@ -349,6 +349,7 @@ def _validate_multi_target(
     )
 
     # s5: Step-specific state isolation using per-turn contamination_state_changes
+    # s4: Correlate isolation with same-turn exposure evidence
     # For F001-only events: F001 changes as expected AND F002 remains unchanged
     # For F002-only events: F002 changes as expected AND F001 remains unchanged
     # s5: Do NOT count arbitrary no-change turns as isolation evidence
@@ -358,16 +359,23 @@ def _validate_multi_target(
     isolation_mismatches: list[str] = []
     for r in all_results:
         for turn in r.turns:
+            exposed_ids = set(getattr(turn, "exposed_forget_ids", ()))
             turn_changes = list(getattr(turn, "contamination_state_changes", ()))
-            f001_changes = [c for c in turn_changes if c.forget_id == "F001"]
-            f002_changes = [c for c in turn_changes if c.forget_id == "F002"]
-            has_f001 = bool(f001_changes)
-            has_f002 = bool(f002_changes)
-            if has_f001 and not has_f002:
+            changed_ids = {c.forget_id for c in turn_changes}
+            # s4: Only count isolation when changed_ids is a subset of exposed_ids
+            if not exposed_ids or not changed_ids:
+                continue
+            if not changed_ids.issubset(exposed_ids):
+                isolation_mismatches.append(
+                    f"Turn {turn.turn_id}: changed {changed_ids} not subset of "
+                    f"exposed {exposed_ids}"
+                )
+                continue
+            if exposed_ids == {"F001"} and changed_ids == {"F001"}:
                 f001_only_isolated_cases += 1
-            elif has_f002 and not has_f001:
+            elif exposed_ids == {"F002"} and changed_ids == {"F002"}:
                 f002_only_isolated_cases += 1
-            elif has_f001 and has_f002:
+            elif exposed_ids == {"F001", "F002"}:
                 combined_transition_cases += 1
     # s5: Gate requires both F001-only and F002-only isolation proven
     state_isolation_passed = f001_only_isolated_cases > 0 and f002_only_isolated_cases > 0
