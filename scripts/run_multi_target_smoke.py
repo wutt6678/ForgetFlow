@@ -925,10 +925,6 @@ def run_multi_target_smoke(
 
     all_assertions_passed = all(a.passed for a in assertions)
 
-    # Check artifact completeness AFTER all writes (s3)
-    missing_artifacts = [name for name in REQUIRED_ARTIFACTS if not (output_dir / name).exists()]
-    artifacts_complete = len(missing_artifacts) == 0
-
     # Build study manifest (s2) after all other artifacts are written
     schema_versions = tuple(sorted({r.schema_version for r in all_results}))
     study_manifest = build_study_manifest(
@@ -967,12 +963,18 @@ def run_multi_target_smoke(
     )
     study_manifest_path.write_text(study_manifest.to_json())
 
+    # Check artifact completeness (excluding summary files which depend on status)
+    # Summary files will be checked after they're written
+    core_artifacts = [name for name in REQUIRED_ARTIFACTS if name not in ("summary.json", "summary.md", "multi_target_report.json")]
+    missing_core = [name for name in core_artifacts if not (output_dir / name).exists()]
+    core_complete = len(missing_core) == 0
+
     # s5: Determine status — artifact completeness is part of the GO predicate
     certification_passed = (
         all_assertions_passed
         and audit_valid
         and manifest_valid
-        and artifacts_complete
+        and core_complete
         and study_manifest_valid
     )
 
@@ -991,7 +993,7 @@ def run_multi_target_smoke(
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
         "study_manifest_valid": study_manifest_valid,
-        "artifacts_complete": artifacts_complete,
+        "artifacts_complete": core_complete,
         "assertions": [
             {"name": a.name, "passed": a.passed, "detail": a.detail} for a in assertions
         ],
@@ -1009,7 +1011,7 @@ def run_multi_target_smoke(
     report["status"] = status
     report["certification_mode"] = mode
     report["is_certifying"] = is_certifying
-    report["missing_artifacts"] = missing_artifacts
+    report["missing_artifacts"] = missing_core
 
     # Write multi_target_report.json
     report_path = output_dir / "multi_target_report.json"
@@ -1057,7 +1059,7 @@ def run_multi_target_smoke(
         "audit_valid": audit_valid,
         "manifest_valid": manifest_valid,
         "study_manifest_valid": study_manifest_valid,
-        "artifacts_complete": artifacts_complete,
+        "artifacts_complete": core_complete,
         "all_assertions_passed": all_assertions_passed,
         "total_runs": len(all_results),
         "generated_at": generated_at,
@@ -1068,6 +1070,10 @@ def run_multi_target_smoke(
 
     # Final report write (includes all fields)
     report_path.write_text(json.dumps(report, indent=2))
+
+    # Check artifact completeness AFTER all writes (s3) - now including summary files
+    missing_artifacts = [name for name in REQUIRED_ARTIFACTS if not (output_dir / name).exists()]
+    artifacts_complete = len(missing_artifacts) == 0
 
     print("\nMulti-target smoke study complete:")
     print(f"  Status: {status}")
