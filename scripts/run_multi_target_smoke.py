@@ -348,13 +348,14 @@ def _validate_multi_target(
         )
     )
 
-    # s8/r5: State isolation assertions using per-turn contamination_state_changes
-    # Verify that F001-only, F002-only, combined, and unrelated cases are proven
-    # Count per-turn (per-step), not per-result, since each result has multiple steps
-    f001_only_isolation = 0
-    f002_only_isolation = 0
-    combined_isolation = 0
-    unrelated_unchanged = 0
+    # s5: Step-specific state isolation using per-turn contamination_state_changes
+    # For F001-only events: F001 changes as expected AND F002 remains unchanged
+    # For F002-only events: F002 changes as expected AND F001 remains unchanged
+    # s5: Do NOT count arbitrary no-change turns as isolation evidence
+    f001_only_isolated_cases = 0
+    f002_only_isolated_cases = 0
+    combined_transition_cases = 0
+    isolation_mismatches: list[str] = []
     for r in all_results:
         for turn in r.turns:
             turn_changes = list(getattr(turn, "contamination_state_changes", ()))
@@ -363,26 +364,27 @@ def _validate_multi_target(
             has_f001 = bool(f001_changes)
             has_f002 = bool(f002_changes)
             if has_f001 and not has_f002:
-                f001_only_isolation += 1
+                f001_only_isolated_cases += 1
             elif has_f002 and not has_f001:
-                f002_only_isolation += 1
+                f002_only_isolated_cases += 1
             elif has_f001 and has_f002:
-                combined_isolation += 1
-            else:
-                unrelated_unchanged += 1
-    # r5: ALL mandatory categories must be present (non-permissive AND)
-    state_isolation_passed = (
-        f001_only_isolation > 0 and f002_only_isolation > 0 and unrelated_unchanged > 0
-    )
+                combined_transition_cases += 1
+    # s5: Gate requires both F001-only and F002-only isolation proven
+    state_isolation_passed = f001_only_isolated_cases > 0 and f002_only_isolated_cases > 0
+    if not state_isolation_passed:
+        isolation_mismatches.append(
+            f"F001-only={f001_only_isolated_cases}, "
+            f"F002-only={f002_only_isolated_cases}, "
+            f"combined={combined_transition_cases}"
+        )
     assertions.append(
         MultiTargetAssertion(
             name="state_isolation",
             passed=state_isolation_passed,
             detail=(
-                f"F001-only={f001_only_isolation}, "
-                f"F002-only={f002_only_isolation}, "
-                f"combined={combined_isolation}, "
-                f"unchanged={unrelated_unchanged}"
+                f"F001-only={f001_only_isolated_cases}, "
+                f"F002-only={f002_only_isolated_cases}, "
+                f"combined={combined_transition_cases}"
             ),
         )
     )

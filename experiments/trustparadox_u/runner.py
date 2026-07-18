@@ -353,12 +353,15 @@ def _update_detector_and_record_exposure(
     released_text: str | None,
     context_messages: Any,
     config: Any,
+    state_changes: list[ContaminationStateChange] | None = None,
 ) -> Any:
     """Update detector with per-record reconstruction scores and record exposure (shared path).
 
     For each exposed forget_id:
     - If in detector matched_forget_ids: use record_exposure with per-record reconstruction score
     - If only in text-based exposed_ids: use record_confirmed_text_exposure
+
+    s3: If state_changes is provided, capture every contamination state transition.
     """
     if detector_result is None:
         return None
@@ -415,6 +418,8 @@ def _update_detector_and_record_exposure(
         if fid not in exposed_ids:
             continue
         if fid in detector_matched:
+            # s3: Capture before state
+            before_status = tracker.get_status(recipient_id, fid)
             # Use per-record evidence if available
             rec_evidence = evidence_for(detector_result, fid)
             tracker.record_exposure(
@@ -425,9 +430,33 @@ def _update_detector_and_record_exposure(
                 reconstruction_score=recon_scores.get(fid, 0.0),
                 evidence=rec_evidence,
             )
+            # s3: Record transition if state changed
+            after_status = tracker.get_status(recipient_id, fid)
+            if state_changes is not None and before_status != after_status:
+                _record_state_change(
+                    state_changes,
+                    recipient_id,
+                    fid,
+                    before_status,
+                    after_status,
+                    "released_detector_exposure",
+                )
         else:
+            # s3: Capture before state
+            before_status = tracker.get_status(recipient_id, fid)
             # Text-only exposure: update tracker state directly
             tracker.record_confirmed_text_exposure(recipient_id, fid)
+            # s3: Record transition if state changed
+            after_status = tracker.get_status(recipient_id, fid)
+            if state_changes is not None and before_status != after_status:
+                _record_state_change(
+                    state_changes,
+                    recipient_id,
+                    fid,
+                    before_status,
+                    after_status,
+                    "released_text_exposure",
+                )
     return detector_result
 
 
@@ -889,6 +918,8 @@ def run_episode(
                         recipient_id=step.recipient,
                         context_messages=released_context,
                     )
+                    # s3: Create state change list BEFORE exposure tracking
+                    turn_state_changes: list[ContaminationStateChange] = []
                     # Shared: update detector + record exposure
                     released_detection = _update_detector_and_record_exposure(
                         detector_result=released_detection,
@@ -903,6 +934,7 @@ def run_episode(
                         released_text=released_text,
                         context_messages=released_context,
                         config=config,
+                        state_changes=turn_state_changes,
                     )
                     target_exposed = bool(exposed_ids)
                     # Shared: reconstruction evidence
@@ -916,8 +948,7 @@ def run_episode(
                     targeted_ids = set(step.label.target_forget_ids)
                     reintroduced_ids = exposed_ids & targeted_ids
                     target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                    # Transition for reintroduced records
-                    turn_state_changes: list[ContaminationStateChange] = []
+                    # s3: Transition for reintroduced records (appended to same list)
                     if target_reintroduced:
                         for forget_id in reintroduced_ids:
                             current = tracker.get_status(step.recipient, forget_id)
@@ -931,7 +962,7 @@ def run_episode(
                                     forget_id,
                                     current,
                                     ContaminationStatus.AT_RISK,
-                                    "recontamination",
+                                    "targeted_reintroduction",
                                 )
                                 tracker.set_status(
                                     step.recipient, forget_id, ContaminationStatus.AT_RISK
@@ -943,7 +974,7 @@ def run_episode(
                                     forget_id,
                                     current,
                                     ContaminationStatus.RECONTAMINATED,
-                                    "confirmed_recontamination",
+                                    "targeted_reintroduction",
                                 )
                                 tracker.confirm_recovery(
                                     step.recipient,
@@ -1007,6 +1038,8 @@ def run_episode(
                     recipient_id=step.recipient,
                     context_messages=released_context,
                 )
+                # s3: Create state change list BEFORE exposure tracking
+                turn_state_changes_no_fw: list[ContaminationStateChange] = []
                 # Shared: update detector + record exposure
                 released_detection = _update_detector_and_record_exposure(
                     detector_result=released_detection,
@@ -1021,6 +1054,7 @@ def run_episode(
                     released_text=msg,
                     context_messages=released_context,
                     config=config,
+                    state_changes=turn_state_changes_no_fw,
                 )
                 target_exposed = bool(exposed_ids)
                 # Shared: reconstruction evidence
@@ -1034,8 +1068,7 @@ def run_episode(
                 targeted_ids = set(step.label.target_forget_ids)
                 reintroduced_ids = exposed_ids & targeted_ids
                 target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                # Transition for reintroduced records
-                turn_state_changes_no_fw: list[ContaminationStateChange] = []
+                # s3: Transition for reintroduced records (appended to same list)
                 if target_reintroduced:
                     for forget_id in reintroduced_ids:
                         current = tracker.get_status(step.recipient, forget_id)
@@ -1049,7 +1082,7 @@ def run_episode(
                                 forget_id,
                                 current,
                                 ContaminationStatus.AT_RISK,
-                                "recontamination",
+                                "targeted_reintroduction",
                             )
                             tracker.set_status(
                                 step.recipient, forget_id, ContaminationStatus.AT_RISK
@@ -1061,7 +1094,7 @@ def run_episode(
                                 forget_id,
                                 current,
                                 ContaminationStatus.RECONTAMINATED,
-                                "confirmed_recontamination",
+                                "targeted_reintroduction",
                             )
                             tracker.confirm_recovery(
                                 step.recipient,

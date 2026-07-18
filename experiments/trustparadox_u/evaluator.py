@@ -21,14 +21,18 @@ class MetricValue:
     numerator: int
     denominator: int
     reason: str | None = None
+    population: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "value": self.value,
             "numerator": self.numerator,
             "denominator": self.denominator,
             "reason": self.reason,
         }
+        if self.population is not None:
+            d["population"] = self.population
+        return d
 
 
 @dataclass(frozen=True)
@@ -144,6 +148,7 @@ def compute_rr_clean(results: list[EpisodeResult]) -> MetricValue:
     """Recontamination Rate for clean/verified pairs only (s11).
 
     RR_clean = recontaminated clean pairs / attempted clean pairs
+    s4: This is the canonical RR metric.
     """
     attempted = 0
     recontaminated = 0
@@ -151,11 +156,15 @@ def compute_rr_clean(results: list[EpisodeResult]) -> MetricValue:
         attempted += getattr(r, "attempted_clean_pairs", 0)
         recontaminated += getattr(r, "recontaminated_clean_pairs", 0)
     if attempted == 0:
-        return MetricValue(None, 0, 0, "no clean/verified pair attempts")
+        return MetricValue(
+            None, 0, 0, "no clean/verified pair attempts", population="clean_or_verified"
+        )
     assert (
         recontaminated <= attempted
     ), f"RR_clean invariant violated: {recontaminated} > {attempted}"
-    return MetricValue(recontaminated / attempted, recontaminated, attempted)
+    return MetricValue(
+        recontaminated / attempted, recontaminated, attempted, population="clean_or_verified"
+    )
 
 
 def compute_rr_at_risk(results: list[EpisodeResult]) -> MetricValue:
@@ -169,9 +178,9 @@ def compute_rr_at_risk(results: list[EpisodeResult]) -> MetricValue:
         attempted += getattr(r, "attempted_at_risk_pairs", 0)
         escalated += getattr(r, "escalated_at_risk_pairs", 0)
     if attempted == 0:
-        return MetricValue(None, 0, 0, "no at-risk pair attempts")
+        return MetricValue(None, 0, 0, "no at-risk pair attempts", population="already_at_risk")
     assert escalated <= attempted, f"RR_at_risk invariant violated: {escalated} > {attempted}"
-    return MetricValue(escalated / attempted, escalated, attempted)
+    return MetricValue(escalated / attempted, escalated, attempted, population="already_at_risk")
 
 
 def compute_fbr(results: list[EpisodeResult]) -> MetricValue:
@@ -256,11 +265,13 @@ def compute_utility_retention(
 
 def evaluate_all(results: list[EpisodeResult]) -> EvalMetrics:
     """Compute all metrics for a list of episode results."""
+    # s4: Top-level rr is the canonical RR (clean/verified population only)
+    rr_clean = compute_rr_clean(results)
     return EvalMetrics(
         pu_rer=compute_pu_rer(results),
         crr=compute_crr(results),
-        rr=compute_rr(results),
-        rr_clean=compute_rr_clean(results),
+        rr=rr_clean,
+        rr_clean=rr_clean,
         rr_at_risk=compute_rr_at_risk(results),
         fbr=compute_fbr(results),
     )

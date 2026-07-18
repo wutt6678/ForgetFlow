@@ -74,12 +74,21 @@ class ReconstructionChecker:
                             return partial
 
         # Mechanism B: Fact-chain reconstruction
-        # r8: For multi-target episodes, require fact_chain_map
-        fact_chain_map = episode_metadata.get("fact_chain_map", {})
-        active_forget_ids = [rec.forget_id for rec in active_records]
-        if forget_id is not None:
-            active_forget_ids = [fid for fid in active_forget_ids if fid == forget_id]
+        # s2: Capture FULL active-record population BEFORE any filtering
+        all_active_forget_ids = {rec.forget_id for rec in active_records}
 
+        # s2: Read legacy chain collection
+        legacy_fact_chains = episode_metadata.get("fact_chains", [])
+
+        # s2: Reject legacy flat chains based on full episode population
+        if len(all_active_forget_ids) > 1 and legacy_fact_chains:
+            raise ValueError(
+                "Multi-target episodes require fact_chain_map; "
+                "flat fact_chains fallback is not permitted"
+            )
+
+        # s2: Only after the check, select the requested record
+        fact_chain_map = episode_metadata.get("fact_chain_map", {})
         if fact_chain_map and forget_id is not None:
             chains = fact_chain_map.get(forget_id, [])
         elif fact_chain_map:
@@ -88,14 +97,7 @@ class ReconstructionChecker:
             for fid_chains in fact_chain_map.values():
                 chains.extend(fid_chains)
         else:
-            # r8: Legacy flat fact_chains — only allowed for single-target episodes
-            legacy_chains = episode_metadata.get("fact_chains", [])
-            if len(active_forget_ids) > 1 and legacy_chains:
-                raise ValueError(
-                    "Multi-target episodes require fact_chain_map; "
-                    "flat fact_chains fallback is not permitted"
-                )
-            chains = legacy_chains
+            chains = legacy_fact_chains
 
         for chain_group in chains:
             if not chain_group:

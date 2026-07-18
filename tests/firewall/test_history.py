@@ -246,9 +246,46 @@ class TestFactChainRestriction:
         }
         ctx = rh.get_context("R1", window_size=5)
         records = [self._rec("F001"), self._rec("F002")]
-        # Multi-target with only legacy flat chains -> raises
+        # Multi-target with only legacy flat chains -> raises (no forget_id)
         with pytest.raises(ValueError, match="Multi-target episodes require fact_chain_map"):
             checker.score("follow-up", ctx, records, meta)
+
+    def test_multi_target_with_legacy_fallback_and_forget_id_fails(self) -> None:
+        """s2: Multi-target with forget_id still fails - bypass is fixed."""
+        import pytest
+
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s p o"),
+        )
+        meta = {
+            "fact_chains": [[("s", "p", "o")]],
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # s2: Even with forget_id="F001", multi-target + legacy chains must fail
+        with pytest.raises(ValueError, match="fact_chain_map"):
+            checker.score("follow-up", ctx, records, meta, forget_id="F001")
+
+    def test_multi_target_with_legacy_fallback_and_f002_forget_id_fails(self) -> None:
+        """s2: Multi-target with forget_id=F002 also fails."""
+        import pytest
+
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s p o"),
+        )
+        meta = {
+            "fact_chains": [[("s", "p", "o")]],
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        with pytest.raises(ValueError, match="fact_chain_map"):
+            checker.score("follow-up", ctx, records, meta, forget_id="F002")
 
     def test_multi_target_empty_legacy_chains_passes(self) -> None:
         """Multi-target episode with empty legacy fact_chains passes (no fallback needed)."""
@@ -268,3 +305,47 @@ class TestFactChainRestriction:
         # Multi-target with empty legacy chains -> allowed (no fallback used)
         score = checker.score("follow-up", ctx, records, meta)
         assert score == 0.0  # No reconstruction possible
+
+    def test_fact_chain_map_f001_reads_only_f001_chains(self) -> None:
+        """s2: F001 evaluation reads only F001 chains from fact_chain_map."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1 o1"
+            ),
+        )
+        meta = {
+            "fact_chain_map": {
+                "F001": [[("s1", "p1", "o1")]],
+                "F002": [[("s2", "p2", "o2")]],
+            },
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # F001 query matches F001 chain
+        score_f001 = checker.score("follow-up", ctx, records, meta, forget_id="F001")
+        assert score_f001 == 1.0
+
+    def test_fact_chain_map_f002_reads_only_f002_chains(self) -> None:
+        """s2: F002 evaluation reads only F002 chains from fact_chain_map."""
+        checker = ReconstructionChecker()
+        rh = RecipientHistory()
+        rh.append(
+            "R1",
+            RecipientHistoryItem(
+                message_id="m1", turn_id=0, sender_id="A", released_text="s2 p2 o2"
+            ),
+        )
+        meta = {
+            "fact_chain_map": {
+                "F001": [[("s1", "p1", "o1")]],
+                "F002": [[("s2", "p2", "o2")]],
+            },
+        }
+        ctx = rh.get_context("R1", window_size=5)
+        records = [self._rec("F001"), self._rec("F002")]
+        # F002 query matches F002 chain
+        score_f002 = checker.score("follow-up", ctx, records, meta, forget_id="F002")
+        assert score_f002 == 1.0

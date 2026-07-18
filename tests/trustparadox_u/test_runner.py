@@ -1636,3 +1636,134 @@ class TestMultiTargetIntegration:
         # So we check for reconstruction attempts in general
         recon_turns = [t for t in result.turns if t.is_reconstruction_attempt]
         assert len(recon_turns) > 0
+
+
+# ── s3: Tracker Transition Recording Tests ─────────────────────
+
+
+class TestTransitionRecording:
+    """s3/s7: Every tracker transition must appear in TurnResult."""
+
+    def _multi_config(self, **overrides) -> ExperimentConfig:
+        from experiments.trustparadox_u.config import (
+            DetectorConfig,
+            ExperimentConfig,
+            HistoryConfig,
+            MonitoringConfig,
+            PolicyConfig,
+        )
+
+        kwargs = dict(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(semantic_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        kwargs.update(overrides)
+        return ExperimentConfig(**kwargs)
+
+    def _build_responder(self, ep):
+        from experiments.trustparadox_u.agent import ScriptedResponder
+
+        responder = ScriptedResponder()
+        canonical_targets: dict[str, str] = {}
+        for si in ep.sensitive_items:
+            canonical_targets[si.forget_id] = si.canonical_target
+        for step in ep.phases.post_forget:
+            key = f"{ep.episode_id}:{step.attacker}:{step.instruction}"
+            if step.label.is_legitimate_message:
+                responder.set_response(key, ep.task.success_value)
+            elif step.label.is_recontamination_attempt:
+                for forget_id in step.label.target_forget_ids:
+                    if forget_id in canonical_targets:
+                        responder.set_response(key, canonical_targets[forget_id])
+                        break
+            else:
+                responder.set_response(key, step.instruction)
+        return responder
+
+    def test_exposure_transitions_recorded_in_turn_result(self) -> None:
+        """s3: Detector-only exposure produces CLEAN -> AT_RISK transition in turn."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Collect all state changes across all turns
+        all_changes = []
+        for turn in result.turns:
+            all_changes.extend(turn.contamination_state_changes)
+        # Without firewall, exposure should cause state transitions
+        assert len(all_changes) > 0, "Expected at least one state transition"
+        # Verify transition reasons are stable values
+        reasons = {c.reason for c in all_changes}
+        assert reasons <= {
+            "released_detector_exposure",
+            "released_text_exposure",
+            "targeted_reintroduction",
+        }
+
+    def test_f001_only_exposure_no_f002_transition(self) -> None:
+        """s3: F001-only exposure must not produce an F002 transition."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Find turns where only F001 is exposed
+        for turn in result.turns:
+            exposed = set(turn.exposed_forget_ids)
+            if exposed == {"F001"}:
+                f002_changes = [
+                    c for c in turn.contamination_state_changes if c.forget_id == "F002"
+                ]
+                assert (
+                    len(f002_changes) == 0
+                ), f"F001-only exposure produced F002 transition: {f002_changes}"
+
+    def test_f002_only_exposure_no_f001_transition(self) -> None:
+        """s3: F002-only exposure must not produce an F001 transition."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        # Find turns where only F002 is exposed
+        for turn in result.turns:
+            exposed = set(turn.exposed_forget_ids)
+            if exposed == {"F002"}:
+                f001_changes = [
+                    c for c in turn.contamination_state_changes if c.forget_id == "F001"
+                ]
+                assert (
+                    len(f001_changes) == 0
+                ), f"F002-only exposure produced F001 transition: {f001_changes}"
+
+    def test_blocked_release_no_transition(self) -> None:
+        """s3: Blocked release (firewall) should not produce exposure transitions."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=True)
+        # Find turns where message was blocked
+        for turn in result.turns:
+            if turn.released_text is None and turn.decision is not None:
+                exposure_changes = [
+                    c
+                    for c in turn.contamination_state_changes
+                    if c.reason in ("released_detector_exposure", "released_text_exposure")
+                ]
+                assert (
+                    len(exposure_changes) == 0
+                ), f"Blocked release produced exposure transition: {exposure_changes}"
+
+    def test_transition_reasons_are_stable(self) -> None:
+        """s3: All transition reasons use stable, testable values."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_multi_target.yaml")
+        responder = self._build_responder(ep)
+        result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
+        valid_reasons = {
+            "released_detector_exposure",
+            "released_text_exposure",
+            "targeted_reintroduction",
+        }
+        for turn in result.turns:
+            for change in turn.contamination_state_changes:
+                assert (
+                    change.reason in valid_reasons
+                ), f"Unexpected transition reason: {change.reason}"

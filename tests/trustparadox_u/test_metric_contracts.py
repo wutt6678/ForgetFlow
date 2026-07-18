@@ -9,6 +9,9 @@ from experiments.trustparadox_u.evaluator import (
     compute_fbr,
     compute_pu_rer,
     compute_rr,
+    compute_rr_at_risk,
+    compute_rr_clean,
+    evaluate_all,
 )
 from experiments.trustparadox_u.runner import (
     EpisodeResult,
@@ -523,3 +526,89 @@ class TestMultiTargetRR:
                 assert metric.value is not None
                 assert 0.0 <= metric.value <= 1.0
                 assert metric.numerator <= metric.denominator
+
+
+# ── s4: Canonical RR Metric Tests ─────────────────────
+
+
+class TestCanonicalRR:
+    """s4/s7: Top-level RR must equal rr_clean (clean/verified population only)."""
+
+    def _make_result(
+        self,
+        clean_attempted: int = 0,
+        clean_recontaminated: int = 0,
+        at_risk_attempted: int = 0,
+        at_risk_escalated: int = 0,
+    ) -> EpisodeResult:
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
+        )
+        result.attempted_clean_pairs = clean_attempted
+        result.recontaminated_clean_pairs = clean_recontaminated
+        result.attempted_at_risk_pairs = at_risk_attempted
+        result.escalated_at_risk_pairs = at_risk_escalated
+        # Legacy combined fields
+        result.attempted_agent_record_pairs = clean_attempted + at_risk_attempted
+        result.recontaminated_agent_record_pairs = clean_recontaminated + at_risk_escalated
+        return result
+
+    def test_top_level_rr_equals_rr_clean(self) -> None:
+        """s4: evaluate_all().rr must equal rr_clean."""
+        result = self._make_result(clean_attempted=4, clean_recontaminated=1)
+        metrics = evaluate_all([result])
+        assert metrics.rr.value == metrics.rr_clean.value
+        assert metrics.rr.numerator == metrics.rr_clean.numerator
+        assert metrics.rr.denominator == metrics.rr_clean.denominator
+
+    def test_clean_attempt_enters_canonical_rr(self) -> None:
+        """s4: Clean pair attempt enters canonical RR denominator."""
+        result = self._make_result(clean_attempted=2, clean_recontaminated=1)
+        metric = compute_rr_clean([result])
+        assert metric.denominator == 2
+        assert metric.numerator == 1
+        assert metric.value == 0.5
+
+    def test_at_risk_attempt_not_in_canonical_rr(self) -> None:
+        """s4: At-risk pair attempt does NOT enter canonical RR denominator."""
+        result = self._make_result(at_risk_attempted=3, at_risk_escalated=1)
+        metric = compute_rr_clean([result])
+        assert metric.denominator == 0
+        assert metric.value is None
+
+    def test_rr_at_risk_separate_metric(self) -> None:
+        """s4: rr_at_risk is calculated separately from canonical RR."""
+        result = self._make_result(
+            clean_attempted=2,
+            clean_recontaminated=1,
+            at_risk_attempted=3,
+            at_risk_escalated=2,
+        )
+        rr_clean = compute_rr_clean([result])
+        rr_at_risk = compute_rr_at_risk([result])
+        # Canonical RR: 1/2
+        assert rr_clean.value == 0.5
+        assert rr_clean.population == "clean_or_verified"
+        # At-risk RR: 2/3
+        assert rr_at_risk.value == 2 / 3
+        assert rr_at_risk.population == "already_at_risk"
+
+    def test_canonical_rr_bounded(self) -> None:
+        """s4: 0 <= numerator <= denominator for canonical RR."""
+        for attempted in range(1, 10):
+            for recont in range(0, attempted + 1):
+                result = self._make_result(clean_attempted=attempted, clean_recontaminated=recont)
+                metric = compute_rr_clean([result])
+                assert metric.value is not None
+                assert 0.0 <= metric.value <= 1.0
+                assert metric.numerator <= metric.denominator
+
+    def test_rr_population_field_in_dict(self) -> None:
+        """s4: Exported RR includes population field."""
+        result = self._make_result(clean_attempted=2, clean_recontaminated=1)
+        metrics = evaluate_all([result])
+        rr_dict = metrics.rr.to_dict()
+        assert rr_dict["population"] == "clean_or_verified"
+        rr_at_risk_dict = metrics.rr_at_risk.to_dict()
+        # at_risk has 0 denominator so should still have population
+        assert rr_at_risk_dict.get("population") == "already_at_risk"
