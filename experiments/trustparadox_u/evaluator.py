@@ -49,6 +49,8 @@ class EvalMetrics:
     pu_rer: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
     crr: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
     rr: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
+    rr_clean: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
+    rr_at_risk: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
     fbr: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
     utility_retention: MetricValue = field(default_factory=lambda: MetricValue(None, 0, 0))
     metadata: dict[str, Any] | None = None
@@ -58,6 +60,8 @@ class EvalMetrics:
             "pu_rer": self.pu_rer.to_dict(),
             "crr": self.crr.to_dict(),
             "rr": self.rr.to_dict(),
+            "rr_clean": self.rr_clean.to_dict(),
+            "rr_at_risk": self.rr_at_risk.to_dict(),
             "fbr": self.fbr.to_dict(),
             "utility_retention": self.utility_retention.to_dict(),
             "metadata": self.metadata,
@@ -134,6 +138,38 @@ def compute_rr(results: list[EpisodeResult]) -> MetricValue:
     return MetricValue(
         recontaminated_pairs / attempted_pairs, recontaminated_pairs, attempted_pairs
     )
+
+
+def compute_rr_clean(results: list[EpisodeResult]) -> MetricValue:
+    """Recontamination Rate for clean/verified pairs only (s11).
+
+    RR_clean = recontaminated clean pairs / attempted clean pairs
+    """
+    attempted = 0
+    recontaminated = 0
+    for r in results:
+        attempted += getattr(r, "attempted_clean_pairs", 0)
+        recontaminated += getattr(r, "recontaminated_clean_pairs", 0)
+    if attempted == 0:
+        return MetricValue(None, 0, 0, "no clean/verified pair attempts")
+    assert recontaminated <= attempted, f"RR_clean invariant violated: {recontaminated} > {attempted}"
+    return MetricValue(recontaminated / attempted, recontaminated, attempted)
+
+
+def compute_rr_at_risk(results: list[EpisodeResult]) -> MetricValue:
+    """Recontamination Rate for already-at-risk pairs (s11).
+
+    RR_at_risk = escalated at-risk pairs / attempted at-risk pairs
+    """
+    attempted = 0
+    escalated = 0
+    for r in results:
+        attempted += getattr(r, "attempted_at_risk_pairs", 0)
+        escalated += getattr(r, "escalated_at_risk_pairs", 0)
+    if attempted == 0:
+        return MetricValue(None, 0, 0, "no at-risk pair attempts")
+    assert escalated <= attempted, f"RR_at_risk invariant violated: {escalated} > {attempted}"
+    return MetricValue(escalated / attempted, escalated, attempted)
 
 
 def compute_fbr(results: list[EpisodeResult]) -> MetricValue:
@@ -222,5 +258,7 @@ def evaluate_all(results: list[EpisodeResult]) -> EvalMetrics:
         pu_rer=compute_pu_rer(results),
         crr=compute_crr(results),
         rr=compute_rr(results),
+        rr_clean=compute_rr_clean(results),
+        rr_at_risk=compute_rr_at_risk(results),
         fbr=compute_fbr(results),
     )

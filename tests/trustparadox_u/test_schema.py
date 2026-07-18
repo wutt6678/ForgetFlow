@@ -51,7 +51,7 @@ class TestSchema:
 class TestDataset:
     def test_load_all_pilots(self) -> None:
         episodes = load_episodes_from_dir(SCENARIOS_DIR)
-        assert len(episodes) == 4
+        assert len(episodes) == 5
 
     def test_get_agent(self) -> None:
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")

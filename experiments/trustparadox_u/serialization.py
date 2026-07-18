@@ -13,12 +13,22 @@ from marble.firewall.types import (
     DetectorResult,
     FirewallAction,
     FirewallDecision,
+    RecordDetectionEvidence,
 )
 
 # Schema version constants
 UNVERSIONED_RESULT_SCHEMA = "0"
 LEGACY_RESULT_SCHEMA_VERSION = "1.0"
 RESULT_SCHEMA_VERSION = "1.1"
+
+VALID_CONTAMINATION_STATUSES = {
+    "clean",
+    "verified",
+    "at_risk",
+    "recontaminated",
+    "contaminated",
+    "unknown",
+}
 
 
 class UnsupportedSchemaVersionError(ValueError):
@@ -72,6 +82,21 @@ def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult
     if not isinstance(data, Mapping):
         raise TypeError(f"DetectorResult payload must be a mapping, got {type(data).__name__}")
 
+    # Deserialize per-record evidence
+    record_evidence: list[RecordDetectionEvidence] = []
+    for item in data.get("record_evidence", []):
+        if isinstance(item, Mapping):
+            record_evidence.append(
+                RecordDetectionEvidence(
+                    forget_id=str(item["forget_id"]),
+                    exact_score=float(item.get("exact_score", 0.0)),
+                    entity_score=float(item.get("entity_score", 0.0)),
+                    semantic_score=float(item.get("semantic_score", 0.0)),
+                    reconstruction_score=float(item.get("reconstruction_score", 0.0)),
+                    matched=bool(item.get("matched", False)),
+                )
+            )
+
     return DetectorResult(
         exact_score=float(data.get("exact_score", 0.0)),
         entity_score=float(data.get("entity_score", 0.0)),
@@ -79,6 +104,7 @@ def deserialize_detector_result(data: Mapping[str, Any] | Any) -> DetectorResult
         reconstruction_score=float(data.get("reconstruction_score", 0.0)),
         matched_forget_ids=tuple(str(v) for v in data.get("matched_forget_ids", [])),
         evidence=tuple(str(v) for v in data.get("evidence", [])),
+        record_evidence=tuple(record_evidence),
     )
 
 
@@ -205,20 +231,46 @@ def deserialize_episode_result(
     if recontaminated_agent_record_pairs < 0:
         raise ValueError("recontaminated_agent_record_pairs must be non-negative")
 
-    # Extract final_contamination_states
+    # Extract final_contamination_states (s12: strict validation)
     final_contamination_states: dict[tuple[str, str], str] = {}
     raw_fcs = data.get("final_contamination_states", [])
     if isinstance(raw_fcs, list):
-        for entry in raw_fcs:
-            if isinstance(entry, dict) and "agent_id" in entry and "forget_id" in entry:
-                final_contamination_states[(str(entry["agent_id"]), str(entry["forget_id"]))] = str(
-                    entry.get("status", "unknown")
+        for index, entry in enumerate(raw_fcs):
+            if not isinstance(entry, Mapping):
+                raise ValueError(
+                    f"final_contamination_states[{index}] must be an object, "
+                    f"got {type(entry).__name__}"
                 )
+            agent_id = entry.get("agent_id")
+            forget_id = entry.get("forget_id")
+            status = entry.get("status")
+            if not isinstance(agent_id, str) or not agent_id:
+                raise ValueError(f"Invalid agent_id at index {index}")
+            if not isinstance(forget_id, str) or not forget_id:
+                raise ValueError(f"Invalid forget_id at index {index}")
+            if not isinstance(status, str):
+                raise ValueError(f"Invalid status at index {index}: {status!r}")
+            status_lower = status.lower()
+            if status_lower not in VALID_CONTAMINATION_STATUSES:
+                raise ValueError(
+                    f"Invalid status at index {index}: {status!r}"
+                )
+            key = (agent_id, forget_id)
+            if key in final_contamination_states:
+                raise ValueError(f"Duplicate final state for {key}")
+            final_contamination_states[key] = status_lower
     elif isinstance(raw_fcs, dict):
         # Handle legacy dict form with tuple-like keys
         for k, v in raw_fcs.items():
             if isinstance(k, (list, tuple)) and len(k) == 2:
-                final_contamination_states[(str(k[0]), str(k[1]))] = str(v)
+                key = (str(k[0]), str(k[1]))
+                if key in final_contamination_states:
+                    raise ValueError(f"Duplicate final state for {key}")
+                final_contamination_states[key] = str(v)
+    elif raw_fcs:
+        raise ValueError(
+            f"final_contamination_states must be a list, got {type(raw_fcs).__name__}"
+        )
 
     return EpisodeResult(
         run_id=data["run_id"],
@@ -235,6 +287,10 @@ def deserialize_episode_result(
         recontaminated_agents=data.get("recontaminated_agents", 0),
         attempted_agent_record_pairs=attempted_agent_record_pairs,
         recontaminated_agent_record_pairs=recontaminated_agent_record_pairs,
+        attempted_clean_pairs=int(data.get("attempted_clean_pairs", 0)),
+        recontaminated_clean_pairs=int(data.get("recontaminated_clean_pairs", 0)),
+        attempted_at_risk_pairs=int(data.get("attempted_at_risk_pairs", 0)),
+        escalated_at_risk_pairs=int(data.get("escalated_at_risk_pairs", 0)),
         final_contamination_states=final_contamination_states,
         metadata=data.get("metadata", {}),
         schema_version=schema_version,

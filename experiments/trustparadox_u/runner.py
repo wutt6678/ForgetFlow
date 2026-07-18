@@ -31,6 +31,8 @@ from marble.firewall.types import (
     ContaminationStatus,
     FirewallDecision,
     ForgetRecord,
+    RecordDetectionEvidence,
+    evidence_for,
 )
 
 
@@ -111,6 +113,11 @@ class EpisodeResult:
     # Pair-based tracking for multi-target RR
     attempted_agent_record_pairs: int = 0
     recontaminated_agent_record_pairs: int = 0
+    # s11: Split RR into clean and at-risk populations
+    attempted_clean_pairs: int = 0
+    recontaminated_clean_pairs: int = 0
+    attempted_at_risk_pairs: int = 0
+    escalated_at_risk_pairs: int = 0
 
     # Final per-record contamination states: (agent_id, forget_id) → status
     final_contamination_states: dict[tuple[str, str], str] = field(default_factory=dict)
@@ -332,6 +339,7 @@ def _update_detector_and_record_exposure(
                 {
                     "fragment_map": episode.fragment_map,
                     "fact_chains": episode.fact_chains,
+                    "fact_chain_map": episode.fact_chain_map,
                 },
                 history_enabled=config.history.enabled,
                 reconstruction_threshold=config.history.reconstruction_threshold,
@@ -341,7 +349,27 @@ def _update_detector_and_record_exposure(
 
     # Update detector result with max reconstruction score (for backward compat)
     max_recon = max(recon_scores.values()) if recon_scores else 0.0
-    detector_result = dataclasses.replace(detector_result, reconstruction_score=max_recon)
+    # Update per-record evidence with reconstruction scores
+    updated_record_evidence = []
+    for rev in detector_result.record_evidence:
+        if rev.forget_id in recon_scores:
+            updated_record_evidence.append(
+                RecordDetectionEvidence(
+                    forget_id=rev.forget_id,
+                    exact_score=rev.exact_score,
+                    entity_score=rev.entity_score,
+                    semantic_score=rev.semantic_score,
+                    reconstruction_score=recon_scores[rev.forget_id],
+                    matched=rev.matched,
+                )
+            )
+        else:
+            updated_record_evidence.append(rev)
+    detector_result = dataclasses.replace(
+        detector_result,
+        reconstruction_score=max_recon,
+        record_evidence=tuple(updated_record_evidence),
+    )
 
     detector_matched = set(detector_result.matched_forget_ids)
     for si in episode.sensitive_items:
@@ -349,12 +377,15 @@ def _update_detector_and_record_exposure(
         if fid not in exposed_ids:
             continue
         if fid in detector_matched:
+            # Use per-record evidence if available
+            rec_evidence = evidence_for(detector_result, fid)
             tracker.record_exposure(
                 recipient_id,
                 fid,
                 detector_result,
                 config.history.reconstruction_threshold,
                 reconstruction_score=recon_scores.get(fid, 0.0),
+                evidence=rec_evidence,
             )
         else:
             # Text-only exposure: update tracker state directly
@@ -585,6 +616,7 @@ def run_episode(
         episode_metadata={
             "fragment_map": episode.fragment_map,
             "fact_chains": episode.fact_chains,
+            "fact_chain_map": episode.fact_chain_map,
         },
     )
     tracker = ContaminationTracker()
@@ -594,7 +626,7 @@ def run_episode(
         result.metadata.update(
             {
                 "embedding_provider": embedding_provider.provider_name,
-                "embedding_model": embedding_provider.model_name,
+                "embedding_model": embedding_provider.model_name or "fixed",
                 "embedding_dimension": embedding_provider.dimension,
                 "semantic_threshold": config.detector.semantic_threshold,
             }
@@ -729,7 +761,9 @@ def run_episode(
     post_forget_round = 0
 
     # Track cleaned agent-record pairs that receive recontamination attempts (for RR denominator)
+    # s11: Separate clean/verified pairs from at-risk pairs
     attempted_pairs: set[tuple[str, str]] = set()
+    clean_attempted_pairs: set[tuple[str, str]] = set()
     at_risk_attempted_pairs: set[tuple[str, str]] = set()
 
     # Process each unique attack type once to avoid build_attack duplication
@@ -770,8 +804,7 @@ def run_episode(
             task_rel = step.label.task_relevant
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
-            # Include all statuses (CLEAN, VERIFIED, AT_RISK) in denominator
-            # Track AT_RISK attempts separately for reporting
+            # s11: Separate clean/verified pairs from at-risk pairs
             if is_recontamination:
                 for forget_id in step.label.target_forget_ids:
                     status = tracker.get_status(step.recipient, forget_id)
@@ -783,6 +816,8 @@ def run_episode(
                         attempted_pairs.add((step.recipient, forget_id))
                         if status == ContaminationStatus.AT_RISK:
                             at_risk_attempted_pairs.add((step.recipient, forget_id))
+                        else:
+                            clean_attempted_pairs.add((step.recipient, forget_id))
 
             if firewall_enabled and enforcement_is_active(
                 monitoring=config.monitoring,
@@ -1050,6 +1085,14 @@ def run_episode(
     # RR: use agent-record pairs for multi-target correctness
     result.attempted_agent_record_pairs = len(attempted_pairs)
     result.recontaminated_agent_record_pairs = len(recontaminated_pairs)
+
+    # s11: Split RR into clean and at-risk populations
+    recontaminated_clean = all_recontaminated_pairs & clean_attempted_pairs
+    recontaminated_at_risk = all_recontaminated_pairs & at_risk_attempted_pairs
+    result.attempted_clean_pairs = len(clean_attempted_pairs)
+    result.recontaminated_clean_pairs = len(recontaminated_clean)
+    result.attempted_at_risk_pairs = len(at_risk_attempted_pairs)
+    result.escalated_at_risk_pairs = len(recontaminated_at_risk)
 
     # Enforce numerator <= denominator
     if result.recontaminated_agent_record_pairs > result.attempted_agent_record_pairs:

@@ -79,6 +79,28 @@ class MessageEnvelope:
 
 
 @dataclass(frozen=True)
+class RecordDetectionEvidence:
+    """Per-record detection evidence for a specific forget_id."""
+
+    forget_id: str
+    exact_score: float
+    entity_score: float
+    semantic_score: float
+    reconstruction_score: float
+    matched: bool
+
+    def __post_init__(self) -> None:
+        for name, val in [
+            ("exact_score", self.exact_score),
+            ("entity_score", self.entity_score),
+            ("semantic_score", self.semantic_score),
+            ("reconstruction_score", self.reconstruction_score),
+        ]:
+            if not (0.0 <= val <= 1.0):
+                raise ValueError(f"{name} must be in [0, 1], got {val}")
+
+
+@dataclass(frozen=True)
 class DetectorResult:
     """Result from the hybrid leakage detector."""
 
@@ -88,6 +110,7 @@ class DetectorResult:
     reconstruction_score: float
     matched_forget_ids: tuple[str, ...]
     evidence: tuple[str, ...]
+    record_evidence: tuple[RecordDetectionEvidence, ...] = ()
 
     def __post_init__(self) -> None:
         for name, val in [
@@ -101,6 +124,17 @@ class DetectorResult:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def evidence_for(
+    detector_result: DetectorResult,
+    forget_id: str,
+) -> RecordDetectionEvidence | None:
+    """Look up per-record evidence for a specific forget_id."""
+    for ev in detector_result.record_evidence:
+        if ev.forget_id == forget_id:
+            return ev
+    return None
 
 
 @dataclass(frozen=True)

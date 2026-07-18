@@ -74,8 +74,20 @@ class ReconstructionChecker:
                             return partial
 
         # Mechanism B: Fact-chain reconstruction
-        fact_chains = episode_metadata.get("fact_chains", [])
-        for chain_group in fact_chains:
+        # Support both fact_chain_map (keyed by forget_id) and legacy fact_chains
+        fact_chain_map = episode_metadata.get("fact_chain_map", {})
+        if fact_chain_map and forget_id is not None:
+            chains = fact_chain_map.get(forget_id, [])
+        elif fact_chain_map:
+            # No forget_id filter: evaluate all chains across all forget_ids
+            chains = []
+            for fid_chains in fact_chain_map.values():
+                chains.extend(fid_chains)
+        else:
+            # Legacy flat fact_chains list
+            chains = episode_metadata.get("fact_chains", [])
+
+        for chain_group in chains:
             if not chain_group:
                 continue
             triples = chain_group if isinstance(chain_group[0], (list, tuple)) else [chain_group]

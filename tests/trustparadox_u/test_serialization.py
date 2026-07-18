@@ -1202,3 +1202,128 @@ class TestFinalContaminationStates:
 
         loaded = load_episode_results(episodes_file)
         assert loaded[0].final_contamination_states == {}
+
+    def test_duplicate_final_states_rejected(self, tmp_path: Path) -> None:
+        """Duplicate final_contamination_states are rejected."""
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "schema_version": "1.1",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                    "final_contamination_states": [
+                        {"agent_id": "CK", "forget_id": "F001", "status": "clean"},
+                        {"agent_id": "CK", "forget_id": "F001", "status": "at_risk"},
+                    ],
+                }
+            )
+            + "\n"
+        )
+        with pytest.raises(ValueError, match="Duplicate final state"):
+            load_episode_results(episodes_file)
+
+    def test_invalid_status_rejected(self, tmp_path: Path) -> None:
+        """Invalid contamination status is rejected."""
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "schema_version": "1.1",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                    "final_contamination_states": [
+                        {"agent_id": "CK", "forget_id": "F001", "status": "invalid_status"},
+                    ],
+                }
+            )
+            + "\n"
+        )
+        with pytest.raises(ValueError, match="Invalid status"):
+            load_episode_results(episodes_file)
+
+    def test_empty_agent_id_rejected(self, tmp_path: Path) -> None:
+        """Empty agent_id in final_contamination_states is rejected."""
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "schema_version": "1.1",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                    "final_contamination_states": [
+                        {"agent_id": "", "forget_id": "F001", "status": "clean"},
+                    ],
+                }
+            )
+            + "\n"
+        )
+        with pytest.raises(ValueError, match="Invalid agent_id"):
+            load_episode_results(episodes_file)
+
+    def test_empty_forget_id_rejected(self, tmp_path: Path) -> None:
+        """Empty forget_id in final_contamination_states is rejected."""
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "episode_id": "ep1",
+                    "scenario_id": "s1",
+                    "trust_level": "default",
+                    "schema_version": "1.1",
+                    "seed": 42,
+                    "turns": [],
+                    "contamination_states": {},
+                    "metadata": {},
+                    "final_contamination_states": [
+                        {"agent_id": "CK", "forget_id": "", "status": "clean"},
+                    ],
+                }
+            )
+            + "\n"
+        )
+        with pytest.raises(ValueError, match="Invalid forget_id"):
+            load_episode_results(episodes_file)
+
+    def test_split_rr_fields_round_trip(self, tmp_path: Path) -> None:
+        """Split RR fields survive disk round trip."""
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            attempted_clean_pairs=10,
+            recontaminated_clean_pairs=3,
+            attempted_at_risk_pairs=5,
+            escalated_at_risk_pairs=2,
+        )
+
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        assert loaded[0].attempted_clean_pairs == 10
+        assert loaded[0].recontaminated_clean_pairs == 3
+        assert loaded[0].attempted_at_risk_pairs == 5
+        assert loaded[0].escalated_at_risk_pairs == 2

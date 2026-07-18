@@ -1,0 +1,12 @@
+{
+  "status": "DIAGNOSTIC",
+  "repository_commit": "86bfb521f1b6ffc39079b7078c3d9fa0497d401d-dirty",
+  "repository_clean": false,
+  "audit_valid": true,
+  "manifest_valid": true,
+  "all_assertions_passed": true,
+  "total_runs": 15,
+  "generated_at": "2026-07-18T06:57:27.451331+00:00",
+  "mode": "diagnostic",
+  "run_mode": "test"
+}

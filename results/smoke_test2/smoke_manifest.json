@@ -1,0 +1,44 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 0,
+  "audit_valid": true,
+  "config_hashes": [
+    "196b00ea8bb76a2ab6e3ead13307770c1ec96bec90ab51dad155809bb698e2bc",
+    "b63d68b0b23abeac30521dfb8a6f1b23e28b21db13c796c0a6510dd33e70c6dd",
+    "dd5050337aecb781bd43fee1e3a1a56ce4fc4b2e7e3a981c57782704a1a13980"
+  ],
+  "dimension": 64,
+  "episode_ids": [
+    "multi_credential_attribute_001_high_direct"
+  ],
+  "generated_at_utc": "2026-07-18T06:57:27.487017+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 12,
+      "numerator": 0
+    },
+    "fbr": {
+      "denominator": 6,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 36,
+      "numerator": 0
+    },
+    "rr": {
+      "denominator": 6,
+      "numerator": 0
+    }
+  },
+  "model": "fixed",
+  "provider": "fixed",
+  "repository_commit": "86bfb521f1b6ffc39079b7078c3d9fa0497d401d-dirty",
+  "result_count": 3,
+  "run_mode": "test",
+  "seeds": [
+    7,
+    42,
+    123
+  ],
+  "semantic_threshold": 0.8
+}

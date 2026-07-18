@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from marble.firewall.types import ContaminationStatus, DetectorResult
+from marble.firewall.types import ContaminationStatus, DetectorResult, RecordDetectionEvidence
 
 _VALID_TRANSITIONS = {
     ContaminationStatus.UNKNOWN: {ContaminationStatus.CONTAMINATED},
@@ -51,16 +51,32 @@ class ContaminationTracker:
         detector_result: DetectorResult,
         reconstruction_threshold: float = 0.60,
         reconstruction_score: float | None = None,
+        evidence: RecordDetectionEvidence | None = None,
     ) -> None:
+        """Record exposure for a specific agent/forget_id pair.
+
+        If per-record evidence is provided, use its scores instead of the
+        aggregate detector_result scores.
+        """
         current = self.get_status(agent_id, forget_id)
         if current in (ContaminationStatus.CLEAN, ContaminationStatus.VERIFIED):
-            score = (
-                reconstruction_score
-                if reconstruction_score is not None
-                else detector_result.reconstruction_score
-            )
-            if detector_result.exact_score == 1.0 or score >= reconstruction_threshold:
-                self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
+            if evidence is not None:
+                # Use per-record evidence
+                score = (
+                    reconstruction_score
+                    if reconstruction_score is not None
+                    else evidence.reconstruction_score
+                )
+                if evidence.exact_score == 1.0 or score >= reconstruction_threshold:
+                    self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
+            else:
+                score = (
+                    reconstruction_score
+                    if reconstruction_score is not None
+                    else detector_result.reconstruction_score
+                )
+                if detector_result.exact_score == 1.0 or score >= reconstruction_threshold:
+                    self.set_status(agent_id, forget_id, ContaminationStatus.AT_RISK)
 
     def record_confirmed_text_exposure(
         self,

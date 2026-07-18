@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from experiments.trustparadox_u.embedding import EmbeddingProvider, cosine_similarity
-from marble.firewall.types import DetectorResult, ForgetRecord
+from marble.firewall.types import DetectorResult, ForgetRecord, RecordDetectionEvidence
 
 
 @dataclass
@@ -57,15 +57,23 @@ class HybridDetector:
         semantic_score = 0.0
         matched_ids: list[str] = []
         evidence: list[str] = []
+        record_evidence: list[RecordDetectionEvidence] = []
 
         norm_text = _normalize(text)
 
         for rec in active_records:
+            rec_exact = 0.0
+            rec_entity = 0.0
+            rec_semantic = 0.0
+            rec_matched = False
+
             # Exact matching
             if self.exact_enabled:
                 norm_target = _normalize(rec.canonical_target)
                 if norm_target and norm_target in norm_text:
                     exact_score = 1.0
+                    rec_exact = 1.0
+                    rec_matched = True
                     if rec.forget_id not in matched_ids:
                         matched_ids.append(rec.forget_id)
                     evidence.append(f"EXACT:{rec.canonical_target}")
@@ -76,6 +84,8 @@ class HybridDetector:
                     norm_alias = _normalize(alias)
                     if norm_alias and norm_alias in norm_text:
                         entity_score = 1.0
+                        rec_entity = 1.0
+                        rec_matched = True
                         if rec.forget_id not in matched_ids:
                             matched_ids.append(rec.forget_id)
                         evidence.append(f"ALIAS:{alias}")
@@ -87,10 +97,23 @@ class HybridDetector:
                 sem_score = self._compute_semantic(text, rec)
                 if sem_score > semantic_score:
                     semantic_score = sem_score
+                rec_semantic = sem_score
                 if sem_score >= self.semantic_threshold:
+                    rec_matched = True
                     if rec.forget_id not in matched_ids:
                         matched_ids.append(rec.forget_id)
                     evidence.append(f"SEMANTIC:{sem_score:.3f}")
+
+            record_evidence.append(
+                RecordDetectionEvidence(
+                    forget_id=rec.forget_id,
+                    exact_score=rec_exact,
+                    entity_score=rec_entity,
+                    semantic_score=rec_semantic,
+                    reconstruction_score=0.0,  # filled in later by runner
+                    matched=rec_matched,
+                )
+            )
 
         return DetectorResult(
             exact_score=exact_score,
@@ -99,6 +122,7 @@ class HybridDetector:
             reconstruction_score=0.0,
             matched_forget_ids=tuple(matched_ids),
             evidence=tuple(evidence),
+            record_evidence=tuple(record_evidence),
         )
 
     def _compute_semantic(self, text: str, rec: ForgetRecord) -> float:

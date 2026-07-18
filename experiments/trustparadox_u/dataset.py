@@ -114,6 +114,7 @@ class TrustParadoxEpisode:
     expected: ExpectedSpec
     fragment_map: dict[str, dict[str, Any]] = field(default_factory=dict)
     fact_chains: tuple[tuple[tuple[str, str, str], ...], ...] = ()
+    fact_chain_map: dict[str, list[list[tuple[str, str, str]]]] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def agent_ids(self) -> set[str]:
@@ -305,6 +306,18 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
     raw_facts = raw.get("fact_chains", [])
     fact_chains = tuple(tuple(tuple(triple) for triple in chain) for chain in raw_facts)
 
+    # Parse fact_chain_map (keyed by forget_id) for record-specific fact-chain reconstruction
+    raw_fcm = raw.get("fact_chain_map", {})
+    fact_chain_map: dict[str, list[list[tuple[str, str, str]]]] = {}
+    for fid, chains in raw_fcm.items():
+        if not isinstance(fid, str) or not fid:
+            raise ValueError(f"fact_chain_map key must be a non-empty string, got {fid!r}")
+        parsed_chains = []
+        for chain in chains:
+            parsed_chain = [tuple(triple) for triple in chain]
+            parsed_chains.append(parsed_chain)
+        fact_chain_map[fid] = parsed_chains
+
     return TrustParadoxEpisode(
         episode_id=raw["episode_id"],
         scenario_id=raw["scenario_id"],
@@ -318,6 +331,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
         expected=expected,
         fragment_map=fragment_map,
         fact_chains=fact_chains,
+        fact_chain_map=fact_chain_map,
         metadata={
             k: v
             for k, v in raw.items()
@@ -335,6 +349,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
                 "expected",
                 "fragment_map",
                 "fact_chains",
+                "fact_chain_map",
             }
         },
     )
