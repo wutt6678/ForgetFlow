@@ -75,6 +75,24 @@ def _record_state_change(
     )
 
 
+def _deliver_released_text(
+    sender: TrustParadoxAgent,
+    recipient: TrustParadoxAgent,
+    sender_id: str,
+    released_text: str,
+) -> None:
+    """Deliver released text consistently across all branches.
+
+    - Recipient receives the released text in their inbox.
+    - Sender records the released text in their released history.
+    - If *released_text* is empty, neither action occurs.
+    """
+    if not released_text:
+        return
+    recipient.receive_message(sender_id, released_text)
+    sender.add_released_message(released_text)
+
+
 @dataclass
 class ContaminationStateChange:
     """Record a contamination state transition."""
@@ -741,9 +759,13 @@ def run_episode(
             )
             if isinstance(decision, FirewallDecision):
                 released_text = decision.released_text
-                if released_text:
-                    agents[pf.recipient].receive_message(pf.sender, released_text)
-                    agents[pf.sender].add_released_message(released_text)
+                # s3 (19th): Use centralized delivery helper
+                _deliver_released_text(
+                    sender=agents[pf.sender],
+                    recipient=agents[pf.recipient],
+                    sender_id=pf.sender,
+                    released_text=released_text,
+                )
                 # PRE_FORGET messages are legitimate (before forget is active)
                 exposed_ids = evaluate_exposed_forget_ids(released_text, episode.sensitive_items)
                 target_exposed = bool(exposed_ids)
@@ -764,7 +786,13 @@ def run_episode(
                 )
         else:
             # No firewall: released_text equals candidate_text
-            agents[pf.recipient].receive_message(pf.sender, msg)
+            # s3 (19th): Use centralized delivery helper
+            _deliver_released_text(
+                sender=agents[pf.sender],
+                recipient=agents[pf.recipient],
+                sender_id=pf.sender,
+                released_text=msg,
+            )
             exposed_ids = evaluate_exposed_forget_ids(msg, episode.sensitive_items)
             target_exposed = bool(exposed_ids)
             result.turns.append(
@@ -874,7 +902,8 @@ def run_episode(
                     after,
                     "immediate_probe",
                 )
-        # s2: Append a TurnResult for the immediate probe to record state transitions
+        # s2 (19th): Append a TurnResult for the immediate probe to record state transitions
+        # s2 (19th): Populate target_exposed and exposed_forget_ids for observability
         result.turns.append(
             TurnResult(
                 turn_id=turn_counter,
@@ -883,6 +912,8 @@ def run_episode(
                 recipient_id=agent_id,
                 candidate_text=response,
                 released_text=response,
+                target_exposed=bool(recovered_ids),
+                exposed_forget_ids=tuple(sorted(recovered_ids)),
                 contamination_state_changes=tuple(immediate_probe_changes),
             )
         )
@@ -970,8 +1001,14 @@ def run_episode(
                 )
                 if isinstance(decision, FirewallDecision):
                     released_text = decision.released_text
+                    # s3 (19th): Use centralized delivery helper
+                    _deliver_released_text(
+                        sender=sender,
+                        recipient=agents[step.recipient],
+                        sender_id=step.sender,
+                        released_text=released_text,
+                    )
                     if released_text:
-                        agents[step.recipient].receive_message(step.sender, released_text)
                         recipient_transcript.setdefault(step.recipient, []).append(released_text)
                     # Shared exposure evaluation (text + detector)
                     released_context = history.get_context(
@@ -1099,7 +1136,13 @@ def run_episode(
                         result.task_label = sender.last_task_label
             else:
                 # No firewall or monitoring disabled: released_text equals candidate_text
-                agents[step.recipient].receive_message(step.sender, msg)
+                # s3 (19th): Use centralized delivery helper
+                _deliver_released_text(
+                    sender=sender,
+                    recipient=agents[step.recipient],
+                    sender_id=step.sender,
+                    released_text=msg,
+                )
                 recipient_transcript.setdefault(step.recipient, []).append(msg)
                 # Shared exposure evaluation (text + detector)
                 released_context = history.get_context(step.recipient, config.history.window_size)

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol, Sequence
 
 from marble.agent.base_agent import BaseAgent
+
+# Consistent placeholder for redacted sensitive representations
+REDACTION_PLACEHOLDER = "[FORGOTTEN]"
 
 
 class TaskOutcomeSource(str, Enum):
@@ -140,23 +144,44 @@ class TrustParadoxAgent(BaseAgent):
         return "\n".join(part for part in parts if part)
 
     def remove_probe_visible_content_containing(self, representation: str) -> None:
-        """Remove *representation* from every probe-visible store.
+        """Redact *representation* from every probe-visible store.
 
         Matching is case-insensitive, consistent with the record evaluator.
-        Stores cleaned: local context, memory, inbox, released history.
+        Sensitive text is replaced with ``[FORGOTTEN]``; benign text and
+        inbox metadata (sender, ordering) are preserved.  Entries that
+        become empty or contain only the placeholder are dropped.
         """
         if not representation:
             return
-        normalized = representation.lower()
+
+        def _redact(text: str) -> str:
+            return re.sub(
+                re.escape(representation),
+                REDACTION_PLACEHOLDER,
+                text,
+                flags=re.IGNORECASE,
+            )
+
+        def _is_empty(text: str) -> bool:
+            stripped = text.replace(REDACTION_PLACEHOLDER, "").strip()
+            return not stripped
+
         self._local_context = [
-            t for t in self._local_context if normalized not in t.lower()
+            r for t in self._local_context
+            if not _is_empty(r := _redact(t))
         ]
         self._memory = [
-            t for t in self._memory if normalized not in t.lower()
+            r for t in self._memory
+            if not _is_empty(r := _redact(t))
         ]
-        self._inbox = [
-            m for m in self._inbox if normalized not in m["text"].lower()
-        ]
+        # Preserve inbox metadata: replace text, keep sender/ordering
+        new_inbox: list[dict[str, Any]] = []
+        for m in self._inbox:
+            redacted = _redact(m["text"])
+            if not _is_empty(redacted):
+                new_inbox.append({**m, "text": redacted})
+        self._inbox = new_inbox
         self._released_history = [
-            t for t in self._released_history if normalized not in t.lower()
+            r for t in self._released_history
+            if not _is_empty(r := _redact(t))
         ]
