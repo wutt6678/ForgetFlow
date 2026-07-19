@@ -40,6 +40,12 @@ from experiments.trustparadox_u.config import (
     ModelsConfig,
 )
 from experiments.trustparadox_u.runner import run_episode
+from experiments.trustparadox_u.assertion_contracts import (
+    AssertionSuiteSummary,
+    AssertionCaseResult,
+    classify_candidate_exposure,
+    classify_released_exposure,
+)
 
 SCENARIOS_DIR = PROJECT_ROOT / "data" / "trustparadox_u" / "scenarios"
 
@@ -447,14 +453,36 @@ def run_assertion_suite(output_dir: Path) -> dict:
                 "error": str(e),
             })
     
-    # Generate report
+    # Generate report using Iteration 1 contracts
+    # Convert results to format expected by AssertionSuiteSummary
+    summary_results = []
+    for r in results:
+        summary_results.append({
+            "execution_status": "completed" if r["status"] == "COMPLETED" else ("skipped" if r["status"] == "SKIPPED" else "failed"),
+            "assertion_passed": r.get("all_assertions_passed", False),
+            "assertions": r.get("assertions", []),
+            "audit_failed": r.get("audit_failed", False),
+        })
+    
+    summary = AssertionSuiteSummary.from_results(
+        suite_type="deterministic_assertion",
+        seed=SEED,
+        results=summary_results,
+    )
+    
     report = {
-        "suite_type": "deterministic_assertion",
-        "seed": SEED,
-        "total_cases": len(ASSERTION_CASES),
-        "completed": sum(1 for r in results if r["status"] == "COMPLETED"),
-        "skipped": sum(1 for r in results if r["status"] == "SKIPPED"),
-        "failed": sum(1 for r in results if r["status"] == "FAILED"),
+        "suite_type": summary.suite_type,
+        "seed": summary.seed,
+        "total_cases": summary.total_cases,
+        "execution_completed": summary.execution_completed,
+        "execution_skipped": summary.execution_skipped,
+        "execution_failed": summary.execution_failed,
+        "assertion_cases_passed": summary.assertion_cases_passed,
+        "assertion_cases_failed": summary.assertion_cases_failed,
+        "individual_assertions_passed": summary.individual_assertions_passed,
+        "individual_assertions_failed": summary.individual_assertions_failed,
+        "audit_failures": summary.audit_failures,
+        "suite_passed": summary.suite_passed,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "results": results,
     }
@@ -466,10 +494,16 @@ def run_assertion_suite(output_dir: Path) -> dict:
         json.dump(report, f, indent=2)
     
     print(f"\nAssertion suite complete:")
-    print(f"  Total cases: {report['total_cases']}")
-    print(f"  Completed: {report['completed']}")
-    print(f"  Skipped: {report['skipped']}")
-    print(f"  Failed: {report['failed']}")
+    print(f"  Total cases: {summary.total_cases}")
+    print(f"  Execution completed: {summary.execution_completed}")
+    print(f"  Execution skipped: {summary.execution_skipped}")
+    print(f"  Execution failed: {summary.execution_failed}")
+    print(f"  Assertion cases passed: {summary.assertion_cases_passed}")
+    print(f"  Assertion cases failed: {summary.assertion_cases_failed}")
+    print(f"  Individual assertions passed: {summary.individual_assertions_passed}")
+    print(f"  Individual assertions failed: {summary.individual_assertions_failed}")
+    print(f"  Audit failures: {summary.audit_failures}")
+    print(f"  Suite passed: {summary.suite_passed}")
     print(f"  Report: {report_path}")
     
     return report
@@ -479,8 +513,16 @@ def main():
     output_dir = PROJECT_ROOT / "results" / "assertion_suite"
     report = run_assertion_suite(output_dir)
     
-    # Exit with appropriate code
-    if report["failed"] > 0:
+    # Iteration 1: Nonzero exit on assertion failure (per spec)
+    # Exit nonzero when:
+    # - assertion_cases_failed > 0
+    # - individual_assertions_failed > 0
+    # - audit_failures > 0
+    if (
+        report["assertion_cases_failed"] > 0
+        or report["individual_assertions_failed"] > 0
+        or report["audit_failures"] > 0
+    ):
         sys.exit(1)
     sys.exit(0)
 
