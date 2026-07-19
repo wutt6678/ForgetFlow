@@ -407,7 +407,7 @@ class TestIntegrationProviderThroughFlowGate:
             seed=42,
             repetitions=1,
             detector=DetectorConfig(
-                exact_enabled=True, entity_enabled=False, semantic_enabled=False
+                exact_enabled=True, entity_enabled=False, embedding_enabled=False
             ),
             history=HistoryConfig(),
             policy=PolicyConfig(),

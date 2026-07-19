@@ -21,7 +21,7 @@ class TestRepeatedProbingRobustness:
         detector = HybridDetector(
             exact_enabled=True,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
         )
 
         record = ForgetRecord(

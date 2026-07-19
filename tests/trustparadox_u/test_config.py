@@ -22,11 +22,11 @@ SMOKE_YAML = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "con
 class TestDetectorConfig:
     def test_defaults(self) -> None:
         c = DetectorConfig()
-        assert c.semantic_threshold == 0.80
+        assert c.embedding_threshold == 0.80
 
     def test_invalid_threshold(self) -> None:
-        with pytest.raises(ValueError, match="semantic_threshold"):
-            DetectorConfig(semantic_threshold=1.5)
+        with pytest.raises(ValueError, match="embedding_threshold"):
+            DetectorConfig(embedding_threshold=1.5)
 
 
 class TestHistoryConfig:
@@ -78,7 +78,7 @@ class TestExperimentConfig:
         )
         d = cfg.to_dict()
         assert d["seed"] == 42
-        assert d["detector"]["semantic_threshold"] == 0.80
+        assert d["detector"]["embedding_threshold"] == 0.80
 
 
 class TestLoadConfig:
@@ -96,7 +96,7 @@ class TestLoadConfig:
 
 def _make_config(
     *,
-    semantic_enabled: bool = True,
+    embedding_enabled: bool = True,
     mode: str = "test",
     provider: str | None = None,
     model: str | None = None,
@@ -105,7 +105,7 @@ def _make_config(
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=semantic_enabled),
+        detector=DetectorConfig(embedding_enabled=embedding_enabled),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -138,7 +138,7 @@ class TestModelsConfig:
 
 class TestValidateEmbeddingConfig:
     def test_semantic_disabled_no_validation(self) -> None:
-        cfg = _make_config(semantic_enabled=False)
+        cfg = _make_config(embedding_enabled=False)
         validate_embedding_config(cfg)  # should not raise
 
     def test_valid_fixed_test(self) -> None:

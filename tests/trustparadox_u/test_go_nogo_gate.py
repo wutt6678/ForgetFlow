@@ -34,7 +34,7 @@ def _config(**overrides) -> ExperimentConfig:
     kwargs = dict(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -147,14 +147,14 @@ class TestGoNoGoGate:
         # Authorization has valid recontamination with targets
         validate_attack_target_references(ep)
 
-    def test_go_semantic_threshold_boundary_tested(self) -> None:
+    def test_go_embedding_threshold_boundary_tested(self) -> None:
         """GO: Semantic threshold boundary is tested."""
         # This is verified by test_detectors.py::TestSemanticThresholdBoundary
         # Here we just verify the contract: score >= threshold means risky
         from marble.firewall.policy import ForgetPolicy
         from marble.firewall.types import DetectorResult
 
-        policy = ForgetPolicy(semantic_threshold=0.80)
+        policy = ForgetPolicy(embedding_threshold=0.80)
         at_threshold = DetectorResult(
             exact_score=0.0,
             entity_score=0.0,

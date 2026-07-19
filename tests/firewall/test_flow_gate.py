@@ -20,7 +20,7 @@ def _config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -40,7 +40,7 @@ def _setup() -> tuple[FlowGate, ForgetLedger]:
             active_from_turn=0,
         )
     )
-    detector = HybridDetector(semantic_enabled=False)
+    detector = HybridDetector(embedding_enabled=False)
     history = RecipientHistory()
     checker = ReconstructionChecker()
     policy = ForgetPolicy()
@@ -95,7 +95,7 @@ class TestFlowGate:
                 active_from_turn=10,
             )
         )
-        detector = HybridDetector(semantic_enabled=False)
+        detector = HybridDetector(embedding_enabled=False)
         gate = FlowGate(
             ledger,
             detector,
@@ -206,7 +206,7 @@ class TestMixedContentPolicy:
                 active_from_turn=0,
             )
         )
-        detector = HybridDetector(semantic_enabled=False)
+        detector = HybridDetector(embedding_enabled=False)
         history = RecipientHistory()
         checker = ReconstructionChecker()
         policy = ForgetPolicy(rich_actions_enabled=rich)

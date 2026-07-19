@@ -42,8 +42,8 @@ class TestClaimBasedDetectionImprovement:
         detector_with_claims = HybridDetector(
             exact_enabled=False,  # Disable exact to test claim detection
             entity_enabled=False,
-            semantic_enabled=False,
-            semantic_threshold=0.60,  # Lower threshold for claim-based detection
+            embedding_enabled=False,
+            embedding_threshold=0.60,  # Lower threshold for claim-based detection
             claim_matching_enabled=True,
         )
 
@@ -64,7 +64,7 @@ class TestClaimBasedDetectionImprovement:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
         )
 
@@ -85,7 +85,7 @@ class TestClaimBasedDetectionImprovement:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
         )
 
@@ -112,7 +112,7 @@ class TestClaimBasedDetectionImprovement:
         detector_no_claims = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=False,
         )
 
@@ -139,8 +139,8 @@ class TestClaimBasedDetectionImprovement:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=True,
-            semantic_threshold=0.80,
+            embedding_enabled=True,
+            embedding_threshold=0.80,
             claim_matching_enabled=True,
             embedding_provider=None,  # Would need real provider for semantic
         )

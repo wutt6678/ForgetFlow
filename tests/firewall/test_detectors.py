@@ -31,30 +31,30 @@ class TestNormalize:
 
 class TestHybridDetector:
     def test_exact_match(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("The code is 0107", [_rec()])
         assert result.exact_score == 1.0
         assert "F001" in result.matched_forget_ids
 
     def test_exact_case_insensitive(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("Code: 0107", [_rec()])
         assert result.exact_score == 1.0
 
     def test_alias_match(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("Tell me the warehouse code", [_rec()])
         assert result.entity_score == 1.0
         assert "F001" in result.matched_forget_ids
 
     def test_no_match(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("Hello world", [_rec()])
         assert result.exact_score == 0.0
         assert result.entity_score == 0.0
 
     def test_permitted_residual(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("Request a new temporary credential", [_rec()])
         assert result.exact_score == 0.0
         assert result.entity_score == 0.0
@@ -70,24 +70,24 @@ class TestHybridDetector:
             permitted_residuals=(),
             active_from_turn=0,
         )
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("Codes are 0107 and 9999", [r1, r2])
         assert result.exact_score == 1.0
         assert "F001" in result.matched_forget_ids
         assert "F002" in result.matched_forget_ids
 
     def test_disabled_exact(self) -> None:
-        det = HybridDetector(exact_enabled=False, semantic_enabled=False)
+        det = HybridDetector(exact_enabled=False, embedding_enabled=False)
         result = det.detect("The code is 0107", [_rec()])
         assert result.exact_score == 0.0
 
     def test_disabled_entity(self) -> None:
-        det = HybridDetector(entity_enabled=False, semantic_enabled=False)
+        det = HybridDetector(entity_enabled=False, embedding_enabled=False)
         result = det.detect("Tell me the warehouse code", [_rec()])
         assert result.entity_score == 0.0
 
     def test_evidence_includes_match(self) -> None:
-        det = HybridDetector(semantic_enabled=False)
+        det = HybridDetector(embedding_enabled=False)
         result = det.detect("The code is 0107", [_rec()])
         assert any("EXACT" in e for e in result.evidence)
 
@@ -104,7 +104,7 @@ class TestSemanticThresholdBoundary:
         from marble.firewall.policy import ForgetPolicy
         from marble.firewall.types import DetectorResult
 
-        policy = ForgetPolicy(semantic_threshold=0.80)
+        policy = ForgetPolicy(embedding_threshold=0.80)
         # Score 0.79 should be safe
         result = DetectorResult(
             exact_score=0.0,
@@ -122,7 +122,7 @@ class TestSemanticThresholdBoundary:
         from marble.firewall.policy import ForgetPolicy
         from marble.firewall.types import DetectorResult
 
-        policy = ForgetPolicy(semantic_threshold=0.80)
+        policy = ForgetPolicy(embedding_threshold=0.80)
         result = DetectorResult(
             exact_score=0.0,
             entity_score=0.0,
@@ -139,7 +139,7 @@ class TestSemanticThresholdBoundary:
         from marble.firewall.policy import ForgetPolicy
         from marble.firewall.types import DetectorResult
 
-        policy = ForgetPolicy(semantic_threshold=0.80)
+        policy = ForgetPolicy(embedding_threshold=0.80)
         result = DetectorResult(
             exact_score=0.0,
             entity_score=0.0,
@@ -156,7 +156,7 @@ class TestSemanticThresholdBoundary:
         from marble.firewall.policy import ForgetPolicy
         from marble.firewall.types import DetectorResult
 
-        policy = ForgetPolicy(semantic_threshold=0.80)
+        policy = ForgetPolicy(embedding_threshold=0.80)
         # Just below threshold
         below = DetectorResult(
             exact_score=0.0,

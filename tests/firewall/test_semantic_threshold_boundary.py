@@ -30,7 +30,7 @@ class TestSemanticThresholdBoundary:
             pytest.param(0.81, True, id="ST-SEM-003-above"),
         ],
     )
-    def test_semantic_threshold_boundary(
+    def test_embedding_threshold_boundary(
         self, score: float, expected_risky: bool
     ) -> None:
         """Semantic score at threshold boundary triggers correct detection."""
@@ -41,8 +41,8 @@ class TestSemanticThresholdBoundary:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=True,
-            semantic_threshold=0.80,
+            embedding_enabled=True,
+            embedding_threshold=0.80,
             embedding_provider=mock_provider,
         )
 
@@ -82,7 +82,7 @@ class TestSemanticThresholdBoundary:
             pytest.param(0.80 + 1e-12, True, id="ST-SEM-003-precision-above"),
         ],
     )
-    def test_semantic_threshold_precision(
+    def test_embedding_threshold_precision(
         self, score: float, expected_risky: bool
     ) -> None:
         """Semantic threshold comparison is precise at floating-point boundary."""
@@ -92,8 +92,8 @@ class TestSemanticThresholdBoundary:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=True,
-            semantic_threshold=0.80,
+            embedding_enabled=True,
+            embedding_threshold=0.80,
             embedding_provider=mock_provider,
         )
 
@@ -119,11 +119,11 @@ class TestSemanticThresholdBoundary:
         assert evidence.semantic_score == score
         assert evidence.matched == expected_risky
 
-    def test_semantic_threshold_contract_documented(self) -> None:
+    def test_embedding_threshold_contract_documented(self) -> None:
         """Document that semantic threshold uses >= comparison."""
         # This test documents the contract: score >= threshold
         # The contract is implemented in detectors.py line 107:
-        #   if sem_score >= self.semantic_threshold:
+        #   if sem_score >= self.embedding_threshold:
         #
         # This means:
         # - score = threshold - epsilon: NOT detected
@@ -137,7 +137,7 @@ class TestSemanticThresholdBoundary:
         "threshold",
         [0.60, 0.70, 0.80, 0.90],
     )
-    def test_semantic_threshold_various_values(self, threshold: float) -> None:
+    def test_embedding_threshold_various_values(self, threshold: float) -> None:
         """Semantic threshold works correctly at various values."""
         mock_provider = MagicMock()
         mock_provider.embed.return_value = [0.0] * 1024
@@ -145,8 +145,8 @@ class TestSemanticThresholdBoundary:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=True,
-            semantic_threshold=threshold,
+            embedding_enabled=True,
+            embedding_threshold=threshold,
             embedding_provider=mock_provider,
         )
 

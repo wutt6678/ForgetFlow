@@ -15,12 +15,16 @@ import yaml
 class DetectorConfig:
     exact_enabled: bool = True
     entity_enabled: bool = True
-    semantic_enabled: bool = True
-    semantic_threshold: float = 0.80
+    embedding_enabled: bool = True
+    embedding_threshold: float = 0.80
+    claim_matching_enabled: bool = True
+    claim_confidence_threshold: float = 0.70
 
     def __post_init__(self) -> None:
-        if not (0.0 <= self.semantic_threshold <= 1.0):
-            raise ValueError(f"semantic_threshold must be in [0,1], got {self.semantic_threshold}")
+        if not (0.0 <= self.embedding_threshold <= 1.0):
+            raise ValueError(f"embedding_threshold must be in [0,1], got {self.embedding_threshold}")
+        if not (0.0 <= self.claim_confidence_threshold <= 1.0):
+            raise ValueError(f"claim_confidence_threshold must be in [0,1], got {self.claim_confidence_threshold}")
 
 
 @dataclass(frozen=True)
@@ -135,7 +139,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
 
 def validate_embedding_config(config: ExperimentConfig) -> None:
     """Validate embedding provider/model settings for the current run mode."""
-    if not config.detector.semantic_enabled:
+    if not config.detector.embedding_enabled:
         return
 
     if config.run.mode == "test":
@@ -143,16 +147,16 @@ def validate_embedding_config(config: ExperimentConfig) -> None:
             config.models.embedding_provider is not None
             and config.models.embedding_provider != "fixed"
         ):
-            raise ValueError("Semantic test mode requires embedding_provider='fixed' or null")
+            raise ValueError("Embedding test mode requires embedding_provider='fixed' or null")
         if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
         return
 
     if config.run.mode == "experiment":
         if config.models.embedding_provider != "litellm":
-            raise ValueError("Semantic experiment mode requires embedding_provider='litellm'")
+            raise ValueError("Embedding experiment mode requires embedding_provider='litellm'")
         if not config.models.embedding_model:
-            raise ValueError("Semantic experiment mode requires embedding_model")
+            raise ValueError("Embedding experiment mode requires embedding_model")
         if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
         return

@@ -75,7 +75,7 @@ def _dummy_manifest() -> SmokeManifest:
         provider=None,
         model=None,
         dimension=None,
-        semantic_threshold=0.0,
+        embedding_threshold=0.0,
         api_base_sanitized=None,
         episode_ids=(),
         seeds=(),

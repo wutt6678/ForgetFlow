@@ -755,7 +755,7 @@ def run_episode(
         "seed": config.seed,
         "config_hash": config_hash,
         "run_mode": config.run.mode,
-        "semantic_enabled": config.detector.semantic_enabled,
+        "embedding_enabled": config.detector.embedding_enabled,
         "monitoring_continuous": config.monitoring.continuous,
         "monitoring_duration_rounds": config.monitoring.duration_rounds,
         "post_forget_round_count": 0,
@@ -835,7 +835,7 @@ def run_episode(
     # Create firewall components
     ledger = ForgetLedger()
     embedding_provider: FixedEmbeddingProvider | RealEmbeddingProvider | None = None
-    if config.detector.semantic_enabled:
+    if config.detector.embedding_enabled:
         if config.run.mode == "test":
             # Use fixed embeddings for deterministic tests
             # Build a fixed vector map from semantic variants
@@ -887,15 +887,17 @@ def run_episode(
     detector = HybridDetector(
         exact_enabled=config.detector.exact_enabled,
         entity_enabled=config.detector.entity_enabled,
-        semantic_enabled=config.detector.semantic_enabled,
-        semantic_threshold=config.detector.semantic_threshold,
+        embedding_enabled=config.detector.embedding_enabled,
+        embedding_threshold=config.detector.embedding_threshold,
+        claim_matching_enabled=config.detector.claim_matching_enabled,
+        claim_confidence_threshold=config.detector.claim_confidence_threshold,
         embedding_provider=embedding_provider,
     )
     history = RecipientHistory()
     checker = ReconstructionChecker()
     policy = ForgetPolicy(
         rich_actions_enabled=config.policy.rich_actions_enabled,
-        semantic_threshold=config.detector.semantic_threshold,
+        embedding_threshold=config.detector.embedding_threshold,
         reconstruction_threshold=config.history.reconstruction_threshold,
         trust_independent=config.policy.trust_independent,
     )
@@ -923,7 +925,7 @@ def run_episode(
                 "embedding_provider": embedding_provider.provider_name,
                 "embedding_model": embedding_provider.model_name or "fixed",
                 "embedding_dimension": embedding_provider.dimension,
-                "semantic_threshold": config.detector.semantic_threshold,
+                "embedding_threshold": config.detector.embedding_threshold,
             }
         )
 

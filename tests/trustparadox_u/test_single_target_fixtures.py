@@ -76,7 +76,7 @@ class TestCanonicalFixturePermittedResiduals:
             permitted_residuals=si.permitted_residuals,
             active_from_turn=si.active_from_turn,
         )
-        detector = HybridDetector(semantic_enabled=False)
+        detector = HybridDetector(embedding_enabled=False)
 
         for residual in si.permitted_residuals:
             result = detector.detect(residual, [rec])
@@ -108,7 +108,7 @@ class TestCanonicalFixtureDetectorPaths:
             permitted_residuals=si.permitted_residuals,
             active_from_turn=si.active_from_turn,
         )
-        detector = HybridDetector(semantic_enabled=False)
+        detector = HybridDetector(embedding_enabled=False)
         result = detector.detect(si.canonical_target, [rec])
         assert result.exact_score == 1.0
         assert si.forget_id in result.matched_forget_ids

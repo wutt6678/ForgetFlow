@@ -164,10 +164,10 @@ class FlowGate:
             # Reconstruction risk always blocks
             reconstructive = recheck_recon >= self.config.history.reconstruction_threshold
             # Semantic unsafe: above threshold AND not a permitted residual
-            semantic_threshold = self.config.detector.semantic_threshold
+            embedding_threshold = self.config.detector.embedding_threshold
             semantic_unsafe = (
-                self.config.detector.semantic_enabled
-                and recheck_det.semantic_score >= semantic_threshold
+                self.config.detector.embedding_enabled
+                and recheck_det.semantic_score >= embedding_threshold
                 and not permitted_residual
             )
 

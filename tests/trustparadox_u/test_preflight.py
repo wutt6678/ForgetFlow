@@ -117,7 +117,7 @@ class TestPreflightIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -144,7 +144,7 @@ class TestPreflightIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True),
+            detector=DetectorConfig(embedding_enabled=True),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -181,7 +181,7 @@ class TestPreflightIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True),
+            detector=DetectorConfig(embedding_enabled=True),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -217,7 +217,7 @@ class TestPreflightIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True),
+            detector=DetectorConfig(embedding_enabled=True),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),

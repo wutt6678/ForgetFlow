@@ -52,7 +52,7 @@ class TestRealEmbeddingSmoke:
         cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True),
+            detector=DetectorConfig(embedding_enabled=True),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -73,7 +73,7 @@ class TestRealEmbeddingSmoke:
         cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True, semantic_threshold=0.80),
+            detector=DetectorConfig(embedding_enabled=True, embedding_threshold=0.80),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -102,7 +102,7 @@ class TestRealEmbeddingSmoke:
         cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True, semantic_threshold=0.80),
+            detector=DetectorConfig(embedding_enabled=True, embedding_threshold=0.80),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -126,7 +126,7 @@ class TestRealEmbeddingSmoke:
         cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=True, semantic_threshold=0.80),
+            detector=DetectorConfig(embedding_enabled=True, embedding_threshold=0.80),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),

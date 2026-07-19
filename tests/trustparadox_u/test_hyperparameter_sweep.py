@@ -31,7 +31,7 @@ def _base_config(**overrides) -> ExperimentConfig:
     kwargs = dict(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -49,11 +49,11 @@ class TestSemanticThresholdSweep:
         [0.60, 0.70, 0.80, 0.90],
         ids=["ST-HP-001-0.60", "ST-HP-001-0.70", "ST-HP-001-0.80", "ST-HP-001-0.90"],
     )
-    def test_semantic_threshold_produces_valid_result(self, threshold: float) -> None:
+    def test_embedding_threshold_produces_valid_result(self, threshold: float) -> None:
         """Each threshold produces a valid result with bounded metrics."""
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         cfg = _base_config(
-            detector=DetectorConfig(semantic_enabled=False, semantic_threshold=threshold),
+            detector=DetectorConfig(embedding_enabled=False, embedding_threshold=threshold),
         )
         result = run_episode(ep, cfg)
         # Result should be valid

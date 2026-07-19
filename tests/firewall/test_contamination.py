@@ -164,7 +164,7 @@ class TestContaminationTracker:
         det = DetectorResult(
             exact_score=0.0,
             entity_score=0.0,
-            semantic_score=0.6,  # >= semantic_threshold (0.5)
+            semantic_score=0.6,  # >= embedding_threshold (0.5)
             reconstruction_score=0.0,
             matched_forget_ids=("F001",),
             evidence=(),
@@ -196,7 +196,7 @@ class TestContaminationTracker:
         det = DetectorResult(
             exact_score=0.5,  # < exact_threshold (1.0)
             entity_score=0.3,  # < entity_threshold (0.5)
-            semantic_score=0.3,  # < semantic_threshold (0.5)
+            semantic_score=0.3,  # < embedding_threshold (0.5)
             reconstruction_score=0.4,  # < reconstruction_threshold (0.6)
             matched_forget_ids=("F001",),
             evidence=(),

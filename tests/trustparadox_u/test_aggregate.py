@@ -115,7 +115,7 @@ def _write_valid_episodes(path: Path) -> None:
     """Write a valid episodes.jsonl file for testing."""
     result = _valid_result()
     result.metadata["run_mode"] = "test"
-    result.metadata["semantic_threshold"] = 0.8
+    result.metadata["embedding_threshold"] = 0.8
     episode_data = {
         "run_id": result.run_id,
         "episode_id": result.episode_id,
@@ -149,7 +149,7 @@ def _write_valid_manifest(path: Path, commit: str = "a" * 40) -> None:
         "provider": None,
         "model": None,
         "dimension": None,
-        "semantic_threshold": 0.8,
+        "embedding_threshold": 0.8,
         "api_base_sanitized": None,
         "episode_ids": ["ep1"],
         "seeds": [42],
@@ -437,7 +437,7 @@ class TestCommitProvenanceValidation:
             provider="fixed",
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep1",),
             seeds=(42,),
@@ -586,7 +586,7 @@ class TestSchemaCompatibility:
         # Use the valid episode helper but override schema_version to 1.0
         result = _valid_result()
         result.metadata["run_mode"] = "test"
-        result.metadata["semantic_threshold"] = 0.8
+        result.metadata["embedding_threshold"] = 0.8
         episode_data = {
             "run_id": result.run_id,
             "episode_id": result.episode_id,
@@ -703,7 +703,7 @@ class TestShortShaResolution:
             provider="fixed",
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep1",),
             seeds=(42,),
@@ -771,7 +771,7 @@ class TestFullShaRequirement:
             provider="fixed",
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep1",),
             seeds=(42,),
@@ -1069,7 +1069,7 @@ class TestHistoricalDiagnosticOverlap:
 
         result = _valid_result()
         result.metadata["run_mode"] = "test"
-        result.metadata["semantic_threshold"] = 0.8
+        result.metadata["embedding_threshold"] = 0.8
         episode_data = {
             "run_id": result.run_id,
             "episode_id": result.episode_id,
@@ -1141,7 +1141,7 @@ class TestHistoricalNoManifest:
         """Write episodes with the given schema version."""
         result = _valid_result()
         result.metadata["run_mode"] = "test"
-        result.metadata["semantic_threshold"] = 0.8
+        result.metadata["embedding_threshold"] = 0.8
         episode_data = {
             "run_id": result.run_id,
             "episode_id": result.episode_id,

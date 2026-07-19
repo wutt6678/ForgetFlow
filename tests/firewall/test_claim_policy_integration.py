@@ -19,9 +19,9 @@ class TestPolicyBehaviorWithClaims:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
-            semantic_threshold=0.60,
+            embedding_threshold=0.60,
         )
 
         record = ForgetRecord(
@@ -61,9 +61,9 @@ class TestPolicyBehaviorWithClaims:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
-            semantic_threshold=0.60,
+            embedding_threshold=0.60,
         )
 
         record = ForgetRecord(
@@ -95,9 +95,9 @@ class TestPolicyBehaviorWithClaims:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
-            semantic_threshold=0.60,
+            embedding_threshold=0.60,
         )
 
         record = ForgetRecord(
@@ -158,9 +158,9 @@ class TestMultiTargetIsolation:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
-            semantic_threshold=0.60,
+            embedding_threshold=0.60,
         )
 
         record_f002 = ForgetRecord(

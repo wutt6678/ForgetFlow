@@ -22,11 +22,11 @@ def _make_result(
     seed: int = 42,
     config_hash: str = "abc123",
     run_mode: str = "test",
-    semantic_enabled: bool = True,
+    embedding_enabled: bool = True,
     embedding_provider: str | None = "litellm",
     embedding_model: str | None = "openai/text-embedding-v3",
     embedding_dimension: int | None = 1024,
-    semantic_threshold: float = 0.8,
+    embedding_threshold: float = 0.8,
     api_base_sanitized: str | None = None,
 ) -> EpisodeResult:
     r = EpisodeResult(
@@ -38,11 +38,11 @@ def _make_result(
     )
     r.metadata["config_hash"] = config_hash
     r.metadata["run_mode"] = run_mode
-    r.metadata["semantic_enabled"] = semantic_enabled
+    r.metadata["embedding_enabled"] = embedding_enabled
     r.metadata["embedding_provider"] = embedding_provider
     r.metadata["embedding_model"] = embedding_model
     r.metadata["embedding_dimension"] = embedding_dimension
-    r.metadata["semantic_threshold"] = semantic_threshold
+    r.metadata["embedding_threshold"] = embedding_threshold
     r.metadata["api_base_sanitized"] = api_base_sanitized
     return r
 
@@ -124,7 +124,7 @@ class TestSmokeManifest:
             provider=m.provider,
             model=m.model,
             dimension=m.dimension,
-            semantic_threshold=m.semantic_threshold,
+            embedding_threshold=m.embedding_threshold,
             api_base_sanitized=m.api_base_sanitized,
             episode_ids=m.episode_ids,
             seeds=m.seeds,
@@ -196,7 +196,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -219,7 +219,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -242,7 +242,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_999",),  # Wrong episode ID
             seeds=(42,),
@@ -265,7 +265,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -288,7 +288,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -313,7 +313,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -337,7 +337,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -361,7 +361,7 @@ class TestValidateManifestAgainstResults:
             provider="alibaba",  # Wrong provider
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -385,7 +385,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model="wrong-model",  # Wrong model
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -409,7 +409,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=512,  # Wrong dimension
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -424,7 +424,7 @@ class TestValidateManifestAgainstResults:
     def test_threshold_mismatch_fails(self) -> None:
         """Semantic threshold mismatch fails validation."""
         results = [_make_result()]
-        results[0].metadata["semantic_threshold"] = 0.9
+        results[0].metadata["embedding_threshold"] = 0.9
         m = SmokeManifest(
             repository_commit="abc123def456",
             generated_at_utc="2026-01-01T00:00:00+00:00",
@@ -433,7 +433,7 @@ class TestValidateManifestAgainstResults:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,  # Wrong threshold
+            embedding_threshold=0.8,  # Wrong threshold
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -672,7 +672,7 @@ class TestStrictConfigHashValidationInManifest:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -695,7 +695,7 @@ class TestStrictConfigHashValidationInManifest:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -718,7 +718,7 @@ class TestStrictConfigHashValidationInManifest:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),
@@ -742,7 +742,7 @@ class TestStrictConfigHashValidationInManifest:
             provider=None,
             model=None,
             dimension=None,
-            semantic_threshold=0.8,
+            embedding_threshold=0.8,
             api_base_sanitized=None,
             episode_ids=("ep_001",),
             seeds=(42,),

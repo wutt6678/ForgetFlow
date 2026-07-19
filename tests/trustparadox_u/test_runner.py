@@ -22,7 +22,7 @@ def _config(**overrides) -> ExperimentConfig:
     kwargs = dict(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -930,7 +930,7 @@ class TestRepeatedProbingRobustness:
             responder.set_response(key, f001_target)
         # Run with semantic detection enabled
         cfg = _config(
-            detector=DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=True)
+            detector=DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True)
         )
         result = run_episode(ep, cfg, responder=responder, firewall_enabled=True)
         # Verify: no forbidden strings in released text
@@ -1489,7 +1489,7 @@ class TestDetectorOnlyRunnerBranches:
         kwargs = dict(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -1790,7 +1790,7 @@ class TestMultiTargetIntegration:
             seed=42,
             repetitions=1,
             detector=DetectorConfig(
-                exact_enabled=True, entity_enabled=True, semantic_enabled=False
+                exact_enabled=True, entity_enabled=True, embedding_enabled=False
             ),
             history=HistoryConfig(),
             policy=PolicyConfig(),
@@ -1996,7 +1996,7 @@ class TestTransitionRecording:
         kwargs = dict(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2124,7 +2124,7 @@ class TestImmediateProbePerRecord:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2261,7 +2261,7 @@ class TestRRCohortDisjoint:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2339,7 +2339,7 @@ class TestFinalProbeTransitions:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2474,7 +2474,7 @@ class TestRepeatedAttemptCohortStability:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2586,7 +2586,7 @@ class TestAliasAndVariantProbeTests:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2736,7 +2736,7 @@ class TestUnexpectedRecontamination:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2833,7 +2833,7 @@ class TestExactRepeatedAttemptScenarios:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -2991,7 +2991,7 @@ class TestRunnerBackedPartition:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3172,7 +3172,7 @@ class TestIsolatedFinalProbeNegativeControl:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3263,7 +3263,7 @@ class TestInitialContaminationEvaluator:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3391,7 +3391,7 @@ class TestCleanupAllRepresentations:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3556,7 +3556,7 @@ class TestCleanupVerification:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3700,7 +3700,7 @@ class TestPreForgetRescan:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -3909,7 +3909,7 @@ class TestImmediateProbeEvidence:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -4122,7 +4122,7 @@ class TestReleasedHistorySymmetry:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -4229,7 +4229,7 @@ class TestEndToEndCleanupAssertions:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -4517,7 +4517,7 @@ class TestAllStoreCleanupFixture:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -4609,7 +4609,7 @@ class TestRunnerBoundaryValidation:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -4740,7 +4740,7 @@ class TestFourStoreCleanupFixture:
         return ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),

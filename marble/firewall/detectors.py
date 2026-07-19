@@ -36,18 +36,20 @@ class HybridDetector:
         self,
         exact_enabled: bool = True,
         entity_enabled: bool = True,
-        semantic_enabled: bool = True,
-        semantic_threshold: float = 0.80,
-        embedding_provider: EmbeddingProvider | None = None,
+        embedding_enabled: bool = True,
+        embedding_threshold: float = 0.80,
         claim_matching_enabled: bool = True,
+        claim_confidence_threshold: float = 0.70,
+        embedding_provider: EmbeddingProvider | None = None,
     ) -> None:
         self.exact_enabled = exact_enabled
         self.entity_enabled = entity_enabled
-        self.semantic_enabled = semantic_enabled
-        self.semantic_threshold = semantic_threshold
+        self.embedding_enabled = embedding_enabled
+        self.embedding_threshold = embedding_threshold
+        self.claim_matching_enabled = claim_matching_enabled
+        self.claim_confidence_threshold = claim_confidence_threshold
         self._embedding_provider = embedding_provider
         self._embedding_cache: dict[str, list[float]] = {}
-        self.claim_matching_enabled = claim_matching_enabled
         self._claim_normalizer = ClaimNormalizer() if claim_matching_enabled else None
         self._proposition_matcher = PropositionMatcher() if claim_matching_enabled else None
 
@@ -97,14 +99,14 @@ class HybridDetector:
                         evidence.append(f"ALIAS:{alias}")
 
             # Semantic matching (embedding-based)
-            if self.semantic_enabled and rec.semantic_variants:
+            if self.embedding_enabled and rec.semantic_variants:
                 if self._embedding_provider is None:
-                    raise ValueError("Semantic detection enabled but no embedding provider")
+                    raise ValueError("Embedding detection enabled but no embedding provider")
                 sem_score = self._compute_semantic(text, rec)
                 if sem_score > semantic_score:
                     semantic_score = sem_score
                 rec_semantic = sem_score
-                if sem_score >= self.semantic_threshold:
+                if sem_score >= self.embedding_threshold:
                     rec_matched = True
                     if rec.forget_id not in matched_ids:
                         matched_ids.append(rec.forget_id)
@@ -130,7 +132,7 @@ class HybridDetector:
                     claim_reason_codes.append("POSITIVE_PROPOSITION_ENTAILED")
                     proposition_entailed = True
                     # Only mark as matched if proposition is entailed (not just relevant)
-                    if claim_confidence >= self.semantic_threshold:
+                    if claim_confidence >= self.claim_confidence_threshold:
                         rec_matched = True
                         if rec.forget_id not in matched_ids:
                             matched_ids.append(rec.forget_id)

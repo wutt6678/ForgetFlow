@@ -22,8 +22,8 @@ firewall:
   detector:
     exact_enabled: true
     entity_enabled: true
-    semantic_enabled: true
-    semantic_threshold: 0.80
+    embedding_enabled: true
+    embedding_threshold: 0.80
   history:
     enabled: true
     window_size: 5

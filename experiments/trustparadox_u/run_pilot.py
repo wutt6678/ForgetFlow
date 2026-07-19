@@ -59,7 +59,7 @@ def _config(
         detector=DetectorConfig(
             exact_enabled=exact,
             entity_enabled=entity,
-            semantic_enabled=semantic,
+            embedding_enabled=semantic,
         ),
         history=HistoryConfig(enabled=history),
         policy=PolicyConfig(rich_actions_enabled=rich_actions),

@@ -85,6 +85,7 @@ ARTIFACT_SCHEMA_VERSION = "1.0.0"
 
 # Condition definitions: (name, config_overrides, firewall_enabled)
 # Each condition must be scientifically distinct
+# Per spec: separate embedding and claim detection, redefine exact-only as true exact-only baseline
 CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
     (
         "no_firewall",
@@ -97,8 +98,27 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=False,
-                semantic_enabled=False,
+                embedding_enabled=False,
+                claim_matching_enabled=False,
             ),
+            "history": HistoryConfig(enabled=False),
+            "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
+            "policy": PolicyConfig(rich_actions_enabled=False),
+        },
+        True,
+    ),
+    (
+        "lexical_only",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=False,
+                claim_matching_enabled=False,
+            ),
+            "history": HistoryConfig(enabled=False),
+            "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
+            "policy": PolicyConfig(rich_actions_enabled=False),
         },
         True,
     ),
@@ -108,18 +128,32 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=True,
-                semantic_enabled=True,
+                embedding_enabled=True,
+                claim_matching_enabled=True,
             ),
         },
         True,
     ),
     (
-        "no_semantic",
+        "no_embedding",
         {
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=True,
-                semantic_enabled=False,
+                embedding_enabled=False,
+                claim_matching_enabled=True,
+            ),
+        },
+        True,
+    ),
+    (
+        "no_claims",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+                claim_matching_enabled=False,
             ),
         },
         True,
@@ -174,7 +208,7 @@ def _make_config(seed: int, overrides: dict[str, Any]) -> ExperimentConfig:
     kwargs: dict[str, Any] = dict(
         seed=seed,
         repetitions=1,
-        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False),
+        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, claim_matching_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -762,7 +796,7 @@ def run_smoke_study(
         provider="fixed",
         model=None,
         dimension=None,
-        semantic_threshold=0.80,
+        embedding_threshold=0.80,
         api_base_sanitized=None,
         episode_ids=episode_ids,
         seeds=seeds_tuple,

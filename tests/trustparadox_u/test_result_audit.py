@@ -352,14 +352,14 @@ class TestEmbeddingAudit:
     """Embedding metadata audit rules."""
 
     def test_experiment_missing_provider(self) -> None:
-        findings = audit_embedding_metadata({}, run_mode="experiment", semantic_enabled=True)
+        findings = audit_embedding_metadata({}, run_mode="experiment", embedding_enabled=True)
         assert any(f.code == "MISSING_EMBEDDING_PROVIDER" for f in findings)
 
     def test_experiment_fixed_provider_rejected(self) -> None:
         findings = audit_embedding_metadata(
             {"embedding_provider": "fixed"},
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "EXPERIMENT_USES_FIXED_PROVIDER" for f in findings)
 
@@ -367,7 +367,7 @@ class TestEmbeddingAudit:
         findings = audit_embedding_metadata(
             {"embedding_provider": "litellm"},
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "MISSING_EMBEDDING_MODEL" for f in findings)
 
@@ -375,7 +375,7 @@ class TestEmbeddingAudit:
         findings = audit_embedding_metadata(
             {"embedding_provider": "litellm", "embedding_model": "default"},
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "EMBEDDING_MODEL_IS_DEFAULT" for f in findings)
 
@@ -387,7 +387,7 @@ class TestEmbeddingAudit:
                 "embedding_dimension": -1,
             },
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "INVALID_EMBEDDING_DIMENSION" for f in findings)
 
@@ -399,7 +399,7 @@ class TestEmbeddingAudit:
                 "embedding_model": "text-embedding-3-small",
             },
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "MISSING_EMBEDDING_DIMENSION" for f in findings)
 
@@ -411,7 +411,7 @@ class TestEmbeddingAudit:
                 "embedding_dimension": 1536,
             },
             run_mode="experiment",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         errors = [f for f in findings if f.level == "error"]
         assert len(errors) == 0
@@ -420,7 +420,7 @@ class TestEmbeddingAudit:
         findings = audit_embedding_metadata(
             {"embedding_provider": "litellm"},
             run_mode="test",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         assert any(f.code == "TEST_MODE_NON_FIXED_PROVIDER" for f in findings)
 
@@ -428,13 +428,13 @@ class TestEmbeddingAudit:
         findings = audit_embedding_metadata(
             {"embedding_provider": "fixed"},
             run_mode="test",
-            semantic_enabled=True,
+            embedding_enabled=True,
         )
         errors = [f for f in findings if f.level == "error"]
         assert len(errors) == 0
 
     def test_semantic_disabled_no_findings(self) -> None:
-        findings = audit_embedding_metadata({}, run_mode="experiment", semantic_enabled=False)
+        findings = audit_embedding_metadata({}, run_mode="experiment", embedding_enabled=False)
         assert len(findings) == 0
 
 
@@ -723,7 +723,7 @@ class TestRunnerAuditIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -752,7 +752,7 @@ class TestRunnerAuditIntegration:
         config = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -783,7 +783,7 @@ class TestRunnerAuditIntegration:
         config_a = ExperimentConfig(
             seed=1,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -791,7 +791,7 @@ class TestRunnerAuditIntegration:
         config_b = ExperimentConfig(
             seed=2,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -963,7 +963,7 @@ class TestAttackStepIndexAudit:
         cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -1183,11 +1183,11 @@ class TestEndpointEquivalence:
                 "forbidden_strings": ["secret"],
                 "config_hash": "a" * 64,
                 "run_mode": "test",
-                "semantic_enabled": True,
+                "embedding_enabled": True,
                 "embedding_provider": "litellm",
                 "embedding_model": "openai/text-embedding-v3",
                 "embedding_dimension": 1024,
-                "semantic_threshold": 0.8,
+                "embedding_threshold": 0.8,
                 "api_base_sanitized": "https://endpoint-a.example.com",
             }
         )
@@ -1196,11 +1196,11 @@ class TestEndpointEquivalence:
                 "forbidden_strings": ["secret"],
                 "config_hash": "a" * 64,
                 "run_mode": "test",
-                "semantic_enabled": True,
+                "embedding_enabled": True,
                 "embedding_provider": "litellm",
                 "embedding_model": "openai/text-embedding-v3",
                 "embedding_dimension": 1024,
-                "semantic_threshold": 0.8,
+                "embedding_threshold": 0.8,
                 "api_base_sanitized": "https://endpoint-b.example.com",
             }
         )

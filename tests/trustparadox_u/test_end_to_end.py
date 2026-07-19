@@ -38,7 +38,7 @@ def _no_fw_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(exact_enabled=False, entity_enabled=False, semantic_enabled=False),
+        detector=DetectorConfig(exact_enabled=False, entity_enabled=False, embedding_enabled=False),
         history=HistoryConfig(enabled=False),
         policy=PolicyConfig(rich_actions_enabled=False),
         monitoring=MonitoringConfig(continuous=False, duration_rounds=0),
@@ -50,7 +50,7 @@ def _full_mvp_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=True),
+        detector=DetectorConfig(embedding_enabled=True),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -62,7 +62,7 @@ def _exact_only_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -74,7 +74,7 @@ def _stateless_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(enabled=False),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -86,7 +86,7 @@ def _recipient_aware_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
@@ -98,7 +98,7 @@ def _binary_policy_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(rich_actions_enabled=False),
         monitoring=MonitoringConfig(),
@@ -110,7 +110,7 @@ def _rich_policy_config() -> ExperimentConfig:
     return ExperimentConfig(
         seed=42,
         repetitions=1,
-        detector=DetectorConfig(semantic_enabled=False),
+        detector=DetectorConfig(embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(rich_actions_enabled=True),
         monitoring=MonitoringConfig(),
@@ -451,7 +451,7 @@ class TestFragmentation:
         stateless_cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(enabled=False, window_size=1),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -476,7 +476,7 @@ class TestFragmentation:
         aware_cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(enabled=True, window_size=5),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(),
@@ -670,7 +670,7 @@ class TestRecontamination:
         continuous_cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
@@ -698,7 +698,7 @@ class TestRecontamination:
         onetime_cfg = ExperimentConfig(
             seed=42,
             repetitions=1,
-            detector=DetectorConfig(semantic_enabled=False),
+            detector=DetectorConfig(embedding_enabled=False),
             history=HistoryConfig(),
             policy=PolicyConfig(),
             monitoring=MonitoringConfig(continuous=False, duration_rounds=0),

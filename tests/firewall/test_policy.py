@@ -50,7 +50,7 @@ class TestForgetPolicy:
         assert action == "block"
 
     def test_semantic_abstracts(self) -> None:
-        policy = ForgetPolicy(semantic_threshold=0.8)
+        policy = ForgetPolicy(embedding_threshold=0.8)
         action, text, reasons = policy.decide(
             _det(semantic_score=0.9, matched_forget_ids=("F001",)),
             [_rec()],
@@ -83,7 +83,7 @@ class TestForgetPolicy:
         assert action == "block"
 
     def test_binary_policy_blocks_semantic(self) -> None:
-        policy = ForgetPolicy(rich_actions_enabled=False, semantic_threshold=0.8)
+        policy = ForgetPolicy(rich_actions_enabled=False, embedding_threshold=0.8)
         action, text, reasons = policy.decide(
             _det(semantic_score=0.9, matched_forget_ids=("F001",)),
             [_rec()],

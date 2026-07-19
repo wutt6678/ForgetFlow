@@ -14,12 +14,12 @@ class ForgetPolicy:
     def __init__(
         self,
         rich_actions_enabled: bool = True,
-        semantic_threshold: float = 0.80,
+        embedding_threshold: float = 0.80,
         reconstruction_threshold: float = 0.60,
         trust_independent: bool = True,
     ) -> None:
         self.rich_actions_enabled = rich_actions_enabled
-        self.semantic_threshold = semantic_threshold
+        self.embedding_threshold = embedding_threshold
         self.reconstruction_threshold = reconstruction_threshold
         self.trust_independent = trust_independent
 
@@ -47,7 +47,7 @@ class ForgetPolicy:
             return ("block", None, tuple(reasons))
 
         # Semantic above threshold
-        if detector_result.semantic_score >= self.semantic_threshold:
+        if detector_result.semantic_score >= self.embedding_threshold:
             reasons.append("SEMANTIC_SIMILARITY")
             if self.rich_actions_enabled:
                 residual = self._find_residual(active_records, detector_result)

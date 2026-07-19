@@ -140,7 +140,7 @@ def audit_episode_result(result: EpisodeResult) -> list[AuditFinding]:
         audit_embedding_metadata(
             metadata=result.metadata,
             run_mode=str(result.metadata.get("run_mode", "")),
-            semantic_enabled=bool(result.metadata.get("semantic_enabled", False)),
+            embedding_enabled=bool(result.metadata.get("embedding_enabled", False)),
         )
     )
     findings.extend(audit_monitoring_metadata(result.metadata))
@@ -437,11 +437,11 @@ def _audit_episode_rules(result: EpisodeResult, episode_id: str) -> list[AuditFi
         )
 
     # MISSING_EMBEDDING_METADATA: when semantic detection was enabled
-    if result.metadata.get("semantic_threshold") is not None:
+    if result.metadata.get("embedding_threshold") is not None:
         pass  # Embedding metadata present
     # Check if semantic was enabled but embedding metadata is missing
     # (We can't know for sure from metadata alone, so check for embedding_provider)
-    if "embedding_provider" not in result.metadata and "semantic_threshold" not in result.metadata:
+    if "embedding_provider" not in result.metadata and "embedding_threshold" not in result.metadata:
         # Only flag if the episode used semantic detection
         pass  # Cannot determine from metadata alone
 
@@ -543,7 +543,7 @@ def audit_embedding_metadata(
     metadata: dict[str, object],
     *,
     run_mode: str,
-    semantic_enabled: bool,
+    embedding_enabled: bool,
 ) -> list[AuditFinding]:
     """Audit embedding metadata based on run mode.
 
@@ -552,7 +552,7 @@ def audit_embedding_metadata(
     Test mode: provider must be fixed or null.
     """
     findings: list[AuditFinding] = []
-    if not semantic_enabled:
+    if not embedding_enabled:
         return findings
 
     provider = metadata.get("embedding_provider")

@@ -89,7 +89,7 @@ class SmokeManifest:
     provider: str | None
     model: str | None
     dimension: int | None
-    semantic_threshold: float
+    embedding_threshold: float
     api_base_sanitized: str | None
     episode_ids: tuple[str, ...]
     seeds: tuple[int, ...]
@@ -258,25 +258,25 @@ def build_manifest(
 
     # Derive all metadata from results
     run_mode = str(require_single_metadata_value(results, "run_mode"))
-    semantic_enabled = bool(require_single_metadata_value(results, "semantic_enabled"))
+    embedding_enabled = bool(require_single_metadata_value(results, "embedding_enabled"))
 
     # For semantic-disabled runs, allow None for embedding fields
     provider = require_single_metadata_value(
-        results, "embedding_provider", allow_none=not semantic_enabled
+        results, "embedding_provider", allow_none=not embedding_enabled
     )
     model = require_single_metadata_value(
-        results, "embedding_model", allow_none=not semantic_enabled
+        results, "embedding_model", allow_none=not embedding_enabled
     )
     dimension = require_single_metadata_value(
-        results, "embedding_dimension", allow_none=not semantic_enabled
+        results, "embedding_dimension", allow_none=not embedding_enabled
     )
 
     # Semantic threshold is always present in metadata but may be None when semantic is disabled
-    semantic_threshold_raw = require_single_metadata_value(
-        results, "semantic_threshold", allow_none=not semantic_enabled
+    embedding_threshold_raw = require_single_metadata_value(
+        results, "embedding_threshold", allow_none=not embedding_enabled
     )
-    semantic_threshold = (
-        float(semantic_threshold_raw) if semantic_threshold_raw is not None else 0.0
+    embedding_threshold = (
+        float(embedding_threshold_raw) if embedding_threshold_raw is not None else 0.0
     )
 
     # API base is optional
@@ -292,7 +292,7 @@ def build_manifest(
     seeds = tuple(sorted({r.seed for r in results}))
 
     # Validate semantic experiment requirements
-    if run_mode == "experiment" and semantic_enabled:
+    if run_mode == "experiment" and embedding_enabled:
         if provider is None or provider == "fixed":
             raise ValueError(
                 f"Semantic experiment requires a real embedding provider, got {provider!r}"
@@ -303,9 +303,9 @@ def build_manifest(
             raise ValueError(
                 f"Semantic experiment requires a positive integer dimension, got {dimension!r}"
             )
-        if not isinstance(semantic_threshold, (int, float)):
+        if not isinstance(embedding_threshold, (int, float)):
             raise ValueError(
-                f"Semantic experiment requires a numeric threshold, got {semantic_threshold!r}"
+                f"Semantic experiment requires a numeric threshold, got {embedding_threshold!r}"
             )
 
     return SmokeManifest(
@@ -318,7 +318,7 @@ def build_manifest(
         provider=provider,
         model=model,
         dimension=dimension,
-        semantic_threshold=semantic_threshold,
+        embedding_threshold=embedding_threshold,
         api_base_sanitized=api_base_sanitized,
         episode_ids=episode_ids,
         seeds=seeds,
@@ -529,7 +529,7 @@ def validate_manifest_against_results(
         )
 
     # 12. Check semantic threshold matches
-    actual_thresholds = {r.metadata.get("semantic_threshold") for r in results}
+    actual_thresholds = {r.metadata.get("embedding_threshold") for r in results}
     # Skip threshold check when semantic is disabled (all thresholds are None)
     semantic_disabled = actual_thresholds == {None}
     if len(actual_thresholds) > 1:
@@ -542,12 +542,12 @@ def validate_manifest_against_results(
     elif (
         not semantic_disabled
         and actual_thresholds
-        and manifest.semantic_threshold not in actual_thresholds
+        and manifest.embedding_threshold not in actual_thresholds
     ):
         findings.append(
             {
                 "code": "MANIFEST_THRESHOLD_MISMATCH",
-                "message": f"Threshold doesn't match: manifest={manifest.semantic_threshold}, actual={actual_thresholds.pop()}",
+                "message": f"Threshold doesn't match: manifest={manifest.embedding_threshold}, actual={actual_thresholds.pop()}",
             }
         )
 

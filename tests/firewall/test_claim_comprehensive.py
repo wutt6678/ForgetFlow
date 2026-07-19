@@ -234,7 +234,7 @@ class TestReasonCodes:
         detector = HybridDetector(
             exact_enabled=False,
             entity_enabled=False,
-            semantic_enabled=False,
+            embedding_enabled=False,
             claim_matching_enabled=True,
         )
 

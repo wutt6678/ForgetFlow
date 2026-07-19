@@ -96,7 +96,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=True,
-                semantic_enabled=True,
+                embedding_enabled=True,
             ),
         },
         True,
@@ -107,7 +107,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=False,
-                semantic_enabled=False,
+                embedding_enabled=False,
             ),
         },
         True,
@@ -140,7 +140,7 @@ def _make_config(
     kwargs: dict[str, Any] = dict(
         seed=seed,
         repetitions=1,
-        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, semantic_enabled=False),
+        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
