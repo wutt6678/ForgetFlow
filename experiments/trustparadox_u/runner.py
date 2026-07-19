@@ -15,6 +15,10 @@ from experiments.trustparadox_u.agent import (
     TrustParadoxAgent,
 )
 from experiments.trustparadox_u.attacks import FRAGMENTATION_ATTACKS, build_attack
+from experiments.trustparadox_u.assertion_contracts import (
+    classify_candidate_exposure,
+    classify_released_exposure,
+)
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import (
     TrustParadoxEpisode,
@@ -663,6 +667,55 @@ def _process_message_turn(
                 elif pair in at_risk_attempted_pairs:
                     successful_at_risk_pairs.add(pair)
 
+    # Iteration 2: Wire exposure classification to detector evidence
+    # Classify candidate exposure
+    candidate_exposure_class = "none"
+    released_exposure_class = "none"
+    
+    if decision and decision.detector_result:
+        # Extract detector scores
+        exact_score = decision.detector_result.exact_score
+        entity_score = decision.detector_result.entity_score
+        embedding_score = decision.detector_result.embedding_score
+        
+        # Extract claim evidence
+        proposition_relevant = False
+        proposition_entailed = False
+        for ev in decision.detector_result.record_evidence:
+            if ev.proposition_relevant:
+                proposition_relevant = True
+            if ev.proposition_entailed:
+                proposition_entailed = True
+        
+        # Extract reconstruction score
+        reconstruction_score = 0.0
+        if target_reconstructed:
+            reconstruction_score = 1.0
+        
+        # Classify candidate exposure
+        candidate_classification = classify_candidate_exposure(
+            exact_score=exact_score,
+            entity_score=entity_score,
+            embedding_score=embedding_score,
+            proposition_relevant=proposition_relevant,
+            proposition_entailed=proposition_entailed,
+            reconstruction_score=reconstruction_score,
+            recontamination_attempt=is_recontamination,
+            permitted_residual=False,  # TODO: Implement permitted residual check
+            attack_request=is_attack_request,
+            matched_forget_ids=target_forget_ids,
+        )
+        candidate_exposure_class = candidate_classification.exposure_class
+        
+        # Classify released exposure
+        message_delivered = released_text is not None and released_text != ""
+        released_classification = classify_released_exposure(
+            candidate_classification=candidate_classification,
+            message_delivered=message_delivered,
+            released_text=released_text,
+        )
+        released_exposure_class = released_classification.exposure_class
+
     turn_result = TurnResult(
         turn_id=turn_counter,
         phase=phase,
@@ -690,6 +743,8 @@ def _process_message_turn(
         reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
         task_relevant=task_rel,
         contamination_state_changes=tuple(state_changes),
+        candidate_exposure_class=candidate_exposure_class,
+        released_exposure_class=released_exposure_class,
     )
     return turn_result, 1, 1
 
