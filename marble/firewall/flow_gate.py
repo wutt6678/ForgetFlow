@@ -17,6 +17,7 @@ from marble.firewall.types import (
     ForgetRecord,
     MessageEnvelope,
     RecipientHistoryItem,
+    RecordDetectionEvidence,
 )
 
 
@@ -78,17 +79,37 @@ class FlowGate:
         # 3. Run detector
         det_result = self.detector.detect(envelope.raw_text, active, ctx)
 
-        # 4. Run reconstruction checker
-        recon_score = self.reconstruction_checker.score(
-            envelope.raw_text,
-            ctx,
-            active,
-            self.episode_metadata,
-            history_enabled=self.config.history.enabled,
-            reconstruction_threshold=self.config.history.reconstruction_threshold,
-        )
+        # 4. Run reconstruction checker (per-record scoring for P0 #4)
+        # Compute per-record reconstruction scores to ensure target-specificity.
+        # A candidate like "7391" must not be treated as reconstruction of "0107".
+        per_record_recon_scores: dict[str, float] = {}
+        for rec in active:
+            per_record_recon_scores[rec.forget_id] = self.reconstruction_checker.score(
+                envelope.raw_text,
+                ctx,
+                active,
+                self.episode_metadata,
+                history_enabled=self.config.history.enabled,
+                reconstruction_threshold=self.config.history.reconstruction_threshold,
+                forget_id=rec.forget_id,
+            )
+        # Aggregate: max score across all records (for policy decision)
+        recon_score = max(per_record_recon_scores.values()) if per_record_recon_scores else 0.0
 
-        # 5. Merge reconstruction score
+        # 5. Merge reconstruction score and update per-record evidence
+        updated_record_evidence = []
+        for ev in det_result.record_evidence:
+            ev_recon = per_record_recon_scores.get(ev.forget_id, 0.0)
+            updated_record_evidence.append(
+                RecordDetectionEvidence(
+                    forget_id=ev.forget_id,
+                    exact_score=ev.exact_score,
+                    entity_score=ev.entity_score,
+                    semantic_score=ev.semantic_score,
+                    reconstruction_score=ev_recon,
+                    matched=ev.matched,
+                )
+            )
         det_result = DetectorResult(
             exact_score=det_result.exact_score,
             entity_score=det_result.entity_score,
@@ -96,6 +117,7 @@ class FlowGate:
             reconstruction_score=recon_score,
             matched_forget_ids=det_result.matched_forget_ids,
             evidence=det_result.evidence,
+            record_evidence=tuple(updated_record_evidence),
         )
 
         # 6. Run policy
@@ -118,14 +140,21 @@ class FlowGate:
         # 7. Recheck transformed output
         if action in ("redact", "abstract") and released_text is not None:
             recheck_det = self.detector.detect(released_text, active, ctx)
-            recheck_recon = self.reconstruction_checker.score(
-                released_text,
-                ctx,
-                active,
-                self.episode_metadata,
-                history_enabled=self.config.history.enabled,
-                reconstruction_threshold=self.config.history.reconstruction_threshold,
-            )
+            # Per-record reconstruction recheck (P0 #4)
+            recheck_recon_scores = []
+            for rec in active:
+                recheck_recon_scores.append(
+                    self.reconstruction_checker.score(
+                        released_text,
+                        ctx,
+                        active,
+                        self.episode_metadata,
+                        history_enabled=self.config.history.enabled,
+                        reconstruction_threshold=self.config.history.reconstruction_threshold,
+                        forget_id=rec.forget_id,
+                    )
+                )
+            recheck_recon = max(recheck_recon_scores) if recheck_recon_scores else 0.0
 
             # Determine if released text is a permitted residual
             permitted_residual = _is_permitted_residual(released_text, active)

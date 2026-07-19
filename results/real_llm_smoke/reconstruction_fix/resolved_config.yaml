@@ -1,0 +1,31 @@
+detector:
+  entity_enabled: true
+  exact_enabled: true
+  semantic_enabled: true
+  semantic_threshold: 0.8
+history:
+  enabled: true
+  reconstruction_threshold: 0.6
+  window_size: 5
+models:
+  api_base: https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+  api_key_env: OPENAI_API_KEY
+  chat_max_tokens: 256
+  chat_model: openai/qwen-plus
+  chat_provider: litellm
+  chat_temperature: 0.0
+  embedding_dimension: 1024
+  embedding_model: openai/text-embedding-v3
+  embedding_provider: litellm
+monitoring:
+  continuous: true
+  duration_rounds: 5
+policy:
+  privacy_utility_weight: 1.0
+  rich_actions_enabled: true
+  trust_independent: true
+repetitions: 1
+run:
+  mode: experiment
+  require_clean_tree: true
+seed: 42

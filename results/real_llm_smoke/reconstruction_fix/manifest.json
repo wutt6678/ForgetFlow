@@ -1,12 +1,14 @@
 {
   "repository_commit": "4cd21b4aac9c43b53d82f5e636fd04ee3ea39860-dirty",
-  "timestamp": "2026-07-19T04:51:37.750905+00:00",
+  "timestamp": "2026-07-19T05:13:00.437979+00:00",
   "python_version": "3.11.15",
   "config_hash": "4819e316ee4fd6d4e858b87cdf856e5d6c4c3f6d1aa9313589c54015979ea279",
   "seed": 42,
   "repetitions": 1,
   "scenarios": [
-    "credential"
+    "credential",
+    "private_attribute",
+    "authorization"
   ],
   "trust_levels": [
     "high"

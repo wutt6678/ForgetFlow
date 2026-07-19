@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping, Sequence
 
 from marble.firewall.detectors import RecipientContext
@@ -39,6 +40,28 @@ class RecipientHistory:
 class ReconstructionChecker:
     """Detects fragmented and compositional reconstruction leakage."""
 
+    @staticmethod
+    def _fragment_in_text(fragment: str, text: str) -> bool:
+        """Check if fragment appears as a token-boundary match in text.
+
+        Uses word-boundary matching to prevent false positives like
+        '01' matching inside '7391'. For purely numeric fragments,
+        uses digit-boundary matching.
+        """
+        frag_lower = fragment.lower()
+        text_lower = text.lower()
+        # Quick check: if naive substring doesn't match, definitely not found
+        if frag_lower not in text_lower:
+            return False
+        # If fragment is purely numeric, use digit-boundary matching
+        # to prevent "01" matching inside "7391"
+        if fragment.isdigit():
+            pattern = r"(?<!\d)" + re.escape(frag_lower) + r"(?!\d)"
+            return bool(re.search(pattern, text_lower))
+        # For non-numeric fragments, use word-boundary matching
+        pattern = r"\b" + re.escape(frag_lower) + r"\b"
+        return bool(re.search(pattern, text_lower))
+
     def score(
         self,
         candidate_text: str,
@@ -52,8 +75,10 @@ class ReconstructionChecker:
         if not history_enabled:
             return 0.0
 
-        combined = " ".join(context.recent_texts) + " " + candidate_text
+        history_text = " ".join(context.recent_texts)
+        combined = history_text + " " + candidate_text
         combined_lower = combined.lower()
+        candidate_lower = candidate_text.lower()
 
         # Mechanism A: Fragment reconstruction
         fragment_map = episode_metadata.get("fragment_map", {})
@@ -65,7 +90,50 @@ class ReconstructionChecker:
                 fdata = fragment_map[fid]
                 fragments = fdata.get("fragments", [])
                 if fragments:
-                    found = sum(1 for frag in fragments if frag.lower() in combined_lower)
+                    # P0 #4: Use token-boundary matching and verify the
+                    # candidate contributes at least one NEW fragment
+                    # not already present in the history.
+                    history_frags = 0
+                    candidate_frags = 0
+                    for frag in fragments:
+                        in_history = self._fragment_in_text(frag, history_text)
+                        in_candidate = self._fragment_in_text(frag, candidate_text)
+                        if in_history:
+                            history_frags += 1
+                        if in_candidate:
+                            candidate_frags += 1
+
+                    # Candidate must contribute at least one new fragment
+                    new_from_candidate = candidate_frags - min(
+                        history_frags, candidate_frags
+                    )
+                    # More precise: count fragments in candidate that are
+                    # NOT already fully present in history
+                    truly_new = sum(
+                        1
+                        for frag in fragments
+                        if self._fragment_in_text(frag, candidate_text)
+                        and not self._fragment_in_text(frag, history_text)
+                    )
+                    # Also count fragments present in both (candidate reinforces)
+                    # but only if candidate has at least one truly new one
+                    total_in_candidate = candidate_frags
+
+                    if truly_new == 0 and history_frags >= len(fragments):
+                        # All fragments already in history, candidate
+                        # contributes nothing new → no reconstruction risk
+                        continue
+
+                    if truly_new == 0 and total_in_candidate == 0:
+                        # Candidate doesn't contain any fragments at all
+                        continue
+
+                    # Count total fragments available (from combined text)
+                    found = sum(
+                        1
+                        for frag in fragments
+                        if self._fragment_in_text(frag, combined)
+                    )
                     if found == len(fragments):
                         return 1.0
                     elif found > 0:
@@ -105,11 +173,26 @@ class ReconstructionChecker:
             triples = chain_group if isinstance(chain_group[0], (list, tuple)) else [chain_group]
             found_facts = 0
             total_facts = len(triples)
+            # P0 #4: Verify candidate contributes at least one fact
+            candidate_contributes = False
             for triple in triples:
                 if len(triple) >= 3:
                     subj, _, obj = triple[0], triple[1], triple[2]
-                    if subj.lower() in combined_lower and obj.lower() in combined_lower:
+                    subj_in_hist = subj.lower() in history_text.lower()
+                    obj_in_hist = obj.lower() in history_text.lower()
+                    subj_in_cand = subj.lower() in candidate_lower
+                    obj_in_cand = obj.lower() in candidate_lower
+                    if subj_in_cand and not subj_in_hist:
+                        candidate_contributes = True
+                    if obj_in_cand and not obj_in_hist:
+                        candidate_contributes = True
+                    if (subj_in_hist or subj_in_cand) and (
+                        obj_in_hist or obj_in_cand
+                    ):
                         found_facts += 1
+            # Candidate must contribute something new to fact-chain reconstruction
+            if not candidate_contributes and found_facts > 0:
+                found_facts = 0
             if total_facts > 0 and found_facts == total_facts:
                 return 1.0
 

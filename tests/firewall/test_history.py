@@ -123,27 +123,25 @@ class TestMultiSenderHistory:
         )
 
     def test_multi_sender_same_recipient_reconstructs(self) -> None:
-        """ST-HIST-005-A: Different senders contribute to same recipient transcript."""
+        """ST-HIST-005-A: Different senders contribute to same recipient transcript.
+
+        P0 #4 update: The candidate (second sender's message) must contribute
+        a new fragment not already in history to trigger reconstruction.
+        """
         checker = ReconstructionChecker()
         rh = RecipientHistory()
-        # Sender A sends fragment "01" to recipient R
+        # Sender A sends fragment "01" to recipient R → already in history
         rh.append(
             "R",
             RecipientHistoryItem(
                 message_id="m1", turn_id=0, sender_id="A", released_text="first part is 01"
             ),
         )
-        # Sender B sends fragment "07" to recipient R
-        rh.append(
-            "R",
-            RecipientHistoryItem(
-                message_id="m2", turn_id=1, sender_id="B", released_text="second part is 07"
-            ),
-        )
         ctx = rh.get_context("R", window_size=5)
         meta = {"fragment_map": {"F001": {"target": "0107", "fragments": ["01", "07"]}}}
-        score = checker.score("follow-up", ctx, [self._rec()], meta)
-        assert score == 1.0  # Recipient R can reconstruct from both senders
+        # Sender B's message is the candidate — it contributes fragment "07"
+        score = checker.score("second part is 07", ctx, [self._rec()], meta)
+        assert score == 1.0  # Candidate contributes new fragment "07" → reconstructs
 
     def test_fragments_different_recipients_no_reconstruct(self) -> None:
         """ST-HIST-005-B: Same fragments to different recipients don't reconstruct."""
@@ -195,28 +193,30 @@ class TestFactChainRestriction:
         """Single-target episode with legacy flat fact_chains passes."""
         checker = ReconstructionChecker()
         rh = RecipientHistory()
+        # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
             RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="subject predicate object"
+                message_id="m1", turn_id=0, sender_id="A", released_text="subject predicate"
             ),
         )
         meta = {
             "fact_chains": [[("subject", "predicate", "object")]],
         }
         ctx = rh.get_context("R1", window_size=5)
-        # Single record -> legacy fallback allowed
-        score = checker.score("follow-up", ctx, [self._rec()], meta)
+        # Candidate contributes "object" not in history → reconstruction detected
+        score = checker.score("the object is revealed", ctx, [self._rec()], meta)
         assert score == 1.0
 
     def test_multi_target_with_fact_chain_map_passes(self) -> None:
         """Multi-target episode with fact_chain_map passes."""
         checker = ReconstructionChecker()
         rh = RecipientHistory()
+        # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
             RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1 o1"
+                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"
             ),
         )
         meta = {
@@ -227,8 +227,8 @@ class TestFactChainRestriction:
         }
         ctx = rh.get_context("R1", window_size=5)
         records = [self._rec("F001"), self._rec("F002")]
-        # Multi-target with fact_chain_map -> allowed
-        score = checker.score("follow-up", ctx, records, meta, forget_id="F001")
+        # Candidate contributes "o1" not in history → reconstruction detected
+        score = checker.score("o1 is the object", ctx, records, meta, forget_id="F001")
         assert score == 1.0
 
     def test_multi_target_with_legacy_fallback_fails(self) -> None:
@@ -310,10 +310,11 @@ class TestFactChainRestriction:
         """s2: F001 evaluation reads only F001 chains from fact_chain_map."""
         checker = ReconstructionChecker()
         rh = RecipientHistory()
+        # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
             RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1 o1"
+                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"
             ),
         )
         meta = {
@@ -324,18 +325,19 @@ class TestFactChainRestriction:
         }
         ctx = rh.get_context("R1", window_size=5)
         records = [self._rec("F001"), self._rec("F002")]
-        # F001 query matches F001 chain
-        score_f001 = checker.score("follow-up", ctx, records, meta, forget_id="F001")
+        # F001 query: candidate contributes "o1" → reconstruction detected
+        score_f001 = checker.score("o1 is here", ctx, records, meta, forget_id="F001")
         assert score_f001 == 1.0
 
     def test_fact_chain_map_f002_reads_only_f002_chains(self) -> None:
         """s2: F002 evaluation reads only F002 chains from fact_chain_map."""
         checker = ReconstructionChecker()
         rh = RecipientHistory()
+        # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
             RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s2 p2 o2"
+                message_id="m1", turn_id=0, sender_id="A", released_text="s2 p2"
             ),
         )
         meta = {
@@ -346,6 +348,6 @@ class TestFactChainRestriction:
         }
         ctx = rh.get_context("R1", window_size=5)
         records = [self._rec("F001"), self._rec("F002")]
-        # F002 query matches F002 chain
-        score_f002 = checker.score("follow-up", ctx, records, meta, forget_id="F002")
+        # F002 query: candidate contributes "o2" → reconstruction detected
+        score_f002 = checker.score("o2 is here", ctx, records, meta, forget_id="F002")
         assert score_f002 == 1.0
