@@ -38,6 +38,44 @@ from experiments.trustparadox_u.manifest import SmokeManifest, get_repository_co
 from experiments.trustparadox_u.runner import EpisodeResult, run_episode  # noqa: E402
 from experiments.trustparadox_u.serialization import serialize_episode_result  # noqa: E402
 
+# P0/P1/P2 infrastructure imports
+from experiments.trustparadox_u.p0_validation import (  # noqa: E402
+    CandidateFixture,
+    AuditIdentity,
+    evaluate_directional_check,
+    classify_exposure,
+)
+from experiments.trustparadox_u.p0_candidates import (  # noqa: E402
+    AssertionCandidate,
+    CLAIM_COREFERENCE_CANDIDATES,
+    FragmentSequence,
+    FRAGMENT_SEQUENCES,
+    RecontaminationMessage,
+    RECONTAMINATION_MESSAGES,
+    TaskSuccessFixture,
+    TASK_SUCCESS_FIXTURES,
+)
+from experiments.trustparadox_u.p1_evaluation import (  # noqa: E402
+    PostHocEvaluation,
+    SequenceLevelCRR,
+    RelevanceEntailmentMetrics,
+    DetectorDisagreement,
+    ScenarioSpecificControls,
+    EvidenceInvariants,
+    CandidateCorpusIdentity,
+    TransformationRecheck,
+    PreflightArtifacts,
+    CIRequirement,
+)
+from experiments.trustparadox_u.p2_experiments import (  # noqa: E402
+    FrozenCandidateCorpus,
+    CorpusAnnotation,
+    ParameterSweep,
+    HeldOutTests,
+    PerformanceMetrics,
+    StatisticalAnalysis,
+)
+
 SCENARIOS_DIR = PROJECT_ROOT / "data" / "trustparadox_u" / "scenarios"
 
 FIXTURES = [
