@@ -194,7 +194,7 @@ class ClaimNormalizer:
 
         return claims
 
-    def _detect_polarity(self, text: str) -> Literal["positive", "negative"]:
+    def _detect_polarity(self, text: str) -> Literal["positive", "negative", "unknown"]:
         """Detect if claim is positive or negative."""
         lower = text.lower()
         negation_markers = [
@@ -219,6 +219,13 @@ class ClaimNormalizer:
             "aren't",
             "wasn't",
             "weren't",
+            "lacks",
+            "lacking",
+            "lacked",
+            "denied",
+            "inactive",
+            "revoked",
+            "removed",
         ]
 
         for marker in negation_markers:
@@ -229,21 +236,21 @@ class ClaimNormalizer:
 
     def _detect_modality(
         self, text: str
-    ) -> Literal["certain", "possible", "requested", "conditional"]:
+    ) -> Literal["certain", "possible", "requested", "conditional", "unknown"]:
         """Detect modality of claim."""
         lower = text.lower()
 
         # Questions/requests
-        if "?" in text or any(w in lower for w in ["please", "could you", "would you"]):
+        if "?" in text or any(w in lower for w in ["please", "could you", "would you", "tell me"]):
             return "requested"
-
-        # Possibility
-        if any(w in lower for w in ["may", "might", "could", "possibly", "perhaps"]):
-            return "possible"
 
         # Conditional
         if any(w in lower for w in ["if", "when", "unless", "provided"]):
             return "conditional"
+
+        # Possibility (including should, can, may, might, could)
+        if any(w in lower for w in ["may", "might", "could", "possibly", "perhaps", "should", "can"]):
+            return "possible"
 
         return "certain"
 
@@ -260,13 +267,17 @@ class ClaimNormalizer:
         # Past
         if any(
             w in lower
-            for w in ["previously", "formerly", "had", "was", "were", "used to"]
+            for w in ["previously", "formerly", "had", "was", "were", "used to", "previously had"]
         ):
             return "past"
 
         # Future
         if any(w in lower for w in ["will", "shall", "going to", "will be"]):
             return "future"
+
+        # Current (including "remains", "currently", "still")
+        if any(w in lower for w in ["remains", "currently", "still", "active"]):
+            return "current"
 
         return "current"
 
