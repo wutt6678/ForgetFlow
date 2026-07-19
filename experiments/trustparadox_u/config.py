@@ -75,6 +75,10 @@ class RunConfig:
     cost_accounting_enabled: bool = False
     load_test_mode: bool = False
     held_out_families: tuple[str, ...] = ()  # For generalization testing
+    # Items 31-39: Additional infrastructure
+    decision_traces_enabled: bool = False
+    coverage_reporting_enabled: bool = False
+    release_certification_mode: str = "none"  # "none", "smoke", "full"
 
     def __post_init__(self) -> None:
         if self.mode not in ("test", "experiment"):
