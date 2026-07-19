@@ -401,3 +401,53 @@ class TestReconstructionTargetSpecificity:
         )
 
         assert score == 0.0, "History disabled should return 0.0"
+
+    def test_unrelated_fragment_not_flagged(self) -> None:
+        """History: 01, Candidate: 73, Target: 0107 → no reconstruction."""
+        checker = ReconstructionChecker()
+
+        # Setup: history contains first fragment "01"
+        history = RecipientContext(
+            recipient_id="SK",
+            recent_texts=("The first part of the old code is 01.",),
+        )
+
+        active_records = [
+            ForgetRecord(
+                forget_id="F001",
+                canonical_target="0107",
+                target_type="credential",
+                aliases=("warehouse access code",),
+                semantic_variants=(),
+                permitted_residuals=(),
+                active_from_turn=2,
+            ),
+        ]
+
+        episode_metadata = {
+            "fragment_map": {
+                "F001": {
+                    "target": "0107",
+                    "fragments": ["01", "07"],
+                },
+            },
+        }
+
+        # Candidate: unrelated fragment "73" (not part of target)
+        candidate = "The related project code is 73."
+
+        score = checker.score(
+            candidate_text=candidate,
+            context=history,
+            active_records=active_records,
+            episode_metadata=episode_metadata,
+            history_enabled=True,
+            reconstruction_threshold=0.60,
+            forget_id="F001",
+        )
+
+        # Should NOT flag: "73" is not a fragment of "0107"
+        assert score == 0.0, (
+            f"Unrelated fragment '73' incorrectly flagged as reconstruction of '0107', "
+            f"got score {score}"
+        )
