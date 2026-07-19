@@ -7,14 +7,15 @@ run:
 
 models:
   chat_provider: litellm
-  chat_model: gpt-4.1-mini
+  chat_model: openai/qwen-plus
   chat_temperature: 0.0
   chat_max_tokens: 256
 
   embedding_provider: litellm
-  embedding_model: text-embedding-3-small
-  embedding_dimension: 1536
+  embedding_model: openai/text-embedding-v3
+  embedding_dimension: 1024
 
+  api_base: https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
   api_key_env: OPENAI_API_KEY
 
 firewall:

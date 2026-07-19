@@ -909,20 +909,23 @@ def audit_attack_step_indices(result: EpisodeResult) -> list[AuditFinding]:
                     )
                 )
 
-            # Must be unique within attack type
-            if idx in seen_indices:
-                findings.append(
-                    AuditFinding(
-                        level="error",
-                        code="ATTACK_STEP_INDEX_DUPLICATE",
-                        message=(
-                            f"Episode {ep_id}, attack_type={atype}: " f"duplicate step index {idx}"
-                        ),
-                        episode_id=ep_id,
-                        turn_id=turn.turn_id,
+            # Must be unique within attack type (check response turns only;
+            # request and response share the same step index by design)
+            if turn.is_attack_response:
+                if idx in seen_indices:
+                    findings.append(
+                        AuditFinding(
+                            level="error",
+                            code="ATTACK_STEP_INDEX_DUPLICATE",
+                            message=(
+                                f"Episode {ep_id}, attack_type={atype}: "
+                                f"duplicate step index {idx}"
+                            ),
+                            episode_id=ep_id,
+                            turn_id=turn.turn_id,
+                        )
                     )
-                )
-            seen_indices.add(idx)
+                seen_indices.add(idx)
 
             # Must be monotonic
             if prev_index is not None and idx < prev_index:

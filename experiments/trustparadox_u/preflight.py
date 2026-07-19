@@ -116,15 +116,17 @@ def run_preflight(
                     api_base=config.models.api_base,
                     api_key_env=config.models.api_key_env,
                 )
-                result_text = str(chat_provider.respond(
-                    episode_id="preflight",
-                    agent_id="probe",
-                    turn_id=0,
-                    instruction="Return exactly: FORGETFLOW_CHAT_OK",
-                    role="probe",
-                    public_profile="preflight probe",
-                    trust_level="default",
-                ))
+                result_text = str(
+                    chat_provider.respond(
+                        episode_id="preflight",
+                        agent_id="probe",
+                        turn_id=0,
+                        instruction="Return exactly: FORGETFLOW_CHAT_OK",
+                        role="probe",
+                        public_profile="preflight probe",
+                        trust_level="default",
+                    )
+                )
                 if "FORGETFLOW_CHAT_OK" in result_text:
                     print(
                         f"  chat_model={config.models.chat_model}  "

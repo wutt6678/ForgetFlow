@@ -124,6 +124,10 @@ class TurnResult:
     attack_type: str | None = None
     attack_step_index: int | None = None
     is_attack_attempt: bool = False
+    is_attack_request: bool = False
+    is_attack_response: bool = False
+    is_exposure_attempt: bool = False
+    attack_instance_id: str = ""
     is_legitimate_message: bool = False
     is_reconstruction_attempt: bool = False
     is_recontamination_attempt: bool = False
@@ -479,6 +483,199 @@ def _update_detector_and_record_exposure(
                     "released_text_exposure",
                 )
     return detector_result
+
+
+def _process_message_turn(
+    *,
+    sender_agent: TrustParadoxAgent,
+    recipient_agent: TrustParadoxAgent,
+    sender_id: str,
+    recipient_id: str,
+    msg: str,
+    episode: TrustParadoxEpisode,
+    config: ExperimentConfig,
+    flow_gate: FlowGate,
+    history: RecipientHistory,
+    detector: HybridDetector,
+    ledger: ForgetLedger,
+    checker: ReconstructionChecker,
+    tracker: ContaminationTracker,
+    firewall_enabled: bool,
+    post_forget_round: int,
+    turn_counter: int,
+    phase: str,
+    attack_type: str | None,
+    attack_step_index: int | None,
+    is_attack_request: bool,
+    is_attack_response: bool,
+    is_exposure_attempt: bool,
+    attack_instance_id: str,
+    is_attack: bool,
+    is_legitimate: bool,
+    is_reconstruction: bool,
+    is_recontamination: bool,
+    task_rel: bool,
+    target_forget_ids: tuple[str, ...],
+    recipient_transcript: dict[str, list[str]],
+    attempted_pairs: set[tuple[str, str]],
+    clean_attempted_pairs: set[tuple[str, str]],
+    at_risk_attempted_pairs: set[tuple[str, str]],
+    successful_clean_pairs: set[tuple[str, str]],
+    successful_at_risk_pairs: set[tuple[str, str]],
+) -> tuple[TurnResult, int, int]:
+    """Process a single message turn (request or response) through the firewall.
+
+    Returns (turn_result, new_post_forget_round, turn_counter_increment).
+    turn_counter_increment is 1 if the message was processed, 0 otherwise.
+    """
+    state_changes: list[ContaminationStateChange] = []
+    enforced = firewall_enabled and enforcement_is_active(
+        monitoring=config.monitoring,
+        post_forget_round=post_forget_round,
+    )
+
+    if enforced:
+        decision = sender_agent.send_message(
+            recipient_id=recipient_id,
+            text=msg,
+            episode_id=episode.episode_id,
+            session_id=episode.episode_id,
+            turn_id=turn_counter,
+            trust_level=episode.trust_level,
+            message_id=f"turn_{turn_counter}",
+        )
+        if not isinstance(decision, FirewallDecision):
+            return (
+                TurnResult(
+                    turn_id=turn_counter,
+                    phase=phase,
+                    sender_id=sender_id,
+                    recipient_id=recipient_id,
+                    candidate_text=msg,
+                    released_text=msg,
+                ),
+                0,
+                0,
+            )
+        released_text = decision.released_text
+        _deliver_released_text(
+            sender=sender_agent,
+            recipient=recipient_agent,
+            sender_id=sender_id,
+            released_text=released_text,
+        )
+        if released_text:
+            recipient_transcript.setdefault(recipient_id, []).append(released_text)
+    else:
+        _deliver_released_text(
+            sender=sender_agent,
+            recipient=recipient_agent,
+            sender_id=sender_id,
+            released_text=msg,
+        )
+        recipient_transcript.setdefault(recipient_id, []).append(msg)
+        released_text = msg
+        decision = None
+
+    # Shared exposure evaluation
+    released_context = history.get_context(recipient_id, config.history.window_size)
+    exposed_ids, released_detection = evaluate_released_exposure(
+        released_text=released_text,
+        episode=episode,
+        detector=detector,
+        ledger=ledger,
+        turn_id=turn_counter,
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        context_messages=released_context,
+    )
+    released_detection = _update_detector_and_record_exposure(
+        detector_result=released_detection,
+        exposed_ids=exposed_ids,
+        episode=episode,
+        checker=checker,
+        ledger=ledger,
+        tracker=tracker,
+        turn_id=turn_counter,
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        released_text=released_text,
+        context_messages=released_context,
+        config=config,
+        state_changes=state_changes,
+    )
+    target_exposed = bool(exposed_ids)
+    reconstructed_ids = _evaluate_reconstruction_evidence(
+        recipient_transcript=recipient_transcript.get(recipient_id, []),
+        sensitive_items=episode.sensitive_items,
+        is_reconstruction=is_reconstruction,
+    )
+    target_reconstructed = bool(reconstructed_ids)
+    # Reintroduction tracking (only for recontamination attempts)
+    if is_recontamination:
+        targeted_ids = set(target_forget_ids)
+        reintroduced_ids = exposed_ids & targeted_ids
+    else:
+        reintroduced_ids = set()
+    target_reintroduced = bool(reintroduced_ids)
+    if target_reintroduced:
+        for forget_id in reintroduced_ids:
+            current = tracker.get_status(recipient_id, forget_id)
+            if current in (ContaminationStatus.CLEAN, ContaminationStatus.VERIFIED):
+                _record_state_change(
+                    state_changes,
+                    recipient_id,
+                    forget_id,
+                    current,
+                    ContaminationStatus.AT_RISK,
+                    "targeted_reintroduction",
+                )
+                tracker.set_status(recipient_id, forget_id, ContaminationStatus.AT_RISK)
+            elif current == ContaminationStatus.AT_RISK:
+                _record_state_change(
+                    state_changes,
+                    recipient_id,
+                    forget_id,
+                    current,
+                    ContaminationStatus.RECONTAMINATED,
+                    "targeted_reintroduction",
+                )
+                tracker.confirm_recovery(recipient_id, forget_id)
+                pair = (recipient_id, forget_id)
+                if pair in clean_attempted_pairs:
+                    successful_clean_pairs.add(pair)
+                elif pair in at_risk_attempted_pairs:
+                    successful_at_risk_pairs.add(pair)
+
+    turn_result = TurnResult(
+        turn_id=turn_counter,
+        phase=phase,
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        candidate_text=msg,
+        released_text=released_text,
+        decision=decision,
+        attack_type=attack_type,
+        attack_step_index=attack_step_index,
+        is_attack_attempt=is_attack,
+        is_attack_request=is_attack_request,
+        is_attack_response=is_attack_response,
+        is_exposure_attempt=is_exposure_attempt,
+        attack_instance_id=attack_instance_id,
+        is_legitimate_message=is_legitimate,
+        is_reconstruction_attempt=is_reconstruction,
+        is_recontamination_attempt=is_recontamination,
+        target_forget_ids=target_forget_ids,
+        target_exposed=target_exposed,
+        exposed_forget_ids=tuple(sorted(exposed_ids)),
+        target_reconstructed=target_reconstructed,
+        reconstructed_forget_ids=tuple(sorted(reconstructed_ids)),
+        target_reintroduced=target_reintroduced,
+        reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
+        task_relevant=task_rel,
+        contamination_state_changes=tuple(state_changes),
+    )
+    return turn_result, 1, 1
 
 
 def _evaluate_reconstruction_evidence(
@@ -969,39 +1166,20 @@ def run_episode(
         attack_plan = build_attack(episode, atk_spec.attack_type, config.seed)
         for step in attack_plan.steps:
             sender = agents[step.sender]
-            msg = sender.generate_message(
-                instruction=step.instruction,
-                visible_context=sender.get_visible_context(),
-                episode_id=episode.episode_id,
-                turn_id=turn_counter,
-                trust_level=episode.trust_level,
-            )
-
-            # Handle task label propagation based on outcome source
-            # Default (None) or ENVIRONMENT: apply task label immediately
-            # RELEASED_MESSAGE: apply only when message is released (handled below)
-            if (
-                sender.last_task_label is not None
-                and sender.last_task_outcome_source != TaskOutcomeSource.RELEASED_MESSAGE
-            ):
-                if result.task_label is not None and result.task_label != sender.last_task_label:
-                    raise ValueError(
-                        "Conflicting task labels in one episode: "
-                        f"{result.task_label!r} vs {sender.last_task_label!r}"
-                    )
-                result.task_label = sender.last_task_label
-
-            # Determine attack classification from per-step labels
             is_attack = step.label.is_attack_attempt
             is_reconstruction = step.label.is_reconstruction_attempt
             is_recontamination = step.label.is_recontamination_attempt
             is_legitimate = step.label.is_legitimate_message
             task_rel = step.label.task_relevant
+            # P0 #7: Populate target_forget_ids from attack spec or plan
+            step_target_ids = step.label.target_forget_ids
+            if not step_target_ids and is_attack:
+                step_target_ids = (attack_plan.target_forget_id,)
+            attack_inst_id = f"{atk_spec.attack_type}_{step.step_index}"
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
-            # s3: Assign each pair to one cohort using its state at FIRST eligible attempt
             if is_recontamination:
-                for forget_id in step.label.target_forget_ids:
+                for forget_id in step_target_ids:
                     status = tracker.get_status(step.recipient, forget_id)
                     pair = (step.recipient, forget_id)
                     if status in (
@@ -1016,274 +1194,19 @@ def run_episode(
                             else:
                                 clean_attempted_pairs.add(pair)
 
-            if firewall_enabled and enforcement_is_active(
-                monitoring=config.monitoring,
-                post_forget_round=post_forget_round,
-            ):
-                decision = sender.send_message(
-                    recipient_id=step.recipient,
-                    text=msg,
+            if is_legitimate:
+                # Legitimate message: single turn, no response needed
+                msg = sender.generate_message(
+                    instruction=step.instruction,
+                    visible_context=sender.get_visible_context(),
                     episode_id=episode.episode_id,
-                    session_id=episode.episode_id,
                     turn_id=turn_counter,
                     trust_level=episode.trust_level,
-                    message_id=f"atk_{turn_counter}",
                 )
-                if isinstance(decision, FirewallDecision):
-                    released_text = decision.released_text
-                    # s3 (19th): Use centralized delivery helper
-                    _deliver_released_text(
-                        sender=sender,
-                        recipient=agents[step.recipient],
-                        sender_id=step.sender,
-                        released_text=released_text,
-                    )
-                    if released_text:
-                        recipient_transcript.setdefault(step.recipient, []).append(released_text)
-                    # Shared exposure evaluation (text + detector)
-                    released_context = history.get_context(
-                        step.recipient, config.history.window_size
-                    )
-                    exposed_ids, released_detection = evaluate_released_exposure(
-                        released_text=released_text,
-                        episode=episode,
-                        detector=detector,
-                        ledger=ledger,
-                        turn_id=turn_counter,
-                        sender_id=step.sender,
-                        recipient_id=step.recipient,
-                        context_messages=released_context,
-                    )
-                    # s3: Create state change list BEFORE exposure tracking
-                    turn_state_changes: list[ContaminationStateChange] = []
-                    # Shared: update detector + record exposure
-                    released_detection = _update_detector_and_record_exposure(
-                        detector_result=released_detection,
-                        exposed_ids=exposed_ids,
-                        episode=episode,
-                        checker=checker,
-                        ledger=ledger,
-                        tracker=tracker,
-                        turn_id=turn_counter,
-                        sender_id=step.sender,
-                        recipient_id=step.recipient,
-                        released_text=released_text,
-                        context_messages=released_context,
-                        config=config,
-                        state_changes=turn_state_changes,
-                    )
-                    target_exposed = bool(exposed_ids)
-                    # Shared: reconstruction evidence
-                    reconstructed_ids = _evaluate_reconstruction_evidence(
-                        recipient_transcript=recipient_transcript.get(step.recipient, []),
-                        sensitive_items=episode.sensitive_items,
-                        is_reconstruction=is_reconstruction,
-                    )
-                    target_reconstructed = bool(reconstructed_ids)
-                    # Reintroduction: only targeted AND exposed records
-                    targeted_ids = set(step.label.target_forget_ids)
-                    reintroduced_ids = exposed_ids & targeted_ids
-                    target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                    # s3: Transition for reintroduced records (appended to same list)
-                    if target_reintroduced:
-                        for forget_id in reintroduced_ids:
-                            current = tracker.get_status(step.recipient, forget_id)
-                            if current in (
-                                ContaminationStatus.CLEAN,
-                                ContaminationStatus.VERIFIED,
-                            ):
-                                _record_state_change(
-                                    turn_state_changes,
-                                    step.recipient,
-                                    forget_id,
-                                    current,
-                                    ContaminationStatus.AT_RISK,
-                                    "targeted_reintroduction",
-                                )
-                                tracker.set_status(
-                                    step.recipient, forget_id, ContaminationStatus.AT_RISK
-                                )
-                            elif current == ContaminationStatus.AT_RISK:
-                                _record_state_change(
-                                    turn_state_changes,
-                                    step.recipient,
-                                    forget_id,
-                                    current,
-                                    ContaminationStatus.RECONTAMINATED,
-                                    "targeted_reintroduction",
-                                )
-                                tracker.confirm_recovery(
-                                    step.recipient,
-                                    forget_id,
-                                )
-                                # s2: Attribute RR success to the attempt transition
-                                pair = (step.recipient, forget_id)
-                                if pair in clean_attempted_pairs:
-                                    successful_clean_pairs.add(pair)
-                                elif pair in at_risk_attempted_pairs:
-                                    successful_at_risk_pairs.add(pair)
-                    result.turns.append(
-                        TurnResult(
-                            turn_id=turn_counter,
-                            phase="POST_FORGET_ATTACK",
-                            sender_id=step.sender,
-                            recipient_id=step.recipient,
-                            candidate_text=msg,
-                            released_text=released_text,
-                            decision=decision,
-                            attack_type=atk_spec.attack_type,
-                            attack_step_index=step.step_index,
-                            is_attack_attempt=is_attack,
-                            is_legitimate_message=is_legitimate,
-                            is_reconstruction_attempt=is_reconstruction,
-                            is_recontamination_attempt=is_recontamination,
-                            target_forget_ids=step.label.target_forget_ids,
-                            target_exposed=target_exposed,
-                            exposed_forget_ids=tuple(sorted(exposed_ids)),
-                            target_reconstructed=target_reconstructed,
-                            reconstructed_forget_ids=tuple(sorted(reconstructed_ids)),
-                            target_reintroduced=target_reintroduced,
-                            reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
-                            task_relevant=task_rel,
-                            contamination_state_changes=tuple(turn_state_changes),
-                        )
-                    )
-
-                    # Handle RELEASED_MESSAGE outcome source: apply task label only if released
-                    if (
-                        sender.last_task_label is not None
-                        and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
-                        and released_text is not None
-                    ):
-                        if (
-                            result.task_label is not None
-                            and result.task_label != sender.last_task_label
-                        ):
-                            raise ValueError(
-                                "Conflicting task labels in one episode: "
-                                f"{result.task_label!r} vs {sender.last_task_label!r}"
-                            )
-                        result.task_label = sender.last_task_label
-            else:
-                # No firewall or monitoring disabled: released_text equals candidate_text
-                # s3 (19th): Use centralized delivery helper
-                _deliver_released_text(
-                    sender=sender,
-                    recipient=agents[step.recipient],
-                    sender_id=step.sender,
-                    released_text=msg,
-                )
-                recipient_transcript.setdefault(step.recipient, []).append(msg)
-                # Shared exposure evaluation (text + detector)
-                released_context = history.get_context(step.recipient, config.history.window_size)
-                exposed_ids, released_detection = evaluate_released_exposure(
-                    released_text=msg,
-                    episode=episode,
-                    detector=detector,
-                    ledger=ledger,
-                    turn_id=turn_counter,
-                    sender_id=step.sender,
-                    recipient_id=step.recipient,
-                    context_messages=released_context,
-                )
-                # s3: Create state change list BEFORE exposure tracking
-                turn_state_changes_no_fw: list[ContaminationStateChange] = []
-                # Shared: update detector + record exposure
-                released_detection = _update_detector_and_record_exposure(
-                    detector_result=released_detection,
-                    exposed_ids=exposed_ids,
-                    episode=episode,
-                    checker=checker,
-                    ledger=ledger,
-                    tracker=tracker,
-                    turn_id=turn_counter,
-                    sender_id=step.sender,
-                    recipient_id=step.recipient,
-                    released_text=msg,
-                    context_messages=released_context,
-                    config=config,
-                    state_changes=turn_state_changes_no_fw,
-                )
-                target_exposed = bool(exposed_ids)
-                # Shared: reconstruction evidence
-                reconstructed_ids = _evaluate_reconstruction_evidence(
-                    recipient_transcript=recipient_transcript.get(step.recipient, []),
-                    sensitive_items=episode.sensitive_items,
-                    is_reconstruction=is_reconstruction,
-                )
-                target_reconstructed = bool(reconstructed_ids)
-                # Reintroduction: only targeted AND exposed records
-                targeted_ids = set(step.label.target_forget_ids)
-                reintroduced_ids = exposed_ids & targeted_ids
-                target_reintroduced = is_recontamination and bool(reintroduced_ids)
-                # s3: Transition for reintroduced records (appended to same list)
-                if target_reintroduced:
-                    for forget_id in reintroduced_ids:
-                        current = tracker.get_status(step.recipient, forget_id)
-                        if current in (
-                            ContaminationStatus.CLEAN,
-                            ContaminationStatus.VERIFIED,
-                        ):
-                            _record_state_change(
-                                turn_state_changes_no_fw,
-                                step.recipient,
-                                forget_id,
-                                current,
-                                ContaminationStatus.AT_RISK,
-                                "targeted_reintroduction",
-                            )
-                            tracker.set_status(
-                                step.recipient, forget_id, ContaminationStatus.AT_RISK
-                            )
-                        elif current == ContaminationStatus.AT_RISK:
-                            _record_state_change(
-                                turn_state_changes_no_fw,
-                                step.recipient,
-                                forget_id,
-                                current,
-                                ContaminationStatus.RECONTAMINATED,
-                                "targeted_reintroduction",
-                            )
-                            tracker.confirm_recovery(
-                                step.recipient,
-                                forget_id,
-                            )
-                            # s2: Attribute RR success to the attempt transition
-                            pair = (step.recipient, forget_id)
-                            if pair in clean_attempted_pairs:
-                                successful_clean_pairs.add(pair)
-                            elif pair in at_risk_attempted_pairs:
-                                successful_at_risk_pairs.add(pair)
-                result.turns.append(
-                    TurnResult(
-                        turn_id=turn_counter,
-                        phase="POST_FORGET_ATTACK",
-                        sender_id=step.sender,
-                        recipient_id=step.recipient,
-                        candidate_text=msg,
-                        released_text=msg,
-                        attack_type=atk_spec.attack_type,
-                        attack_step_index=step.step_index,
-                        is_attack_attempt=is_attack,
-                        is_legitimate_message=is_legitimate,
-                        is_reconstruction_attempt=is_reconstruction,
-                        is_recontamination_attempt=is_recontamination,
-                        target_forget_ids=step.label.target_forget_ids,
-                        target_exposed=target_exposed,
-                        exposed_forget_ids=tuple(sorted(exposed_ids)),
-                        target_reconstructed=target_reconstructed,
-                        reconstructed_forget_ids=tuple(sorted(reconstructed_ids)),
-                        target_reintroduced=target_reintroduced,
-                        reintroduced_forget_ids=tuple(sorted(reintroduced_ids)),
-                        task_relevant=task_rel,
-                        contamination_state_changes=tuple(turn_state_changes_no_fw),
-                    )
-                )
-
-                # Handle RELEASED_MESSAGE outcome source: message is always released here
+                # Task label propagation
                 if (
                     sender.last_task_label is not None
-                    and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
+                    and sender.last_task_outcome_source != TaskOutcomeSource.RELEASED_MESSAGE
                 ):
                     if (
                         result.task_label is not None
@@ -1294,8 +1217,207 @@ def run_episode(
                             f"{result.task_label!r} vs {sender.last_task_label!r}"
                         )
                     result.task_label = sender.last_task_label
-            turn_counter += 1
-            post_forget_round += 1
+                req_turn, _, _ = _process_message_turn(
+                    sender_agent=sender,
+                    recipient_agent=agents[step.recipient],
+                    sender_id=step.sender,
+                    recipient_id=step.recipient,
+                    msg=msg,
+                    episode=episode,
+                    config=config,
+                    flow_gate=flow_gate,
+                    history=history,
+                    detector=detector,
+                    ledger=ledger,
+                    checker=checker,
+                    tracker=tracker,
+                    firewall_enabled=firewall_enabled,
+                    post_forget_round=post_forget_round,
+                    turn_counter=turn_counter,
+                    phase="POST_FORGET_ATTACK",
+                    attack_type=atk_spec.attack_type,
+                    attack_step_index=step.step_index,
+                    is_attack_request=False,
+                    is_attack_response=False,
+                    is_exposure_attempt=False,
+                    attack_instance_id="",
+                    is_attack=False,
+                    is_legitimate=True,
+                    is_reconstruction=False,
+                    is_recontamination=False,
+                    task_rel=task_rel,
+                    target_forget_ids=(),
+                    recipient_transcript=recipient_transcript,
+                    attempted_pairs=attempted_pairs,
+                    clean_attempted_pairs=clean_attempted_pairs,
+                    at_risk_attempted_pairs=at_risk_attempted_pairs,
+                    successful_clean_pairs=successful_clean_pairs,
+                    successful_at_risk_pairs=successful_at_risk_pairs,
+                )
+                result.turns.append(req_turn)
+                # Handle RELEASED_MESSAGE task label
+                if (
+                    sender.last_task_label is not None
+                    and sender.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
+                    and req_turn.released_text is not None
+                ):
+                    if (
+                        result.task_label is not None
+                        and result.task_label != sender.last_task_label
+                    ):
+                        raise ValueError(
+                            "Conflicting task labels in one episode: "
+                            f"{result.task_label!r} vs {sender.last_task_label!r}"
+                        )
+                    result.task_label = sender.last_task_label
+                turn_counter += 1
+                post_forget_round += 1
+            else:
+                # Attack step: request-response pair
+                # --- REQUEST TURN ---
+                req_msg = sender.generate_message(
+                    instruction=step.instruction,
+                    visible_context=sender.get_visible_context(),
+                    episode_id=episode.episode_id,
+                    turn_id=turn_counter,
+                    trust_level=episode.trust_level,
+                )
+                # Task label propagation for request sender
+                if (
+                    sender.last_task_label is not None
+                    and sender.last_task_outcome_source != TaskOutcomeSource.RELEASED_MESSAGE
+                ):
+                    if (
+                        result.task_label is not None
+                        and result.task_label != sender.last_task_label
+                    ):
+                        raise ValueError(
+                            "Conflicting task labels in one episode: "
+                            f"{result.task_label!r} vs {sender.last_task_label!r}"
+                        )
+                    result.task_label = sender.last_task_label
+                req_turn, req_rounds, _ = _process_message_turn(
+                    sender_agent=sender,
+                    recipient_agent=agents[step.recipient],
+                    sender_id=step.sender,
+                    recipient_id=step.recipient,
+                    msg=req_msg,
+                    episode=episode,
+                    config=config,
+                    flow_gate=flow_gate,
+                    history=history,
+                    detector=detector,
+                    ledger=ledger,
+                    checker=checker,
+                    tracker=tracker,
+                    firewall_enabled=firewall_enabled,
+                    post_forget_round=post_forget_round,
+                    turn_counter=turn_counter,
+                    phase="POST_FORGET_ATTACK",
+                    attack_type=atk_spec.attack_type,
+                    attack_step_index=step.step_index,
+                    is_attack_request=True,
+                    is_attack_response=False,
+                    is_exposure_attempt=False,
+                    attack_instance_id=attack_inst_id,
+                    is_attack=True,
+                    is_legitimate=False,
+                    is_reconstruction=is_reconstruction,
+                    is_recontamination=is_recontamination,
+                    task_rel=False,
+                    target_forget_ids=step_target_ids,
+                    recipient_transcript=recipient_transcript,
+                    attempted_pairs=attempted_pairs,
+                    clean_attempted_pairs=clean_attempted_pairs,
+                    at_risk_attempted_pairs=at_risk_attempted_pairs,
+                    successful_clean_pairs=successful_clean_pairs,
+                    successful_at_risk_pairs=successful_at_risk_pairs,
+                )
+                result.turns.append(req_turn)
+                turn_counter += 1
+                post_forget_round += req_rounds
+
+                # --- RESPONSE TURN ---
+                # Target agent generates response to the request
+                target_agent = agents[step.recipient]
+                # Build visible context including the delivered request
+                target_visible = target_agent.get_visible_context()
+                resp_msg = target_agent.generate_message(
+                    instruction=step.instruction,
+                    visible_context=target_visible,
+                    episode_id=episode.episode_id,
+                    turn_id=turn_counter,
+                    trust_level=episode.trust_level,
+                )
+                # Task label propagation for response sender
+                if (
+                    target_agent.last_task_label is not None
+                    and target_agent.last_task_outcome_source != TaskOutcomeSource.RELEASED_MESSAGE
+                ):
+                    if (
+                        result.task_label is not None
+                        and result.task_label != target_agent.last_task_label
+                    ):
+                        raise ValueError(
+                            "Conflicting task labels in one episode: "
+                            f"{result.task_label!r} vs {target_agent.last_task_label!r}"
+                        )
+                    result.task_label = target_agent.last_task_label
+                resp_turn, resp_rounds, _ = _process_message_turn(
+                    sender_agent=target_agent,
+                    recipient_agent=sender,
+                    sender_id=step.recipient,
+                    recipient_id=step.sender,
+                    msg=resp_msg,
+                    episode=episode,
+                    config=config,
+                    flow_gate=flow_gate,
+                    history=history,
+                    detector=detector,
+                    ledger=ledger,
+                    checker=checker,
+                    tracker=tracker,
+                    firewall_enabled=firewall_enabled,
+                    post_forget_round=post_forget_round,
+                    turn_counter=turn_counter,
+                    phase="POST_FORGET_ATTACK",
+                    attack_type=atk_spec.attack_type,
+                    attack_step_index=step.step_index,
+                    is_attack_request=False,
+                    is_attack_response=True,
+                    is_exposure_attempt=True,
+                    attack_instance_id=attack_inst_id,
+                    is_attack=True,
+                    is_legitimate=False,
+                    is_reconstruction=is_reconstruction,
+                    is_recontamination=is_recontamination,
+                    task_rel=task_rel,
+                    target_forget_ids=step_target_ids,
+                    recipient_transcript=recipient_transcript,
+                    attempted_pairs=attempted_pairs,
+                    clean_attempted_pairs=clean_attempted_pairs,
+                    at_risk_attempted_pairs=at_risk_attempted_pairs,
+                    successful_clean_pairs=successful_clean_pairs,
+                    successful_at_risk_pairs=successful_at_risk_pairs,
+                )
+                result.turns.append(resp_turn)
+                # Handle RELEASED_MESSAGE task label from response
+                if (
+                    target_agent.last_task_label is not None
+                    and target_agent.last_task_outcome_source == TaskOutcomeSource.RELEASED_MESSAGE
+                    and resp_turn.released_text is not None
+                ):
+                    if (
+                        result.task_label is not None
+                        and result.task_label != target_agent.last_task_label
+                    ):
+                        raise ValueError(
+                            "Conflicting task labels in one episode: "
+                            f"{result.task_label!r} vs {target_agent.last_task_label!r}"
+                        )
+                    result.task_label = target_agent.last_task_label
+                turn_counter += 1
+                post_forget_round += resp_rounds
 
     # Phase: FINAL_PROBE
     for agent_id in forget_phase.clean_agents:

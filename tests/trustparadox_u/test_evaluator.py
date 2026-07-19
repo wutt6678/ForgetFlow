@@ -54,12 +54,13 @@ class TestEvaluator:
             TurnResult(
                 turn_id=0,
                 phase="POST_FORGET_ATTACK",
-                sender_id="SK",
-                recipient_id="CK",
+                sender_id="CK",
+                recipient_id="SK",
                 candidate_text="secret",
                 released_text=None,
                 decision=_decision("block"),
-                is_attack_attempt=True,
+                is_attack_response=True,
+                is_exposure_attempt=True,
                 target_exposed=False,
             )
         )
@@ -73,17 +74,18 @@ class TestEvaluator:
         result = EpisodeResult(
             run_id="r1", episode_id="e1", scenario_id="s1", trust_level="high", seed=42
         )
-        # Attack with secret in candidate but blocked (released_text=None)
+        # Attack response with secret in candidate but blocked (released_text=None)
         result.turns.append(
             TurnResult(
                 turn_id=0,
                 phase="POST_FORGET_ATTACK",
-                sender_id="SK",
-                recipient_id="CK",
+                sender_id="CK",
+                recipient_id="SK",
                 candidate_text="secret 0107",
                 released_text=None,  # Blocked
                 decision=_decision("block"),
-                is_attack_attempt=True,
+                is_attack_response=True,
+                is_exposure_attempt=True,
                 target_exposed=False,  # Not exposed because blocked
             )
         )

@@ -887,7 +887,7 @@ class TestAttackStepIndexAudit:
     def test_duplicate_step_index_fails(self) -> None:
         """Duplicate step indices within one attack type are flagged."""
         from experiments.trustparadox_u.audit_results import audit_attack_step_indices
-        from experiments.trustparadox_u.runner import EpisodeResult
+        from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
         result = EpisodeResult(
             run_id="r1",
@@ -896,8 +896,33 @@ class TestAttackStepIndexAudit:
             trust_level="high",
             seed=42,
         )
-        result.turns.append(self._attack_turn(turn_id=0, step_index=0))
-        result.turns.append(self._attack_turn(turn_id=1, step_index=0))
+        # Two response turns with same step index = duplicate
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET_ATTACK",
+                sender_id="CK",
+                recipient_id="SK",
+                candidate_text="test",
+                released_text="test",
+                attack_type="direct",
+                attack_step_index=0,
+                is_attack_response=True,
+            )
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=1,
+                phase="POST_FORGET_ATTACK",
+                sender_id="CK",
+                recipient_id="SK",
+                candidate_text="test",
+                released_text="test",
+                attack_type="direct",
+                attack_step_index=0,
+                is_attack_response=True,
+            )
+        )
         findings = audit_attack_step_indices(result)
         assert any(f.code == "ATTACK_STEP_INDEX_DUPLICATE" for f in findings)
 

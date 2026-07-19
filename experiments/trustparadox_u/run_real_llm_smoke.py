@@ -106,7 +106,7 @@ def _write_environment(output_dir: Path) -> None:
     try:
         import litellm
 
-        lines.append(f"litellm={litellm.__version__}")
+        lines.append(f"litellm={getattr(litellm, '__version__', 'unknown')}")
     except ImportError:
         lines.append("litellm=NOT_INSTALLED")
 

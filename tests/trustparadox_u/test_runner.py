@@ -228,9 +228,9 @@ class TestRunnerPopulation:
             }
         )
         result = run_episode(ep, _config(), responder=responder, firewall_enabled=True)
-        # Two reconstruction attempts (cross_agent_fragmentation has 2 steps)
+        # Two reconstruction steps, each producing request + response = 4 turns
         reconstruction_turns = [t for t in result.turns if t.is_reconstruction_attempt]
-        assert len(reconstruction_turns) == 2
+        assert len(reconstruction_turns) == 4
         # Reconstruction depends on transcript content
         assert all(t.target_reconstructed is False for t in reconstruction_turns)
 
@@ -724,12 +724,12 @@ class TestAttackStepIndexPropagation:
             assert turn.attack_step_index >= 0
 
     def test_step_indices_unique_per_attack_type(self) -> None:
-        """Step indices are unique within each attack type."""
+        """Step indices are unique within each attack type (response turns only)."""
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         result = run_episode(ep, _config())
         by_type: dict[str, list[int]] = {}
         for t in result.turns:
-            if t.phase == "POST_FORGET_ATTACK" and t.attack_type:
+            if t.phase == "POST_FORGET_ATTACK" and t.attack_type and t.is_attack_response:
                 by_type.setdefault(t.attack_type, []).append(t.attack_step_index or -1)
         for atype, indices in by_type.items():
             assert len(set(indices)) == len(
@@ -859,11 +859,11 @@ class TestReintroducedForgetIdSemantics:
                 assert turn.target_reintroduced == bool(turn.reintroduced_forget_ids)
 
     def test_firewall_reintroduced_ids_subset_of_exposed_and_targeted(self) -> None:
-        """With firewall, reintroduced IDs must be subset of both exposed and targeted."""
+        """With firewall, reintroduced IDs must be subset of both exposed and targeted (response turns)."""
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         result = run_episode(ep, _config(), firewall_enabled=True)
         for turn in result.turns:
-            if turn.phase == "POST_FORGET_ATTACK":
+            if turn.phase == "POST_FORGET_ATTACK" and turn.is_attack_response:
                 reintroduced = set(turn.reintroduced_forget_ids)
                 exposed = set(turn.exposed_forget_ids)
                 targeted = set(turn.target_forget_ids)
