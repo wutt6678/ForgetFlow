@@ -46,6 +46,15 @@ class ForgetPolicy:
             reasons.append("RECONSTRUCTION_RISK")
             return ("block", None, tuple(reasons))
 
+        # Claim entailment → block or abstract (per spec: policy must react to claim evidence)
+        if self._has_claim_entailment(detector_result):
+            reasons.append("POSITIVE_PROPOSITION_ENTAILMENT")
+            if self.rich_actions_enabled:
+                residual = self._find_residual(active_records, detector_result)
+                if residual:
+                    return ("abstract", residual, tuple(reasons))
+            return ("block", None, tuple(reasons))
+
         # Semantic above threshold
         if detector_result.semantic_score >= self.embedding_threshold:
             reasons.append("SEMANTIC_SIMILARITY")
@@ -76,6 +85,13 @@ class ForgetPolicy:
                 if rec.permitted_residuals:
                     return rec.permitted_residuals[0]
         return None
+
+    def _has_claim_entailment(self, detector_result: DetectorResult) -> bool:
+        """Check if any record has proposition_entailed=True."""
+        for ev in detector_result.record_evidence:
+            if ev.proposition_entailed:
+                return True
+        return False
 
     def _redact(
         self,

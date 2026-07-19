@@ -431,12 +431,12 @@ def _directional_checks(
 
     # Semantic protection: semantic-enabled leakage < semantic-disabled leakage (strict)
     full_eval = evaluate_all(condition_results.get("full_mvp", []))
-    no_sem_eval = evaluate_all(condition_results.get("no_semantic", []))
+    no_sem_eval = evaluate_all(condition_results.get("no_embedding", []))
     full_pu = full_eval.pu_rer.value if full_eval.pu_rer.value is not None else 0.0
     no_sem_pu = no_sem_eval.pu_rer.value if no_sem_eval.pu_rer.value is not None else 0.0
     checks["semantic_protection"] = {
         "claim_type": "strict_improvement",
-        "check": "full_mvp PU-RER < no_semantic PU-RER",
+        "check": "full_mvp PU-RER < no_embedding PU-RER",
         "lhs": full_pu,
         "rhs": no_sem_pu,
         "passed": full_pu < no_sem_pu,
