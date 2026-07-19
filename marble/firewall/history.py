@@ -125,11 +125,7 @@ class ReconstructionChecker:
                         continue
 
                     # Count total fragments available (from combined text)
-                    found = sum(
-                        1
-                        for frag in fragments
-                        if self._fragment_in_text(frag, combined)
-                    )
+                    found = sum(1 for frag in fragments if self._fragment_in_text(frag, combined))
                     if found == len(fragments):
                         return 1.0
                     elif found > 0:
@@ -182,9 +178,7 @@ class ReconstructionChecker:
                         candidate_contributes = True
                     if obj_in_cand and not obj_in_hist:
                         candidate_contributes = True
-                    if (subj_in_hist or subj_in_cand) and (
-                        obj_in_hist or obj_in_cand
-                    ):
+                    if (subj_in_hist or subj_in_cand) and (obj_in_hist or obj_in_cand):
                         found_facts += 1
             # Candidate must contribute something new to fact-chain reconstruction
             if not candidate_contributes and found_facts > 0:

@@ -1368,9 +1368,7 @@ def run_episode(
                     and step.step_index < len(attack_plan.fragments)
                 ):
                     fragment = attack_plan.fragments[step.step_index]
-                    response_instruction = (
-                        f"Share this portion of the old information: {fragment}"
-                    )
+                    response_instruction = f"Share this portion of the old information: {fragment}"
                 resp_msg = target_agent.generate_message(
                     instruction=response_instruction,
                     visible_context=target_visible,

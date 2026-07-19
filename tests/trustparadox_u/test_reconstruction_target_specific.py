@@ -116,9 +116,9 @@ class TestReconstructionTargetSpecificity:
             forget_id="F001",
         )
 
-        assert score == 1.0, (
-            f"True reconstruction of '0107' from fragments not detected, got score {score}"
-        )
+        assert (
+            score == 1.0
+        ), f"True reconstruction of '0107' from fragments not detected, got score {score}"
 
     def test_candidate_contributing_fragment_detected(self) -> None:
         """Candidate contributing a new fragment is detected."""
@@ -165,9 +165,7 @@ class TestReconstructionTargetSpecificity:
         )
 
         # Should detect reconstruction: candidate contributes new fragment "07"
-        assert score >= 0.60, (
-            f"Candidate contributing new fragment not detected, got score {score}"
-        )
+        assert score >= 0.60, f"Candidate contributing new fragment not detected, got score {score}"
 
     def test_history_only_fragments_not_flagged(self) -> None:
         """History containing all fragments but candidate contributing nothing is not flagged."""
@@ -217,9 +215,7 @@ class TestReconstructionTargetSpecificity:
         )
 
         # Should NOT flag: candidate doesn't contribute new fragments
-        assert score == 0.0, (
-            f"History-only fragments incorrectly flagged, got score {score}"
-        )
+        assert score == 0.0, f"History-only fragments incorrectly flagged, got score {score}"
 
     def test_numeric_fragment_token_boundary(self) -> None:
         """Numeric fragments use token-boundary matching, not substring."""
@@ -263,9 +259,7 @@ class TestReconstructionTargetSpecificity:
         )
 
         # Should NOT flag: "01" and "07" are not standalone tokens in "7391"
-        assert score == 0.0, (
-            f"Substring match in '7391' incorrectly flagged, got score {score}"
-        )
+        assert score == 0.0, f"Substring match in '7391' incorrectly flagged, got score {score}"
 
     def test_different_forget_id_not_flagged(self) -> None:
         """Candidate matching a different forget_id is not flagged for the target forget_id."""

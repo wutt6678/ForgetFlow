@@ -215,9 +215,7 @@ class TestFactChainRestriction:
         # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
-            RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"
-            ),
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"),
         )
         meta = {
             "fact_chain_map": {
@@ -313,9 +311,7 @@ class TestFactChainRestriction:
         # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
-            RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"
-            ),
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s1 p1"),
         )
         meta = {
             "fact_chain_map": {
@@ -336,9 +332,7 @@ class TestFactChainRestriction:
         # History contains subject; candidate contributes object (P0 #4)
         rh.append(
             "R1",
-            RecipientHistoryItem(
-                message_id="m1", turn_id=0, sender_id="A", released_text="s2 p2"
-            ),
+            RecipientHistoryItem(message_id="m1", turn_id=0, sender_id="A", released_text="s2 p2"),
         )
         meta = {
             "fact_chain_map": {
