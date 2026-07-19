@@ -110,6 +110,8 @@ class ExperimentConfig:
     monitoring: MonitoringConfig
     run: RunConfig = field(default_factory=RunConfig)
     models: ModelsConfig = field(default_factory=ModelsConfig)
+    # Phase 3: Schema versioning for data correctness
+    schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
         if self.repetitions < 1:
