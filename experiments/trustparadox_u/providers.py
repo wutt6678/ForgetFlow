@@ -1,4 +1,4 @@
-"""Shared embedding provider construction.
+"""Shared provider construction.
 
 Ensures the runner and preflight build identical providers from the
 same ``ModelsConfig``.
@@ -8,8 +8,26 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit
 
+from experiments.trustparadox_u.chat_provider import LiteLLMResponseProvider
 from experiments.trustparadox_u.config import ModelsConfig
 from experiments.trustparadox_u.embedding import RealEmbeddingProvider
+
+
+def build_real_chat_provider(models: ModelsConfig) -> LiteLLMResponseProvider:
+    """Construct a ``LiteLLMResponseProvider`` from a ``ModelsConfig``.
+
+    Raises ``ValueError`` when required fields are missing.
+    """
+    if not models.chat_model:
+        raise ValueError("chat_model is required")
+
+    return LiteLLMResponseProvider(
+        model_name=models.chat_model,
+        temperature=models.chat_temperature,
+        max_tokens=models.chat_max_tokens,
+        api_base=models.api_base,
+        api_key_env=models.api_key_env or None,
+    )
 
 
 def build_real_embedding_provider(models: ModelsConfig) -> RealEmbeddingProvider:

@@ -1667,9 +1667,17 @@ if __name__ == "__main__":
 
     results = []
     failed: list[dict[str, str]] = []
+
+    # Build real chat responder from config if chat model is configured
+    responder = None
+    if cfg.models.chat_provider and cfg.models.chat_model:
+        from experiments.trustparadox_u.providers import build_real_chat_provider
+
+        responder = build_real_chat_provider(cfg.models)
+
     for ep in episodes:
         try:
-            result = run_episode(ep, cfg)
+            result = run_episode(ep, cfg, responder=responder)
             results.append(result)
             print(
                 f"Episode {result.episode_id}: {len(result.turns)} turns, "
