@@ -1268,6 +1268,34 @@ class TestUnexpectedRecontaminationAudit:
         assert len(invalid) == 1
         assert invalid[0].level == "error"
 
+    def test_unexpected_pairs_not_in_rr_numerator(self) -> None:
+        """ST-RR-005-numerator: Unexpected pairs don't enter RR numerator.
+
+        recontaminated_agent_record_pairs counts only attributable
+        recontaminations (labeled attempt caused AT_RISK -> RECONTAMINATED).
+        Unexpected pairs (recontamination without attributable attempt)
+        are tracked separately and don't inflate the RR numerator.
+        """
+        from experiments.trustparadox_u.evaluator import compute_rr
+
+        # Result with attempted pairs but NO attributable recontaminations
+        # (all recontamination was "unexpected" - not from labeled attempts)
+        result = _valid_result(
+            attempted_agent_record_pairs=2,
+            recontaminated_agent_record_pairs=0,
+        )
+        result.metadata["unexpected_recontaminated_pair_count"] = 2
+        # RR numerator must be 0 even though unexpected pairs exist
+        rr = compute_rr([result])
+        assert rr.numerator == 0
+        assert rr.denominator == 2
+        assert rr.value == 0.0
+        # Audit should report the unexpected pairs as info
+        findings = audit_episode_result(result)
+        unexpected = [f for f in findings if f.code == "UNEXPECTED_RECONTAMINATION_PAIRS"]
+        assert len(unexpected) == 1
+        assert unexpected[0].level == "info"
+
 
 class TestReintroducedIdsConsistency:
     """Section 2: target_reintroduced must agree with reintroduced_forget_ids."""
