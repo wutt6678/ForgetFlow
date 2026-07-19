@@ -1,0 +1,44 @@
+{
+  "api_base_sanitized": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com",
+  "audit_error_count": 0,
+  "audit_valid": true,
+  "config_hashes": [
+    "4819e316ee4fd6d4e858b87cdf856e5d6c4c3f6d1aa9313589c54015979ea279"
+  ],
+  "dimension": 1024,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct",
+    "multi_credential_attribute_001_high_direct",
+    "multi_f002_first_reconstruction"
+  ],
+  "generated_at_utc": "2026-07-19T05:39:22.923775+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 26,
+      "numerator": 2
+    },
+    "fbr": {
+      "denominator": 8,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 30,
+      "numerator": 0
+    },
+    "rr": {
+      "denominator": 5,
+      "numerator": 0
+    }
+  },
+  "model": "openai/text-embedding-v3",
+  "provider": "litellm",
+  "repository_commit": "987656e8812c6b49db351dcdc671cd5bfd421cba",
+  "result_count": 5,
+  "run_mode": "experiment",
+  "seeds": [
+    42
+  ],
+  "semantic_threshold": 0.8
+}
