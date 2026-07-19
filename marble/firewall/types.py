@@ -8,6 +8,19 @@ from typing import Literal
 
 FirewallAction = Literal["allow", "redact", "abstract", "block"]
 
+ExposureClass = Literal[
+    "none",
+    "attack_request",
+    "direct_exact",
+    "direct_alias",
+    "direct_embedding",
+    "direct_claim",
+    "fragment_reconstruction",
+    "fact_chain_reconstruction",
+    "recontamination",
+    "permitted_residual",
+]
+
 _VALID_TRUST_LEVELS = frozenset({"low", "default", "high"})
 
 

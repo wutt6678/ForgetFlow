@@ -133,6 +133,10 @@ class TurnResult:
     is_recontamination_attempt: bool = False
     target_forget_ids: tuple[str, ...] = ()
 
+    # Exposure classification (Iteration D)
+    candidate_exposure_class: str = "none"
+    released_exposure_class: str = "none"
+
     # Outcome flags
     target_exposed: bool = False
     exposed_forget_ids: tuple[str, ...] = ()
