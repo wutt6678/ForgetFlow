@@ -136,6 +136,10 @@ class TestPromptHash:
 class TestLiteLLMResponseProvider:
     """Test the chat provider with mocked LiteLLM calls."""
 
+    @pytest.fixture(autouse=True)
+    def _require_litellm(self) -> None:
+        pytest.importorskip("litellm")
+
     def test_non_empty_response_returned(self) -> None:
         provider = LiteLLMResponseProvider(model_name="test-model")
         mock_response = MagicMock()
