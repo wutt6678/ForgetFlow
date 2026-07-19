@@ -1,0 +1,21 @@
+run:
+  name: smoke_real_llm_no_firewall
+  seed: 42
+  repetitions: 1
+  mode: experiment
+  require_clean_tree: true
+
+models:
+  chat_provider: litellm
+  chat_model: gpt-4.1-mini
+  chat_temperature: 0.0
+  chat_max_tokens: 256
+
+  embedding_provider: litellm
+  embedding_model: text-embedding-3-small
+  embedding_dimension: 1536
+
+  api_key_env: OPENAI_API_KEY
+
+firewall:
+  enabled: false

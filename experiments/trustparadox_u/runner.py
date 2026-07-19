@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from experiments.trustparadox_u.agent import (
-    ScriptedResponder,
+    ResponseProvider,
     TaskOutcomeSource,
     TrustParadoxAgent,
 )
@@ -508,7 +508,7 @@ def _evaluate_reconstruction_evidence(
 def run_episode(
     episode: TrustParadoxEpisode,
     config: ExperimentConfig,
-    responder: ScriptedResponder | None = None,
+    responder: ResponseProvider | None = None,
     firewall_enabled: bool = True,
     run_id: str = "",
 ) -> EpisodeResult:
@@ -573,6 +573,13 @@ def run_episode(
             "seed": config.seed,
         },
     }
+
+    # Add chat provider metadata if configured
+    if config.models.chat_provider:
+        result.metadata["chat_provider"] = config.models.chat_provider
+        result.metadata["chat_model"] = config.models.chat_model
+        result.metadata["chat_temperature"] = config.models.chat_temperature
+        result.metadata["chat_max_tokens"] = config.models.chat_max_tokens
 
     # Add endpoint provenance metadata
     if config.models.api_base:
@@ -753,6 +760,7 @@ def run_episode(
             visible_context=sender.get_visible_context(),
             episode_id=episode.episode_id,
             turn_id=turn_counter,
+            trust_level=episode.trust_level,
         )
         if firewall_enabled:
             decision = sender.send_message(
@@ -895,6 +903,7 @@ def run_episode(
             visible_context=agent.get_visible_context(),
             episode_id=episode.episode_id,
             turn_id=turn_counter,
+            trust_level=episode.trust_level,
         )
         # s2: Evaluate each record independently (no shared boolean)
         # s4: Use record-level text evaluator (canonical + aliases + semantic variants)
@@ -965,6 +974,7 @@ def run_episode(
                 visible_context=sender.get_visible_context(),
                 episode_id=episode.episode_id,
                 turn_id=turn_counter,
+                trust_level=episode.trust_level,
             )
 
             # Handle task label propagation based on outcome source
@@ -1298,6 +1308,7 @@ def run_episode(
             visible_context=probe_context,
             episode_id=episode.episode_id,
             turn_id=turn_counter,
+            trust_level=episode.trust_level,
         )
         # s5: Check both the response and the full probe context for target recovery.
         # s4: Use record-level text evaluator (canonical + aliases + semantic variants)

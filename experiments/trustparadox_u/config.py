@@ -89,6 +89,12 @@ class ModelsConfig:
     api_base: str | None = None
     api_key_env: str | None = None
 
+    # Chat model fields for real-LLM smoke tests
+    chat_provider: str | None = None
+    chat_model: str | None = None
+    chat_temperature: float = 0.0
+    chat_max_tokens: int = 256
+
 
 @dataclass(frozen=True)
 class ExperimentConfig:
@@ -185,6 +191,10 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         embedding_dimension=models_raw.get("embedding_dimension"),
         api_base=models_raw.get("api_base"),
         api_key_env=models_raw.get("api_key_env"),
+        chat_provider=models_raw.get("chat_provider"),
+        chat_model=models_raw.get("chat_model"),
+        chat_temperature=float(models_raw.get("chat_temperature", 0.0)),
+        chat_max_tokens=int(models_raw.get("chat_max_tokens", 256)),
     )
 
     return ExperimentConfig(

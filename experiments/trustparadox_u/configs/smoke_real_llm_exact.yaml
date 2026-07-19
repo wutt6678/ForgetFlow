@@ -1,0 +1,37 @@
+run:
+  name: smoke_real_llm_exact
+  seed: 42
+  repetitions: 1
+  mode: experiment
+  require_clean_tree: true
+
+models:
+  chat_provider: litellm
+  chat_model: gpt-4.1-mini
+  chat_temperature: 0.0
+  chat_max_tokens: 256
+
+  embedding_provider: litellm
+  embedding_model: text-embedding-3-small
+  embedding_dimension: 1536
+
+  api_key_env: OPENAI_API_KEY
+
+firewall:
+  enabled: true
+  detector:
+    exact_enabled: true
+    entity_enabled: false
+    semantic_enabled: false
+    semantic_threshold: 0.80
+  history:
+    enabled: false
+    window_size: 1
+    reconstruction_threshold: 0.60
+  policy:
+    rich_actions_enabled: false
+    privacy_utility_weight: 1.0
+    trust_independent: true
+  monitoring:
+    continuous: false
+    duration_rounds: 0

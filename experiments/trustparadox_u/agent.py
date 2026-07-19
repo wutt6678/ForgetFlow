@@ -34,12 +34,27 @@ class ScriptedResponse:
 
 
 class ResponseProvider(Protocol):
+    """Protocol for generating agent responses.
+
+    Implementations must accept the core fields (episode_id, agent_id,
+    turn_id, instruction) plus optional context fields.  Extra keyword
+    arguments are allowed so that older providers (e.g. ScriptedResponder)
+    remain compatible.
+    """
+
     def respond(
         self,
         episode_id: str,
         agent_id: str,
         turn_id: int,
         instruction: str,
+        *,
+        role: str = "",
+        public_profile: str = "",
+        visible_context: Sequence[str] = (),
+        released_history: Sequence[str] = (),
+        trust_level: str = "",
+        **_: Any,
     ) -> ScriptedResponse | str: ...
 
 
@@ -67,6 +82,7 @@ class ScriptedResponder:
         agent_id: str,
         turn_id: int,
         instruction: str,
+        **_: Any,
     ) -> ScriptedResponse | str:
         key = f"{episode_id}:{agent_id}:{turn_id}"
         key_instr = f"{episode_id}:{agent_id}:{instruction}"
@@ -111,11 +127,22 @@ class TrustParadoxAgent(BaseAgent):
         visible_context: Sequence[str],
         episode_id: str = "",
         turn_id: int = 0,
+        trust_level: str = "",
     ) -> str:
         self.last_task_label = None
         self.last_task_outcome_source = None
         if self._provider is not None:
-            response = self._provider.respond(episode_id, self.agent_id, turn_id, instruction)
+            response = self._provider.respond(
+                episode_id,
+                self.agent_id,
+                turn_id,
+                instruction,
+                role=self.role,
+                public_profile=self.public_profile,
+                visible_context=visible_context,
+                released_history=self._released_history,
+                trust_level=trust_level,
+            )
             if isinstance(response, ScriptedResponse):
                 self.last_task_label = response.task_label
                 self.last_task_outcome_source = response.task_outcome_source

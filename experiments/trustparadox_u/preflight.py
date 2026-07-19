@@ -9,7 +9,12 @@ from pathlib import Path
 from experiments.trustparadox_u.config import ExperimentConfig, load_config
 
 
-def run_preflight(config: ExperimentConfig, *, probe_provider: bool = False) -> list[str]:
+def run_preflight(
+    config: ExperimentConfig,
+    *,
+    probe_provider: bool = False,
+    probe_chat_provider: bool = False,
+) -> list[str]:
     """Run preflight checks and return a list of failure messages.
 
     An empty list means all checks passed.
@@ -96,6 +101,45 @@ def run_preflight(config: ExperimentConfig, *, probe_provider: bool = False) -> 
         except Exception as exc:
             failures.append(f"Provider probe failed: {exc}")
 
+    # 8. Probe chat provider if requested
+    if probe_chat_provider and config.run.mode == "experiment":
+        if not config.models.chat_model:
+            failures.append("Chat provider probe requested but no chat_model configured")
+        else:
+            try:
+                from experiments.trustparadox_u.chat_provider import LiteLLMResponseProvider
+
+                chat_provider = LiteLLMResponseProvider(
+                    model_name=config.models.chat_model,
+                    temperature=config.models.chat_temperature,
+                    max_tokens=min(config.models.chat_max_tokens, 32),
+                    api_base=config.models.api_base,
+                    api_key_env=config.models.api_key_env,
+                )
+                result_text = str(chat_provider.respond(
+                    episode_id="preflight",
+                    agent_id="probe",
+                    turn_id=0,
+                    instruction="Return exactly: FORGETFLOW_CHAT_OK",
+                    role="probe",
+                    public_profile="preflight probe",
+                    trust_level="default",
+                ))
+                if "FORGETFLOW_CHAT_OK" in result_text:
+                    print(
+                        f"  chat_model={config.models.chat_model}  "
+                        f"latency_ms={chat_provider.last_latency_ms:.0f}  "
+                        f"response=FORGETFLOW_CHAT_OK"
+                    )
+                else:
+                    print(
+                        f"  chat_model={config.models.chat_model}  "
+                        f"latency_ms={chat_provider.last_latency_ms:.0f}  "
+                        f"response={result_text[:60]!r}"
+                    )
+            except Exception as exc:
+                failures.append(f"Chat provider probe failed: {exc}")
+
     return failures
 
 
@@ -107,10 +151,19 @@ def main() -> None:
         action="store_true",
         help="Make a real embedding API call to verify provider connectivity",
     )
+    parser.add_argument(
+        "--probe-chat-provider",
+        action="store_true",
+        help="Make a real chat API call to verify chat provider connectivity",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
-    failures = run_preflight(config, probe_provider=args.probe_provider)
+    failures = run_preflight(
+        config,
+        probe_provider=args.probe_provider,
+        probe_chat_provider=args.probe_chat_provider,
+    )
 
     if failures:
         print("PREFLIGHT FAILED:")
