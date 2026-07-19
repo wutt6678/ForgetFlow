@@ -58,6 +58,9 @@ class PolicyConfig:
 class MonitoringConfig:
     continuous: bool = True
     duration_rounds: int = 5
+    # Phase 4: Reliability testing
+    clock_mode: str = "turn"  # "turn" or "wall" for monitoring-clock testing
+    history_expiration_turns: int | None = None  # None = no expiration
 
     def __post_init__(self) -> None:
         if self.duration_rounds < 0:
