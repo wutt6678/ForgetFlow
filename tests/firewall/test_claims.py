@@ -159,6 +159,7 @@ class TestPropositionMatcher:
             polarity="positive",
             modality="certain",
             temporal_status="current",
+            speech_act="assertion",
             source_text="AGENT_B has authority",
             confidence=0.9,
         )
@@ -189,6 +190,7 @@ class TestPropositionMatcher:
             polarity="negative",
             modality="certain",
             temporal_status="current",
+            speech_act="denial",
             source_text="AGENT_B does not have authority",
             confidence=0.9,
         )
@@ -219,6 +221,7 @@ class TestPropositionMatcher:
             polarity="positive",
             modality="certain",
             temporal_status="current",
+            speech_act="assertion",
             source_text="AGENT_C has authority",
             confidence=0.9,
         )

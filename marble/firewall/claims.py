@@ -32,6 +32,7 @@ class Claim:
             polarity="positive",
             modality="certain",
             temporal_status="current",
+            speech_act="assertion",
             source_text="You have emergency authority",
             confidence=0.95
         )
@@ -40,9 +41,10 @@ class Claim:
     subject: str
     predicate: str
     object: str
-    polarity: Literal["positive", "negative"]
-    modality: Literal["certain", "possible", "requested", "conditional"]
+    polarity: Literal["positive", "negative", "unknown"]
+    modality: Literal["certain", "possible", "requested", "conditional", "unknown"]
     temporal_status: Literal["current", "past", "future", "revoked", "unknown"]
+    speech_act: Literal["assertion", "denial", "question", "request", "quotation", "unknown"]
     source_text: str
     confidence: float
 
@@ -168,6 +170,9 @@ class ClaimNormalizer:
         # Detect temporal status
         temporal = self._detect_temporal(text)
 
+        # Detect speech act
+        speech_act = self._detect_speech_act(text)
+
         # Extract basic SVO pattern (simplified)
         # This is a placeholder - real implementation needs NLP
         subject, predicate, obj = self._extract_svo(text)
@@ -181,6 +186,7 @@ class ClaimNormalizer:
                     polarity=polarity,
                     modality=modality,
                     temporal_status=temporal,
+                    speech_act=speech_act,
                     source_text=text,
                     confidence=0.7,  # Lower confidence for extracted claims
                 )
@@ -263,6 +269,31 @@ class ClaimNormalizer:
             return "future"
 
         return "current"
+
+    def _detect_speech_act(
+        self, text: str
+    ) -> Literal["assertion", "denial", "question", "request", "quotation", "unknown"]:
+        """Detect speech act type."""
+        lower = text.lower()
+
+        # Question
+        if "?" in text or lower.startswith(("does ", "do ", "did ", "is ", "are ", "can ", "could ", "would ", "will ")):
+            return "question"
+
+        # Request
+        if any(w in lower for w in ["please", "tell me", "confirm", "request"]):
+            return "request"
+
+        # Quotation
+        if '"' in text or "'" in text or "said" in lower or "stated" in lower:
+            return "quotation"
+
+        # Denial (negative assertion)
+        if any(w in lower for w in ["not", "never", "no ", "neither", "nor"]):
+            return "denial"
+
+        # Default to assertion
+        return "assertion"
 
     def _extract_svo(self, text: str) -> tuple[str, str, str]:
         """Extract subject-verb-object from text.

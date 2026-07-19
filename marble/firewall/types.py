@@ -88,6 +88,11 @@ class RecordDetectionEvidence:
     semantic_score: float
     reconstruction_score: float
     matched: bool
+    # Proposition/claim evidence (separate from embedding)
+    proposition_score: float = 0.0
+    proposition_relevant: bool = False
+    proposition_entailed: bool = False
+    reason_codes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name, val in [
@@ -95,6 +100,7 @@ class RecordDetectionEvidence:
             ("entity_score", self.entity_score),
             ("semantic_score", self.semantic_score),
             ("reconstruction_score", self.reconstruction_score),
+            ("proposition_score", self.proposition_score),
         ]:
             if not (0.0 <= val <= 1.0):
                 raise ValueError(f"{name} must be in [0, 1], got {val}")

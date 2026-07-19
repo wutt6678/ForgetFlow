@@ -96,7 +96,7 @@ class HybridDetector:
                             matched_ids.append(rec.forget_id)
                         evidence.append(f"ALIAS:{alias}")
 
-            # Semantic matching
+            # Semantic matching (embedding-based)
             if self.semantic_enabled and rec.semantic_variants:
                 if self._embedding_provider is None:
                     raise ValueError("Semantic detection enabled but no embedding provider")
@@ -110,30 +110,47 @@ class HybridDetector:
                         matched_ids.append(rec.forget_id)
                     evidence.append(f"SEMANTIC:{sem_score:.3f}")
 
-            # Claim-based proposition matching (enhances semantic detection)
+            # Claim-based proposition matching (SEPARATE from embedding)
+            proposition_score = 0.0
+            proposition_relevant = False
+            proposition_entailed = False
+            claim_reason_codes: list[str] = []
+            
             if self.claim_matching_enabled and self._claim_normalizer and self._proposition_matcher:
-                claim_match, claim_confidence = self._match_claims(text, rec, message_context)
-                if claim_match:
-                    # Boost semantic score if claim matches
-                    boosted_score = max(rec_semantic, claim_confidence)
-                    if boosted_score > rec_semantic:
-                        rec_semantic = boosted_score
-                        if boosted_score > semantic_score:
-                            semantic_score = boosted_score
+                claim_match, claim_confidence, claim_relevant, claim_entailed = self._match_claims(
+                    text, rec, message_context
+                )
+                proposition_score = claim_confidence
+                proposition_relevant = claim_relevant
+                proposition_entailed = claim_entailed
+                
+                if claim_relevant:
+                    claim_reason_codes.append("CLAIM_SUBJECT_MATCH")
+                if claim_entailed:
+                    claim_reason_codes.append("POSITIVE_PROPOSITION_ENTAILED")
+                    proposition_entailed = True
+                    # Only mark as matched if proposition is entailed (not just relevant)
                     if claim_confidence >= self.semantic_threshold:
                         rec_matched = True
                         if rec.forget_id not in matched_ids:
                             matched_ids.append(rec.forget_id)
                         evidence.append(f"PROPOSITION:{claim_confidence:.3f}")
+                elif claim_relevant and not claim_entailed:
+                    # Relevant but not entailed (question, negation, etc.)
+                    claim_reason_codes.append("CLAIM_RELEVANT_NOT_ENTAILED")
 
             record_evidence.append(
                 RecordDetectionEvidence(
                     forget_id=rec.forget_id,
                     exact_score=rec_exact,
                     entity_score=rec_entity,
-                    semantic_score=rec_semantic,
+                    semantic_score=rec_semantic,  # Embedding-based only
                     reconstruction_score=0.0,  # filled in later by runner
                     matched=rec_matched,
+                    proposition_score=proposition_score,  # Claim-based only
+                    proposition_relevant=proposition_relevant,
+                    proposition_entailed=proposition_entailed,
+                    reason_codes=tuple(claim_reason_codes),
                 )
             )
 
@@ -170,7 +187,7 @@ class HybridDetector:
         text: str,
         rec: ForgetRecord,
         message_context: MessageContext | None,
-    ) -> tuple[bool, float]:
+    ) -> tuple[bool, float, bool, bool]:
         """Match claims extracted from text against forgotten target.
 
         Args:
@@ -179,10 +196,10 @@ class HybridDetector:
             message_context: Optional sender/recipient context for pronoun resolution
 
         Returns:
-            Tuple of (matches: bool, confidence: float)
+            Tuple of (matches: bool, confidence: float, relevant: bool, entailed: bool)
         """
         if not self._claim_normalizer or not self._proposition_matcher:
-            return False, 0.0
+            return False, 0.0, False, False
 
         # Extract claims from text
         claims = self._claim_normalizer.normalize(text, message_context)
@@ -190,10 +207,20 @@ class HybridDetector:
         # Check if any claim matches the target
         for claim in claims:
             matches, confidence = self._proposition_matcher.match(claim, rec)
+            # Determine relevance and entailment
+            relevant = matches  # Relevant if subject matches
+            # Entailed only if positive polarity, assertion speech act, and compatible temporal
+            entailed = (
+                matches
+                and claim.polarity == "positive"
+                and claim.speech_act in ("assertion", "unknown")
+                and claim.temporal_status in ("current", "unknown")
+                and claim.modality in ("certain", "unknown")
+            )
             if matches:
-                return True, confidence
+                return True, confidence, relevant, entailed
 
-        return False, 0.0
+        return False, 0.0, False, False
 
     def clear_cache(self) -> None:
         self._embedding_cache.clear()
