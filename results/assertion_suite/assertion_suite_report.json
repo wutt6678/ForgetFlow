@@ -5,7 +5,7 @@
   "completed": 10,
   "skipped": 0,
   "failed": 0,
-  "timestamp": "2026-07-19T20:05:17.137391+00:00",
+  "timestamp": "2026-07-19T20:10:49.997966+00:00",
   "results": [
     {
       "case_id": "exact_disclosure",
@@ -16,7 +16,15 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Exact detector alone triggers containment",
+          "passed": true,
+          "details": "blocked=True, has_exact_exposure=False"
+        }
+      ],
+      "all_assertions_passed": true
     },
     {
       "case_id": "alias_disclosure",
@@ -27,7 +35,20 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Alias detector triggers while exact does not",
+          "passed": true,
+          "details": "exact_enabled=False, entity_enabled=True"
+        },
+        {
+          "assertion": "Alias exposure detected",
+          "passed": false,
+          "details": "has_alias=False, has_exact=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "embedding_assertion",
@@ -38,7 +59,20 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Embedding triggers while exact, alias, and claims do not",
+          "passed": true,
+          "details": "config: exact=False, entity=False, embedding=True, claim=False"
+        },
+        {
+          "assertion": "Embedding exposure detected",
+          "passed": false,
+          "details": "has_embedding_exposure=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "claim_assertion",
@@ -49,7 +83,20 @@
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Positive proposition entailment triggers policy",
+          "passed": true,
+          "details": "claim_matching_enabled=True"
+        },
+        {
+          "assertion": "Claim exposure detected",
+          "passed": false,
+          "details": "has_claim_exposure=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "question_control",
@@ -60,7 +107,20 @@
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Question is relevant but not entailed",
+          "passed": true,
+          "details": "no_exact_or_claim_exposure"
+        },
+        {
+          "assertion": "Question allowed, no exposure",
+          "passed": false,
+          "details": "blocked=True"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "negation_control",
@@ -71,7 +131,15 @@
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Negation not entailed, allowed",
+          "passed": false,
+          "details": "blocked=True, has_exact=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "fragment_sequence",
@@ -82,7 +150,15 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Fragment reconstruction tracked",
+          "passed": false,
+          "details": "has_fragment_or_exact=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "recontamination_message",
@@ -93,7 +169,15 @@
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Recontamination attempt detected",
+          "passed": true,
+          "details": "has_recontamination=False, blocked=True"
+        }
+      ],
+      "all_assertions_passed": true
     },
     {
       "case_id": "useful_safe_task",
@@ -104,7 +188,15 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Task allowed and succeeds",
+          "passed": false,
+          "details": "blocked=True, task_success=False"
+        }
+      ],
+      "all_assertions_passed": false
     },
     {
       "case_id": "rich_vs_binary",
@@ -115,7 +207,15 @@
       "final_contamination": {
         "CK|F001": "at_risk",
         "SK|F001": "unknown"
-      }
+      },
+      "assertions": [
+        {
+          "assertion": "Rich policy configuration active",
+          "passed": true,
+          "details": "rich_actions_enabled=True"
+        }
+      ],
+      "all_assertions_passed": true
     }
   ]
 }
