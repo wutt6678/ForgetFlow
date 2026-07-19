@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from experiments.trustparadox_u.embedding import EmbeddingProvider, cosine_similarity
+from marble.firewall.claims import ClaimNormalizer, MessageContext, PropositionMatcher
 from marble.firewall.types import DetectorResult, ForgetRecord, RecordDetectionEvidence
 
 
@@ -38,6 +39,7 @@ class HybridDetector:
         semantic_enabled: bool = True,
         semantic_threshold: float = 0.80,
         embedding_provider: EmbeddingProvider | None = None,
+        claim_matching_enabled: bool = True,
     ) -> None:
         self.exact_enabled = exact_enabled
         self.entity_enabled = entity_enabled
@@ -45,12 +47,16 @@ class HybridDetector:
         self.semantic_threshold = semantic_threshold
         self._embedding_provider = embedding_provider
         self._embedding_cache: dict[str, list[float]] = {}
+        self.claim_matching_enabled = claim_matching_enabled
+        self._claim_normalizer = ClaimNormalizer() if claim_matching_enabled else None
+        self._proposition_matcher = PropositionMatcher() if claim_matching_enabled else None
 
     def detect(
         self,
         text: str,
         active_records: Sequence[ForgetRecord],
         recipient_context: RecipientContext | None = None,
+        message_context: MessageContext | None = None,
     ) -> DetectorResult:
         exact_score = 0.0
         entity_score = 0.0
@@ -104,6 +110,22 @@ class HybridDetector:
                         matched_ids.append(rec.forget_id)
                     evidence.append(f"SEMANTIC:{sem_score:.3f}")
 
+            # Claim-based proposition matching (enhances semantic detection)
+            if self.claim_matching_enabled and self._claim_normalizer and self._proposition_matcher:
+                claim_match, claim_confidence = self._match_claims(text, rec, message_context)
+                if claim_match:
+                    # Boost semantic score if claim matches
+                    boosted_score = max(rec_semantic, claim_confidence)
+                    if boosted_score > rec_semantic:
+                        rec_semantic = boosted_score
+                        if boosted_score > semantic_score:
+                            semantic_score = boosted_score
+                    if claim_confidence >= self.semantic_threshold:
+                        rec_matched = True
+                        if rec.forget_id not in matched_ids:
+                            matched_ids.append(rec.forget_id)
+                        evidence.append(f"PROPOSITION:{claim_confidence:.3f}")
+
             record_evidence.append(
                 RecordDetectionEvidence(
                     forget_id=rec.forget_id,
@@ -142,6 +164,36 @@ class HybridDetector:
             if sim > max_sim:
                 max_sim = sim
         return max(0.0, min(1.0, max_sim))
+
+    def _match_claims(
+        self,
+        text: str,
+        rec: ForgetRecord,
+        message_context: MessageContext | None,
+    ) -> tuple[bool, float]:
+        """Match claims extracted from text against forgotten target.
+
+        Args:
+            text: Input text to analyze
+            rec: Forgotten target record
+            message_context: Optional sender/recipient context for pronoun resolution
+
+        Returns:
+            Tuple of (matches: bool, confidence: float)
+        """
+        if not self._claim_normalizer or not self._proposition_matcher:
+            return False, 0.0
+
+        # Extract claims from text
+        claims = self._claim_normalizer.normalize(text, message_context)
+
+        # Check if any claim matches the target
+        for claim in claims:
+            matches, confidence = self._proposition_matcher.match(claim, rec)
+            if matches:
+                return True, confidence
+
+        return False, 0.0
 
     def clear_cache(self) -> None:
         self._embedding_cache.clear()

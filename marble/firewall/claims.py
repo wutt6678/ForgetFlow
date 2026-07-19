@@ -269,18 +269,39 @@ class ClaimNormalizer:
 
         This is a simplified placeholder. Real implementation needs NLP.
         """
-        # Very basic pattern matching
-        # Production system should use spaCy or similar
+        # Improved pattern matching for common structures
         words = text.split()
 
         if len(words) < 2:
             return "", "", ""
 
-        # Assume first noun is subject, first verb is predicate, rest is object
-        # This is extremely simplified
-        subject = words[0] if words else ""
-        predicate = words[1] if len(words) > 1 else ""
-        obj = " ".join(words[2:]) if len(words) > 2 else ""
+        # Try to identify subject (may be multi-word like "Agent B")
+        # Heuristic: look for common verbs to split subject from predicate
+        common_verbs = {"has", "have", "is", "are", "was", "were", "holds", "retains"}
+        # Auxiliary verbs that should be skipped when looking for subject
+        auxiliary_verbs = {"does", "do", "did", "will", "would", "could", "should", "may", "might", "can"}
+
+        subject_parts = []
+        predicate = ""
+        object_parts = []
+
+        for i, word in enumerate(words):
+            lower_word = word.lower().strip(".,!?;:")
+            if lower_word in auxiliary_verbs:
+                # Skip auxiliary verbs at the start (question format)
+                if not subject_parts:
+                    continue
+                else:
+                    subject_parts.append(word)
+            elif lower_word in common_verbs:
+                predicate = lower_word
+                object_parts = words[i + 1 :]
+                break
+            else:
+                subject_parts.append(word)
+
+        subject = " ".join(subject_parts) if subject_parts else ""
+        obj = " ".join(object_parts) if object_parts else ""
 
         return subject, predicate, obj
 
