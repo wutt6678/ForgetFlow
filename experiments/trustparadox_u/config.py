@@ -101,6 +101,10 @@ class ModelsConfig:
     chat_model: str | None = None
     chat_temperature: float = 0.0
     chat_max_tokens: int = 256
+    # Phase 5: Operational safety
+    provider_pinning: bool = True
+    secret_safe_logging: bool = True
+    cache_invalidation_mode: str = "on_forget"
 
 
 @dataclass(frozen=True)
