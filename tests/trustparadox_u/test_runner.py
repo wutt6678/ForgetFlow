@@ -472,37 +472,59 @@ class TestExperimentIdentity:
 
 
 class TestEnforcementIsActive:
-    """Tests for the enforcement_is_active monitoring window function."""
+    """Tests for the enforcement_is_active function (P0-1: always True)."""
 
-    def test_continuous_always_active(self) -> None:
+    def test_enforcement_always_active(self) -> None:
+        """P0-1: Firewall enforcement is always active regardless of monitoring."""
+        from experiments.trustparadox_u.runner import _should_monitor
+        
+        # All monitoring configs should result in enforcement being active
+        for continuous in [True, False]:
+            for duration in [0, 1, 3, 5]:
+                m = MonitoringConfig(continuous=continuous, duration_rounds=duration)
+                for r in range(10):
+                    assert enforcement_is_active(monitoring=m, post_forget_round=r) is True
+
+    def test_should_monitor_continuous(self) -> None:
+        """Test _should_monitor for continuous monitoring."""
+        from experiments.trustparadox_u.runner import _should_monitor
         m = MonitoringConfig(continuous=True, duration_rounds=0)
-        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=10) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=100) is True
+        assert _should_monitor(monitoring=m, post_forget_round=0) is True
+        assert _should_monitor(monitoring=m, post_forget_round=10) is True
+        assert _should_monitor(monitoring=m, post_forget_round=100) is True
 
-    def test_duration_zero_never_active(self) -> None:
+    def test_should_monitor_duration_zero(self) -> None:
+        """Test _should_monitor with duration_rounds=0."""
+        from experiments.trustparadox_u.runner import _should_monitor
         m = MonitoringConfig(continuous=False, duration_rounds=0)
-        assert enforcement_is_active(monitoring=m, post_forget_round=0) is False
+        assert _should_monitor(monitoring=m, post_forget_round=0) is False
 
-    def test_duration_one_active_at_round_zero(self) -> None:
+    def test_should_monitor_duration_one(self) -> None:
+        """Test _should_monitor with duration_rounds=1."""
+        from experiments.trustparadox_u.runner import _should_monitor
         m = MonitoringConfig(continuous=False, duration_rounds=1)
-        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=1) is False
+        assert _should_monitor(monitoring=m, post_forget_round=0) is True
+        assert _should_monitor(monitoring=m, post_forget_round=1) is False
 
-    def test_duration_three(self) -> None:
+    def test_should_monitor_duration_three(self) -> None:
+        """Test _should_monitor with duration_rounds=3."""
+        from experiments.trustparadox_u.runner import _should_monitor
         m = MonitoringConfig(continuous=False, duration_rounds=3)
-        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=1) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=2) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=3) is False
+        assert _should_monitor(monitoring=m, post_forget_round=0) is True
+        assert _should_monitor(monitoring=m, post_forget_round=1) is True
+        assert _should_monitor(monitoring=m, post_forget_round=2) is True
+        assert _should_monitor(monitoring=m, post_forget_round=3) is False
 
-    def test_duration_five(self) -> None:
+    def test_should_monitor_duration_five(self) -> None:
+        """Test _should_monitor with duration_rounds=5."""
+        from experiments.trustparadox_u.runner import _should_monitor
         m = MonitoringConfig(continuous=False, duration_rounds=5)
         for r in range(5):
-            assert enforcement_is_active(monitoring=m, post_forget_round=r) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=5) is False
+            assert _should_monitor(monitoring=m, post_forget_round=r) is True
+        assert _should_monitor(monitoring=m, post_forget_round=5) is False
 
     def test_negative_round_raises(self) -> None:
+        """Test that negative rounds raise ValueError."""
         m = MonitoringConfig(continuous=True, duration_rounds=5)
         import pytest
 
@@ -809,11 +831,12 @@ class TestMonitoringDurationConsumption:
 
     def test_forget_turn_doesnt_consume_duration(self) -> None:
         """ST-MON-006: Forget event itself doesn't consume monitoring duration."""
-        # enforcement_is_active counts from post_forget_round=0
+        from experiments.trustparadox_u.runner import _should_monitor
+        # _should_monitor counts from post_forget_round=0
         # The forget turn is not a post-forget round, so it can't consume duration
         m = MonitoringConfig(continuous=False, duration_rounds=1)
-        assert enforcement_is_active(monitoring=m, post_forget_round=0) is True
-        assert enforcement_is_active(monitoring=m, post_forget_round=1) is False
+        assert _should_monitor(monitoring=m, post_forget_round=0) is True
+        assert _should_monitor(monitoring=m, post_forget_round=1) is False
 
 
 class TestRRDenominatorSemantics:

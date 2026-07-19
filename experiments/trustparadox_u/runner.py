@@ -213,13 +213,25 @@ def enforcement_is_active(
 ) -> bool:
     """Determine if firewall enforcement is active at a given post-forget round.
 
-    One post-forget round equals one post-forget message turn.
+    P0-1 FIX: Firewall enforcement is ALWAYS active when firewall is enabled,
+    regardless of monitoring config. Monitoring is a separate concern.
+    """
+    if post_forget_round < 0:
+        raise ValueError("post_forget_round must be non-negative")
 
-    Semantics:
-    - continuous=True: all post-forget rounds protected
-    - continuous=False, duration_rounds=0: no post-forget rounds protected
-    - continuous=False, duration_rounds=1: round 0 protected
-    - continuous=False, duration_rounds=3: rounds 0, 1, and 2 protected
+    # P0-1: Firewall enforcement is always active (decoupled from monitoring)
+    return True
+
+
+def _should_monitor(
+    *,
+    monitoring: MonitoringConfig,
+    post_forget_round: int,
+) -> bool:
+    """Determine if monitoring is active at a given post-forget round.
+
+    This is separate from enforcement. Monitoring only affects
+    post-cleaning recontamination checks.
     """
     if post_forget_round < 0:
         raise ValueError("post_forget_round must be non-negative")
