@@ -71,6 +71,10 @@ class MonitoringConfig:
 class RunConfig:
     mode: str = "test"  # "test" or "experiment"
     require_clean_tree: bool | None = None
+    # Phase 6: Scale and generalization
+    cost_accounting_enabled: bool = False
+    load_test_mode: bool = False
+    held_out_families: tuple[str, ...] = ()  # For generalization testing
 
     def __post_init__(self) -> None:
         if self.mode not in ("test", "experiment"):
