@@ -42,6 +42,9 @@ class ForgetRecord:
     lifecycle_state: ForgetRecordLifecycle = "active"
     expires_at_turn: int | None = None
     event_id: str = ""
+    # Phase 2: Multi-target semantics
+    depends_on: tuple[str, ...] = ()  # forget_ids this record depends on
+    provenance_chain: tuple[str, ...] = ()  # provenance chain for audit
 
     def __post_init__(self) -> None:
         if not self.forget_id:
