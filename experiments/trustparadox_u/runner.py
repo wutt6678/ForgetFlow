@@ -16,7 +16,10 @@ from experiments.trustparadox_u.agent import (
 )
 from experiments.trustparadox_u.attacks import build_attack
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
-from experiments.trustparadox_u.dataset import TrustParadoxEpisode
+from experiments.trustparadox_u.dataset import (
+    TrustParadoxEpisode,
+    validate_representation_ownership,
+)
 from experiments.trustparadox_u.embedding import FixedEmbeddingProvider, RealEmbeddingProvider
 from experiments.trustparadox_u.paths import EPISODE_RESULTS_FILENAME
 from experiments.trustparadox_u.providers import sanitize_api_base
@@ -510,6 +513,9 @@ def run_episode(
     run_id: str = "",
 ) -> EpisodeResult:
     """Run a complete experiment episode."""
+    # s3 (21st): Validate representation ownership before any side effects
+    validate_representation_ownership(episode.sensitive_items)
+
     _set_seed(config.seed)
 
     # Initialize result with metadata

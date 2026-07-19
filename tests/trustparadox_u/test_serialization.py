@@ -1590,9 +1590,9 @@ class TestImmediateProbeSerialization:
                     ContaminationStateChange(
                         agent_id="CK",
                         forget_id="F001",
-                        before="contaminated",
-                        after="contaminated",
-                        reason="immediate_probe_detection",
+                        before="verified",
+                        after="at_risk",
+                        reason="immediate_probe_recovery",
                     ),
                 ),
             )
@@ -1612,6 +1612,8 @@ class TestImmediateProbeSerialization:
         change = turn.contamination_state_changes[0]
         assert change.agent_id == "CK"
         assert change.forget_id == "F001"
+        # Valid transition: before != after
+        assert change.before != change.after
 
     def test_immediate_probe_target_free_round_trip(self, tmp_path: Path) -> None:
         """Target-free IMMEDIATE_PROBE fields survive serialization."""

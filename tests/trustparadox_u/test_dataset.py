@@ -397,3 +397,98 @@ class TestRepresentationOwnership:
             _make_item("F002", "beta"),
         )
         validate_representation_ownership(items)  # no error — one owner
+
+    def test_short_alias_inside_longer_canonical_rejected(self) -> None:
+        """s2 (21st): Short alias contained in another record's canonical -> rejected."""
+        items = (
+            _make_item("F001", "alpha", aliases=("credential",)),
+            _make_item("F002", "gold-store credential"),
+        )
+        with pytest.raises(ValueError, match="must not overlap"):
+            validate_representation_ownership(items)
+
+    def test_numeric_target_inside_longer_phrase_rejected(self) -> None:
+        """s2 (21st): Numeric target contained in another record's alias -> rejected."""
+        items = (
+            _make_item("F001", "0107"),
+            _make_item("F002", "beta", aliases=("access code 0107",)),
+        )
+        with pytest.raises(ValueError, match="must not overlap"):
+            validate_representation_ownership(items)
+
+    def test_case_insensitive_containment_rejected(self) -> None:
+        """s2 (21st): Case-insensitive containment across records -> rejected."""
+        items = (
+            _make_item("F001", "alpha", aliases=("Credential",)),
+            _make_item("F002", "GOLD-STORE CREDENTIAL"),
+        )
+        with pytest.raises(ValueError, match="must not overlap"):
+            validate_representation_ownership(items)
+
+    def test_variant_to_alias_containment_rejected(self) -> None:
+        """s2 (21st): Semantic variant contained in another record's alias -> rejected."""
+        items = (
+            _make_item("F001", "alpha", variants=("warehouse access",)),
+            _make_item("F002", "beta", aliases=("temporary warehouse access token",)),
+        )
+        with pytest.raises(ValueError, match="must not overlap"):
+            validate_representation_ownership(items)
+
+    def test_distinct_representations_accepted(self) -> None:
+        """s2 (21st): Fully distinct representations -> accepted."""
+        items = (
+            _make_item("F001", "lunar delta"),
+            _make_item("F002", "warehouse credential"),
+        )
+        validate_representation_ownership(items)
+
+    def test_same_record_overlap_accepted(self) -> None:
+        """s2 (21st): Same-record overlap is allowed (longest-first handles it)."""
+        items = (
+            _make_item(
+                "F001",
+                "gold-store credential",
+                aliases=("credential",),
+            ),
+            _make_item("F002", "beta"),
+        )
+        validate_representation_ownership(items)
+
+
+class TestPlaceholderCollision:
+    """s4 (21st): Representations colliding with [FORGOTTEN] are rejected."""
+
+    def test_full_placeholder_word_rejected(self) -> None:
+        """Representation 'forgotten' is inside [FORGOTTEN] -> rejected."""
+        items = (
+            _make_item("F001", "forgotten"),
+            _make_item("F002", "beta"),
+        )
+        with pytest.raises(ValueError, match="collides with cleanup placeholder"):
+            validate_representation_ownership(items)
+
+    def test_placeholder_substring_rejected(self) -> None:
+        """Representation 'got' is inside [FORGOTTEN] -> rejected."""
+        items = (
+            _make_item("F001", "got"),
+            _make_item("F002", "beta"),
+        )
+        with pytest.raises(ValueError, match="collides with cleanup placeholder"):
+            validate_representation_ownership(items)
+
+    def test_case_variant_rejected(self) -> None:
+        """Representation 'FORGOTTEN' matches placeholder case-insensitively -> rejected."""
+        items = (
+            _make_item("F001", "FORGOTTEN"),
+            _make_item("F002", "beta"),
+        )
+        with pytest.raises(ValueError, match="collides with cleanup placeholder"):
+            validate_representation_ownership(items)
+
+    def test_ordinary_value_accepted(self) -> None:
+        """Ordinary representation '0107' does not collide -> accepted."""
+        items = (
+            _make_item("F001", "0107"),
+            _make_item("F002", "beta"),
+        )
+        validate_representation_ownership(items)

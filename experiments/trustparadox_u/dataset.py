@@ -410,15 +410,23 @@ def validate_attack_target_references(episode: TrustParadoxEpisode) -> None:
 
 
 def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, ...]) -> None:
-    """Reject episodes where normalized representations map to multiple forget IDs.
+    """Reject episodes with ambiguous representation ownership.
 
-    Every normalized sensitive representation must have exactly one owning
-    forget_id.  Collisions (shared aliases, case-only duplicates,
-    canonical-to-alias collisions, etc.) make targeted forgetting ambiguous.
+    Checks:
+    1. Exact cross-record equality (case-insensitive).
+    2. Cross-record substring containment (case-insensitive).
+    3. Redaction-placeholder collision — representations contained in
+       or containing the cleanup placeholder ``[FORGOTTEN]``.
 
-    Raises ValueError listing all ambiguous representations.
+    Same-record overlaps are allowed (deterministic longest-first
+    redaction handles them).  Raises ValueError on any violation.
     """
-    owners: dict[str, set[str]] = {}
+    from experiments.trustparadox_u.agent import REDACTION_PLACEHOLDER
+
+    placeholder = REDACTION_PLACEHOLDER.strip().casefold()
+
+    # Build normalized entry list: (normalized_value, forget_id)
+    entries: list[tuple[str, str]] = []
     for item in sensitive_items:
         values = {
             item.canonical_target,
@@ -429,16 +437,41 @@ def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, 
             normalized = value.strip().casefold()
             if not normalized:
                 continue
-            owners.setdefault(normalized, set()).add(item.forget_id)
+            # s4 (21st): Reject placeholder collisions
+            if normalized in placeholder or placeholder in normalized:
+                raise ValueError(
+                    f"Sensitive representation collides with cleanup " f"placeholder: {value!r}"
+                )
+            entries.append((normalized, item.forget_id))
 
-    ambiguous = {
-        representation: sorted(forget_ids)
-        for representation, forget_ids in owners.items()
-        if len(forget_ids) > 1
-    }
+    # s2 (20th): Exact cross-record equality
+    owners: dict[str, set[str]] = {}
+    for normalized, forget_id in entries:
+        owners.setdefault(normalized, set()).add(forget_id)
+    ambiguous = {rep: sorted(fids) for rep, fids in owners.items() if len(fids) > 1}
     if ambiguous:
         raise ValueError(
             "Sensitive representations must map to exactly one forget record: " f"{ambiguous}"
+        )
+
+    # s2 (21st): Cross-record substring containment
+    overlaps: list[dict[str, object]] = []
+    for idx, (left_value, left_fid) in enumerate(entries):
+        for right_value, right_fid in entries[idx + 1 :]:
+            if left_fid == right_fid:
+                continue
+            if left_value in right_value or right_value in left_value:
+                overlaps.append(
+                    {
+                        "left_forget_id": left_fid,
+                        "left_value": left_value,
+                        "right_forget_id": right_fid,
+                        "right_value": right_value,
+                    }
+                )
+    if overlaps:
+        raise ValueError(
+            "Sensitive representations must not overlap across " f"forget records: {overlaps}"
         )
 
 
