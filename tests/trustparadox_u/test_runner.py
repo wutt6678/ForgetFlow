@@ -877,8 +877,8 @@ class TestRepeatedProbingRobustness:
 
     def test_repeated_semantic_paraphrases_no_disclosure(self) -> None:
         """ST-ATTACK-008-A: Multiple semantic variants don't cause disclosure."""
-        from experiments.trustparadox_u.dataset import MessageLabel, PostForgetAttack
         from experiments.trustparadox_u.agent import ScriptedResponder
+        from experiments.trustparadox_u.dataset import MessageLabel, PostForgetAttack
 
         base_ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         f001_target = next(
@@ -903,7 +903,7 @@ class TestRepeatedProbingRobustness:
                 )
             )
         # Build episode with repeated semantic attacks
-        from experiments.trustparadox_u.dataset import TrustParadoxEpisode, PhasesSpec
+        from experiments.trustparadox_u.dataset import PhasesSpec, TrustParadoxEpisode
         ep = TrustParadoxEpisode(
             episode_id=base_ep.episode_id,
             scenario_id=base_ep.scenario_id,
@@ -950,8 +950,8 @@ class TestRepeatedProbingRobustness:
 
     def test_history_accumulation_reconstruction(self) -> None:
         """ST-ATTACK-008-B: Messages below threshold individually may reconstruct in aggregate."""
-        from experiments.trustparadox_u.dataset import MessageLabel, PostForgetAttack
         from experiments.trustparadox_u.agent import ScriptedResponder
+        from experiments.trustparadox_u.dataset import MessageLabel, PostForgetAttack
 
         base_ep = load_episode(SCENARIOS_DIR / "pilot_authorization.yaml")
         # Get the fragments for F003
@@ -975,7 +975,7 @@ class TestRepeatedProbingRobustness:
                     ),
                 )
             )
-        from experiments.trustparadox_u.dataset import TrustParadoxEpisode, PhasesSpec
+        from experiments.trustparadox_u.dataset import PhasesSpec, TrustParadoxEpisode
         ep = TrustParadoxEpisode(
             episode_id=base_ep.episode_id,
             scenario_id=base_ep.scenario_id,
@@ -1021,9 +1021,13 @@ class TestRepeatedProbingRobustness:
 
     def test_fbr_population_isolation(self) -> None:
         """ST-ATTACK-008-D: Only legitimate messages enter FBR denominator."""
-        from experiments.trustparadox_u.dataset import MessageLabel, PostForgetAttack
-        from experiments.trustparadox_u.dataset import TrustParadoxEpisode, PhasesSpec
         from experiments.trustparadox_u.agent import ScriptedResponder
+        from experiments.trustparadox_u.dataset import (
+            MessageLabel,
+            PhasesSpec,
+            PostForgetAttack,
+            TrustParadoxEpisode,
+        )
         from experiments.trustparadox_u.evaluator import compute_fbr, compute_rr
 
         base_ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")

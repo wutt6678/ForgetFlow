@@ -9,8 +9,6 @@ Key test case: "7391" must NOT be treated as reconstruction of "0107".
 
 from __future__ import annotations
 
-import pytest
-
 from marble.firewall.detectors import RecipientContext
 from marble.firewall.history import ReconstructionChecker
 from marble.firewall.types import ForgetRecord
@@ -344,6 +342,10 @@ class TestReconstructionTargetSpecificity:
         # Note: "73" and "91" are not standalone tokens in "7391" with digit-boundary
         # matching, so the score is 0.0. This is correct behavior - the fragments
         # must be token-boundary matches, not substrings.
+        assert score_f002 == 0.0, (
+            f"Candidate '7391' should not reconstruct F002 via substring matching, "
+            f"got score {score_f002}"
+        )
         # To test actual reconstruction detection, use standalone tokens:
         candidate_with_tokens = "The code is 73 and 91."
         score_f002_tokens = checker.score(

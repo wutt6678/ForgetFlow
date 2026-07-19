@@ -77,7 +77,6 @@ class ReconstructionChecker:
 
         history_text = " ".join(context.recent_texts)
         combined = history_text + " " + candidate_text
-        combined_lower = combined.lower()
         candidate_lower = candidate_text.lower()
 
         # Mechanism A: Fragment reconstruction
@@ -104,9 +103,6 @@ class ReconstructionChecker:
                             candidate_frags += 1
 
                     # Candidate must contribute at least one new fragment
-                    new_from_candidate = candidate_frags - min(
-                        history_frags, candidate_frags
-                    )
                     # More precise: count fragments in candidate that are
                     # NOT already fully present in history
                     truly_new = sum(
