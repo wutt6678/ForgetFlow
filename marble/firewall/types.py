@@ -23,6 +23,9 @@ ExposureClass = Literal[
 
 _VALID_TRUST_LEVELS = frozenset({"low", "default", "high"})
 
+# Forget-record lifecycle states (Phase 1)
+ForgetRecordLifecycle = Literal["pending", "active", "expired", "revoked"]
+
 
 @dataclass(frozen=True)
 class ForgetRecord:
@@ -36,6 +39,9 @@ class ForgetRecord:
     permitted_residuals: tuple[str, ...]
     active_from_turn: int
     scoped_agent_ids: tuple[str, ...] = ()
+    lifecycle_state: ForgetRecordLifecycle = "active"
+    expires_at_turn: int | None = None
+    event_id: str = ""
 
     def __post_init__(self) -> None:
         if not self.forget_id:
