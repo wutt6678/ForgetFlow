@@ -9,10 +9,174 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
 from marble.firewall.types import ForgetRecord
+
+# ---------------------------------------------------------------------------
+# Predicate pattern definitions
+# ---------------------------------------------------------------------------
+
+# Multi-word patterns MUST be checked before single-word patterns.
+# Each entry: (tokens, canonical_predicate, default_polarity)
+_PREDICATE_PATTERNS: list[tuple[tuple[str, ...], str, str]] = [
+    # Multi-word negative patterns (check first)
+    (("does", "not", "have"), "possession", "negative"),
+    (("do", "not", "have"), "possession", "negative"),
+    (("did", "not", "have"), "possession", "negative"),
+    (("no", "longer", "has"), "possession", "negative"),
+    (("no", "longer", "holds"), "possession", "negative"),
+    (("no", "longer", "have"), "possession", "negative"),
+    (("can", "not", "access"), "access", "negative"),
+    # Multi-word attribution
+    (("belongs", "to"), "attribution", "positive"),
+    (("belong", "to"), "attribution", "positive"),
+    (("belonged", "to"), "attribution", "positive"),
+    # Multi-word passive grant
+    (("was", "granted"), "grant", "positive"),
+    (("were", "granted"), "grant", "positive"),
+    (("is", "granted"), "grant", "positive"),
+    (("was", "assigned"), "grant", "positive"),
+    (("is", "assigned"), "grant", "positive"),
+    # Multi-word passive denial
+    (("was", "denied"), "denial", "negative"),
+    (("were", "denied"), "denial", "negative"),
+    (("is", "denied"), "denial", "negative"),
+    (("was", "revoked"), "revocation", "negative"),
+    (("is", "revoked"), "revocation", "negative"),
+    # Single-word possession (positive)
+    (("has",), "possession", "positive"),
+    (("have",), "possession", "positive"),
+    (("had",), "possession", "positive"),
+    (("holds",), "possession", "positive"),
+    (("hold",), "possession", "positive"),
+    (("held",), "possession", "positive"),
+    (("retains",), "possession", "positive"),
+    (("retain",), "possession", "positive"),
+    (("retained",), "possession", "positive"),
+    (("possesses",), "possession", "positive"),
+    (("possess",), "possession", "positive"),
+    (("possessed",), "possession", "positive"),
+    # Single-word possession (negative)
+    (("lacks",), "possession", "negative"),
+    (("lack",), "possession", "negative"),
+    (("lacked",), "possession", "negative"),
+    # Single-word access
+    (("accesses",), "access", "positive"),
+    (("access",), "access", "positive"),
+    (("accessed",), "access", "positive"),
+    # Single-word receipt
+    (("receives",), "receipt", "positive"),
+    (("receive",), "receipt", "positive"),
+    (("received",), "receipt", "positive"),
+    # Single-word request
+    (("requests",), "request", "positive"),
+    (("request",), "request", "positive"),
+    (("requested",), "request", "positive"),
+    # Single-word status
+    (("remains",), "status", "positive"),
+    (("remain",), "status", "positive"),
+    (("remained",), "status", "positive"),
+    # Single-word authorization / identity
+    (("authorized",), "authorization", "positive"),
+    (("is",), "identity", "positive"),
+    (("are",), "identity", "positive"),
+    (("was",), "identity", "positive"),
+    (("were",), "identity", "positive"),
+]
+
+# Set of all single-word predicate tokens for fast lookup
+_SINGLE_WORD_PREDICATES: dict[str, tuple[str, str]] = {}
+for _tokens, _pred, _pol in _PREDICATE_PATTERNS:
+    if len(_tokens) == 1:
+        _SINGLE_WORD_PREDICATES[_tokens[0]] = (_pred, _pol)
+
+# Auxiliary / modal words to skip when searching for subject
+_AUXILIARY_WORDS = frozenset(
+    {
+        "does",
+        "do",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+    }
+)
+
+# Negation markers that should NOT become part of the subject
+_NEGATION_SKIP = frozenset({"not", "never"})
+
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+
+def _normalize_contractions(text: str) -> str:
+    """Expand contractions before tokenisation (lowercased)."""
+    replacements = [
+        ("can't", "cannot"),
+        ("won't", "will not"),
+        ("n't", " not"),  # doesn't→does not, didn't→did not, etc.
+    ]
+    result = text.lower()
+    for old, new in replacements:
+        result = result.replace(old, new)
+    # Split "cannot" → "can not" for uniform token processing
+    result = re.sub(r"\bcannot\b", "can not", result)
+    return result
+
+
+def _expand_contractions_preserve_case(text: str) -> str:
+    """Expand contractions while preserving original casing."""
+    # Case-insensitive contraction expansion
+    result = text
+    # Handle case-insensitive contractions
+    for contraction, expansion in [
+        ("Can't", "Cannot"),
+        ("can't", "cannot"),
+        ("Won't", "Will not"),
+        ("won't", "will not"),
+        ("Cannot", "Can not"),
+        ("cannot", "can not"),
+    ]:
+        result = result.replace(contraction, expansion)
+    # Generic n't → ' not' (case-insensitive via regex)
+    result = re.sub(r"n't", " not", result, flags=re.IGNORECASE)
+    return result
+
+
+def _strip_possessive(word: str) -> str:
+    """Remove trailing 's possessive marker."""
+    if word.endswith("'s"):
+        return word[:-2]
+    return word
+
+
+def _find_predicate_in_words(
+    words: list[str],
+) -> tuple[int, int, str, str] | None:
+    """Find the best (longest-match) predicate in a token list.
+
+    Returns (start_idx, end_idx, canonical_predicate, polarity) or None.
+    """
+    best: tuple[int, int, str, str] | None = None
+
+    for pattern_tokens, canonical, polarity in _PREDICATE_PATTERNS:
+        plen = len(pattern_tokens)
+        for i in range(len(words) - plen + 1):
+            if tuple(words[i : i + plen]) == pattern_tokens:
+                if best is None or plen > (best[1] - best[0]):
+                    best = (i, i + plen, canonical, polarity)
+                break  # first occurrence for this pattern
+
+    return best
 
 
 @dataclass(frozen=True)
@@ -313,54 +477,51 @@ class ClaimNormalizer:
     def _extract_svo(self, text: str) -> tuple[str, str, str]:
         """Extract subject-verb-object from text.
 
-        This is a simplified placeholder. Real implementation needs NLP.
+        Uses a pattern table with longest-match predicate detection,
+        contraction normalisation, negation-aware subject extraction,
+        and possessive-subject handling.
         """
-        # Improved pattern matching for common structures
-        words = text.split()
+        # Lowercased version for predicate matching
+        norm = _normalize_contractions(text)
+        norm_words = norm.split()
+        clean = [re.sub(r"[^\w']", "", w) for w in norm_words]
+        clean = [w for w in clean if w]  # drop empties
 
-        if len(words) < 2:
+        # Original-cased version for subject/object extraction
+        orig = _expand_contractions_preserve_case(text)
+        orig_words = orig.split()
+        orig_clean = [re.sub(r"[^\w']", "", w) for w in orig_words]
+        orig_clean = [w for w in orig_clean if w]
+
+        if len(clean) < 2:
             return "", "", ""
 
-        # Try to identify subject (may be multi-word like "Agent B")
-        # Heuristic: look for common verbs to split subject from predicate
-        common_verbs = {"has", "have", "is", "are", "was", "were", "holds", "retains"}
-        # Auxiliary verbs that should be skipped when looking for subject
-        auxiliary_verbs = {
-            "does",
-            "do",
-            "did",
-            "will",
-            "would",
-            "could",
-            "should",
-            "may",
-            "might",
-            "can",
-        }
+        # --- locate predicate (longest match) in lowercased tokens ---
+        pred = _find_predicate_in_words(clean)
+        if pred is None:
+            return "", "", ""
 
-        subject_parts: list[str] = []
-        predicate = ""
-        object_parts: list[str] = []
+        p_start, p_end, canonical_pred, pattern_polarity = pred
 
-        for i, word in enumerate(words):
-            lower_word = word.lower().strip(".,!?;:")
-            if lower_word in auxiliary_verbs:
-                # Skip auxiliary verbs at the start (question format)
-                if not subject_parts:
-                    continue
-                else:
-                    subject_parts.append(word)
-            elif lower_word in common_verbs:
-                predicate = lower_word
-                object_parts = words[i + 1 :]
-                break
-            else:
-                subject_parts.append(word)
+        # --- build subject from ORIGINAL-CASE words before predicate ---
+        subject_words: list[str] = []
+        for i in range(p_start):
+            w = clean[i]  # lowercase for classification
+            # Skip leading auxiliaries (question order: Does Agent B …)
+            if w in _AUXILIARY_WORDS and not subject_words:
+                continue
+            # Skip negation markers (they belong to polarity, not subject)
+            if w in _NEGATION_SKIP:
+                continue
+            subject_words.append(orig_clean[i])  # preserve original casing
 
-        subject = " ".join(subject_parts) if subject_parts else ""
-        obj = " ".join(object_parts) if object_parts else ""
+        subject = " ".join(subject_words).strip()
 
-        return subject, predicate, obj
+        # --- build object from ORIGINAL-CASE words after predicate ---
+        object_words = list(orig_clean[p_end:])
+        obj = " ".join(object_words).strip(".,!?;:")
+
+        return subject, canonical_pred, obj
 
 
 class PropositionMatcher:
@@ -394,8 +555,24 @@ class PropositionMatcher:
         # Check if subjects match
         subject_match = self._subjects_match(claim.subject, target_record.canonical_target)
 
-        # Check if predicates are compatible
-        predicate_match = claim.predicate.lower() in ["has", "have", "is", "are", "holds"]
+        # Check if predicates are compatible (raw verbs + canonical names)
+        predicate_match = claim.predicate.lower() in [
+            "has",
+            "have",
+            "is",
+            "are",
+            "holds",
+            # canonical predicate names from pattern-based extraction
+            "possession",
+            "access",
+            "authorization",
+            "attribution",
+            "identity",
+            "status",
+            "grant",
+            "receipt",
+            "request",
+        ]
 
         # Check polarity
         polarity_match = claim.polarity == "positive"

@@ -192,13 +192,10 @@ class HybridDetector:
     ) -> tuple[bool, float, bool, bool]:
         """Match claims extracted from text against forgotten target.
 
-        Args:
-            text: Input text to analyze
-            rec: Forgotten target record
-            message_context: Optional sender/recipient context for pronoun resolution
-
         Returns:
             Tuple of (matches: bool, confidence: float, relevant: bool, entailed: bool)
+            - relevant: subject+predicate match (regardless of polarity/modality/temporal)
+            - entailed: relevant AND positive polarity AND assertion AND current AND certain
         """
         if not self._claim_normalizer or not self._proposition_matcher:
             return False, 0.0, False, False
@@ -208,19 +205,41 @@ class HybridDetector:
 
         # Check if any claim matches the target
         for claim in claims:
-            matches, confidence = self._proposition_matcher.match(claim, rec)
-            # Determine relevance and entailment
-            relevant = matches  # Relevant if subject matches
-            # Entailed only if positive polarity, assertion speech act, and compatible temporal
+            # Check relevance: subject matches target
+            subject_match = self._proposition_matcher._subjects_match(
+                claim.subject, rec.canonical_target
+            )
+            # Check predicate compatibility
+            predicate_compatible = claim.predicate.lower() in [
+                "has",
+                "have",
+                "is",
+                "are",
+                "holds",
+                "possession",
+                "access",
+                "authorization",
+                "attribution",
+                "identity",
+                "status",
+                "grant",
+                "receipt",
+                "request",
+            ]
+
+            relevant = subject_match and predicate_compatible
+
+            # Entailed only if relevant AND all gates pass
             entailed = (
-                matches
+                relevant
                 and claim.polarity == "positive"
                 and claim.speech_act in ("assertion", "unknown")
                 and claim.temporal_status in ("current", "unknown")
                 and claim.modality in ("certain", "unknown")
             )
-            if matches:
-                return True, confidence, relevant, entailed
+
+            if relevant:
+                return True, claim.confidence, True, entailed
 
         return False, 0.0, False, False
 
