@@ -475,14 +475,28 @@ class TestEnforcementIsActive:
     """Tests for the enforcement_is_active function (P0-1: always True)."""
 
     def test_enforcement_always_active(self) -> None:
-        """P0-1: Firewall enforcement is always active regardless of monitoring."""
+        """Enforcement honours monitoring duration (zero-based, continuous precedence)."""
 
-        # All monitoring configs should result in enforcement being active
-        for continuous in [True, False]:
-            for duration in [0, 1, 3, 5]:
-                m = MonitoringConfig(continuous=continuous, duration_rounds=duration)
-                for r in range(10):
-                    assert enforcement_is_active(monitoring=m, post_forget_round=r) is True
+        # Continuous monitoring: always active
+        m_cont = MonitoringConfig(continuous=True, duration_rounds=0)
+        for r in range(10):
+            assert enforcement_is_active(monitoring=m_cont, post_forget_round=r) is True
+
+        # Duration 0: never active (0-indexed, round 0 already expired)
+        m_zero = MonitoringConfig(continuous=False, duration_rounds=0)
+        for r in range(5):
+            assert enforcement_is_active(monitoring=m_zero, post_forget_round=r) is False
+
+        # Duration 1: active at round 0 only
+        m_one = MonitoringConfig(continuous=False, duration_rounds=1)
+        assert enforcement_is_active(monitoring=m_one, post_forget_round=0) is True
+        assert enforcement_is_active(monitoring=m_one, post_forget_round=1) is False
+
+        # Duration 3: active at rounds 0, 1, 2
+        m_three = MonitoringConfig(continuous=False, duration_rounds=3)
+        assert enforcement_is_active(monitoring=m_three, post_forget_round=0) is True
+        assert enforcement_is_active(monitoring=m_three, post_forget_round=2) is True
+        assert enforcement_is_active(monitoring=m_three, post_forget_round=3) is False
 
     def test_should_monitor_continuous(self) -> None:
         """Test _should_monitor for continuous monitoring."""
