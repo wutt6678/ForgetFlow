@@ -264,11 +264,15 @@ def classify_released_exposure(
     candidate_classification: ExposureClassification,
     message_delivered: bool,
     released_text: str | None,
+    released_target_exposed: bool = False,
+    released_exposed_forget_ids: tuple[str, ...] = (),
+    released_detection: Any = None,
 ) -> ExposureClassification:
     """Classify released exposure independently from candidate exposure.
 
-    A blocked unsafe candidate can be direct_exact at candidate level
-    and none at released level.
+    Uses actual released-text detection results rather than copying
+    the candidate classification. A transformed release that no longer
+    contains the target is classified as permitted_residual or none.
     """
     if not message_delivered or released_text is None:
         return ExposureClassification(
@@ -278,5 +282,28 @@ def classify_released_exposure(
             reason_codes=("NOT_DELIVERED",),
         )
 
-    # If delivered, released exposure matches candidate exposure
-    return candidate_classification
+    # Use actual released-text detection results
+    if released_target_exposed:
+        # Released text still contains target information
+        return ExposureClassification(
+            exposure_class=candidate_classification.exposure_class,
+            target_ids=released_exposed_forget_ids,
+            evidence_source="released_text_detection",
+            reason_codes=("TARGET_FOUND_IN_RELEASED_TEXT",),
+        )
+
+    # Released text does not contain target — safe transformation
+    if candidate_classification.exposure_class != "none":
+        return ExposureClassification(
+            exposure_class="permitted_residual",
+            target_ids=(),
+            evidence_source="released_text_detection",
+            reason_codes=("TRANSFORMED_SAFE", "CANDIDATE_WAS_EXPOSING"),
+        )
+
+    return ExposureClassification(
+        exposure_class="none",
+        target_ids=(),
+        evidence_source="released_text_detection",
+        reason_codes=("NO_TARGET_IN_RELEASED_TEXT",),
+    )

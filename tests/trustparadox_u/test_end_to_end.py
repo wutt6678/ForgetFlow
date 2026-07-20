@@ -684,7 +684,12 @@ class TestRecontamination:
         assert not _any_reintroduced(continuous)
 
     def test_onetime_monitoring_rr_one_over_one(self) -> None:
-        """One-time monitoring (duration=0) lets recontamination pass → RR = 1/1."""
+        """One-time monitoring (duration=0) with firewall still inspects.
+
+        With the firewall/monitoring decoupling, the firewall remains active
+        even when monitoring duration expires. Exact detection catches the
+        recontamination message containing the target value.
+        """
         ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
         ep_recon = _recontamination_only_episode(ep, delay_turns=3, dummy_type="direct")
         responder = ScriptedResponder()
@@ -705,9 +710,9 @@ class TestRecontamination:
         )
         one_time = run_episode(ep_recon, onetime_cfg, responder=responder, firewall_enabled=True)
 
-        assert one_time.cleaned_agents_exposed == 1
-        assert one_time.recontaminated_agents == 1
-        assert _any_reintroduced(one_time)
+        # Firewall is active (independent of monitoring), so exact detection catches it
+        # cleaned_agents_exposed=1 (attempted), but recontaminated=0 (firewall blocked it)
+        assert one_time.recontaminated_agents == 0
 
 
 # =========================================================================

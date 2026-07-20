@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Sequence
 
 from experiments.trustparadox_u.agent import (
@@ -557,12 +558,13 @@ def _process_message_turn(
     turn_counter_increment is 1 if the message was processed, 0 otherwise.
     """
     state_changes: list[ContaminationStateChange] = []
-    enforced = firewall_enabled and enforcement_is_active(
+    # Firewall inspection is independent of monitoring duration
+    monitoring_active = firewall_enabled and enforcement_is_active(
         monitoring=config.monitoring,
         post_forget_round=post_forget_round,
     )
 
-    if enforced:
+    if firewall_enabled:
         decision = sender_agent.send_message(
             recipient_id=recipient_id,
             text=msg,
@@ -633,11 +635,15 @@ def _process_message_turn(
         state_changes=state_changes,
     )
     target_exposed = bool(exposed_ids)
-    reconstructed_ids = _evaluate_reconstruction_evidence(
-        recipient_transcript=recipient_transcript.get(recipient_id, []),
-        sensitive_items=episode.sensitive_items,
-        is_reconstruction=is_reconstruction,
-    )
+    # Questions and requests do not reveal information — skip reconstruction
+    if is_attack_request:
+        reconstructed_ids: set[str] = set()
+    else:
+        reconstructed_ids = _evaluate_reconstruction_evidence(
+            recipient_transcript=recipient_transcript.get(recipient_id, []),
+            sensitive_items=episode.sensitive_items,
+            is_reconstruction=is_reconstruction,
+        )
     target_reconstructed = bool(reconstructed_ids)
     # Reintroduction tracking (only for recontamination attempts)
     if is_recontamination:
@@ -715,12 +721,15 @@ def _process_message_turn(
         )
         candidate_exposure_class = candidate_classification.exposure_class
 
-        # Classify released exposure
+        # Classify released exposure using actual released-text detection results
         message_delivered = released_text is not None and released_text != ""
         released_classification = classify_released_exposure(
             candidate_classification=candidate_classification,
             message_delivered=message_delivered,
             released_text=released_text,
+            released_target_exposed=target_exposed,
+            released_exposed_forget_ids=tuple(sorted(exposed_ids)),
+            released_detection=released_detection,
         )
         released_exposure_class = released_classification.exposure_class
 
@@ -807,7 +816,13 @@ def run_episode(
     # Collect attack types from episode phases
     attack_types = [atk.attack_type for atk in episode.phases.post_forget]
     secret_variant_ids = [si.secret_variant_id for si in episode.sensitive_items]
-    config_hash = config.config_hash()
+    # Include firewall_enabled in hash since it's a behaviorally relevant field
+    config_hash_payload = json.dumps(
+        {"config": asdict(config), "firewall_enabled": firewall_enabled},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    config_hash = hashlib.sha256(config_hash_payload.encode()).hexdigest()
 
     # Generate run_id if not provided
     if not run_id:
