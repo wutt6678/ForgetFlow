@@ -35,7 +35,7 @@ FIXTURES = [
 
 SEEDS = [42, 123, 7]
 
-# Updated conditions: removed rich_policy as it's identical to full_mvp
+# Conditions aligned with scripts/run_single_target_smoke.py
 CONDITIONS: list[tuple[str, dict, bool]] = [
     ("no_firewall", {}, False),
     (
@@ -44,6 +44,18 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=False,
+                embedding_enabled=False,
+                claim_matching_enabled=False,
+            )
+        },
+        True,
+    ),
+    (
+        "lexical_only",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
                 embedding_enabled=False,
                 claim_matching_enabled=False,
             )
@@ -75,13 +87,13 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         True,
     ),
     (
-        "no_semantic",
+        "no_claims",
         {
             "detector": DetectorConfig(
                 exact_enabled=True,
                 entity_enabled=True,
-                embedding_enabled=False,
-                claim_matching_enabled=True,
+                embedding_enabled=True,
+                claim_matching_enabled=False,
             )
         },
         True,
@@ -148,9 +160,9 @@ class TestSmokeStudyArtifacts:
     """Validate smoke study artifact production."""
 
     def test_total_run_count(self, smoke_results: tuple) -> None:
-        """3 fixtures x 3 seeds x 10 conditions = 90 runs."""
+        """3 fixtures x 3 seeds x 11 conditions = 99 runs."""
         all_results, _ = smoke_results
-        assert len(all_results) == 90
+        assert len(all_results) == 99
 
     def test_unique_run_ids(self, smoke_results: tuple) -> None:
         """All run IDs are unique."""
@@ -165,9 +177,9 @@ class TestSmokeStudyArtifacts:
         assert len(episode_ids) == 3
 
     def test_all_conditions_present(self, smoke_results: tuple) -> None:
-        """All 10 conditions are represented."""
+        """All 11 conditions are represented."""
         _, condition_results = smoke_results
-        assert len(condition_results) == 10
+        assert len(condition_results) == 11
         expected = {c[0] for c in CONDITIONS}
         assert set(condition_results.keys()) == expected
 
@@ -214,7 +226,7 @@ class TestSmokeStudyDirectionalChecks:
         """semantic-enabled leakage <= semantic-disabled leakage."""
         _, condition_results = smoke_results
         full_eval = evaluate_all(condition_results["full_mvp"])
-        no_sem_eval = evaluate_all(condition_results["no_semantic"])
+        no_sem_eval = evaluate_all(condition_results["no_embedding"])
         full_pu = full_eval.pu_rer.value or 0.0
         no_sem_pu = no_sem_eval.pu_rer.value or 0.0
         # Non-inferiority check
