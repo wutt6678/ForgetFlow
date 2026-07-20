@@ -266,3 +266,21 @@ class TransformationAttempt:
     reconstruction_safe: bool
     matched_forget_ids: tuple[str, ...]
     passed: bool
+
+
+@dataclass(frozen=True)
+class ReconstructionEvidence:
+    """Per-target reconstruction evidence.
+
+    Every positive reconstruction result must be target-specific.
+    No generic scalar score without target provenance.
+    """
+
+    forget_id: str
+    score: float
+    complete: bool
+    currently_recoverable: bool
+    reconstructed_value: str | None
+    contributing_message_ids: tuple[str, ...]
+    contributing_fragments: tuple[str, ...]
+    candidate_contributed_new_information: bool
