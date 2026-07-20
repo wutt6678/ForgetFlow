@@ -706,6 +706,12 @@ def _process_message_turn(
         # Extract reconstruction score
         reconstruction_score = decision.detector_result.reconstruction_score
 
+        # Use detector's matched_forget_ids for exposure classification
+        # This ensures exposure is based on actual detector evidence, not attack spec
+        detector_matched_ids = decision.detector_result.matched_forget_ids
+        # Combine with target_forget_ids if available (for attack context)
+        combined_matched_ids = tuple(set(detector_matched_ids) | set(target_forget_ids))
+
         # Classify candidate exposure
         candidate_classification = classify_candidate_exposure(
             exact_score=exact_score,
@@ -717,7 +723,7 @@ def _process_message_turn(
             recontamination_attempt=is_recontamination,
             permitted_residual=False,  # TODO: Implement permitted residual check
             attack_request=is_attack_request,
-            matched_forget_ids=target_forget_ids,
+            matched_forget_ids=combined_matched_ids,
         )
         candidate_exposure_class = candidate_classification.exposure_class
 
