@@ -74,6 +74,18 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         },
         True,
     ),
+    (
+        "no_semantic",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=False,
+                claim_matching_enabled=True,
+            )
+        },
+        True,
+    ),
     ("stateless", {"history": HistoryConfig(enabled=False)}, True),
     ("binary_policy", {"policy": PolicyConfig(rich_actions_enabled=False)}, True),
     ("monitoring_0", {"monitoring": MonitoringConfig(continuous=False, duration_rounds=0)}, True),
@@ -136,9 +148,9 @@ class TestSmokeStudyArtifacts:
     """Validate smoke study artifact production."""
 
     def test_total_run_count(self, smoke_results: tuple) -> None:
-        """3 fixtures x 3 seeds x 9 conditions = 81 runs."""
+        """3 fixtures x 3 seeds x 10 conditions = 90 runs."""
         all_results, _ = smoke_results
-        assert len(all_results) == 81
+        assert len(all_results) == 90
 
     def test_unique_run_ids(self, smoke_results: tuple) -> None:
         """All run IDs are unique."""
@@ -153,9 +165,9 @@ class TestSmokeStudyArtifacts:
         assert len(episode_ids) == 3
 
     def test_all_conditions_present(self, smoke_results: tuple) -> None:
-        """All 9 conditions are represented."""
+        """All 10 conditions are represented."""
         _, condition_results = smoke_results
-        assert len(condition_results) == 9
+        assert len(condition_results) == 10
         expected = {c[0] for c in CONDITIONS}
         assert set(condition_results.keys()) == expected
 
