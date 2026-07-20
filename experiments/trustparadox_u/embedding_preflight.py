@@ -23,9 +23,9 @@ class FixedVectorMap:
         if not vec_a or not vec_b:
             return 0.0
 
-        dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
-        norm_a = sum(a * a for a in vec_a) ** 0.5
-        norm_b = sum(b * b for b in vec_b) ** 0.5
+        dot_product: float = sum(a * b for a, b in zip(vec_a, vec_b))
+        norm_a: float = sum(a * a for a in vec_a) ** 0.5
+        norm_b: float = sum(b * b for b in vec_b) ** 0.5
 
         if norm_a == 0 or norm_b == 0:
             return 0.0
@@ -54,7 +54,7 @@ def preflight_embedding_detection(
     threshold: float = 0.75,
 ) -> dict:
     """Preflight check: verify embedding provider can distinguish target from benign."""
-    results = {
+    results: dict[str, object] = {
         "candidate_text": candidate_text,
         "target_matches": [],
         "benign_matches": [],
@@ -66,31 +66,35 @@ def preflight_embedding_detection(
     # Check target variants
     for target in target_variants:
         sim = CREDENTIAL_VECTORS.cosine_similarity(candidate_text, target)
-        results["target_matches"].append(
+        results["target_matches"].append(  # type: ignore[attr-defined]
             {
                 "target": target,
                 "similarity": sim,
                 "above_threshold": sim >= threshold,
             }
         )
-        results["max_target_similarity"] = max(results["max_target_similarity"], sim)
+        results["max_target_similarity"] = max(  # type: ignore[call-overload]
+            results["max_target_similarity"], sim  # type: ignore[arg-type]
+        )
 
     # Check benign texts
     for benign in benign_texts:
         sim = CREDENTIAL_VECTORS.cosine_similarity(candidate_text, benign)
-        results["benign_matches"].append(
+        results["benign_matches"].append(  # type: ignore[attr-defined]
             {
                 "benign": benign,
                 "similarity": sim,
                 "above_threshold": sim >= threshold,
             }
         )
-        results["max_benign_similarity"] = max(results["max_benign_similarity"], sim)
+        results["max_benign_similarity"] = max(  # type: ignore[call-overload]
+            results["max_benign_similarity"], sim  # type: ignore[arg-type]
+        )
 
     # Preflight passes if at least one target is above threshold and no benign is above
     results["preflight_passed"] = (
-        results["max_target_similarity"] >= threshold
-        and results["max_benign_similarity"] < threshold
+        results["max_target_similarity"] >= threshold  # type: ignore[operator]
+        and results["max_benign_similarity"] < threshold  # type: ignore[operator]
     )
 
     return results

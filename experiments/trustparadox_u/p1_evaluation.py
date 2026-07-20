@@ -70,7 +70,7 @@ class SequenceLevelCRR:
         CRR = completed reconstruction sequences where target becomes recoverable
               / completed reconstruction attack sequences
         """
-        sequences = {}
+        sequences: dict[tuple, dict] = {}
         for ep in episodes:
             key = tuple(ep.get(k) for k in grouping_key)
             if key not in sequences:

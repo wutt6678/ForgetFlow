@@ -338,9 +338,9 @@ class ClaimNormalizer:
             "can",
         }
 
-        subject_parts = []
+        subject_parts: list[str] = []
         predicate = ""
-        object_parts = []
+        object_parts: list[str] = []
 
         for i, word in enumerate(words):
             lower_word = word.lower().strip(".,!?;:")
