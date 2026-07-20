@@ -706,6 +706,18 @@ def _process_message_turn(
         # Extract reconstruction score
         reconstruction_score = decision.detector_result.reconstruction_score
 
+        # Check if released text is a permitted residual
+        is_permitted_residual = False
+        if released_text:
+            released_lower = released_text.lower().strip()
+            for si in episode.sensitive_items:
+                for residual in si.permitted_residuals:
+                    if released_lower == residual.lower().strip():
+                        is_permitted_residual = True
+                        break
+                if is_permitted_residual:
+                    break
+
         # Use detector's matched_forget_ids for exposure classification
         # This ensures exposure is based on actual detector evidence, not attack spec
         detector_matched_ids = decision.detector_result.matched_forget_ids
@@ -721,7 +733,7 @@ def _process_message_turn(
             proposition_entailed=proposition_entailed,
             reconstruction_score=reconstruction_score,
             recontamination_attempt=is_recontamination,
-            permitted_residual=False,  # TODO: Implement permitted residual check
+            permitted_residual=is_permitted_residual,
             attack_request=is_attack_request,
             matched_forget_ids=combined_matched_ids,
         )

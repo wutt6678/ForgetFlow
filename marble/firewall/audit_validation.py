@@ -7,10 +7,29 @@ in a correctly functioning firewall system.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Sequence
 
 from marble.firewall.normalization import text_contains_canonical_value
 from marble.firewall.types import DetectorResult, FirewallDecision, ForgetRecord
+
+
+class ReleaseStatus(Enum):
+    """Release validation status for a decision."""
+
+    DIAGNOSTIC_ONLY = "diagnostic_only"  # For testing/debugging only
+    RESEARCH_VALID = "research_valid"  # Valid for research use
+    RELEASE_CANDIDATE = "release_candidate"  # Ready for production release
+
+
+@dataclass(frozen=True)
+class ReleaseValidation:
+    """Result of release validation for a decision."""
+
+    status: ReleaseStatus
+    passed: bool
+    no_go_gates: tuple[str, ...]  # Gates that blocked release
+    warnings: tuple[str, ...]  # Non-blocking warnings
 
 
 @dataclass(frozen=True)
@@ -155,3 +174,81 @@ def validate_audit_invariants(
     checker = AuditInvariantChecker(active_records)
     violations = checker.check_all(decisions, active_records)
     return len(violations) == 0, violations
+
+
+def validate_release(
+    decision: FirewallDecision,
+    active_records: Sequence[ForgetRecord] | None = None,
+) -> ReleaseValidation:
+    """Validate a decision for release.
+
+    Applies semantic no-go gates to determine release status:
+    - DIAGNOSTIC_ONLY: Has violations, for testing only
+    - RESEARCH_VALID: No critical violations, valid for research
+    - RELEASE_CANDIDATE: All gates passed, ready for production
+
+    No-go gates (block release):
+    - Exact match of active target in released text
+    - Alias match of active target in released text
+    - Reconstruction score > 0.5 with matched forget_ids
+    - Post-transform recheck failed
+
+    Warnings (non-blocking):
+    - Embedding similarity > 0.7
+    - Claim entailment detected
+    """
+    no_go_gates: list[str] = []
+    warnings: list[str] = []
+    records = active_records or []
+
+    # No-go gate 1: Exact match of active target
+    det = decision.detector_result
+    if det.exact_score >= 1.0 and det.matched_forget_ids:
+        no_go_gates.append("EXACT_MATCH_DETECTED")
+
+    # No-go gate 2: Alias match of active target
+    if det.entity_score > 0.0 and det.matched_forget_ids:
+        no_go_gates.append("ALIAS_MATCH_DETECTED")
+
+    # No-go gate 3: High reconstruction score
+    if det.reconstruction_score > 0.5 and det.matched_forget_ids:
+        no_go_gates.append("HIGH_RECONSTRUCTION_SCORE")
+
+    # No-go gate 4: Post-transform recheck failed
+    if "RECHECK_FAILED" in decision.reason_codes:
+        no_go_gates.append("RECHECK_FAILED")
+
+    # No-go gate 5: Canonical value leak in released text
+    if decision.released_text:
+        for rec in records:
+            if text_contains_canonical_value(decision.released_text, rec.canonical_target):
+                no_go_gates.append(f"CANONICAL_VALUE_LEAK:{rec.forget_id}")
+                break
+
+    # Warning 1: Embedding similarity
+    if det.semantic_score > 0.7:
+        warnings.append("HIGH_EMBEDDING_SIMILARITY")
+
+    # Warning 2: Claim entailment
+    for ev in det.record_evidence:
+        if ev.proposition_entailed:
+            warnings.append("CLAIM_ENTAILMENT_DETECTED")
+            break
+
+    # Determine release status
+    if no_go_gates:
+        status = ReleaseStatus.DIAGNOSTIC_ONLY
+        passed = False
+    elif warnings:
+        status = ReleaseStatus.RESEARCH_VALID
+        passed = True
+    else:
+        status = ReleaseStatus.RELEASE_CANDIDATE
+        passed = True
+
+    return ReleaseValidation(
+        status=status,
+        passed=passed,
+        no_go_gates=tuple(no_go_gates),
+        warnings=tuple(warnings),
+    )
