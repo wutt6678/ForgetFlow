@@ -29,6 +29,9 @@ class AssertionSuiteSummary:
     individual_assertions_passed: int
     individual_assertions_failed: int
     
+    # Iteration 1: Add consistency failure tracking
+    assertion_consistency_failures: int
+    
     audit_failures: int
     suite_passed: bool
     
@@ -55,9 +58,16 @@ class AssertionSuiteSummary:
         
         audit_failures = sum(1 for r in results if r.get("audit_failed", False))
         
+        # Iteration 1: Count consistency violations
+        consistency_failures = sum(
+            len(r.get("consistency_violations", []))
+            for r in results
+        )
+        
         suite_passed = (
             assertion_failed == 0
             and ind_failed == 0
+            and consistency_failures == 0
             and audit_failures == 0
             and completed == total
         )
@@ -73,6 +83,7 @@ class AssertionSuiteSummary:
             assertion_cases_failed=assertion_failed,
             individual_assertions_passed=ind_passed,
             individual_assertions_failed=ind_failed,
+            assertion_consistency_failures=consistency_failures,
             audit_failures=audit_failures,
             suite_passed=suite_passed,
         )
