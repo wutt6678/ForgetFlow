@@ -1,10 +1,11 @@
-"""P0.2-P0.6: Reconstruction evidence, CRR sequence accounting, audit invariants.
+"""P0.2-P0.6, P1.4: Reconstruction evidence, CRR sequence accounting, audit invariants.
 
 Tests for:
 - P0.2: Reconstruction uses only delivered recipient-visible content
 - P0.3: Per-target reconstruction evidence with full provenance
 - P0.4: CRR sequence-level accounting
 - P0.6: Reconstruction-evidence audit invariants
+- P1.4: Utility metrics consistency
 """
 
 import pytest
@@ -446,3 +447,46 @@ class TestInformationBearing:
     def test_fragment_texts_are_information_bearing(self, bearing_text: str) -> None:
         """Fragment-bearing messages must be information-bearing."""
         assert is_information_bearing(bearing_text) is True
+
+
+# ── P1.4: Utility metrics consistency ────────────────────────────────
+
+
+class TestUtilityMetricsConsistency:
+    """P1.4: task_success_rate and utility_score must be consistent."""
+
+    def test_task_success_is_boolean(self) -> None:
+        """task_success must be a boolean per episode."""
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1",
+            scenario_id="s1", trust_level="high", seed=42,
+            task_success=True,
+        )
+        assert isinstance(result.task_success, bool)
+
+    def test_task_contribution_requires_task_relevance(self) -> None:
+        """task_contribution_successful requires task_relevant."""
+        from experiments.trustparadox_u.runner import TurnResult
+
+        turn = TurnResult(
+            turn_id=0, phase="POST_FORGET",
+            sender_id="A", recipient_id="B",
+            candidate_text="text", released_text="text",
+            task_relevant=False,
+            task_contribution_successful=True,
+        )
+        # This should be flagged by audit
+        from experiments.trustparadox_u.audit_results import audit_episode_result
+        from experiments.trustparadox_u.runner import EpisodeResult
+
+        result = EpisodeResult(
+            run_id="r1", episode_id="e1",
+            scenario_id="s1", trust_level="high", seed=42,
+            turns=[turn],
+            metadata={"config_hash": "abc123"},
+        )
+        findings = audit_episode_result(result)
+        codes = [f.code for f in findings]
+        assert "TASK_CONTRIBUTION_WITHOUT_RELEVANCE" in codes

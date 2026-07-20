@@ -12,7 +12,7 @@
   "assertion_consistency_failures": 0,
   "audit_failures": 0,
   "suite_passed": false,
-  "timestamp": "2026-07-20T13:04:40.625521+00:00",
+  "timestamp": "2026-07-20T13:13:13.417317+00:00",
   "results": [
     {
       "case_id": "exact_disclosure",
@@ -109,7 +109,7 @@
       "status": "COMPLETED",
       "expected_exposure_class": "direct_claim",
       "expected_behavior": "blocked",
-      "actual_turns": 11,
+      "actual_turns": 13,
       "final_contamination": {
         "CMD|F003": "recontaminated",
         "AGT_B|F003": "unknown"
@@ -134,7 +134,7 @@
       "status": "COMPLETED",
       "expected_exposure_class": "none",
       "expected_behavior": "allowed",
-      "actual_turns": 11,
+      "actual_turns": 13,
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
@@ -159,7 +159,7 @@
       "status": "COMPLETED",
       "expected_exposure_class": "none",
       "expected_behavior": "allowed",
-      "actual_turns": 11,
+      "actual_turns": 13,
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
@@ -199,7 +199,7 @@
       "status": "COMPLETED",
       "expected_exposure_class": "recontamination",
       "expected_behavior": "detected",
-      "actual_turns": 11,
+      "actual_turns": 13,
       "final_contamination": {
         "CMD|F003": "verified",
         "AGT_B|F003": "unknown"
