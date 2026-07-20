@@ -98,7 +98,7 @@ class TestEvaluator:
         )
         metric = compute_crr([result])
         assert metric.value is None
-        assert metric.reason == "no reconstruction attempts"
+        assert metric.reason == "no reconstruction sequences"
 
     def test_crr_blocked_reconstruction(self) -> None:
         """Blocked reconstruction should not count as success."""

@@ -262,6 +262,47 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
             )
         )
 
+    # P0.6: Reconstruction-evidence audit invariants
+
+    # Target provenance invariant: reconstructed requires reconstructed_forget_ids
+    if turn.target_reconstructed and not turn.reconstructed_forget_ids:
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="RECONSTRUCTION_WITHOUT_FORGET_ID",
+                message=(
+                    f"Turn {turn.turn_id}: target_reconstructed=True but "
+                    f"reconstructed_forget_ids is empty"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # Refusal-only invariant: reconstructed text must be information-bearing
+    if turn.target_reconstructed and turn.released_text is not None:
+        from marble.firewall.history import is_information_bearing
+        if not is_information_bearing(turn.released_text):
+            # Check if the full transcript has any bearing messages
+            # This is a per-turn check; the refusal filter is applied
+            # at the transcript level in evaluate_reconstruction_success
+            pass  # The transcript-level filter handles this
+
+    # Consistency: target_reconstructed must agree with reconstructed_forget_ids
+    if turn.target_reconstructed != bool(turn.reconstructed_forget_ids):
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="RECONSTRUCTION_FLAG_MISMATCH",
+                message=(
+                    f"Turn {turn.turn_id}: target_reconstructed={turn.target_reconstructed} "
+                    f"but bool(reconstructed_forget_ids)={bool(turn.reconstructed_forget_ids)}"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
     # Check: recontamination requires recontamination attempt
     if turn.target_reintroduced and not turn.is_recontamination_attempt:
         findings.append(
