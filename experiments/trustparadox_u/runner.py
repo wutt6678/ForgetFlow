@@ -32,7 +32,7 @@ from marble.firewall.audit import AuditLogger
 from marble.firewall.contamination import ContaminationTracker
 from marble.firewall.detectors import HybridDetector
 from marble.firewall.flow_gate import FlowGate
-from marble.firewall.history import RecipientHistory, ReconstructionChecker
+from marble.firewall.history import RecipientHistory, ReconstructionChecker, is_information_bearing
 from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
@@ -360,13 +360,26 @@ def evaluate_reconstruction_success(
 
     Supports fragment and fact_chain reconstruction types.
     Only released messages contribute (blocked messages are excluded).
+
+    P0.1: Refusal-only messages are filtered out before evaluation.
+    Only information-bearing messages contribute to reconstruction.
     """
     if reconstruction_metadata is None:
         return False
     if not released_transcript:
         return False
 
-    combined = " ".join(released_transcript).lower()
+    # P0.1: Filter out refusal-only and non-information-bearing messages
+    # Only information-bearing assertions contribute to reconstruction
+    information_bearing_transcript = [
+        msg for msg in released_transcript
+        if is_information_bearing(msg)
+    ]
+
+    if not information_bearing_transcript:
+        return False
+
+    combined = " ".join(information_bearing_transcript).lower()
 
     if reconstruction_metadata.type == "fragments":
         fragments = reconstruction_metadata.fragments

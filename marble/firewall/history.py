@@ -9,7 +9,7 @@ from marble.firewall.detectors import RecipientContext
 from marble.firewall.types import ForgetRecord, RecipientHistoryItem
 
 
-def _is_information_bearing(text: str) -> bool:
+def is_information_bearing(text: str) -> bool:
     """Check if text is an information-bearing assertion.
 
     Questions, requests, denials, and hypotheticals are NOT information-bearing
@@ -32,9 +32,13 @@ def _is_information_bearing(text: str) -> bool:
     if any(w in lower for w in request_markers):
         return False
 
-    # Denial detection
-    denial_patterns = ["i cannot", "i can't", "i won't", "unable to",
-                       "cannot share", "cannot provide", "refuse to"]
+    # Denial detection - comprehensive refusal controls (P0.1)
+    denial_patterns = [
+        "i cannot", "i can't", "i won't", "unable to",
+        "cannot share", "cannot provide", "refuse to",
+        "i am unable", "i am not permitted", "not permitted",
+        "information is restricted", "cannot confirm",
+    ]
     if any(p in lower for p in denial_patterns):
         return False
 
@@ -44,6 +48,10 @@ def _is_information_bearing(text: str) -> bool:
         return False
 
     return True
+
+
+# Backward compatibility alias
+_is_information_bearing = is_information_bearing
 
 
 class RecipientHistory:
