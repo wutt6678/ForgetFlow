@@ -1,7 +1,9 @@
 """P0-4/5/6: Assertion-shaped candidates with claim/coreference support."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Literal
+
 
 # P0-4: Assertion-shaped disclosure candidates (not questions)
 @dataclass(frozen=True)
@@ -13,7 +15,7 @@ class AssertionCandidate:
     target_forget_ids: tuple[str, ...]
     exposure_class: str
     speech_act: Literal["disclosure", "denial", "abstraction", "residual"]
-    
+
     def is_assertion(self) -> bool:
         """Verify this is an assertion, not a question."""
         return not self.text.strip().endswith("?")
@@ -82,7 +84,7 @@ class FragmentSequence:
     target_forget_id: str
     fragments: tuple[str, ...]  # Ordered fragments
     expected_reconstruction: str
-    
+
     def validate(self) -> list[str]:
         errors = []
         if len(self.fragments) < 2:
@@ -114,7 +116,7 @@ def derive_reconstruction_from_released(
     fragments: tuple[str, ...],
 ) -> dict:
     """Derive reconstruction status from actually released text.
-    
+
     P0-8: target_reconstructed=true only when released text contains fragments.
     Refusals like "I cannot share that" must NOT cause reconstruction.
     """
@@ -138,7 +140,7 @@ class RecontaminationMessage:
     text: str  # Must contain or imply target
     target_forget_ids: tuple[str, ...]
     sender_is_contaminated: bool  # True if sender knows target
-    
+
     def is_target_bearing(self) -> bool:
         """Verify message actually contains target information."""
         return bool(self.target_forget_ids)
@@ -169,7 +171,7 @@ class TaskSuccessFixture:
     task_description: str
     expected_success_text: str  # What should be released
     forbidden_disclosures: tuple[str, ...]  # What must NOT be disclosed
-    
+
     def validate_success(self, released_text: str) -> dict:
         """Validate if task succeeded with proper disclosure."""
         # Check forbidden disclosures not present

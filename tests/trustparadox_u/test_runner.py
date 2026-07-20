@@ -476,8 +476,7 @@ class TestEnforcementIsActive:
 
     def test_enforcement_always_active(self) -> None:
         """P0-1: Firewall enforcement is always active regardless of monitoring."""
-        from experiments.trustparadox_u.runner import _should_monitor
-        
+
         # All monitoring configs should result in enforcement being active
         for continuous in [True, False]:
             for duration in [0, 1, 3, 5]:

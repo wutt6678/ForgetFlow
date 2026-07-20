@@ -7,8 +7,6 @@ Gap addressed: ST-ATTACK-008
 
 from __future__ import annotations
 
-import pytest
-
 from marble.firewall.detectors import HybridDetector
 from marble.firewall.types import ForgetRecord
 

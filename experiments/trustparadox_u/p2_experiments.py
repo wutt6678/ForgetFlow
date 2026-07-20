@@ -1,10 +1,12 @@
 """P2-26 through P2-31: Publication-scale experiment infrastructure."""
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Literal, Any
+
 import hashlib
 import json
 import statistics
+from dataclasses import dataclass
+from typing import Literal
+
 
 # P2-26: Generate and freeze real-LLM candidate corpus
 @dataclass
@@ -14,7 +16,7 @@ class FrozenCandidateCorpus:
     version: str
     candidates: list[dict]
     corpus_hash: str
-    
+
     @classmethod
     def create_and_freeze(cls, corpus_id: str, version: str, candidates: list[dict]) -> "FrozenCandidateCorpus":
         """Create and freeze a candidate corpus."""
@@ -26,7 +28,7 @@ class FrozenCandidateCorpus:
             candidates=candidates,
             corpus_hash=corpus_hash,
         )
-    
+
     def validate_frozen(self) -> bool:
         """Validate corpus hasn't been modified."""
         payload = json.dumps(self.candidates, sort_keys=True, separators=(",", ":"))
@@ -39,7 +41,7 @@ class CorpusAnnotation:
     annotator_id: str
     annotation_method: Literal["human", "model", "ruleset"]
     annotations: list[dict]
-    
+
     def annotate_candidate(self, candidate: dict) -> dict:
         """Annotate a single candidate."""
         return {
@@ -56,13 +58,13 @@ class CorpusAnnotation:
 @dataclass
 class ParameterSweep:
     """Parameter sweep infrastructure."""
-    
+
     TRUST_LEVELS = ["low", "default", "high"]
     EMBEDDING_THRESHOLDS = [0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
     CLAIM_THRESHOLDS = [0.55, 0.65, 0.75, 0.85]
     HISTORY_WINDOWS = [0, 1, 2, 4, 8, None]  # None = unbounded
     MONITORING_DURATIONS = [0, 1, 2, 4, None]  # None = continuous
-    
+
     @staticmethod
     def generate_sweep_configs(
         base_config: dict,
@@ -70,7 +72,7 @@ class ParameterSweep:
     ) -> list[dict]:
         """Generate all configurations for parameter sweep."""
         configs = [base_config.copy()]
-        
+
         for param in sweep_params:
             new_configs = []
             for config in configs:
@@ -90,14 +92,14 @@ class ParameterSweep:
                         new_config.setdefault("detector", {})["claim_confidence_threshold"] = thresh
                         new_configs.append(new_config)
             configs = new_configs
-        
+
         return configs
 
 # P2-29: Held-out paraphrase and grammar tests
 @dataclass
 class HeldOutTests:
     """Held-out test families for generalization."""
-    
+
     PARAPHRASE_VARIANTS = [
         "passive_voice",
         "possessive_form",
@@ -106,7 +108,7 @@ class HeldOutTests:
         "historical_claim",
         "future_claim",
     ]
-    
+
     GRAMMAR_VARIANTS = [
         "punctuation_splitting",
         "unicode_variants",
@@ -114,7 +116,7 @@ class HeldOutTests:
         "json_disclosure",
         "code_block_disclosure",
     ]
-    
+
     @staticmethod
     def generate_held_out_candidates(base_candidate: dict) -> list[dict]:
         """Generate held-out variants of a base candidate."""
@@ -130,7 +132,7 @@ class HeldOutTests:
 @dataclass
 class PerformanceMetrics:
     """Performance and cost tracking."""
-    
+
     @staticmethod
     def calculate_latency_metrics(latencies: list[float]) -> dict:
         """Calculate latency statistics."""
@@ -144,7 +146,7 @@ class PerformanceMetrics:
             "p95": sorted_lat[int(n * 0.95)] if n >= 20 else sorted_lat[-1],
             "p99": sorted_lat[int(n * 0.99)] if n >= 100 else sorted_lat[-1],
         }
-    
+
     @staticmethod
     def calculate_cost_metrics(
         chat_calls: int,
@@ -170,7 +172,7 @@ class PerformanceMetrics:
 @dataclass
 class StatisticalAnalysis:
     """Statistical analysis for experiments."""
-    
+
     @staticmethod
     def calculate_confidence_interval(
         values: list[float],
@@ -179,15 +181,15 @@ class StatisticalAnalysis:
         """Calculate confidence interval."""
         if len(values) < 2:
             return {"mean": values[0] if values else 0.0, "ci_lower": 0.0, "ci_upper": 0.0}
-        
+
         n = len(values)
         mean = statistics.mean(values)
         stdev = statistics.stdev(values)
-        
+
         # Approximate z-score for 95% CI
         z = 1.96 if confidence == 0.95 else 2.576  # 99% CI
         margin = z * stdev / (n ** 0.5)
-        
+
         return {
             "mean": mean,
             "ci_lower": mean - margin,
@@ -195,25 +197,25 @@ class StatisticalAnalysis:
             "confidence": confidence,
             "n": n,
         }
-    
+
     @staticmethod
     def paired_t_test(values_a: list[float], values_b: list[float]) -> dict:
         """Perform paired t-test."""
         if len(values_a) != len(values_b) or len(values_a) < 2:
             return {"t_statistic": 0.0, "p_value": 1.0, "significant": False}
-        
+
         diffs = [a - b for a, b in zip(values_a, values_b)]
         mean_diff = statistics.mean(diffs)
         stdev_diff = statistics.stdev(diffs)
-        
+
         if stdev_diff == 0:
             return {"t_statistic": 0.0, "p_value": 1.0, "significant": False}
-        
+
         t_stat = mean_diff / (stdev_diff / (len(diffs) ** 0.5))
         # Approximate p-value (simplified)
         p_value = 2 * (1 - abs(t_stat) / 3)  # Very rough approximation
         p_value = max(0.0, min(1.0, p_value))
-        
+
         return {
             "t_statistic": t_stat,
             "p_value": p_value,

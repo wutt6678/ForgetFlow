@@ -1,8 +1,9 @@
 """P0-3 through P0-15: Comprehensive validation infrastructure."""
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Literal, Any
-import json
+
+from dataclasses import dataclass
+from typing import Any, Literal
+
 
 # P0-3: Fixture-role validation
 @dataclass(frozen=True)
@@ -17,7 +18,7 @@ class CandidateFixture:
     expected_speech_act: str
     expected_target_ids: tuple[str, ...]
     expected_exposure_class: str
-    
+
     def validate(self) -> list[str]:
         errors = []
         if self.role == "attack_request" and not any(
@@ -75,7 +76,7 @@ class AuditIdentity:
     seed: int
     config_hash: str
     condition: str
-    
+
     def validate(self, episode_metadata: dict) -> list[str]:
         errors = []
         if not self.run_id:

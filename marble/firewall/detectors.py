@@ -117,7 +117,7 @@ class HybridDetector:
             proposition_relevant = False
             proposition_entailed = False
             claim_reason_codes: list[str] = []
-            
+
             if self.claim_matching_enabled and self._claim_normalizer and self._proposition_matcher:
                 claim_match, claim_confidence, claim_relevant, claim_entailed = self._match_claims(
                     text, rec, message_context
@@ -125,7 +125,7 @@ class HybridDetector:
                 proposition_score = claim_confidence
                 proposition_relevant = claim_relevant
                 proposition_entailed = claim_entailed
-                
+
                 if claim_relevant:
                     claim_reason_codes.append("CLAIM_SUBJECT_MATCH")
                 if claim_entailed:

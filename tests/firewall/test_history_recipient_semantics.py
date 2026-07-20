@@ -8,7 +8,7 @@ Gap addressed: ST-HIST-005
 
 from __future__ import annotations
 
-from marble.firewall.history import RecipientHistory, ReconstructionChecker
+from marble.firewall.history import RecipientHistory
 from marble.firewall.types import RecipientHistoryItem
 
 

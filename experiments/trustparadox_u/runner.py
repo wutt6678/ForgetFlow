@@ -14,11 +14,11 @@ from experiments.trustparadox_u.agent import (
     TaskOutcomeSource,
     TrustParadoxAgent,
 )
-from experiments.trustparadox_u.attacks import FRAGMENTATION_ATTACKS, build_attack
 from experiments.trustparadox_u.assertion_contracts import (
     classify_candidate_exposure,
     classify_released_exposure,
 )
+from experiments.trustparadox_u.attacks import FRAGMENTATION_ATTACKS, build_attack
 from experiments.trustparadox_u.config import ExperimentConfig, MonitoringConfig
 from experiments.trustparadox_u.dataset import (
     TrustParadoxEpisode,
@@ -671,13 +671,13 @@ def _process_message_turn(
     # Classify candidate exposure
     candidate_exposure_class = "none"
     released_exposure_class = "none"
-    
+
     if decision and decision.detector_result:
         # Extract detector scores
         exact_score = decision.detector_result.exact_score
         entity_score = decision.detector_result.entity_score
         embedding_score = decision.detector_result.semantic_score  # semantic_score is the embedding score
-        
+
         # Extract claim evidence
         proposition_relevant = False
         proposition_entailed = False
@@ -686,10 +686,10 @@ def _process_message_turn(
                 proposition_relevant = True
             if ev.proposition_entailed:
                 proposition_entailed = True
-        
+
         # Extract reconstruction score
         reconstruction_score = decision.detector_result.reconstruction_score
-        
+
         # Classify candidate exposure
         candidate_classification = classify_candidate_exposure(
             exact_score=exact_score,
@@ -704,7 +704,7 @@ def _process_message_turn(
             matched_forget_ids=target_forget_ids,
         )
         candidate_exposure_class = candidate_classification.exposure_class
-        
+
         # Classify released exposure
         message_delivered = released_text is not None and released_text != ""
         released_classification = classify_released_exposure(

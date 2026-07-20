@@ -7,8 +7,9 @@ This module implements:
 - ExposureClassification: Structured exposure evidence
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Any
+
+from dataclasses import dataclass
+
 
 # Iteration 1: Top-level assertion suite summary
 @dataclass(frozen=True)
@@ -16,25 +17,25 @@ class AssertionSuiteSummary:
     """Top-level assertion suite result contract."""
     suite_type: str
     seed: int
-    
+
     total_cases: int
-    
+
     execution_completed: int
     execution_skipped: int
     execution_failed: int
-    
+
     assertion_cases_passed: int
     assertion_cases_failed: int
-    
+
     individual_assertions_passed: int
     individual_assertions_failed: int
-    
+
     # Iteration 1: Add consistency failure tracking
     assertion_consistency_failures: int
-    
+
     audit_failures: int
     suite_passed: bool
-    
+
     @classmethod
     def from_results(cls, suite_type: str, seed: int, results: list[dict]) -> "AssertionSuiteSummary":
         """Build summary from case results."""
@@ -42,10 +43,10 @@ class AssertionSuiteSummary:
         completed = sum(1 for r in results if r.get("execution_status") == "completed")
         skipped = sum(1 for r in results if r.get("execution_status") == "skipped")
         failed = sum(1 for r in results if r.get("execution_status") == "failed")
-        
+
         assertion_passed = sum(1 for r in results if r.get("assertion_passed", False))
         assertion_failed = total - assertion_passed
-        
+
         # Count individual assertions
         ind_passed = 0
         ind_failed = 0
@@ -55,15 +56,15 @@ class AssertionSuiteSummary:
                     ind_passed += 1
                 else:
                     ind_failed += 1
-        
+
         audit_failures = sum(1 for r in results if r.get("audit_failed", False))
-        
+
         # Iteration 1: Count consistency violations
         consistency_failures = sum(
             len(r.get("consistency_violations", []))
             for r in results
         )
-        
+
         suite_passed = (
             assertion_failed == 0
             and ind_failed == 0
@@ -71,7 +72,7 @@ class AssertionSuiteSummary:
             and audit_failures == 0
             and completed == total
         )
-        
+
         return cls(
             suite_type=suite_type,
             seed=seed,
@@ -96,21 +97,21 @@ class AssertionCaseResult:
     case_id: str
     execution_status: str
     assertion_passed: bool
-    
+
     expected_exposure_class: str
     expected_action: str | None
-    
+
     candidate_text: str
     released_text: str | None
-    
+
     actual_candidate_exposure_class: str
     actual_released_exposure_class: str
-    
+
     action: str | None
     reason_codes: tuple[str, ...]
-    
+
     matched_forget_ids: tuple[str, ...]
-    
+
     exact_score: float
     entity_score: float
     embedding_score: float
@@ -118,17 +119,17 @@ class AssertionCaseResult:
     proposition_entailed: bool
     proposition_score: float
     reconstruction_score: float
-    
+
     message_delivered: bool
     history_updated: bool
-    
+
     state_before: str
     state_after: str
     state_transition_reason: str | None
-    
+
     task_success: bool
     assertion_failures: tuple[str, ...]
-    
+
     # Additional evidence for debugging
     audit_failed: bool = False
     audit_errors: tuple[str, ...] = ()
@@ -158,7 +159,7 @@ def classify_candidate_exposure(
     matched_forget_ids: tuple[str, ...],
 ) -> ExposureClassification:
     """Canonical exposure classification function.
-    
+
     Precedence order (per spec):
     1. direct_exact
     2. direct_alias
@@ -179,7 +180,7 @@ def classify_candidate_exposure(
             evidence_source="exact_detector",
             reason_codes=("EXACT_CANONICAL_MATCH",),
         )
-    
+
     # 2. Direct alias match
     if entity_score > 0.0 and matched_forget_ids:
         return ExposureClassification(
@@ -188,7 +189,7 @@ def classify_candidate_exposure(
             evidence_source="entity_detector",
             reason_codes=("ALIAS_MATCH",),
         )
-    
+
     # 3. Direct claim match
     if proposition_entailed and matched_forget_ids:
         return ExposureClassification(
@@ -197,7 +198,7 @@ def classify_candidate_exposure(
             evidence_source="claim_detector",
             reason_codes=("PROPOSITION_ENTAILED",),
         )
-    
+
     # 4. Direct embedding match
     if embedding_score > 0.0 and matched_forget_ids:
         return ExposureClassification(
@@ -206,7 +207,7 @@ def classify_candidate_exposure(
             evidence_source="embedding_detector",
             reason_codes=("SEMANTIC_SIMILARITY",),
         )
-    
+
     # 5. Fragment reconstruction
     if reconstruction_score > 0.0 and matched_forget_ids:
         return ExposureClassification(
@@ -215,10 +216,10 @@ def classify_candidate_exposure(
             evidence_source="reconstruction_checker",
             reason_codes=("FRAGMENT_RECONSTRUCTION",),
         )
-    
+
     # 6. Fact chain reconstruction (not implemented yet)
     # Skip for now
-    
+
     # 7. Recontamination
     if recontamination_attempt:
         return ExposureClassification(
@@ -227,7 +228,7 @@ def classify_candidate_exposure(
             evidence_source="recontamination_detector",
             reason_codes=("RECONTAMINATION_ATTEMPT",),
         )
-    
+
     # 8. Permitted residual
     if permitted_residual:
         return ExposureClassification(
@@ -236,7 +237,7 @@ def classify_candidate_exposure(
             evidence_source="policy_check",
             reason_codes=("PERMITTED_RESIDUAL",),
         )
-    
+
     # 9. Attack request
     if attack_request:
         return ExposureClassification(
@@ -245,7 +246,7 @@ def classify_candidate_exposure(
             evidence_source="speech_act_check",
             reason_codes=("ATTACK_REQUEST",),
         )
-    
+
     # 10. None
     return ExposureClassification(
         exposure_class="none",
@@ -262,7 +263,7 @@ def classify_released_exposure(
     released_text: str | None,
 ) -> ExposureClassification:
     """Classify released exposure independently from candidate exposure.
-    
+
     A blocked unsafe candidate can be direct_exact at candidate level
     and none at released level.
     """
@@ -273,6 +274,6 @@ def classify_released_exposure(
             evidence_source="blocked_or_not_delivered",
             reason_codes=("NOT_DELIVERED",),
         )
-    
+
     # If delivered, released exposure matches candidate exposure
     return candidate_classification

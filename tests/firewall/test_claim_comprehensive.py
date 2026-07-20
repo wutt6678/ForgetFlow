@@ -20,7 +20,6 @@ import pytest
 from marble.firewall.claims import (
     Claim,
     ClaimNormalizer,
-    MessageContext,
     PropositionMatcher,
 )
 from marble.firewall.types import ForgetRecord

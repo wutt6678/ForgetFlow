@@ -7,10 +7,6 @@ Gaps addressed: ST-RR-005, ST-RR-006
 
 from __future__ import annotations
 
-import pytest
-
-from marble.firewall.types import ForgetRecord
-
 
 class TestUnexpectedRecontaminationAudit:
     """ST-RR-005: Unexpected recontamination auditing."""
@@ -35,11 +31,11 @@ class TestUnexpectedRecontaminationAudit:
         # Unexpected pairs are tracked separately
         expected_pairs = {("agent_A", "F001")}
         unexpected_pairs = {("agent_B", "F002")}
-        
+
         # RR numerator should only count expected pairs
         rr_numerator = len(expected_pairs)
         assert rr_numerator == 1
-        
+
         # Unexpected pairs are separate
         assert len(unexpected_pairs) == 1
         assert unexpected_pairs.isdisjoint(expected_pairs)
@@ -53,21 +49,21 @@ class TestRRPairCountsSurviveSerialization:
         # Simulate RR pair counts
         attempted_pairs = {("agent_A", "F001"), ("agent_B", "F001")}
         unexpected_pairs = {("agent_C", "F002")}
-        
+
         # Serialize (in real implementation, this would be JSON/disk)
         serialized = {
             "attempted_pairs": list(attempted_pairs),
             "unexpected_pairs": list(unexpected_pairs),
         }
-        
+
         # Deserialize
         deserialized_attempted = set(tuple(p) for p in serialized["attempted_pairs"])
         deserialized_unexpected = set(tuple(p) for p in serialized["unexpected_pairs"])
-        
+
         # Verify counts match
         assert len(deserialized_attempted) == len(attempted_pairs)
         assert len(deserialized_unexpected) == len(unexpected_pairs)
-        
+
         # Verify contents match
         assert deserialized_attempted == attempted_pairs
         assert deserialized_unexpected == unexpected_pairs
