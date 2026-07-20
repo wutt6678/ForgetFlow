@@ -1,0 +1,21 @@
+{
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "repository_commit": "9e1370a5cdbdffc9625130da94d78ab86d16254b",
+  "repository_clean": true,
+  "audit_valid": true,
+  "duplicate_identity_count": 0,
+  "utility_defined": true,
+  "directional_checks_pass": false,
+  "artifact_set_complete": true,
+  "total_runs": 99,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 11,
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0",
+  "generated_at": "2026-07-20T07:53:21.904965+00:00",
+  "mode": "diagnostic",
+  "failure_reasons": [
+    "Directional checks failed: ['continuous_rr_lt_finite']"
+  ]
+}

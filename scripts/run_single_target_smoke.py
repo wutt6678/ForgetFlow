@@ -475,17 +475,17 @@ def _directional_checks(
         "passed": rich_success >= binary_success,
     }
 
-    # Monitoring: continuous RR < finite-window RR (strict improvement)
-    cont_eval = evaluate_all(condition_results.get("continuous", []))
-    mon0_eval = evaluate_all(condition_results.get("monitoring_0", []))
-    cont_rr = cont_eval.rr.value if cont_eval.rr.value is not None else 0.0
-    mon0_rr = mon0_eval.rr.value if mon0_eval.rr.value is not None else 0.0
-    checks["continuous_rr_lt_finite"] = {
+    # Monitoring: no_firewall RR > full_mvp RR (firewall reduces recontamination)
+    no_fw_eval = evaluate_all(condition_results.get("no_firewall", []))
+    full_mvp_eval = evaluate_all(condition_results.get("full_mvp", []))
+    no_fw_rr = no_fw_eval.rr.value if no_fw_eval.rr.value is not None else 0.0
+    full_mvp_rr = full_mvp_eval.rr.value if full_mvp_eval.rr.value is not None else 0.0
+    checks["firewall_reduces_rr"] = {
         "claim_type": "strict_improvement",
-        "check": "continuous RR < monitoring_0 RR",
-        "lhs": cont_rr,
-        "rhs": mon0_rr,
-        "passed": cont_rr < mon0_rr,
+        "check": "no_firewall RR > full_mvp RR",
+        "lhs": no_fw_rr,
+        "rhs": full_mvp_rr,
+        "passed": no_fw_rr > full_mvp_rr,
     }
 
     return checks

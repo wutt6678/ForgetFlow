@@ -1,0 +1,76 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 0,
+  "audit_valid": true,
+  "config_hashes": [
+    "0823b7d6294d3930b412849e41639edb79cb49ab3362860230c4bddfd89dd4ae",
+    "099e3b1145971d4daf373eb9b42a9b8ab70f750a611e93a2e5de27f7435a10bb",
+    "1777fb80d3d409663f9f486b6b133bc0d67ff6c6f3d9b70d666f9f8aadc52678",
+    "1d633edcd77d9dc7c9b042c6e1f55e9419afadcd8d6f87b832b779f481fed8e0",
+    "29cb520cc1cc626be620e0387da8e133f0a843b468690015230e7fea2f6cde83",
+    "36eece51e8babc575e2982a3c01e2975ed2bb240ff2de40596fae98c7e59821d",
+    "3ae61aef61cfae90f711df9dde925d3e3e709d56f1864258f2a65c89ac6c5d32",
+    "445214767a7255d96cb7167ddfff97ec88acbc721dc5b6dd3a90dd7f0f5d0f2e",
+    "5207f333006bd8796fad66df349b4da414cacda66f8e5d1afe01b0840c3b499e",
+    "5355c5f28440c31628fcdb1e8cc2b5bcc198f42d414e29cc66bf6521c479c346",
+    "557b9283b1addd7cf9d1974c92df9b06b7630721688d4992c1bb66f68f97af74",
+    "55c6db3431bc5419634f8f9d0d156b241c147d29e7ce8b8179120232d2a8e498",
+    "626d781772d3b793350d24c1a7412250b8ba99657cff6a0f63a6363006f64de6",
+    "664c8c950da8bb041912da39e7fb4bcd3b02d85841d64ea74406f52eb6e4f383",
+    "68cbd4a2835e09cf61faa67a2f87d2abadf8b98a186e0e0961d9a291d525101f",
+    "696628845f374e9d0748665d4a8ca169557f71ae63db5e6f2a70feceb6b31520",
+    "6a7ee1619706d63d54d42a198edf082cb3d1578ba72ee3cde46535bf349fc431",
+    "796ac60009acb8823b29afbb690d9250369a51c7e984ec7b5b13d85ed59883dc",
+    "93ddafd31d07f8f103339dda43fcf0b1cdb1e17ca085a67b670e40d459521c7f",
+    "99378cb30a4fb1999274f61542d5e1a0dab751d369f62474dbc35f647602f0ac",
+    "9ac68de7f343349236a22cd8b12f97fe70b6f542d4e2814db08a5fc8d995c012",
+    "a7535eb67b30e69c4a317eb228b27538847a3a0f6a9e7d9ee8b9f0675503029a",
+    "ae979642241fb40aa7f92b3018d9d579454610f0e9e400e252f2c8c9a85bad6c",
+    "b0f6cb505609ffcf8dca4880e69b003af568b419ef1683f9801e2cc677974a87",
+    "bbcb161a4d535bec33350d958869512ae1b18b9b226734738e4c8c26540e17e7",
+    "d8d48b01589e451f4be09ec46dcc54f6361eaf5da4f87ca54bc347495061d800",
+    "dd220ee0d0878a380b758d6eab4fa24af3a89cbf5a0338b72d37f050392b910c",
+    "df4b1520c9ee3e4fc44b660ae4eeca1250877885bf76a26cdc12fc0e95ddc237",
+    "e03393e47d3fd5a614d52fec4b8fe0ae87c1dcd24e715cecd3804c46f9e5fb65",
+    "e3a21a54d25c9735846c1e2955193aa00f5f8909ce23c341f181f253d2d83f93",
+    "e816939831f07a92776393b14b57bd82e3b887fb02b366e3eeb061eb5421d9c0",
+    "ee4f09d8dbca745bfc8d3a68b85a645737092eba119055fca48469726abbbfe6",
+    "eeea0d7cc9f6413596e0f8041fe99ff657d583a949579673ddd719941c06e8ba"
+  ],
+  "dimension": null,
+  "embedding_threshold": 0.8,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct"
+  ],
+  "generated_at_utc": "2026-07-20T07:54:56.226472+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 330,
+      "numerator": 21
+    },
+    "fbr": {
+      "denominator": 132,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 396,
+      "numerator": 36
+    },
+    "rr": {
+      "denominator": 33,
+      "numerator": 3
+    }
+  },
+  "model": null,
+  "provider": "fixed",
+  "repository_commit": "9e1370a5cdbdffc9625130da94d78ab86d16254b-dirty",
+  "result_count": 99,
+  "run_mode": "diagnostic",
+  "seeds": [
+    7,
+    42,
+    123
+  ]
+}
