@@ -30,9 +30,7 @@ class TestSemanticThresholdBoundary:
             pytest.param(0.81, True, id="ST-SEM-003-above"),
         ],
     )
-    def test_embedding_threshold_boundary(
-        self, score: float, expected_risky: bool
-    ) -> None:
+    def test_embedding_threshold_boundary(self, score: float, expected_risky: bool) -> None:
         """Semantic score at threshold boundary triggers correct detection."""
         # Mock embedding provider to return controlled similarity
         mock_provider = MagicMock()
@@ -82,9 +80,7 @@ class TestSemanticThresholdBoundary:
             pytest.param(0.80 + 1e-12, True, id="ST-SEM-003-precision-above"),
         ],
     )
-    def test_embedding_threshold_precision(
-        self, score: float, expected_risky: bool
-    ) -> None:
+    def test_embedding_threshold_precision(self, score: float, expected_risky: bool) -> None:
         """Semantic threshold comparison is precise at floating-point boundary."""
         mock_provider = MagicMock()
         mock_provider.embed.return_value = [0.0] * 1024

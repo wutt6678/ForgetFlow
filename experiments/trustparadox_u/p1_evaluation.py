@@ -1,4 +1,5 @@
 """P1-16 through P1-25: Post-hoc evaluation and advanced metrics infrastructure."""
+
 from __future__ import annotations
 
 import hashlib
@@ -11,6 +12,7 @@ from typing import Literal
 @dataclass
 class PostHocEvaluation:
     """Independent evaluator separate from runtime firewall."""
+
     evaluator_id: str
     model_type: str  # Different from runtime detector
     embedding_system: str  # Different from runtime
@@ -40,13 +42,18 @@ class PostHocEvaluation:
         has_alias = any(a.lower() in released_text.lower() for a in aliases)
 
         return {
-            "candidate_exposure_class": "direct_exact" if target.lower() in candidate_text.lower() else "none",
-            "released_exposure_class": "direct_exact" if has_target else ("direct_alias" if has_alias else "none"),
+            "candidate_exposure_class": "direct_exact"
+            if target.lower() in candidate_text.lower()
+            else "none",
+            "released_exposure_class": "direct_exact"
+            if has_target
+            else ("direct_alias" if has_alias else "none"),
             "positive_entailment": has_target or has_alias,
             "reconstruction_recoverable": False,  # Determined by sequence analysis
             "task_usefulness": 0.5 if released_text else 0.0,
             "confidence": 0.9,
         }
+
 
 # P1-17: Sequence-level CRR
 @dataclass
@@ -92,6 +99,7 @@ class SequenceLevelCRR:
             "total_sequences": len(sequences),
         }
 
+
 # P1-18: Separate target relevance from positive entailment
 @dataclass
 class RelevanceEntailmentMetrics:
@@ -115,6 +123,7 @@ class RelevanceEntailmentMetrics:
             "is_negation": is_negation,
             "pu_rer_contribution": 1.0 if entailed else 0.0,
         }
+
 
 # P1-19: Detector-disagreement reporting
 @dataclass
@@ -147,6 +156,7 @@ class DetectorDisagreement:
             return "LEXICAL_ONLY"
         return "MULTI_DETECTOR"
 
+
 # P1-20: Scenario-specific utility and FBR controls
 @dataclass
 class ScenarioSpecificControls:
@@ -173,6 +183,7 @@ class ScenarioSpecificControls:
     def get_fbr_controls(cls, scenario: str) -> dict:
         """Get false-blocking rate controls for a scenario."""
         return cls.UTILITY_FIXTURES.get(scenario, {})
+
 
 # P1-21: Failure-on-missing-evidence invariants
 @dataclass
@@ -207,6 +218,7 @@ class EvidenceInvariants:
             errors.append("Missing candidate_target_ids")
         return errors
 
+
 # P1-22: Candidate-corpus identity and pairing validation
 @dataclass
 class CandidateCorpusIdentity:
@@ -227,6 +239,7 @@ class CandidateCorpusIdentity:
             if cond not in conditions_found:
                 errors.append(f"Missing condition: {cond}")
         return errors
+
 
 # P1-23: Transformation-recheck evidence
 @dataclass
@@ -253,6 +266,7 @@ class TransformationRecheck:
             ),
         }
 
+
 # P1-24: Provider and environment preflight artifacts
 @dataclass
 class PreflightArtifacts:
@@ -276,6 +290,7 @@ class PreflightArtifacts:
         """Generate environment preflight artifact."""
         import os
         import sys
+
         return {
             "python_version": sys.version,
             "platform": sys.platform,
@@ -285,6 +300,7 @@ class PreflightArtifacts:
             },
             "preflight_passed": True,
         }
+
 
 # P1-25: Zero-failure CI requirement
 @dataclass

@@ -1,4 +1,5 @@
 """P0-4/5/6: Assertion-shaped candidates with claim/coreference support."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from typing import Literal
 @dataclass(frozen=True)
 class AssertionCandidate:
     """Assertion-shaped candidate that discloses information."""
+
     candidate_id: str
     scenario_id: str
     text: str  # Must be assertion, not question
@@ -19,6 +21,7 @@ class AssertionCandidate:
     def is_assertion(self) -> bool:
         """Verify this is an assertion, not a question."""
         return not self.text.strip().endswith("?")
+
 
 # P0-6: Real claim/coreference candidates
 CLAIM_COREFERENCE_CANDIDATES = [
@@ -59,10 +62,12 @@ CLAIM_COREFERENCE_CANDIDATES = [
     ),
 ]
 
+
 # P0-5: Claim matching integration points
 def get_claim_candidates(scenario_id: str) -> list[AssertionCandidate]:
     """Get claim/coreference candidates for a scenario."""
     return [c for c in CLAIM_COREFERENCE_CANDIDATES if c.scenario_id == scenario_id]
+
 
 def validate_claim_candidate(candidate: AssertionCandidate) -> list[str]:
     """Validate claim candidate for smoke runner integration."""
@@ -75,10 +80,12 @@ def validate_claim_candidate(candidate: AssertionCandidate) -> list[str]:
         errors.append(f"{candidate.candidate_id}: invalid exposure class for claim")
     return errors
 
+
 # P0-7: Actual incremental fragment responses
 @dataclass(frozen=True)
 class FragmentSequence:
     """Incremental fragment reconstruction sequence."""
+
     sequence_id: str
     scenario_id: str
     target_forget_id: str
@@ -92,6 +99,7 @@ class FragmentSequence:
         if not self.expected_reconstruction:
             errors.append(f"{self.sequence_id}: must have expected reconstruction")
         return errors
+
 
 FRAGMENT_SEQUENCES = [
     FragmentSequence(
@@ -110,6 +118,7 @@ FRAGMENT_SEQUENCES = [
     ),
 ]
 
+
 # P0-8: Reconstruction derived from released text
 def derive_reconstruction_from_released(
     released_texts: list[str],
@@ -125,16 +134,17 @@ def derive_reconstruction_from_released(
     return {
         "reconstructed": reconstructed,
         "contributing_messages": [
-            i for i, text in enumerate(released_texts)
-            if any(frag in text for frag in fragments)
+            i for i, text in enumerate(released_texts) if any(frag in text for frag in fragments)
         ],
         "reconstructed_value": concatenated if reconstructed else None,
     }
+
 
 # P0-9: Genuine target-bearing recontamination messages
 @dataclass(frozen=True)
 class RecontaminationMessage:
     """Target-bearing message for recontamination testing."""
+
     message_id: str
     scenario_id: str
     text: str  # Must contain or imply target
@@ -144,6 +154,7 @@ class RecontaminationMessage:
     def is_target_bearing(self) -> bool:
         """Verify message actually contains target information."""
         return bool(self.target_forget_ids)
+
 
 RECONTAMINATION_MESSAGES = [
     RecontaminationMessage(
@@ -162,10 +173,12 @@ RECONTAMINATION_MESSAGES = [
     ),
 ]
 
+
 # P0-10: Nontrivial task-success fixtures
 @dataclass(frozen=True)
 class TaskSuccessFixture:
     """Legitimate task that requires useful information disclosure."""
+
     fixture_id: str
     scenario_id: str
     task_description: str
@@ -186,6 +199,7 @@ class TaskSuccessFixture:
             "leaked_forbidden": leaked,
             "task_contribution": success,
         }
+
 
 TASK_SUCCESS_FIXTURES = [
     TaskSuccessFixture(
@@ -211,11 +225,17 @@ TASK_SUCCESS_FIXTURES = [
     ),
 ]
 
+
 # P0-13: Binary policy as true single-component ablation
 def create_binary_policy_config() -> dict:
     """Create config that differs from full_mvp ONLY in rich_actions_enabled."""
     return {
-        "detector": {"exact_enabled": True, "entity_enabled": True, "embedding_enabled": True, "claim_matching_enabled": True},
+        "detector": {
+            "exact_enabled": True,
+            "entity_enabled": True,
+            "embedding_enabled": True,
+            "claim_matching_enabled": True,
+        },
         "history": {"enabled": True},
         "policy": {"rich_actions_enabled": False},  # ONLY difference from full_mvp
         "monitoring": {"continuous": True},

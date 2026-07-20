@@ -210,7 +210,12 @@ def _make_config(seed: int, overrides: dict[str, Any]) -> ExperimentConfig:
     kwargs: dict[str, Any] = dict(
         seed=seed,
         repetitions=1,
-        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, claim_matching_enabled=False),
+        detector=DetectorConfig(
+            exact_enabled=True,
+            entity_enabled=True,
+            embedding_enabled=False,
+            claim_matching_enabled=False,
+        ),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),

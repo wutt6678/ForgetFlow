@@ -1,4 +1,5 @@
 """P0-3 through P0-15: Comprehensive validation infrastructure."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,10 +10,16 @@ from typing import Any, Literal
 @dataclass(frozen=True)
 class CandidateFixture:
     """Validated candidate fixture with role constraints."""
+
     candidate_id: str
     role: Literal[
-        "attack_request", "attack_response", "fragment_response",
-        "legitimate_task", "recontamination_message", "final_probe", "benign_control",
+        "attack_request",
+        "attack_response",
+        "fragment_response",
+        "legitimate_task",
+        "recontamination_message",
+        "final_probe",
+        "benign_control",
     ]
     text: str
     expected_speech_act: str
@@ -33,12 +40,21 @@ class CandidateFixture:
             errors.append(f"{self.candidate_id}: recontamination must target forget_ids")
         return errors
 
+
 # P0-11: Exposure class population
 EXPOSURE_CLASSES = Literal[
-    "none", "attack_request", "direct_exact", "direct_alias",
-    "direct_embedding", "direct_claim", "fragment_reconstruction",
-    "fact_chain_reconstruction", "recontamination", "permitted_residual",
+    "none",
+    "attack_request",
+    "direct_exact",
+    "direct_alias",
+    "direct_embedding",
+    "direct_claim",
+    "fragment_reconstruction",
+    "fact_chain_reconstruction",
+    "recontamination",
+    "permitted_residual",
 ]
+
 
 def classify_exposure(candidate: str, released: str | None, target: str) -> str:
     """Classify exposure based on candidate and released text."""
@@ -47,6 +63,7 @@ def classify_exposure(candidate: str, released: str | None, target: str) -> str:
     if target.lower() in released.lower():
         return "direct_exact"
     return "none"
+
 
 # P0-14: NOT_EVALUABLE reclassification
 def evaluate_directional_check(
@@ -61,12 +78,14 @@ def evaluate_directional_check(
         return "PASS" if lhs > rhs else "FAIL"
     return "NOT_EVALUABLE"
 
+
 # P0-15: Deterministic seed management
 def validate_seed_config(seed: int, fixtures: list[Any]) -> bool:
     """Validate that seed is appropriate for fixture set."""
     # One seed for deterministic logic validation
     # Multiple seeds only when they alter fixtures
     return True
+
 
 # P0-12: Audit identity validation
 @dataclass(frozen=True)

@@ -6,6 +6,7 @@ This module implements:
 - classify_candidate_exposure: Canonical exposure classification function
 - ExposureClassification: Structured exposure evidence
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class AssertionSuiteSummary:
     """Top-level assertion suite result contract."""
+
     suite_type: str
     seed: int
 
@@ -37,7 +39,9 @@ class AssertionSuiteSummary:
     suite_passed: bool
 
     @classmethod
-    def from_results(cls, suite_type: str, seed: int, results: list[dict]) -> "AssertionSuiteSummary":
+    def from_results(
+        cls, suite_type: str, seed: int, results: list[dict]
+    ) -> "AssertionSuiteSummary":
         """Build summary from case results."""
         total = len(results)
         completed = sum(1 for r in results if r.get("execution_status") == "completed")
@@ -60,10 +64,7 @@ class AssertionSuiteSummary:
         audit_failures = sum(1 for r in results if r.get("audit_failed", False))
 
         # Iteration 1: Count consistency violations
-        consistency_failures = sum(
-            len(r.get("consistency_violations", []))
-            for r in results
-        )
+        consistency_failures = sum(len(r.get("consistency_violations", [])) for r in results)
 
         suite_passed = (
             assertion_failed == 0
@@ -94,6 +95,7 @@ class AssertionSuiteSummary:
 @dataclass(frozen=True)
 class AssertionCaseResult:
     """Per-case actual-result schema with complete evidence."""
+
     case_id: str
     execution_status: str
     assertion_passed: bool
@@ -139,6 +141,7 @@ class AssertionCaseResult:
 @dataclass(frozen=True)
 class ExposureClassification:
     """Structured exposure evidence."""
+
     exposure_class: str
     target_ids: tuple[str, ...]
     evidence_source: str

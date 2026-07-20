@@ -676,7 +676,9 @@ def _process_message_turn(
         # Extract detector scores
         exact_score = decision.detector_result.exact_score
         entity_score = decision.detector_result.entity_score
-        embedding_score = decision.detector_result.semantic_score  # semantic_score is the embedding score
+        embedding_score = (
+            decision.detector_result.semantic_score
+        )  # semantic_score is the embedding score
 
         # Extract claim evidence
         proposition_relevant = False

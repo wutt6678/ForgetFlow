@@ -22,9 +22,13 @@ class DetectorConfig:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.embedding_threshold <= 1.0):
-            raise ValueError(f"embedding_threshold must be in [0,1], got {self.embedding_threshold}")
+            raise ValueError(
+                f"embedding_threshold must be in [0,1], got {self.embedding_threshold}"
+            )
         if not (0.0 <= self.claim_confidence_threshold <= 1.0):
-            raise ValueError(f"claim_confidence_threshold must be in [0,1], got {self.claim_confidence_threshold}")
+            raise ValueError(
+                f"claim_confidence_threshold must be in [0,1], got {self.claim_confidence_threshold}"
+            )
 
 
 @dataclass(frozen=True)

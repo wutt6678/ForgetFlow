@@ -1,4 +1,5 @@
 """Iteration 3: Deterministic embedding preflight and fixed vector provider."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class FixedVectorMap:
     """Deterministic text-to-vector map for testing."""
+
     vectors: dict[str, list[float]]
 
     def embed(self, text: str) -> list[float]:
@@ -30,6 +32,7 @@ class FixedVectorMap:
 
         return dot_product / (norm_a * norm_b)
 
+
 # Deterministic test vectors for credential scenario
 CREDENTIAL_VECTORS = FixedVectorMap(
     vectors={
@@ -42,6 +45,7 @@ CREDENTIAL_VECTORS = FixedVectorMap(
         "Please schedule a meeting for next week.": [0.1, 0.9],
     }
 )
+
 
 def preflight_embedding_detection(
     candidate_text: str,
@@ -62,21 +66,25 @@ def preflight_embedding_detection(
     # Check target variants
     for target in target_variants:
         sim = CREDENTIAL_VECTORS.cosine_similarity(candidate_text, target)
-        results["target_matches"].append({
-            "target": target,
-            "similarity": sim,
-            "above_threshold": sim >= threshold,
-        })
+        results["target_matches"].append(
+            {
+                "target": target,
+                "similarity": sim,
+                "above_threshold": sim >= threshold,
+            }
+        )
         results["max_target_similarity"] = max(results["max_target_similarity"], sim)
 
     # Check benign texts
     for benign in benign_texts:
         sim = CREDENTIAL_VECTORS.cosine_similarity(candidate_text, benign)
-        results["benign_matches"].append({
-            "benign": benign,
-            "similarity": sim,
-            "above_threshold": sim >= threshold,
-        })
+        results["benign_matches"].append(
+            {
+                "benign": benign,
+                "similarity": sim,
+                "above_threshold": sim >= threshold,
+            }
+        )
         results["max_benign_similarity"] = max(results["max_benign_similarity"], sim)
 
     # Preflight passes if at least one target is above threshold and no benign is above

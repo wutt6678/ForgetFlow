@@ -249,7 +249,9 @@ class ClaimNormalizer:
             return "conditional"
 
         # Possibility (including should, can, may, might, could)
-        if any(w in lower for w in ["may", "might", "could", "possibly", "perhaps", "should", "can"]):
+        if any(
+            w in lower for w in ["may", "might", "could", "possibly", "perhaps", "should", "can"]
+        ):
             return "possible"
 
         return "certain"
@@ -288,7 +290,9 @@ class ClaimNormalizer:
         lower = text.lower()
 
         # Question
-        if "?" in text or lower.startswith(("does ", "do ", "did ", "is ", "are ", "can ", "could ", "would ", "will ")):
+        if "?" in text or lower.startswith(
+            ("does ", "do ", "did ", "is ", "are ", "can ", "could ", "would ", "will ")
+        ):
             return "question"
 
         # Request
@@ -321,7 +325,18 @@ class ClaimNormalizer:
         # Heuristic: look for common verbs to split subject from predicate
         common_verbs = {"has", "have", "is", "are", "was", "were", "holds", "retains"}
         # Auxiliary verbs that should be skipped when looking for subject
-        auxiliary_verbs = {"does", "do", "did", "will", "would", "could", "should", "may", "might", "can"}
+        auxiliary_verbs = {
+            "does",
+            "do",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "can",
+        }
 
         subject_parts = []
         predicate = ""

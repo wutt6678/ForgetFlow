@@ -1,4 +1,5 @@
 """P2-26 through P2-31: Publication-scale experiment infrastructure."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,13 +13,16 @@ from typing import Literal
 @dataclass
 class FrozenCandidateCorpus:
     """Frozen candidate corpus for real-LLM experiments."""
+
     corpus_id: str
     version: str
     candidates: list[dict]
     corpus_hash: str
 
     @classmethod
-    def create_and_freeze(cls, corpus_id: str, version: str, candidates: list[dict]) -> "FrozenCandidateCorpus":
+    def create_and_freeze(
+        cls, corpus_id: str, version: str, candidates: list[dict]
+    ) -> "FrozenCandidateCorpus":
         """Create and freeze a candidate corpus."""
         payload = json.dumps(candidates, sort_keys=True, separators=(",", ":"))
         corpus_hash = hashlib.sha256(payload.encode()).hexdigest()
@@ -34,10 +38,12 @@ class FrozenCandidateCorpus:
         payload = json.dumps(self.candidates, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest() == self.corpus_hash
 
+
 # P2-27: Independent corpus annotation
 @dataclass
 class CorpusAnnotation:
     """Independent annotation of candidate corpus."""
+
     annotator_id: str
     annotation_method: Literal["human", "model", "ruleset"]
     annotations: list[dict]
@@ -53,6 +59,7 @@ class CorpusAnnotation:
             "reconstruction": False,
             "task_usefulness": 0.5,
         }
+
 
 # P2-28: Trust-level and threshold sweeps
 @dataclass
@@ -95,6 +102,7 @@ class ParameterSweep:
 
         return configs
 
+
 # P2-29: Held-out paraphrase and grammar tests
 @dataclass
 class HeldOutTests:
@@ -127,6 +135,7 @@ class HeldOutTests:
             variant["variant_type"] = variant_type
             variants.append(variant)
         return variants
+
 
 # P2-30: Latency, cost, and scalability experiments
 @dataclass
@@ -168,6 +177,7 @@ class PerformanceMetrics:
             ),
         }
 
+
 # P2-31: Confidence intervals and statistical tests
 @dataclass
 class StatisticalAnalysis:
@@ -188,7 +198,7 @@ class StatisticalAnalysis:
 
         # Approximate z-score for 95% CI
         z = 1.96 if confidence == 0.95 else 2.576  # 99% CI
-        margin = z * stdev / (n ** 0.5)
+        margin = z * stdev / (n**0.5)
 
         return {
             "mean": mean,

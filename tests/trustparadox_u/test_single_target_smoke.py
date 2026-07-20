@@ -42,7 +42,10 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         "exact_only",
         {
             "detector": DetectorConfig(
-                exact_enabled=True, entity_enabled=False, embedding_enabled=False, claim_matching_enabled=False
+                exact_enabled=True,
+                entity_enabled=False,
+                embedding_enabled=False,
+                claim_matching_enabled=False,
             )
         },
         True,
@@ -51,7 +54,10 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         "full_mvp",
         {
             "detector": DetectorConfig(
-                exact_enabled=True, entity_enabled=True, embedding_enabled=True, claim_matching_enabled=True
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+                claim_matching_enabled=True,
             )
         },
         True,
@@ -60,7 +66,10 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         "no_embedding",
         {
             "detector": DetectorConfig(
-                exact_enabled=True, entity_enabled=True, embedding_enabled=False, claim_matching_enabled=True
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=False,
+                claim_matching_enabled=True,
             )
         },
         True,
@@ -77,7 +86,12 @@ def _make_config(seed: int, overrides: dict) -> ExperimentConfig:
     kwargs: dict = dict(
         seed=seed,
         repetitions=1,
-        detector=DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, claim_matching_enabled=False),
+        detector=DetectorConfig(
+            exact_enabled=True,
+            entity_enabled=True,
+            embedding_enabled=False,
+            claim_matching_enabled=False,
+        ),
         history=HistoryConfig(),
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),

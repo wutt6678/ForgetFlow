@@ -487,6 +487,7 @@ class TestEnforcementIsActive:
     def test_should_monitor_continuous(self) -> None:
         """Test _should_monitor for continuous monitoring."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         m = MonitoringConfig(continuous=True, duration_rounds=0)
         assert _should_monitor(monitoring=m, post_forget_round=0) is True
         assert _should_monitor(monitoring=m, post_forget_round=10) is True
@@ -495,12 +496,14 @@ class TestEnforcementIsActive:
     def test_should_monitor_duration_zero(self) -> None:
         """Test _should_monitor with duration_rounds=0."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         m = MonitoringConfig(continuous=False, duration_rounds=0)
         assert _should_monitor(monitoring=m, post_forget_round=0) is False
 
     def test_should_monitor_duration_one(self) -> None:
         """Test _should_monitor with duration_rounds=1."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         m = MonitoringConfig(continuous=False, duration_rounds=1)
         assert _should_monitor(monitoring=m, post_forget_round=0) is True
         assert _should_monitor(monitoring=m, post_forget_round=1) is False
@@ -508,6 +511,7 @@ class TestEnforcementIsActive:
     def test_should_monitor_duration_three(self) -> None:
         """Test _should_monitor with duration_rounds=3."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         m = MonitoringConfig(continuous=False, duration_rounds=3)
         assert _should_monitor(monitoring=m, post_forget_round=0) is True
         assert _should_monitor(monitoring=m, post_forget_round=1) is True
@@ -517,6 +521,7 @@ class TestEnforcementIsActive:
     def test_should_monitor_duration_five(self) -> None:
         """Test _should_monitor with duration_rounds=5."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         m = MonitoringConfig(continuous=False, duration_rounds=5)
         for r in range(5):
             assert _should_monitor(monitoring=m, post_forget_round=r) is True
@@ -831,6 +836,7 @@ class TestMonitoringDurationConsumption:
     def test_forget_turn_doesnt_consume_duration(self) -> None:
         """ST-MON-006: Forget event itself doesn't consume monitoring duration."""
         from experiments.trustparadox_u.runner import _should_monitor
+
         # _should_monitor counts from post_forget_round=0
         # The forget turn is not a post-forget round, so it can't consume duration
         m = MonitoringConfig(continuous=False, duration_rounds=1)

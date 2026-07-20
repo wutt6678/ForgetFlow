@@ -169,9 +169,10 @@ class TestExpandedSVOExtraction:
         claims = normalizer.normalize(text)
         assert len(claims) > 0
         # Subject should contain the expected entity
-        assert expected_subject.lower() in claims[0].subject.lower() or claims[
-            0
-        ].subject.lower() in expected_subject.lower()
+        assert (
+            expected_subject.lower() in claims[0].subject.lower()
+            or claims[0].subject.lower() in expected_subject.lower()
+        )
 
 
 class TestPropositionMatchScoring:

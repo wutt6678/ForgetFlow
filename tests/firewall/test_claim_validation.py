@@ -211,8 +211,14 @@ class TestDeterministicValidation:
         result3 = detector.detect(text, active_records=[record], message_context=context)
 
         # Should produce identical results
-        assert len(result1.record_evidence) == len(result2.record_evidence) == len(result3.record_evidence)
-        for e1, e2, e3 in zip(result1.record_evidence, result2.record_evidence, result3.record_evidence):
+        assert (
+            len(result1.record_evidence)
+            == len(result2.record_evidence)
+            == len(result3.record_evidence)
+        )
+        for e1, e2, e3 in zip(
+            result1.record_evidence, result2.record_evidence, result3.record_evidence
+        ):
             assert e1.proposition_score == e2.proposition_score == e3.proposition_score
             assert e1.proposition_relevant == e2.proposition_relevant == e3.proposition_relevant
             assert e1.proposition_entailed == e2.proposition_entailed == e3.proposition_entailed
