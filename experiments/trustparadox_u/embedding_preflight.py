@@ -74,7 +74,8 @@ def preflight_embedding_detection(
             }
         )
         results["max_target_similarity"] = max(  # type: ignore[call-overload]
-            results["max_target_similarity"], sim  # type: ignore[arg-type]
+            results["max_target_similarity"],
+            sim,  # type: ignore[arg-type]
         )
 
     # Check benign texts
@@ -88,7 +89,8 @@ def preflight_embedding_detection(
             }
         )
         results["max_benign_similarity"] = max(  # type: ignore[call-overload]
-            results["max_benign_similarity"], sim  # type: ignore[arg-type]
+            results["max_benign_similarity"],
+            sim,  # type: ignore[arg-type]
         )
 
     # Preflight passes if at least one target is above threshold and no benign is above
