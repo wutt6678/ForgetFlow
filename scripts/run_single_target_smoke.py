@@ -124,6 +124,23 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         },
         True,
     ),
+    # P1.3: Alias-only condition - only alias detector enabled
+    # Isolates alias detector contribution to exposure detection
+    (
+        "alias_only",
+        {
+            "detector": DetectorConfig(
+                exact_enabled=False,
+                entity_enabled=True,  # Entity detector includes alias matching
+                embedding_enabled=False,
+                claim_matching_enabled=False,
+            ),
+            "history": HistoryConfig(enabled=False),
+            "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
+            "policy": PolicyConfig(rich_actions_enabled=False),
+        },
+        True,
+    ),
     (
         "full_mvp",
         {
@@ -194,6 +211,15 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "monitoring": MonitoringConfig(continuous=True),
         },
         True,
+    ),
+    # P1.2: Monitoring-only condition - no firewall, but monitoring enabled
+    # Tests that monitoring alone provides some detection capability
+    (
+        "monitoring_only",
+        {
+            "monitoring": MonitoringConfig(continuous=True, duration_rounds=3),
+        },
+        False,  # No firewall
     ),
 ]
 
