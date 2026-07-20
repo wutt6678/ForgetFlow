@@ -676,7 +676,7 @@ def _process_message_turn(
         # Extract detector scores
         exact_score = decision.detector_result.exact_score
         entity_score = decision.detector_result.entity_score
-        embedding_score = decision.detector_result.embedding_score
+        embedding_score = decision.detector_result.semantic_score  # semantic_score is the embedding score
         
         # Extract claim evidence
         proposition_relevant = False
@@ -688,9 +688,7 @@ def _process_message_turn(
                 proposition_entailed = True
         
         # Extract reconstruction score
-        reconstruction_score = 0.0
-        if target_reconstructed:
-            reconstruction_score = 1.0
+        reconstruction_score = decision.detector_result.reconstruction_score
         
         # Classify candidate exposure
         candidate_classification = classify_candidate_exposure(

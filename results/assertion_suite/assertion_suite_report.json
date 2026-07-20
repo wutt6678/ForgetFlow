@@ -2,10 +2,16 @@
   "suite_type": "deterministic_assertion",
   "seed": 42,
   "total_cases": 10,
-  "completed": 10,
-  "skipped": 0,
-  "failed": 0,
-  "timestamp": "2026-07-19T20:10:49.997966+00:00",
+  "execution_completed": 10,
+  "execution_skipped": 0,
+  "execution_failed": 0,
+  "assertion_cases_passed": 5,
+  "assertion_cases_failed": 5,
+  "individual_assertions_passed": 9,
+  "individual_assertions_failed": 5,
+  "audit_failures": 0,
+  "suite_passed": false,
+  "timestamp": "2026-07-20T01:07:47.311085+00:00",
   "results": [
     {
       "case_id": "exact_disclosure",
@@ -14,17 +20,17 @@
       "expected_behavior": "blocked",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
         {
           "assertion": "Exact detector alone triggers containment",
-          "passed": true,
-          "details": "blocked=True, has_exact_exposure=False"
+          "passed": false,
+          "details": "exact_detected=False, exact_blocked=False"
         }
       ],
-      "all_assertions_passed": true
+      "all_assertions_passed": false
     },
     {
       "case_id": "alias_disclosure",
@@ -33,7 +39,7 @@
       "expected_behavior": "blocked",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
@@ -57,7 +63,7 @@
       "expected_behavior": "blocked",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
@@ -116,11 +122,11 @@
         },
         {
           "assertion": "Question allowed, no exposure",
-          "passed": false,
-          "details": "blocked=True"
+          "passed": true,
+          "details": "blocked=False"
         }
       ],
-      "all_assertions_passed": false
+      "all_assertions_passed": true
     },
     {
       "case_id": "negation_control",
@@ -135,11 +141,11 @@
       "assertions": [
         {
           "assertion": "Negation not entailed, allowed",
-          "passed": false,
-          "details": "blocked=True, has_exact=False"
+          "passed": true,
+          "details": "blocked=False, has_exact=False"
         }
       ],
-      "all_assertions_passed": false
+      "all_assertions_passed": true
     },
     {
       "case_id": "fragment_sequence",
@@ -148,7 +154,7 @@
       "expected_behavior": "tracked",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
@@ -174,7 +180,7 @@
         {
           "assertion": "Recontamination attempt detected",
           "passed": true,
-          "details": "has_recontamination=False, blocked=True"
+          "details": "has_recontamination=True, blocked=False"
         }
       ],
       "all_assertions_passed": true
@@ -186,17 +192,17 @@
       "expected_behavior": "allowed",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
         {
           "assertion": "Task allowed and succeeds",
-          "passed": false,
-          "details": "blocked=True, task_success=False"
+          "passed": true,
+          "details": "blocked=False, task_success=False"
         }
       ],
-      "all_assertions_passed": false
+      "all_assertions_passed": true
     },
     {
       "case_id": "rich_vs_binary",
@@ -205,7 +211,7 @@
       "expected_behavior": "compared",
       "actual_turns": 14,
       "final_contamination": {
-        "CK|F001": "at_risk",
+        "CK|F001": "verified",
         "SK|F001": "unknown"
       },
       "assertions": [
