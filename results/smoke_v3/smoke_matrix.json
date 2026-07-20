@@ -1,0 +1,126 @@
+{
+  "conditions": [
+    {
+      "name": "no_firewall",
+      "config_hash": "5fe6f91e66a6837a38d8967f283e322002adf715f5bdf046379b5bb3531cd502",
+      "firewall_enabled": false,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "exact_only",
+      "config_hash": "162a5b88e6e2739043511f7c99b3adf7c22ee7659c4391353712ef03a891adac",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=False, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "lexical_only",
+      "config_hash": "e585e5ac1461256887ef17a713d5b84ebcfbf3e7da983aee042dceaf163591ac",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "full_mvp",
+      "config_hash": "d458c4c31b1d759075d060dc7efa8a2c5ad8882cd4418c5d087bbc67bed65d57",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "no_embedding",
+      "config_hash": "f703b47eb836ffc4ca6d377ca1b465f7942976846af44ea723d6535fa64bddea",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "no_claims",
+      "config_hash": "1a9b441ef768c6cf9eb5445d482379fe1339a15ef3c8bfdd5828d7ad0eb6ca1b",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "stateless",
+      "config_hash": "d2114303ccd6cd4b8d1599e2c78c6999d181ada9c32eddc0279cf5612d50f7e8",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "binary_policy",
+      "config_hash": "887214898844b829cab0f1f13123cdff16f649c28aa525b35eccd60626a3a1e4",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "monitoring_0",
+      "config_hash": "f768777f89529aaec36d264dd741e37e0c0a7adb879db79b6a618fd401f3896c",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "monitoring_1",
+      "config_hash": "007f2491ee59914fdc105b29748b0953128bec4469c7d2b617a9bdcb6914eca3",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=1, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "continuous",
+      "config_hash": "5fe6f91e66a6837a38d8967f283e322002adf715f5bdf046379b5bb3531cd502",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    }
+  ],
+  "duplicate_identities": []
+}

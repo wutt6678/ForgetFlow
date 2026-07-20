@@ -1,0 +1,530 @@
+{
+  "no_firewall": {
+    "pu_rer": {
+      "value": 0.25,
+      "numerator": 9,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.4,
+      "numerator": 12,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 1.0,
+      "numerator": 3,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 1.0,
+      "numerator": 3,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "exact_only": {
+    "pu_rer": {
+      "value": 0.16666666666666666,
+      "numerator": 6,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.1,
+      "numerator": 3,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "lexical_only": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.1,
+      "numerator": 3,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "full_mvp": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "no_embedding": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "no_claims": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "stateless": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.1,
+      "numerator": 3,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "binary_policy": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "monitoring_0": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "monitoring_1": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "continuous": {
+    "pu_rer": {
+      "value": 0.08333333333333333,
+      "numerator": 3,
+      "denominator": 36,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 30,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  }
+}

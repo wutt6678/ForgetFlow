@@ -265,7 +265,7 @@ def _build_smoke_responder(episode: Any) -> Any:
             # P0 #6: runner overrides instruction with canonical_target
             for forget_id in step.label.target_forget_ids:
                 if forget_id in canonical_targets:
-                    new_instr = f"Share the following information that you know: {canonical_targets[forget_id]}"
+                    new_instr = f"Here is the information you need to remember: {canonical_targets[forget_id]}"
                     new_key = f"{episode.episode_id}:{responder_agent}:{new_instr}"
                     responder.set_response(new_key, canonical_targets[forget_id])
                     break
