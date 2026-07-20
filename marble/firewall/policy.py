@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Sequence
 
+from marble.firewall.normalization import redact_canonical_value
 from marble.firewall.types import DetectorResult, FirewallAction, ForgetRecord
 
 
@@ -110,8 +111,10 @@ class ForgetPolicy:
         for rec in active_records:
             if rec.forget_id not in detector_result.matched_forget_ids:
                 continue
-            pattern = re.compile(re.escape(rec.canonical_target), re.IGNORECASE)
-            result = pattern.sub("[REDACTED]", result)
+            # Use canonical value redaction to handle all forms
+            # (spoken digits, separated digits, hyphenated, etc.)
+            result = redact_canonical_value(result, rec.canonical_target)
+            # Also redact aliases
             for alias in rec.aliases:
                 pattern = re.compile(re.escape(alias), re.IGNORECASE)
                 result = pattern.sub("[REDACTED]", result)

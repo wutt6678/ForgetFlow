@@ -9,6 +9,43 @@ from marble.firewall.detectors import RecipientContext
 from marble.firewall.types import ForgetRecord, RecipientHistoryItem
 
 
+def _is_information_bearing(text: str) -> bool:
+    """Check if text is an information-bearing assertion.
+
+    Questions, requests, denials, and hypotheticals are NOT information-bearing
+    for reconstruction purposes. Only assertions that provide target-bearing
+    information contribute to reconstruction.
+    """
+    lower = text.lower().strip()
+
+    # Question detection
+    if "?" in text:
+        return False
+    if lower.startswith(("does ", "do ", "did ", "is ", "are ", "can ", "could ",
+                         "would ", "will ", "what ", "where ", "when ", "who ",
+                         "why ", "how ")):
+        return False
+
+    # Request detection
+    request_markers = ["please", "tell me", "confirm", "request", "share",
+                       "give me", "let me know"]
+    if any(w in lower for w in request_markers):
+        return False
+
+    # Denial detection
+    denial_patterns = ["i cannot", "i can't", "i won't", "unable to",
+                       "cannot share", "cannot provide", "refuse to"]
+    if any(p in lower for p in denial_patterns):
+        return False
+
+    # Hypothetical detection
+    hypothetical_markers = ["if ", "假设", "hypothetically", "suppose", "what if"]
+    if any(m in lower for m in hypothetical_markers):
+        return False
+
+    return True
+
+
 class RecipientHistory:
     """Stores released messages per recipient with bounded window."""
 
@@ -73,6 +110,11 @@ class ReconstructionChecker:
         forget_id: str | None = None,
     ) -> float:
         if not history_enabled:
+            return 0.0
+
+        # P0 #4: Questions, requests, denials, and hypotheticals do not
+        # contribute to positive reconstruction.
+        if not _is_information_bearing(candidate_text):
             return 0.0
 
         history_text = " ".join(context.recent_texts)

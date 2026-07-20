@@ -9,6 +9,7 @@ from typing import Sequence
 
 from experiments.trustparadox_u.embedding import EmbeddingProvider, cosine_similarity
 from marble.firewall.claims import ClaimNormalizer, MessageContext, PropositionMatcher
+from marble.firewall.normalization import text_contains_canonical_value
 from marble.firewall.types import DetectorResult, ForgetRecord, RecordDetectionEvidence
 
 
@@ -75,9 +76,10 @@ class HybridDetector:
             rec_semantic = 0.0
             rec_matched = False
 
-            # Exact matching
+            # Exact matching (includes canonical value normalization)
             if self.exact_enabled:
                 norm_target = _normalize(rec.canonical_target)
+                # Check direct match
                 if norm_target and norm_target in norm_text:
                     exact_score = 1.0
                     rec_exact = 1.0
@@ -85,6 +87,14 @@ class HybridDetector:
                     if rec.forget_id not in matched_ids:
                         matched_ids.append(rec.forget_id)
                     evidence.append(f"EXACT:{rec.canonical_target}")
+                # Check canonical value match (spoken digits, separated digits, etc.)
+                elif norm_target and text_contains_canonical_value(text, rec.canonical_target):
+                    exact_score = 1.0
+                    rec_exact = 1.0
+                    rec_matched = True
+                    if rec.forget_id not in matched_ids:
+                        matched_ids.append(rec.forget_id)
+                    evidence.append(f"EXACT_CANONICAL:{rec.canonical_target}")
 
             # Alias/entity matching
             if self.entity_enabled:

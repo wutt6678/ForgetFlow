@@ -245,3 +245,24 @@ class ContaminationStatus(str, Enum):
     VERIFIED = "verified"
     AT_RISK = "at_risk"
     RECONTAMINATED = "recontaminated"
+
+
+@dataclass(frozen=True)
+class TransformationAttempt:
+    """Record of a single transformation attempt during escalation.
+
+    Tracks the input/output of each transformation and whether it passed
+    all post-transformation rechecks.
+    """
+
+    attempt_index: int
+    transformation_type: str
+    input_text: str
+    output_text: str | None
+    exact_safe: bool
+    alias_safe: bool
+    embedding_safe: bool
+    claim_safe: bool
+    reconstruction_safe: bool
+    matched_forget_ids: tuple[str, ...]
+    passed: bool

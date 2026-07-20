@@ -11,6 +11,7 @@ from marble.firewall.detectors import HybridDetector
 from marble.firewall.history import RecipientHistory, ReconstructionChecker
 from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
+from marble.firewall.normalization import text_contains_canonical_value
 from marble.firewall.types import (
     DetectorResult,
     FirewallDecision,
@@ -18,6 +19,7 @@ from marble.firewall.types import (
     MessageEnvelope,
     RecipientHistoryItem,
     RecordDetectionEvidence,
+    TransformationAttempt,
 )
 
 
@@ -137,45 +139,12 @@ class FlowGate:
         if action == "allow":
             released_text = envelope.raw_text
 
-        # 7. Recheck transformed output
+        # 7. Recheck transformed output with escalation
+        transformation_attempts: list[TransformationAttempt] = []
         if action in ("redact", "abstract") and released_text is not None:
-            recheck_det = self.detector.detect(released_text, active, ctx)
-            # Per-record reconstruction recheck (P0 #4)
-            recheck_recon_scores = []
-            for rec in active:
-                recheck_recon_scores.append(
-                    self.reconstruction_checker.score(
-                        released_text,
-                        ctx,
-                        active,
-                        self.episode_metadata,
-                        history_enabled=self.config.history.enabled,
-                        reconstruction_threshold=self.config.history.reconstruction_threshold,
-                        forget_id=rec.forget_id,
-                    )
-                )
-            recheck_recon = max(recheck_recon_scores) if recheck_recon_scores else 0.0
-
-            # Determine if released text is a permitted residual
-            permitted_residual = _is_permitted_residual(released_text, active)
-
-            # Exact or alias match always blocks (even for permitted residuals)
-            exact_or_alias = recheck_det.exact_score == 1.0 or recheck_det.entity_score > 0.0
-            # Reconstruction risk always blocks
-            reconstructive = recheck_recon >= self.config.history.reconstruction_threshold
-            # Semantic unsafe: above threshold AND not a permitted residual
-            embedding_threshold = self.config.detector.embedding_threshold
-            semantic_unsafe = (
-                self.config.detector.embedding_enabled
-                and recheck_det.semantic_score >= embedding_threshold
-                and not permitted_residual
+            action, released_text, reasons, transformation_attempts = self._recheck_and_escalate(
+                action, released_text, envelope.raw_text, active, ctx, reasons
             )
-
-            unsafe = exact_or_alias or reconstructive or semantic_unsafe
-            if unsafe:
-                action = "block"
-                released_text = None
-                reasons = reasons + ("RECHECK_FAILED",)
 
         elapsed = (time.monotonic() - start) * 1000
         decision = FirewallDecision(
@@ -203,6 +172,102 @@ class FlowGate:
                     released_text=decision.released_text,
                 ),
             )
+
+    def _recheck_and_escalate(
+        self,
+        action: str,
+        released_text: str,
+        original_text: str,
+        active: Sequence[ForgetRecord],
+        ctx: Any,
+        reasons: tuple[str, ...],
+    ) -> tuple[str, str | None, tuple[str, ...], list[TransformationAttempt]]:
+        """Recheck transformed output and escalate if unsafe.
+
+        Escalation path: redact -> abstract -> block
+        Maximum 2 transformation attempts before blocking.
+        """
+        attempts: list[TransformationAttempt] = []
+        max_attempts = 2
+        current_action = action
+        current_text = released_text
+
+        for attempt_idx in range(max_attempts):
+            # Run ALL detectors on transformed output
+            recheck_det = self.detector.detect(current_text, active, ctx)
+
+            # Per-record reconstruction recheck
+            recheck_recon_scores = []
+            for rec in active:
+                recheck_recon_scores.append(
+                    self.reconstruction_checker.score(
+                        current_text,
+                        ctx,
+                        active,
+                        self.episode_metadata,
+                        history_enabled=self.config.history.enabled,
+                        reconstruction_threshold=self.config.history.reconstruction_threshold,
+                        forget_id=rec.forget_id,
+                    )
+                )
+            recheck_recon = max(recheck_recon_scores) if recheck_recon_scores else 0.0
+
+            # Check each safety dimension
+            exact_safe = recheck_det.exact_score < 1.0
+            alias_safe = recheck_det.entity_score == 0.0
+            embedding_threshold = self.config.detector.embedding_threshold
+            embedding_safe = (
+                not self.config.detector.embedding_enabled
+                or recheck_det.semantic_score < embedding_threshold
+            )
+            # Claim safe: no proposition entailed
+            claim_safe = not any(ev.proposition_entailed for ev in recheck_det.record_evidence)
+            reconstruction_safe = recheck_recon < self.config.history.reconstruction_threshold
+
+            # Also check canonical value presence (spoken digits, etc.)
+            for rec in active:
+                if text_contains_canonical_value(current_text, rec.canonical_target):
+                    exact_safe = False
+                    alias_safe = False
+
+            passed = exact_safe and alias_safe and embedding_safe and claim_safe and reconstruction_safe
+
+            # Record this attempt
+            attempt = TransformationAttempt(
+                attempt_index=attempt_idx,
+                transformation_type=current_action,
+                input_text=original_text if attempt_idx == 0 else current_text,
+                output_text=current_text,
+                exact_safe=exact_safe,
+                alias_safe=alias_safe,
+                embedding_safe=embedding_safe,
+                claim_safe=claim_safe,
+                reconstruction_safe=reconstruction_safe,
+                matched_forget_ids=recheck_det.matched_forget_ids,
+                passed=passed,
+            )
+            attempts.append(attempt)
+
+            if passed:
+                # Transformation succeeded
+                return current_action, current_text, reasons, attempts
+
+            # Transformation failed - escalate
+            if current_action == "redact":
+                # Try abstract (use permitted residual)
+                current_action = "abstract"
+                residual = self.policy._find_residual(active, recheck_det)
+                if residual:
+                    current_text = residual
+                else:
+                    # No permitted residual available, block
+                    return "block", None, reasons + ("ESCALATION_NO_RESIDUAL",), attempts
+            elif current_action == "abstract":
+                # Abstract also failed, block
+                return "block", None, reasons + ("ESCALATION_FAILED",), attempts
+
+        # Max attempts exhausted
+        return "block", None, reasons + ("MAX_TRANSFORMATION_ATTEMPTS_EXCEEDED",), attempts
 
 
 def _is_permitted_residual(
