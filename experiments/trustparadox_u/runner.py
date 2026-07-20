@@ -1514,7 +1514,7 @@ def run_episode(
                     is_legitimate=False,
                     is_reconstruction=is_reconstruction,
                     is_recontamination=is_recontamination,
-                    task_rel=task_rel,
+                    task_rel=True,  # Attack responses contain released content for task evaluation
                     target_forget_ids=step_target_ids,
                     recipient_transcript=recipient_transcript,
                     attempted_pairs=attempted_pairs,
