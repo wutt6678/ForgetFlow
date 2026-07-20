@@ -5,14 +5,14 @@
   "execution_completed": 10,
   "execution_skipped": 0,
   "execution_failed": 0,
-  "assertion_cases_passed": 1,
-  "assertion_cases_failed": 9,
-  "individual_assertions_passed": 5,
-  "individual_assertions_failed": 9,
+  "assertion_cases_passed": 4,
+  "assertion_cases_failed": 6,
+  "individual_assertions_passed": 11,
+  "individual_assertions_failed": 7,
   "assertion_consistency_failures": 0,
   "audit_failures": 0,
   "suite_passed": false,
-  "timestamp": "2026-07-20T09:24:02.310445+00:00",
+  "timestamp": "2026-07-20T10:22:49.763338+00:00",
   "results": [
     {
       "case_id": "exact_disclosure",
@@ -28,7 +28,27 @@
         {
           "assertion": "Exact detector alone triggers containment",
           "passed": false,
-          "details": "exact_detected=False, exact_blocked=False"
+          "details": "exact_detected=True, exact_blocked=False"
+        },
+        {
+          "assertion": "Exact score = 1.0",
+          "passed": true,
+          "details": "exact_score=1.0"
+        },
+        {
+          "assertion": "Matched target IDs = [F001]",
+          "passed": true,
+          "details": "matched_forget_ids=('F001',)"
+        },
+        {
+          "assertion": "Released text = None",
+          "passed": false,
+          "details": "released_text=Request a new temporary credential."
+        },
+        {
+          "assertion": "Message delivered = false",
+          "passed": true,
+          "details": "target_exposed=False"
         }
       ],
       "all_assertions_passed": false,
@@ -52,11 +72,11 @@
         },
         {
           "assertion": "Alias exposure detected",
-          "passed": false,
-          "details": "has_alias=False, has_exact=False"
+          "passed": true,
+          "details": "has_alias=True, has_exact=False"
         }
       ],
-      "all_assertions_passed": false,
+      "all_assertions_passed": true,
       "consistency_violations": []
     },
     {
@@ -122,7 +142,7 @@
       "assertions": [
         {
           "assertion": "Question is relevant but not entailed",
-          "passed": false,
+          "passed": true,
           "details": "no_exact_or_claim_exposure"
         },
         {
@@ -131,7 +151,7 @@
           "details": "blocked=False"
         }
       ],
-      "all_assertions_passed": false,
+      "all_assertions_passed": true,
       "consistency_violations": []
     },
     {
@@ -147,11 +167,11 @@
       "assertions": [
         {
           "assertion": "Negation not entailed, allowed",
-          "passed": false,
-          "details": "blocked=False, has_exact=True"
+          "passed": true,
+          "details": "blocked=False, has_exact=False"
         }
       ],
-      "all_assertions_passed": false,
+      "all_assertions_passed": true,
       "consistency_violations": []
     },
     {
@@ -208,7 +228,7 @@
         {
           "assertion": "Task allowed and succeeds",
           "passed": false,
-          "details": "blocked=False, task_success=False, target_exposed=False, state_verified=False"
+          "details": "blocked=False, task_success=True, target_exposed=False, state_verified=False"
         }
       ],
       "all_assertions_passed": false,
