@@ -14,6 +14,7 @@ from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
     DetectorResult,
+    FirewallAction,
     FirewallDecision,
     ForgetRecord,
     MessageEnvelope,
@@ -175,13 +176,13 @@ class FlowGate:
 
     def _recheck_and_escalate(
         self,
-        action: str,
+        action: FirewallAction,
         released_text: str,
         original_text: str,
         active: Sequence[ForgetRecord],
         ctx: Any,
         reasons: tuple[str, ...],
-    ) -> tuple[str, str | None, tuple[str, ...], list[TransformationAttempt]]:
+    ) -> tuple[FirewallAction, str | None, tuple[str, ...], list[TransformationAttempt]]:
         """Recheck transformed output and escalate if unsafe.
 
         Escalation path: redact -> abstract -> block
