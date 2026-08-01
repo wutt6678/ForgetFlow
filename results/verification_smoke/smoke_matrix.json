@@ -1,0 +1,148 @@
+{
+  "conditions": [
+    {
+      "name": "no_firewall",
+      "config_hash": "d68a4db3a6ea2c16d201b8f1c3c043b2954c96e044090d673741f0397c5fe938",
+      "firewall_enabled": false,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "exact_only",
+      "config_hash": "18806d5d57a86bc5a693ea0473ad9782304e7f907a6a0a9fc2f4c8a268eee31d",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=False, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "lexical_only",
+      "config_hash": "7a04193cf1559c5be429fc34498f0136fd66df385877408743d5acb89ff766b6",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "alias_only",
+      "config_hash": "f1928e0d1e7b48df179a996456a2cbb231ba766788c0848c24643a749607f9e8",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=False, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "full_mvp",
+      "config_hash": "835190418e6299214db0c0fa746df2f2f1e81388eb4fefbb8b84e9f1a89a90af",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "no_embedding",
+      "config_hash": "da112e494101e860b13b789380578e8efade1d5ad2bd75b209fe48059c3e7576",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "no_claims",
+      "config_hash": "6820cfac6c73b0870587540ff4de3829edbdc1188a6102b766c1011dd29eb83e",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "stateless",
+      "config_hash": "c3a942087b15251d0745264082a9ff50443390f1c10e07d9879ae938b641431c",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "binary_policy",
+      "config_hash": "f4c063a056fdebdc61bf668eff920ccb9f1449e0a89406e21b949c3d522446ac",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "monitoring_0",
+      "config_hash": "66138394a834a6257625e4a8a1443d6db769274abb8ebde37f71b1c7db084279",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=0, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "monitoring_1",
+      "config_hash": "4aefff13ad9243b627cc5bfff37b1ab07649a0cf689e55cbe1f676cf1819055f",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=1, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "continuous",
+      "config_hash": "d68a4db3a6ea2c16d201b8f1c3c043b2954c96e044090d673741f0397c5fe938",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "monitoring_only",
+      "config_hash": "0f7e015d112be0eca6dbba1c7ba85049265c414f9915b0ed409383b94b1f9d8b",
+      "firewall_enabled": false,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=True, duration_rounds=3, clock_mode='turn', history_expiration_turns=None)"
+      }
+    }
+  ],
+  "duplicate_identities": []
+}

@@ -1,0 +1,56 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 105,
+  "audit_valid": false,
+  "config_hashes": [
+    "0379e0182db2508a8fac9f3054df7afced2d4181b9d2aef5bcf7207556f3c112",
+    "0847186677f6e24e8a9668581a2392f18c11eda36cc8990e5237f4d202cd186a",
+    "27790adce2de81cb830875be061270ac3acc737e175760a2e5687eaa014d8e05",
+    "506866b5c589471464b362591c1659cba33c3ee34cc828efa2de637a4e668d75",
+    "7a715b0e31f8358dd065ea3ce7c5e3f662eaee20e28c71b4c47753429599fe6e",
+    "8a9a80e15882bb7f81cb844b43d46d0571df57184f535f81d8debbffba143678",
+    "8daef5292ef321df2e097f43da01e36083628dc5f86515e3280bf3942cc325ea",
+    "acda356bad66e54d7c3ec623ac811a7711dd007afcd53cdc2927b346a81a7d53",
+    "ba9bbf87879be5266d98ee16400cc087aba9988b757a95b43e073e2cb50a8817",
+    "c708c86f736a60365af9787a65aea6fe8e7eccc52193d58da327174bea043c95",
+    "d4207775c3f7b2fe38c40b3661ed48062972e268e041be384a587b8d4c2c0b3e",
+    "e00313d0ce9b968f1b8c77bceeb7057a3cfca3d5f73eef068db7712c00505060",
+    "eca4497bc1430a40a07b7d71de9443f86f296b5cd49fd4b7a12d88d9cc1723d6"
+  ],
+  "dimension": null,
+  "embedding_threshold": 0.8,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct"
+  ],
+  "generated_at_utc": "2026-08-01T20:21:07.787672+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 234,
+      "numerator": 18
+    },
+    "fbr": {
+      "denominator": 156,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 663,
+      "numerator": 48
+    },
+    "rr": {
+      "denominator": 39,
+      "numerator": 9
+    }
+  },
+  "model": null,
+  "provider": "fixed",
+  "repository_commit": "369c71850088a9eb62746e9628bce554faf627b5-dirty",
+  "result_count": 117,
+  "run_mode": "diagnostic",
+  "seeds": [
+    7,
+    42,
+    123
+  ]
+}

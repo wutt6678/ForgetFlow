@@ -1,0 +1,91 @@
+{
+  "audit_valid": false,
+  "manifest_valid": true,
+  "directional_checks_pass": true,
+  "no_unmatched_pairs": true,
+  "utility_defined": true,
+  "repository_clean": false,
+  "artifacts_complete": true,
+  "no_duplicate_identities": true,
+  "all_passed": false,
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "failure_reasons": [
+    "Audit invalid: 105 errors",
+    "Repository dirty: 369c71850088a9eb62746e9628bce554faf627b5-dirty"
+  ],
+  "repository_commit": "369c71850088a9eb62746e9628bce554faf627b5-dirty",
+  "generated_at": "2026-08-01T20:21:07.787672+00:00",
+  "mode": "diagnostic",
+  "total_runs": 117,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 13,
+  "audit_error_count": 105,
+  "duplicate_identity_count": 0,
+  "aggregate_metrics": {
+    "pu_rer": {
+      "value": 0.07239819004524888,
+      "numerator": 48,
+      "denominator": 663
+    },
+    "crr": {
+      "value": 0.07692307692307693,
+      "numerator": 18,
+      "denominator": 234
+    },
+    "rr": {
+      "value": 0.23076923076923078,
+      "numerator": 9,
+      "denominator": 39
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 156
+    }
+  },
+  "directional_checks": {
+    "privacy_mvp_better": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_firewall PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.17647058823529413,
+      "passed": true
+    },
+    "semantic_protection": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_embedding PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.058823529411764705,
+      "passed": true
+    },
+    "stateful_reconstruction_safer": {
+      "claim_type": "strict_improvement",
+      "check": "stateful CRR < stateless CRR",
+      "lhs": 0.0,
+      "rhs": 0.16666666666666666,
+      "passed": true
+    },
+    "rich_utility_ge_binary": {
+      "claim_type": "non_inferiority",
+      "check": "full_mvp task_success >= binary task_success",
+      "lhs": 3,
+      "rhs": 0,
+      "passed": true
+    },
+    "firewall_reduces_rr": {
+      "claim_type": "strict_improvement",
+      "check": "no_firewall RR > full_mvp RR",
+      "lhs": 1.0,
+      "rhs": 0.0,
+      "passed": true
+    }
+  },
+  "expected_pairs": 9,
+  "matched_pairs": 9,
+  "unmatched_pair_count": 0,
+  "baseline_successful_pairs": 3,
+  "utility_retention_value": 1.0,
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0"
+}

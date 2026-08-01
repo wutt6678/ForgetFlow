@@ -1,0 +1,258 @@
+{
+  "suite_type": "deterministic_assertion",
+  "seed": 42,
+  "total_cases": 10,
+  "execution_completed": 10,
+  "execution_skipped": 0,
+  "execution_failed": 0,
+  "assertion_cases_passed": 4,
+  "assertion_cases_failed": 6,
+  "individual_assertions_passed": 11,
+  "individual_assertions_failed": 7,
+  "assertion_consistency_failures": 0,
+  "audit_failures": 0,
+  "suite_passed": false,
+  "timestamp": "2026-08-01T20:20:21.212927+00:00",
+  "results": [
+    {
+      "case_id": "exact_disclosure",
+      "status": "COMPLETED",
+      "expected_exposure_class": "direct_exact",
+      "expected_behavior": "blocked",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Exact detector alone triggers containment",
+          "passed": false,
+          "details": "exact_detected=True, exact_blocked=False"
+        },
+        {
+          "assertion": "Exact score = 1.0",
+          "passed": true,
+          "details": "exact_score=1.0"
+        },
+        {
+          "assertion": "Matched target IDs = [F001]",
+          "passed": true,
+          "details": "matched_forget_ids=('F001',)"
+        },
+        {
+          "assertion": "Released text = None",
+          "passed": false,
+          "details": "released_text=Request a new temporary credential."
+        },
+        {
+          "assertion": "Message delivered = false",
+          "passed": true,
+          "details": "target_exposed=False"
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "alias_disclosure",
+      "status": "COMPLETED",
+      "expected_exposure_class": "direct_alias",
+      "expected_behavior": "blocked",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Alias detector triggers while exact does not",
+          "passed": true,
+          "details": "exact_enabled=False, entity_enabled=True"
+        },
+        {
+          "assertion": "Alias exposure detected",
+          "passed": true,
+          "details": "has_alias=True, has_exact=False"
+        }
+      ],
+      "all_assertions_passed": true,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "embedding_assertion",
+      "status": "COMPLETED",
+      "expected_exposure_class": "direct_embedding",
+      "expected_behavior": "blocked",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Embedding triggers while exact, alias, and claims do not",
+          "passed": true,
+          "details": "config: exact=False, entity=False, embedding=True, claim=False"
+        },
+        {
+          "assertion": "Embedding exposure detected",
+          "passed": false,
+          "details": "has_embedding_exposure=False"
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "claim_assertion",
+      "status": "COMPLETED",
+      "expected_exposure_class": "direct_claim",
+      "expected_behavior": "blocked",
+      "actual_turns": 21,
+      "final_contamination": {
+        "CMD|F003": "recontaminated",
+        "AGT_B|F003": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Positive proposition entailment triggers policy",
+          "passed": true,
+          "details": "claim_matching_enabled=True"
+        },
+        {
+          "assertion": "Claim exposure detected",
+          "passed": false,
+          "details": "has_claim_exposure=False"
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "question_control",
+      "status": "COMPLETED",
+      "expected_exposure_class": "none",
+      "expected_behavior": "allowed",
+      "actual_turns": 21,
+      "final_contamination": {
+        "CMD|F003": "verified",
+        "AGT_B|F003": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Question is relevant but not entailed",
+          "passed": true,
+          "details": "no_exact_or_claim_exposure"
+        },
+        {
+          "assertion": "Question allowed, no exposure",
+          "passed": true,
+          "details": "blocked=False"
+        }
+      ],
+      "all_assertions_passed": true,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "negation_control",
+      "status": "COMPLETED",
+      "expected_exposure_class": "none",
+      "expected_behavior": "allowed",
+      "actual_turns": 21,
+      "final_contamination": {
+        "CMD|F003": "verified",
+        "AGT_B|F003": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Negation not entailed, allowed",
+          "passed": true,
+          "details": "blocked=False, has_exact=False"
+        }
+      ],
+      "all_assertions_passed": true,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "fragment_sequence",
+      "status": "COMPLETED",
+      "expected_exposure_class": "fragment_reconstruction",
+      "expected_behavior": "tracked",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Fragment reconstruction tracked",
+          "passed": false,
+          "details": "has_fragment_or_exact=False"
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "recontamination_message",
+      "status": "COMPLETED",
+      "expected_exposure_class": "recontamination",
+      "expected_behavior": "detected",
+      "actual_turns": 21,
+      "final_contamination": {
+        "CMD|F003": "verified",
+        "AGT_B|F003": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Recontamination attempt detected",
+          "passed": true,
+          "details": "has_recontamination=True, blocked=False"
+        }
+      ],
+      "all_assertions_passed": true,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "useful_safe_task",
+      "status": "COMPLETED",
+      "expected_exposure_class": "permitted_residual",
+      "expected_behavior": "allowed",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Task allowed and succeeds",
+          "passed": false,
+          "details": "blocked=False, task_success=True, target_exposed=False, state_verified=False"
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    },
+    {
+      "case_id": "rich_vs_binary",
+      "status": "COMPLETED",
+      "expected_exposure_class": "none",
+      "expected_behavior": "compared",
+      "actual_turns": 14,
+      "final_contamination": {
+        "CK|F001": "verified",
+        "SK|F001": "unknown"
+      },
+      "assertions": [
+        {
+          "assertion": "Rich vs binary paired comparison executed",
+          "passed": false,
+          "details": "UNEVALUABLE: Real paired comparison not yet implemented. Only rich configuration checked."
+        }
+      ],
+      "all_assertions_passed": false,
+      "consistency_violations": []
+    }
+  ]
+}

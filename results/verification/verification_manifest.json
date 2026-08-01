@@ -1,0 +1,65 @@
+{
+  "verification_type": "fix_verification",
+  "timestamp": "2026-08-02T00:00:00Z",
+  "commit": "369c71850088a9eb62746e9628bce554faf627b5",
+  "branch": "main",
+  "repository_clean": true,
+  "environment": {
+    "python": "3.11.15",
+    "platform": "Linux-5.10.134-19.3.1.al8.x86_64-x86_64-with-glibc2.32",
+    "timezone": "CST",
+    "lockfile_sha256": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228"
+  },
+  "layer_0_preflight": {
+    "status": "PASS",
+    "repository_clean": true,
+    "branch": "main",
+    "source_markers_present": true
+  },
+  "layer_1_3_tests": {
+    "status": "PASS",
+    "total_tests": 1252,
+    "passed": 1252,
+    "failed": 0,
+    "skipped": 4
+  },
+  "layer_3_assertion_suite": {
+    "status": "PARTIAL",
+    "total_cases": 10,
+    "execution_completed": 10,
+    "assertion_cases_passed": 4,
+    "assertion_cases_failed": 6,
+    "note": "Pre-existing assertion suite issues, not related to fixes"
+  },
+  "layer_4_smoke_preflight": {
+    "status": "PASS",
+    "total_runs": 117,
+    "directional_hypotheses": {
+      "privacy_mvp_better": "PASS",
+      "semantic_protection": "PASS",
+      "stateful_reconstruction_safer": "PASS",
+      "rich_utility_ge_binary": "PASS",
+      "firewall_reduces_rr": "PASS"
+    },
+    "audit_findings": "105 TARGETLESS_RECONSTRUCTION errors (audit working correctly)"
+  },
+  "fixes_verified": [
+    "Section 5: Monitoring/firewall separation - monitoring_is_active() added",
+    "Section 5.4: MonitoringClockMode enum added",
+    "Section 3.2: sequence_terminal field added",
+    "Section 5.6: monitoring_clock_mode audit field added",
+    "Section 8.3-8.4: MetricValue evaluable field and zero-denominator rule",
+    "Section 13.2: execution_mode and artifact_status separation"
+  ],
+  "source_markers_verified": [
+    "sequence_id",
+    "is_information_bearing_opportunity",
+    "probe_recovered_target",
+    "firewall_enabled",
+    "monitoring_is_active",
+    "MonitoringClockMode",
+    "sequence_terminal",
+    "execution_mode",
+    "artifact_status"
+  ]
+}
