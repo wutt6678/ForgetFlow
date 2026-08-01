@@ -601,10 +601,26 @@ class PropositionMatcher:
         # Check if all significant words from subject appear in target as whole words
         # (excluding common words like "agent" and discourse markers like "yes")
         stop_words = {
-            "agent", "the", "a", "an", "is", "has", "have",
+            "agent",
+            "the",
+            "a",
+            "an",
+            "is",
+            "has",
+            "have",
             # Discourse markers
-            "yes", "no", "ok", "okay", "well", "so", "now", "then",
-            "actually", "basically", "really", "just",
+            "yes",
+            "no",
+            "ok",
+            "okay",
+            "well",
+            "so",
+            "now",
+            "then",
+            "actually",
+            "basically",
+            "really",
+            "just",
         }
         subject_words = [w for w in normalized_subject.split() if w not in stop_words]
         target_words = set(normalized_target.split())

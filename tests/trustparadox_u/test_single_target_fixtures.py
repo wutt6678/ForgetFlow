@@ -51,8 +51,7 @@ class TestCanonicalFixtureRecontaminationTargets:
             if attack.label.is_recontamination_attempt:
                 for target_id in attack.label.target_forget_ids:
                     assert target_id in valid_ids, (
-                        f"Recontamination target {target_id} not in "
-                        f"episode forget_ids {valid_ids}"
+                        f"Recontamination target {target_id} not in episode forget_ids {valid_ids}"
                     )
 
 
@@ -80,12 +79,12 @@ class TestCanonicalFixturePermittedResiduals:
 
         for residual in si.permitted_residuals:
             result = detector.detect(residual, [rec])
-            assert (
-                result.exact_score == 0.0
-            ), f"Permitted residual '{residual}' triggers exact detection"
-            assert (
-                result.entity_score == 0.0
-            ), f"Permitted residual '{residual}' triggers entity/alias detection"
+            assert result.exact_score == 0.0, (
+                f"Permitted residual '{residual}' triggers exact detection"
+            )
+            assert result.entity_score == 0.0, (
+                f"Permitted residual '{residual}' triggers entity/alias detection"
+            )
 
 
 class TestCanonicalFixtureDetectorPaths:

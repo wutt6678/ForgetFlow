@@ -84,8 +84,7 @@ def validate_embedding_batch(
     """Validate an embedding batch for count, dimension, and non-emptiness."""
     if len(vectors) != len(texts):
         raise RuntimeError(
-            f"Embedding response count ({len(vectors)}) "
-            f"does not match input count ({len(texts)})"
+            f"Embedding response count ({len(vectors)}) does not match input count ({len(texts)})"
         )
 
     if not vectors:

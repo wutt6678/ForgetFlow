@@ -172,9 +172,11 @@ class TestEscalationBehavior:
         decision = gate.inspect(envelope)
 
         assert decision.action == "block"
-        assert "MAX_TRANSFORMATION_ATTEMPTS_EXCEEDED" in decision.reason_codes or \
-               "ESCALATION_NO_RESIDUAL" in decision.reason_codes or \
-               "EXACT_TARGET_MATCH" in decision.reason_codes
+        assert (
+            "MAX_TRANSFORMATION_ATTEMPTS_EXCEEDED" in decision.reason_codes
+            or "ESCALATION_NO_RESIDUAL" in decision.reason_codes
+            or "EXACT_TARGET_MATCH" in decision.reason_codes
+        )
 
 
 class TestReleasedExposure:

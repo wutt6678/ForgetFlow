@@ -230,7 +230,9 @@ class FlowGate:
                     exact_safe = False
                     alias_safe = False
 
-            passed = exact_safe and alias_safe and embedding_safe and claim_safe and reconstruction_safe
+            passed = (
+                exact_safe and alias_safe and embedding_safe and claim_safe and reconstruction_safe
+            )
 
             # Record this attempt
             attempt = TransformationAttempt(

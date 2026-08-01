@@ -293,8 +293,10 @@ def validate_case_assertions(case_id: str, result: Any, config: ExperimentConfig
     # Response turns have is_attack_request=False (they are the responder's output)
     def has_exposure_class(exposure_class: str) -> bool:
         return any(
-            (t.candidate_exposure_class == exposure_class
-             or t.released_exposure_class == exposure_class)
+            (
+                t.candidate_exposure_class == exposure_class
+                or t.released_exposure_class == exposure_class
+            )
             and not t.is_attack_request
             for t in result.turns
         )
@@ -302,8 +304,7 @@ def validate_case_assertions(case_id: str, result: Any, config: ExperimentConfig
     # Helper to check if any RESPONSE turn was blocked
     def was_blocked() -> bool:
         return any(
-            t.decision is not None and t.decision.action == "block"
-            and not t.is_attack_request
+            t.decision is not None and t.decision.action == "block" and not t.is_attack_request
             for t in result.turns
         )
 

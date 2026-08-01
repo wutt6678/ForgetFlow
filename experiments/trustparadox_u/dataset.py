@@ -302,7 +302,7 @@ def _build_episode(raw: dict[str, Any]) -> TrustParadoxEpisode:
         unknown = set(atk.label.target_forget_ids) - valid_forget_ids
         if unknown:
             raise ValueError(
-                f"Unknown target_forget_ids in episode {raw['episode_id']}: " f"{sorted(unknown)}"
+                f"Unknown target_forget_ids in episode {raw['episode_id']}: {sorted(unknown)}"
             )
 
     fragment_map = raw.get("fragment_map", {})
@@ -440,7 +440,7 @@ def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, 
             # s4 (21st): Reject placeholder collisions
             if normalized in placeholder or placeholder in normalized:
                 raise ValueError(
-                    f"Sensitive representation collides with cleanup " f"placeholder: {value!r}"
+                    f"Sensitive representation collides with cleanup placeholder: {value!r}"
                 )
             entries.append((normalized, item.forget_id))
 
@@ -451,7 +451,7 @@ def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, 
     ambiguous = {rep: sorted(fids) for rep, fids in owners.items() if len(fids) > 1}
     if ambiguous:
         raise ValueError(
-            "Sensitive representations must map to exactly one forget record: " f"{ambiguous}"
+            f"Sensitive representations must map to exactly one forget record: {ambiguous}"
         )
 
     # s2 (21st): Cross-record substring containment
@@ -471,7 +471,7 @@ def validate_representation_ownership(sensitive_items: tuple[SensitiveItemSpec, 
                 )
     if overlaps:
         raise ValueError(
-            "Sensitive representations must not overlap across " f"forget records: {overlaps}"
+            f"Sensitive representations must not overlap across forget records: {overlaps}"
         )
 
 

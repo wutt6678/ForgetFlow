@@ -124,9 +124,7 @@ class AuditInvariantChecker:
             violations.append(
                 AuditViolation(
                     violation_type="RECHECK_FAILED_NOT_BLOCKED",
-                    message=(
-                        f"RECHECK_FAILED in reason_codes but action is '{decision.action}'"
-                    ),
+                    message=(f"RECHECK_FAILED in reason_codes but action is '{decision.action}'"),
                     decision_index=decision_index,
                 )
             )

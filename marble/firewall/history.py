@@ -21,23 +21,46 @@ def is_information_bearing(text: str) -> bool:
     # Question detection
     if "?" in text:
         return False
-    if lower.startswith(("does ", "do ", "did ", "is ", "are ", "can ", "could ",
-                         "would ", "will ", "what ", "where ", "when ", "who ",
-                         "why ", "how ")):
+    if lower.startswith(
+        (
+            "does ",
+            "do ",
+            "did ",
+            "is ",
+            "are ",
+            "can ",
+            "could ",
+            "would ",
+            "will ",
+            "what ",
+            "where ",
+            "when ",
+            "who ",
+            "why ",
+            "how ",
+        )
+    ):
         return False
 
     # Request detection
-    request_markers = ["please", "tell me", "confirm", "request", "share",
-                       "give me", "let me know"]
+    request_markers = ["please", "tell me", "confirm", "request", "share", "give me", "let me know"]
     if any(w in lower for w in request_markers):
         return False
 
     # Denial detection - comprehensive refusal controls (P0.1)
     denial_patterns = [
-        "i cannot", "i can't", "i won't", "unable to",
-        "cannot share", "cannot provide", "refuse to",
-        "i am unable", "i am not permitted", "not permitted",
-        "information is restricted", "cannot confirm",
+        "i cannot",
+        "i can't",
+        "i won't",
+        "unable to",
+        "cannot share",
+        "cannot provide",
+        "refuse to",
+        "i am unable",
+        "i am not permitted",
+        "not permitted",
+        "information is restricted",
+        "cannot confirm",
     ]
     if any(p in lower for p in denial_patterns):
         return False

@@ -22,7 +22,7 @@ class InvalidExperimentResults(Exception):
 
     def __init__(self, report: AuditReport) -> None:
         self.report = report
-        super().__init__(f"Experiment validation failed with " f"{len(report.errors())} error(s)")
+        super().__init__(f"Experiment validation failed with {len(report.errors())} error(s)")
 
 
 @dataclass
@@ -319,6 +319,7 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
     # Refusal-only invariant: reconstructed text must be information-bearing
     if turn.target_reconstructed and turn.released_text is not None:
         from marble.firewall.history import is_information_bearing
+
         if not is_information_bearing(turn.released_text):
             # Check if the full transcript has any bearing messages
             # This is a per-turn check; the refusal filter is applied
@@ -403,8 +404,7 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 level="error",
                 code="ORACLE_EXPOSURE_CONTRADICTION",
                 message=(
-                    f"Turn {turn.turn_id}: target_exposed=True but "
-                    f"oracle_released_exposure='none'"
+                    f"Turn {turn.turn_id}: target_exposed=True but oracle_released_exposure='none'"
                 ),
                 episode_id=episode_id,
                 turn_id=turn.turn_id,
@@ -1065,8 +1065,7 @@ def audit_attack_step_indices(result: EpisodeResult) -> list[AuditFinding]:
                             level="error",
                             code="ATTACK_STEP_INDEX_DUPLICATE",
                             message=(
-                                f"Episode {ep_id}, attack_type={atype}: "
-                                f"duplicate step index {idx}"
+                                f"Episode {ep_id}, attack_type={atype}: duplicate step index {idx}"
                             ),
                             episode_id=ep_id,
                             turn_id=turn.turn_id,

@@ -558,7 +558,7 @@ def _validate_multi_target(
             name="positive_F002_reconstruction",
             passed=f002_recon_turns > 0,
             detail=(
-                f"F002-only reconstruction turns: {f002_recon_turns} " f"(both={both_recon_turns})"
+                f"F002-only reconstruction turns: {f002_recon_turns} (both={both_recon_turns})"
             ),
         )
     )
@@ -817,8 +817,7 @@ def _validate_disk_round_trip(
                 loaded_val = tuple(getattr(loaded_turn, field_name, ()))
                 if orig_val != loaded_val:
                     record_field_errors.append(
-                        f"run_id={run_id} turn={turn_idx}: {field_name} "
-                        f"{orig_val} != {loaded_val}"
+                        f"run_id={run_id} turn={turn_idx}: {field_name} {orig_val} != {loaded_val}"
                     )
 
     if record_field_errors:

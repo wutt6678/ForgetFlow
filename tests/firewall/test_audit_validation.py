@@ -198,7 +198,9 @@ class TestValidateAuditInvariants:
         """All decisions pass validation."""
         decisions = [
             _make_decision(action="allow", released_text="Hello"),
-            _make_decision(action="block", released_text=None, exact_score=1.0, matched_forget_ids=("F001",)),
+            _make_decision(
+                action="block", released_text=None, exact_score=1.0, matched_forget_ids=("F001",)
+            ),
         ]
         passed, violations = validate_audit_invariants(decisions)
         assert passed is True

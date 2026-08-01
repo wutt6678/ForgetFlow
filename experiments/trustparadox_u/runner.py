@@ -457,8 +457,7 @@ def evaluate_reconstruction_success(
     # P0.1: Filter out refusal-only and non-information-bearing messages
     # Only information-bearing assertions contribute to reconstruction
     information_bearing_transcript = [
-        msg for msg in released_transcript
-        if is_information_bearing(msg)
+        msg for msg in released_transcript if is_information_bearing(msg)
     ]
 
     if not information_bearing_transcript:
@@ -509,8 +508,7 @@ def evaluate_reconstruction_evidence(
 
     # P0.1: Filter out non-information-bearing messages
     bearing_indices = [
-        i for i, msg in enumerate(released_transcript)
-        if is_information_bearing(msg)
+        i for i, msg in enumerate(released_transcript) if is_information_bearing(msg)
     ]
 
     if not bearing_indices:
@@ -546,9 +544,7 @@ def evaluate_reconstruction_evidence(
         found_frags = tuple(f for f in fragments if f.lower() in combined)
         complete = len(found_frags) == len(fragments)
         score = len(found_frags) / len(fragments) if fragments else 0.0
-        reconstructed_value = (
-            "".join(found_frags) if complete else None
-        )
+        reconstructed_value = "".join(found_frags) if complete else None
 
         return ReconstructionEvidence(
             forget_id=forget_id,
@@ -678,7 +674,8 @@ def _update_detector_and_record_exposure(
                     proposition_score=rev.proposition_score,
                     proposition_relevant=rev.proposition_relevant,
                     proposition_entailed=rev.proposition_entailed,
-                    reason_codes=rev.reason_codes + (("RECONSTRUCTION_COMPLETION",) if recon_matched else ()),
+                    reason_codes=rev.reason_codes
+                    + (("RECONSTRUCTION_COMPLETION",) if recon_matched else ()),
                 )
             )
         else:
@@ -687,13 +684,15 @@ def _update_detector_and_record_exposure(
     # Section 3.3: Propagate reconstruction targets to top-level matched_forget_ids
     # matched_forget_ids = union of all positive evidence
     reconstruction_threshold = config.history.reconstruction_threshold
-    propagated_matched_ids = sorted({
-        ev.forget_id
-        for ev in updated_record_evidence
-        if ev.matched
-        or ev.reconstruction_score >= reconstruction_threshold
-        or ev.proposition_entailed
-    })
+    propagated_matched_ids = sorted(
+        {
+            ev.forget_id
+            for ev in updated_record_evidence
+            if ev.matched
+            or ev.reconstruction_score >= reconstruction_threshold
+            or ev.proposition_entailed
+        }
+    )
 
     detector_result = dataclasses.replace(
         detector_result,
@@ -1013,7 +1012,9 @@ def _process_message_turn(
     oracle_candidate = candidate_exposure_class
     if target_exposed:
         # Oracle: ground-truth text evaluation found target in released text
-        oracle_released = released_exposure_class if released_exposure_class != "none" else "target_bearing"
+        oracle_released = (
+            released_exposure_class if released_exposure_class != "none" else "target_bearing"
+        )
     else:
         oracle_released = "none"
 
@@ -1021,7 +1022,9 @@ def _process_message_turn(
     if decision and decision.detector_result:
         detected_candidate = candidate_exposure_class
         if decision.detector_result.matched_forget_ids:
-            detected_released = released_exposure_class if released_exposure_class != "none" else "detector_match"
+            detected_released = (
+                released_exposure_class if released_exposure_class != "none" else "detector_match"
+            )
         else:
             detected_released = "none"
     else:
@@ -1053,7 +1056,10 @@ def _process_message_turn(
         sequence_type=sequence_type,
         fragment_index=fragment_index,
         fragment_count=fragment_count,
-        sequence_terminal=is_reconstruction and fragment_index is not None and fragment_count is not None and fragment_index == fragment_count - 1,
+        sequence_terminal=is_reconstruction
+        and fragment_index is not None
+        and fragment_count is not None
+        and fragment_index == fragment_count - 1,
         # Section 5.2: Information-bearing opportunity
         is_information_bearing_opportunity=is_information_bearing_opportunity,
         target_exposed=target_exposed,
@@ -1134,7 +1140,9 @@ def run_episode(
     # Section 10.2: Use canonical condition_hash (includes firewall_enabled)
     config_hash = config.condition_hash(firewall_enabled=firewall_enabled)
     # Section 10.3: Compute trial_hash for unique trial identity
-    secret_variant_id = secret_variant_ids[0] if len(secret_variant_ids) == 1 else ",".join(secret_variant_ids)
+    secret_variant_id = (
+        secret_variant_ids[0] if len(secret_variant_ids) == 1 else ",".join(secret_variant_ids)
+    )
     trial_hash = config.trial_hash(
         firewall_enabled=firewall_enabled,
         scenario_id=episode.scenario_id,
@@ -1996,22 +2004,22 @@ def run_episode(
     # s11: Split RR into clean and at-risk populations
     # s3: Enforce disjoint cohorts
     assert clean_attempted_pairs.isdisjoint(at_risk_attempted_pairs), (
-        "RR cohorts not disjoint: " f"{clean_attempted_pairs & at_risk_attempted_pairs}"
+        f"RR cohorts not disjoint: {clean_attempted_pairs & at_risk_attempted_pairs}"
     )
     # s2: Use attributable success sets for numerators
-    assert successful_clean_pairs.issubset(
-        clean_attempted_pairs
-    ), "successful_clean_pairs not subset of clean_attempted_pairs"
-    assert successful_at_risk_pairs.issubset(
-        at_risk_attempted_pairs
-    ), "successful_at_risk_pairs not subset of at_risk_attempted_pairs"
-    assert successful_clean_pairs.isdisjoint(
-        successful_at_risk_pairs
-    ), "successful_clean_pairs and successful_at_risk_pairs not disjoint"
+    assert successful_clean_pairs.issubset(clean_attempted_pairs), (
+        "successful_clean_pairs not subset of clean_attempted_pairs"
+    )
+    assert successful_at_risk_pairs.issubset(at_risk_attempted_pairs), (
+        "successful_at_risk_pairs not subset of at_risk_attempted_pairs"
+    )
+    assert successful_clean_pairs.isdisjoint(successful_at_risk_pairs), (
+        "successful_clean_pairs and successful_at_risk_pairs not disjoint"
+    )
     # s3: Aggregate invariants
-    assert successful_pairs.issubset(
-        attempted_pairs
-    ), "successful_pairs not subset of attempted_pairs"
+    assert successful_pairs.issubset(attempted_pairs), (
+        "successful_pairs not subset of attempted_pairs"
+    )
     result.attempted_clean_pairs = len(clean_attempted_pairs)
     result.recontaminated_clean_pairs = len(successful_clean_pairs)
     result.attempted_at_risk_pairs = len(at_risk_attempted_pairs)
@@ -2028,12 +2036,12 @@ def run_episode(
     # Store unexpected recontamination count for auditing
     result.metadata["unexpected_recontaminated_pair_count"] = len(unexpected_recontaminated_pairs)
     # s2: Invariants for outcome classification
-    assert successful_pairs.isdisjoint(
-        unexpected_recontaminated_pairs
-    ), "successful_pairs and unexpected_recontaminated_pairs not disjoint"
-    assert (
-        successful_pairs | unexpected_recontaminated_pairs
-    ) == all_recontaminated_pairs, "successful + unexpected != all_recontaminated_pairs"
+    assert successful_pairs.isdisjoint(unexpected_recontaminated_pairs), (
+        "successful_pairs and unexpected_recontaminated_pairs not disjoint"
+    )
+    assert (successful_pairs | unexpected_recontaminated_pairs) == all_recontaminated_pairs, (
+        "successful + unexpected != all_recontaminated_pairs"
+    )
     # Store AT_RISK attempt metadata for RR denominator analysis
     result.metadata["at_risk_attempted_pair_count"] = len(at_risk_attempted_pairs)
     result.metadata["at_risk_attempted_pairs"] = sorted(

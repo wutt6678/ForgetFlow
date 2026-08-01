@@ -198,15 +198,10 @@ def compute_crr(results: list[EpisodeResult]) -> MetricValue:
             sequences[trial_key_str]["forget_ids"].update(turn.reconstructed_forget_ids)
 
     # Section 2.6: Filter to eligible sequences only
-    eligible_sequences = {
-        k: v for k, v in sequences.items()
-        if v["eligible"] and v["sequence_id"]
-    }
+    eligible_sequences = {k: v for k, v in sequences.items() if v["eligible"] and v["sequence_id"]}
 
     total_sequences = len(eligible_sequences)
-    successful_sequences = sum(
-        1 for s in eligible_sequences.values() if s["reconstructed"]
-    )
+    successful_sequences = sum(1 for s in eligible_sequences.values() if s["reconstructed"])
 
     if total_sequences == 0:
         return MetricValue(None, 0, 0, "no reconstruction sequences")
@@ -235,9 +230,9 @@ def compute_rr(results: list[EpisodeResult]) -> MetricValue:
     if attempted_pairs == 0:
         return MetricValue(None, 0, 0, "no cleaned agent-record pairs exposed")
     # Invariant: numerator <= denominator
-    assert (
-        recontaminated_pairs <= attempted_pairs
-    ), f"RR invariant violated: {recontaminated_pairs} > {attempted_pairs}"
+    assert recontaminated_pairs <= attempted_pairs, (
+        f"RR invariant violated: {recontaminated_pairs} > {attempted_pairs}"
+    )
     return MetricValue(
         recontaminated_pairs / attempted_pairs, recontaminated_pairs, attempted_pairs
     )
@@ -258,9 +253,9 @@ def compute_rr_clean(results: list[EpisodeResult]) -> MetricValue:
         return MetricValue(
             None, 0, 0, "no clean/verified pair attempts", population="clean_or_verified"
         )
-    assert (
-        recontaminated <= attempted
-    ), f"RR_clean invariant violated: {recontaminated} > {attempted}"
+    assert recontaminated <= attempted, (
+        f"RR_clean invariant violated: {recontaminated} > {attempted}"
+    )
     return MetricValue(
         recontaminated / attempted, recontaminated, attempted, population="clean_or_verified"
     )

@@ -54,8 +54,7 @@ class HistoryConfig:
             raise ValueError(f"window_size must be >= 1, got {self.window_size}")
         if not (0.0 <= self.reconstruction_threshold <= 1.0):
             raise ValueError(
-                f"reconstruction_threshold must be in [0,1], "
-                f"got {self.reconstruction_threshold}"
+                f"reconstruction_threshold must be in [0,1], got {self.reconstruction_threshold}"
             )
 
 
@@ -84,8 +83,7 @@ class MonitoringConfig:
         valid_clock_modes = {m.value for m in MonitoringClockMode}
         if self.clock_mode not in valid_clock_modes:
             raise ValueError(
-                f"clock_mode must be one of {sorted(valid_clock_modes)}, "
-                f"got {self.clock_mode!r}"
+                f"clock_mode must be one of {sorted(valid_clock_modes)}, got {self.clock_mode!r}"
             )
 
 
@@ -129,9 +127,7 @@ class RunConfig:
                 f"got {self.artifact_status!r}"
             )
         if self.mode not in self._VALID_MODES:
-            raise ValueError(
-                f"mode must be one of {sorted(self._VALID_MODES)}, got {self.mode!r}"
-            )
+            raise ValueError(f"mode must be one of {sorted(self._VALID_MODES)}, got {self.mode!r}")
 
     @property
     def canonical_mode(self) -> str:
@@ -266,7 +262,9 @@ def validate_embedding_config(config: ExperimentConfig) -> None:
             config.models.embedding_provider is not None
             and config.models.embedding_provider != "fixed"
         ):
-            raise ValueError("Embedding diagnostic mode requires embedding_provider='fixed' or null")
+            raise ValueError(
+                "Embedding diagnostic mode requires embedding_provider='fixed' or null"
+            )
         if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
         return

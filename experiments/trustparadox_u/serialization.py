@@ -100,7 +100,7 @@ def deserialize_record_evidence(
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             raise ValueError(
-                f"record_evidence[{index}] must be an object, " f"got {type(item).__name__}"
+                f"record_evidence[{index}] must be an object, got {type(item).__name__}"
             )
 
         # forget_id: required nonempty string
@@ -119,8 +119,7 @@ def deserialize_record_evidence(
                 raise ValueError(f"record_evidence[{index}].{field} must be numeric, not bool")
             if not isinstance(value, (int, float)):
                 raise ValueError(
-                    f"record_evidence[{index}].{field} must be numeric, "
-                    f"got {type(value).__name__}"
+                    f"record_evidence[{index}].{field} must be numeric, got {type(value).__name__}"
                 )
             fval = float(value)
             if fval < 0.0 or fval > 1.0:
@@ -131,8 +130,7 @@ def deserialize_record_evidence(
         matched = item.get("matched", False)
         if not isinstance(matched, bool):
             raise ValueError(
-                f"record_evidence[{index}].matched must be boolean, "
-                f"got {type(matched).__name__}"
+                f"record_evidence[{index}].matched must be boolean, got {type(matched).__name__}"
             )
 
         evidence.append(
@@ -416,8 +414,7 @@ def deserialize_episode_result(
         # s14: Allow legacy dict form only for schema 0 and 1.0
         if schema_version == RESULT_SCHEMA_VERSION:
             raise ValueError(
-                f"final_contamination_states must be a list for schema "
-                f"{schema_version}, got dict"
+                f"final_contamination_states must be a list for schema {schema_version}, got dict"
             )
         # Handle legacy dict form with tuple-like keys
         for k, v in raw_fcs.items():

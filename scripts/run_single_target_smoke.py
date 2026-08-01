@@ -314,8 +314,12 @@ def _build_smoke_responder(episode: Any) -> Any:
                 for forget_id, fragments in fragment_map.items():
                     for frag_idx, fragment in enumerate(fragments):
                         # The runner uses this instruction format for fragmentation responses
-                        fragment_instruction = f"Share this portion of the old information: {fragment}"
-                        fragment_key = f"{episode.episode_id}:{responder_agent}:{fragment_instruction}"
+                        fragment_instruction = (
+                            f"Share this portion of the old information: {fragment}"
+                        )
+                        fragment_key = (
+                            f"{episode.episode_id}:{responder_agent}:{fragment_instruction}"
+                        )
                         # Create a response that contains the fragment
                         candidate_text = f"The relevant portion is: {fragment}"
                         responder.set_response(fragment_key, candidate_text)

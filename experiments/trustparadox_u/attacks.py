@@ -196,8 +196,6 @@ def build_attack(
         if attack_type == "cross_agent_fragmentation":
             senders = {step.sender for step in plan.steps}
             if len(senders) < 2:
-                raise ValueError(
-                    "Cross-agent fragmentation requires " "at least two distinct senders"
-                )
+                raise ValueError("Cross-agent fragmentation requires at least two distinct senders")
 
     return plan

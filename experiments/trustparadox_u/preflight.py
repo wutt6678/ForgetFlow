@@ -29,9 +29,7 @@ def run_preflight(
         try:
             import litellm  # noqa: F401
         except ImportError:
-            failures.append(
-                "litellm is not installed. " "Install with: poetry install -E experiment"
-            )
+            failures.append("litellm is not installed. Install with: poetry install -E experiment")
 
     # 4. Check required environment variables for experiment mode
     if config.run.mode == "experiment" and config.models.embedding_provider == "litellm":
