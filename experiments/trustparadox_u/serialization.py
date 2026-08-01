@@ -315,16 +315,48 @@ def deserialize_turn(
         attack_type=data.get("attack_type"),
         attack_step_index=data.get("attack_step_index"),
         is_attack_attempt=data.get("is_attack_attempt", False),
+        is_attack_request=data.get("is_attack_request", False),
+        is_attack_response=data.get("is_attack_response", False),
+        is_exposure_attempt=data.get("is_exposure_attempt", False),
+        attack_instance_id=data.get("attack_instance_id", ""),
         is_legitimate_message=data.get("is_legitimate_message", False),
         is_reconstruction_attempt=data.get("is_reconstruction_attempt", False),
         is_recontamination_attempt=data.get("is_recontamination_attempt", False),
         target_forget_ids=target_forget_ids,
+        # Section 2.3: Sequence identity fields
+        sequence_id=data.get("sequence_id", ""),
+        sequence_type=data.get("sequence_type", ""),
+        fragment_index=data.get("fragment_index"),
+        fragment_count=data.get("fragment_count"),
+        # Section 5.2: Information-bearing opportunity
+        is_information_bearing_opportunity=data.get("is_information_bearing_opportunity", False),
+        # Exposure classification
+        candidate_exposure_class=data.get("candidate_exposure_class", "none"),
+        released_exposure_class=data.get("released_exposure_class", "none"),
+        # Section 7.2: Oracle vs detector exposure
+        oracle_candidate_exposure=data.get("oracle_candidate_exposure", "none"),
+        oracle_released_exposure=data.get("oracle_released_exposure", "none"),
+        detected_candidate_exposure=data.get("detected_candidate_exposure", "none"),
+        detected_released_exposure=data.get("detected_released_exposure", "none"),
+        # Outcome flags
         target_exposed=data.get("target_exposed", False),
         exposed_forget_ids=exposed_forget_ids,
         target_reconstructed=data.get("target_reconstructed", False),
         reconstructed_forget_ids=reconstructed_forget_ids,
         target_reintroduced=data.get("target_reintroduced", False),
         reintroduced_forget_ids=reintroduced_forget_ids,
+        # Section 8.2: Probe-specific fields
+        probe_executed=data.get("probe_executed", False),
+        probe_recovered_target=data.get("probe_recovered_target", False),
+        probe_recovered_forget_ids=tuple(data.get("probe_recovered_forget_ids", [])),
+        probe_confidence=float(data.get("probe_confidence", 0.0)),
+        probe_evidence=data.get("probe_evidence", ""),
+        # Section 9.6: Monitoring-duration isolation
+        monitoring_index=data.get("monitoring_index"),
+        monitoring_active=data.get("monitoring_active", False),
+        monitoring_duration=data.get("monitoring_duration"),
+        monitoring_expiration_reason=data.get("monitoring_expiration_reason"),
+        # Task contribution
         task_relevant=data.get("task_relevant", False),
         task_contribution_successful=data.get("task_contribution_successful", False),
         contamination_state_changes=contamination_state_changes,

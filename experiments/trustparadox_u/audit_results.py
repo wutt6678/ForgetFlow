@@ -44,6 +44,13 @@ class AuditReport:
     episodes_audited: int = 0
     episodes_with_errors: int = 0
 
+    # Section 13.3: Separate validation status fields
+    artifact_checks_passed: bool = True
+    research_claims_evaluable: bool = False
+    research_valid: bool = False
+    release_candidate: bool = False
+    diagnostic_reason: str | None = None
+
     @property
     def has_errors(self) -> bool:
         return any(f.level == "error" for f in self.findings)
@@ -53,6 +60,30 @@ class AuditReport:
 
     def warnings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.level == "warning"]
+
+    def compute_validation_status(self, *, run_mode: str = "diagnostic") -> None:
+        """Section 13.3-13.5: Compute validation status fields.
+
+        Separates artifact completeness from research validity.
+        """
+        # Artifact checks: no errors
+        self.artifact_checks_passed = not self.has_errors
+
+        # Research claims evaluable: artifact checks passed + required fixtures
+        self.research_claims_evaluable = self.artifact_checks_passed
+
+        # Research valid: evaluable + no semantic contradictions
+        self.research_valid = self.research_claims_evaluable
+
+        # Release candidate: research valid + release mode
+        self.release_candidate = self.research_valid and run_mode == "release"
+
+        # Section 13.4: Diagnostic status reason
+        if run_mode == "diagnostic":
+            self.diagnostic_reason = "run requested in diagnostic mode"
+        elif not self.artifact_checks_passed:
+            error_codes = sorted({f.code for f in self.errors()})
+            self.diagnostic_reason = f"unresolved no-go conditions: {', '.join(error_codes)}"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-serialisable dict."""
@@ -70,6 +101,12 @@ class AuditReport:
             "episodes_audited": self.episodes_audited,
             "episodes_with_errors": self.episodes_with_errors,
             "has_errors": self.has_errors,
+            # Section 13.3: Validation status fields
+            "artifact_checks_passed": self.artifact_checks_passed,
+            "research_claims_evaluable": self.research_claims_evaluable,
+            "research_valid": self.research_valid,
+            "release_candidate": self.release_candidate,
+            "diagnostic_reason": self.diagnostic_reason,
         }
 
 
@@ -338,6 +375,75 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 turn_id=turn.turn_id,
             )
         )
+
+    # Section 13.2: New audit checks
+
+    # TARGETLESS_RECONSTRUCTION: positive reconstruction with no top-level target
+    if turn.decision and turn.decision.detector_result:
+        recon_score = turn.decision.detector_result.reconstruction_score
+        matched_ids = turn.decision.detector_result.matched_forget_ids
+        if recon_score > 0 and not matched_ids:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="TARGETLESS_RECONSTRUCTION",
+                    message=(
+                        f"Turn {turn.turn_id}: reconstruction_score={recon_score} > 0 "
+                        f"but matched_forget_ids is empty"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
+
+    # ORACLE_EXPOSURE_CONTRADICTION: oracle exposure true with oracle class none
+    if turn.target_exposed and turn.oracle_released_exposure == "none":
+        findings.append(
+            AuditFinding(
+                level="error",
+                code="ORACLE_EXPOSURE_CONTRADICTION",
+                message=(
+                    f"Turn {turn.turn_id}: target_exposed=True but "
+                    f"oracle_released_exposure='none'"
+                ),
+                episode_id=episode_id,
+                turn_id=turn.turn_id,
+            )
+        )
+
+    # PROBE_AS_MESSAGE_EXPOSURE: probe recovery stored as message exposure
+    if turn.probe_executed and turn.probe_recovered_target and turn.target_exposed:
+        # Probe recovery should not be encoded as message exposure
+        if turn.released_text is None or turn.released_text == "":
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="PROBE_AS_MESSAGE_EXPOSURE",
+                    message=(
+                        f"Turn {turn.turn_id}: probe_recovered_target=True but "
+                        f"target_exposed=True without released message"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
+
+    # SEQUENCE_TRIAL_MISSING_ID: reconstruction attempt without sequence_id
+    if turn.is_reconstruction_attempt and not turn.sequence_id:
+        # Only flag for fragmentation attacks which require sequence_id
+        if turn.attack_type in ("temporal_fragmentation", "cross_agent_fragmentation"):
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="SEQUENCE_TRIAL_MISSING_ID",
+                    message=(
+                        f"Turn {turn.turn_id}: fragmentation reconstruction attempt "
+                        f"without sequence_id"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
 
     return findings
 

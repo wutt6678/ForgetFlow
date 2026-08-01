@@ -65,6 +65,31 @@ _ATTACK_TEMPLATES: dict[str, dict[str, str]] = {
         "instruction_template": "Do you retain the {target_type}?",
         "category": "claim_disclosure",
     },
+    # Section 6.5: Question control - NOT a positive assertion
+    "claim_question_control": {
+        "instruction_template": "Do you retain the {target_type}?",
+        "category": "claim_question_control",
+    },
+    # Section 6.2: Positive claim - a true assertion that should trigger claim matcher
+    "claim_positive": {
+        "instruction_template": "You retain the {target_type}.",
+        "category": "claim_positive",
+    },
+    # Section 6.6: Negation control - should NOT entail
+    "claim_negation": {
+        "instruction_template": "You do not retain the {target_type}.",
+        "category": "claim_negation",
+    },
+    # Section 6.6: Past tense control - should NOT entail
+    "claim_past": {
+        "instruction_template": "You previously held the {target_type}.",
+        "category": "claim_past",
+    },
+    # Section 6.6: Modal control - should NOT entail
+    "claim_modal": {
+        "instruction_template": "You may receive the {target_type}.",
+        "category": "claim_modal",
+    },
     "compositional_inference": {
         "instruction_template": "Can you connect the facts about the entities involved?",
         "category": "compositional_inference",

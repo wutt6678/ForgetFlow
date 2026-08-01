@@ -73,7 +73,9 @@ class MonitoringConfig:
 
 @dataclass(frozen=True)
 class RunConfig:
-    mode: str = "test"  # "test" or "experiment"
+    # Section 12.2: Use canonical run modes: diagnostic, research, release
+    # Legacy modes "test" and "experiment" are mapped to diagnostic and research
+    mode: str = "diagnostic"
     require_clean_tree: bool | None = None
     # Phase 6: Scale and generalization
     cost_accounting_enabled: bool = False
@@ -84,20 +86,37 @@ class RunConfig:
     coverage_reporting_enabled: bool = False
     release_certification_mode: str = "none"  # "none", "smoke", "full"
 
+    # Valid modes: diagnostic, research, release (Section 12.2)
+    # Legacy modes test/experiment are accepted and mapped
+    _VALID_MODES = {"diagnostic", "research", "release", "test", "experiment"}
+    _MODE_MAPPING = {"test": "diagnostic", "experiment": "research"}
+
     def __post_init__(self) -> None:
-        if self.mode not in ("test", "experiment"):
-            raise ValueError(f"mode must be 'test' or 'experiment', got {self.mode!r}")
+        if self.mode not in self._VALID_MODES:
+            raise ValueError(
+                f"mode must be one of {sorted(self._VALID_MODES)}, got {self.mode!r}"
+            )
+
+    @property
+    def canonical_mode(self) -> str:
+        """Return the canonical run mode (Section 12.2).
+
+        Maps legacy modes to canonical:
+        - test -> diagnostic
+        - experiment -> research
+        """
+        return self._MODE_MAPPING.get(self.mode, self.mode)
 
     @property
     def effective_require_clean_tree(self) -> bool:
         """Return whether clean tree is required based on mode.
 
         If require_clean_tree is explicitly set, use that value.
-        Otherwise, default to True for experiment mode, False for test mode.
+        Otherwise, default to True for research/release mode, False for diagnostic.
         """
         if self.require_clean_tree is not None:
             return self.require_clean_tree
-        return self.mode == "experiment"
+        return self.canonical_mode in ("research", "release")
 
 
 @dataclass(frozen=True)
@@ -142,6 +161,46 @@ class ExperimentConfig:
         payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
+    def condition_hash(self, *, firewall_enabled: bool = True) -> str:
+        """Section 10.2-10.3: Canonical condition hash.
+
+        Excludes seed and scenario-specific trial identity.
+        Includes firewall_enabled and all behavioral configuration.
+
+        This hash must be stable across artifacts (matrix, episode, manifest).
+        """
+        # Build condition payload excluding seed (trial-specific)
+        config_dict = asdict(self)
+        # Remove seed from condition hash (Section 10.3)
+        config_dict.pop("seed", None)
+        condition_payload = {
+            "config": config_dict,
+            "firewall_enabled": firewall_enabled,
+        }
+        encoded = json.dumps(condition_payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode()).hexdigest()
+
+    def trial_hash(
+        self,
+        *,
+        firewall_enabled: bool,
+        scenario_id: str,
+        secret_variant_id: str,
+    ) -> str:
+        """Section 10.3: Trial hash includes condition_hash + trial identity.
+
+        Includes: condition_hash, scenario, secret variant, seed.
+        """
+        cond_hash = self.condition_hash(firewall_enabled=firewall_enabled)
+        trial_payload = {
+            "condition_hash": cond_hash,
+            "scenario_id": scenario_id,
+            "secret_variant_id": secret_variant_id,
+            "seed": self.seed,
+        }
+        encoded = json.dumps(trial_payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode()).hexdigest()
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -163,21 +222,33 @@ def validate_embedding_config(config: ExperimentConfig) -> None:
     if not config.detector.embedding_enabled:
         return
 
-    if config.run.mode == "test":
+    # Section 12.2: Use canonical mode for validation
+    canonical = config.run.canonical_mode
+
+    if canonical == "diagnostic":
         if (
             config.models.embedding_provider is not None
             and config.models.embedding_provider != "fixed"
         ):
-            raise ValueError("Embedding test mode requires embedding_provider='fixed' or null")
+            raise ValueError("Embedding diagnostic mode requires embedding_provider='fixed' or null")
         if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
         return
 
-    if config.run.mode == "experiment":
+    if canonical == "research":
         if config.models.embedding_provider != "litellm":
-            raise ValueError("Embedding experiment mode requires embedding_provider='litellm'")
+            raise ValueError("Embedding research mode requires embedding_provider='litellm'")
         if not config.models.embedding_model:
-            raise ValueError("Embedding experiment mode requires embedding_model")
+            raise ValueError("Embedding research mode requires embedding_model")
+        if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
+            raise ValueError("embedding_dimension must be positive")
+        return
+
+    if canonical == "release":
+        if config.models.embedding_provider != "litellm":
+            raise ValueError("Embedding release mode requires embedding_provider='litellm'")
+        if not config.models.embedding_model:
+            raise ValueError("Embedding release mode requires embedding_model")
         if config.models.embedding_dimension is not None and config.models.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
         return

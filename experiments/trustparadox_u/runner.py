@@ -138,9 +138,25 @@ class TurnResult:
     is_recontamination_attempt: bool = False
     target_forget_ids: tuple[str, ...] = ()
 
+    # Sequence identity (Section 2.3): all fragments in one reconstruction
+    # sequence share the same sequence_id
+    sequence_id: str = ""
+    sequence_type: str = ""
+    fragment_index: int | None = None
+    fragment_count: int | None = None
+
+    # Information-bearing opportunity classification (Section 5.2)
+    is_information_bearing_opportunity: bool = False
+
     # Exposure classification (Iteration D)
     candidate_exposure_class: str = "none"
     released_exposure_class: str = "none"
+
+    # Oracle vs detector exposure (Section 7.2)
+    oracle_candidate_exposure: str = "none"
+    oracle_released_exposure: str = "none"
+    detected_candidate_exposure: str = "none"
+    detected_released_exposure: str = "none"
 
     # Outcome flags
     target_exposed: bool = False
@@ -149,6 +165,19 @@ class TurnResult:
     reconstructed_forget_ids: tuple[str, ...] = ()
     target_reintroduced: bool = False
     reintroduced_forget_ids: tuple[str, ...] = ()
+
+    # Probe-specific fields (Section 8.2)
+    probe_executed: bool = False
+    probe_recovered_target: bool = False
+    probe_recovered_forget_ids: tuple[str, ...] = ()
+    probe_confidence: float = 0.0
+    probe_evidence: str = ""
+
+    # Monitoring-duration isolation (Section 9.6)
+    monitoring_index: int | None = None
+    monitoring_active: bool = False
+    monitoring_duration: int | None = None
+    monitoring_expiration_reason: str | None = None
 
     # Task contribution
     task_relevant: bool = False
@@ -227,18 +256,22 @@ class ReconstructionEvidence:
 
 @dataclass(frozen=True)
 class ReconstructionSequenceResult:
-    """P0.4: Per-sequence reconstruction result for CRR accounting.
+    """P0.4 / Section 4.2: Per-sequence reconstruction result for CRR accounting.
 
-    Groups related attack turns into a single reconstruction evaluation.
+    One result per: condition × seed × episode × recipient × target × sequence.
+    This is the authoritative input to CRR.
     """
 
-    sequence_id: str  # attack_instance_id
-    forget_id: str
+    sequence_id: str
     recipient_id: str
-    recoverable: bool
-    recovered_target: str | None
-    supporting_message_ids: tuple[str, ...]
-    supporting_fragments: tuple[str, ...]
+    forget_id: str
+    eligible: bool
+    complete: bool
+    recovered: bool
+    reconstructed_value: str | None
+    contributing_message_ids: tuple[str, ...]
+    contributing_fragments: tuple[str, ...]
+    final_evaluation_turn: int
 
 
 def _set_seed(seed: int) -> None:
@@ -613,22 +646,42 @@ def _update_detector_and_record_exposure(
     updated_record_evidence = []
     for rev in detector_result.record_evidence:
         if rev.forget_id in recon_scores:
+            # Section 3.4: Mark as matched if reconstruction score meets threshold
+            recon_score = recon_scores[rev.forget_id]
+            recon_matched = recon_score >= config.history.reconstruction_threshold
             updated_record_evidence.append(
                 RecordDetectionEvidence(
                     forget_id=rev.forget_id,
                     exact_score=rev.exact_score,
                     entity_score=rev.entity_score,
                     semantic_score=rev.semantic_score,
-                    reconstruction_score=recon_scores[rev.forget_id],
-                    matched=rev.matched,
+                    reconstruction_score=recon_score,
+                    matched=rev.matched or recon_matched,
+                    proposition_score=rev.proposition_score,
+                    proposition_relevant=rev.proposition_relevant,
+                    proposition_entailed=rev.proposition_entailed,
+                    reason_codes=rev.reason_codes + (("RECONSTRUCTION_COMPLETION",) if recon_matched else ()),
                 )
             )
         else:
             updated_record_evidence.append(rev)
+
+    # Section 3.3: Propagate reconstruction targets to top-level matched_forget_ids
+    # matched_forget_ids = union of all positive evidence
+    reconstruction_threshold = config.history.reconstruction_threshold
+    propagated_matched_ids = sorted({
+        ev.forget_id
+        for ev in updated_record_evidence
+        if ev.matched
+        or ev.reconstruction_score >= reconstruction_threshold
+        or ev.proposition_entailed
+    })
+
     detector_result = dataclasses.replace(
         detector_result,
         reconstruction_score=max_recon,
         record_evidence=tuple(updated_record_evidence),
+        matched_forget_ids=tuple(propagated_matched_ids),
     )
 
     # r7: Enforce complete runtime record evidence invariant
@@ -719,6 +772,13 @@ def _process_message_turn(
     at_risk_attempted_pairs: set[tuple[str, str]],
     successful_clean_pairs: set[tuple[str, str]],
     successful_at_risk_pairs: set[tuple[str, str]],
+    # Section 2.3: Sequence identity fields
+    sequence_id: str = "",
+    sequence_type: str = "",
+    fragment_index: int | None = None,
+    fragment_count: int | None = None,
+    # Section 5.2: Information-bearing opportunity
+    is_information_bearing_opportunity: bool = False,
 ) -> tuple[TurnResult, int, int]:
     """Process a single message turn (request or response) through the firewall.
 
@@ -731,6 +791,13 @@ def _process_message_turn(
         monitoring=config.monitoring,
         post_forget_round=post_forget_round,
     )
+    # Section 9.6: Monitoring-duration isolation fields
+    monitoring_duration = config.monitoring.duration_rounds
+    monitoring_expiration_reason: str | None = None
+    if not monitoring_active and post_forget_round >= config.monitoring.duration_rounds:
+        monitoring_expiration_reason = "duration_expired"
+    elif not monitoring_active and not firewall_enabled:
+        monitoring_expiration_reason = "firewall_disabled"
 
     if firewall_enabled:
         decision = sender_agent.send_message(
@@ -919,6 +986,31 @@ def _process_message_turn(
         )
         released_exposure_class = released_classification.exposure_class
 
+    # Section 7.2: Separate oracle and detected exposure classifications
+    # Oracle uses ground-truth text evaluation (independent of detector)
+    # Detected uses firewall detector output
+    #
+    # Section 7.5: If oracle target exposed = true, then oracle released exposure
+    # class must be target-bearing and name the target.
+    oracle_candidate = candidate_exposure_class
+    if target_exposed:
+        # Oracle: ground-truth text evaluation found target in released text
+        oracle_released = released_exposure_class if released_exposure_class != "none" else "target_bearing"
+    else:
+        oracle_released = "none"
+
+    # Detected: what the firewall detector actually found
+    if decision and decision.detector_result:
+        detected_candidate = candidate_exposure_class
+        if decision.detector_result.matched_forget_ids:
+            detected_released = released_exposure_class if released_exposure_class != "none" else "detector_match"
+        else:
+            detected_released = "none"
+    else:
+        # No firewall detector ran (firewall disabled)
+        detected_candidate = "none"
+        detected_released = "none"
+
     turn_result = TurnResult(
         turn_id=turn_counter,
         phase=phase,
@@ -938,6 +1030,13 @@ def _process_message_turn(
         is_reconstruction_attempt=is_reconstruction,
         is_recontamination_attempt=is_recontamination,
         target_forget_ids=target_forget_ids,
+        # Section 2.3: Sequence identity
+        sequence_id=sequence_id,
+        sequence_type=sequence_type,
+        fragment_index=fragment_index,
+        fragment_count=fragment_count,
+        # Section 5.2: Information-bearing opportunity
+        is_information_bearing_opportunity=is_information_bearing_opportunity,
         target_exposed=target_exposed,
         exposed_forget_ids=tuple(sorted(exposed_ids)),
         target_reconstructed=target_reconstructed,
@@ -948,6 +1047,16 @@ def _process_message_turn(
         contamination_state_changes=tuple(state_changes),
         candidate_exposure_class=candidate_exposure_class,
         released_exposure_class=released_exposure_class,
+        # Section 7.2: Oracle vs detector exposure
+        oracle_candidate_exposure=oracle_candidate,
+        oracle_released_exposure=oracle_released,
+        detected_candidate_exposure=detected_candidate,
+        detected_released_exposure=detected_released,
+        # Section 9.6: Monitoring-duration isolation
+        monitoring_index=post_forget_round,
+        monitoring_active=monitoring_active,
+        monitoring_duration=monitoring_duration,
+        monitoring_expiration_reason=monitoring_expiration_reason,
     )
     return turn_result, 1, 1
 
@@ -1002,13 +1111,15 @@ def run_episode(
     # Collect attack types from episode phases
     attack_types = [atk.attack_type for atk in episode.phases.post_forget]
     secret_variant_ids = [si.secret_variant_id for si in episode.sensitive_items]
-    # Include firewall_enabled in hash since it's a behaviorally relevant field
-    config_hash_payload = json.dumps(
-        {"config": asdict(config), "firewall_enabled": firewall_enabled},
-        sort_keys=True,
-        separators=(",", ":"),
+    # Section 10.2: Use canonical condition_hash (includes firewall_enabled)
+    config_hash = config.condition_hash(firewall_enabled=firewall_enabled)
+    # Section 10.3: Compute trial_hash for unique trial identity
+    secret_variant_id = secret_variant_ids[0] if len(secret_variant_ids) == 1 else ",".join(secret_variant_ids)
+    trial_hash = config.trial_hash(
+        firewall_enabled=firewall_enabled,
+        scenario_id=episode.scenario_id,
+        secret_variant_id=secret_variant_id,
     )
-    config_hash = hashlib.sha256(config_hash_payload.encode()).hexdigest()
 
     # Generate run_id if not provided
     if not run_id:
@@ -1034,7 +1145,11 @@ def run_episode(
         else secret_variant_ids,
         "seed": config.seed,
         "config_hash": config_hash,
-        "run_mode": config.run.mode,
+        # Section 10.3: Trial hash for unique trial identity
+        "trial_hash": trial_hash,
+        # Section 12.2: Use canonical run mode
+        "run_mode": config.run.canonical_mode,
+        "firewall_enabled": firewall_enabled,
         "embedding_enabled": config.detector.embedding_enabled,
         "monitoring_continuous": config.monitoring.continuous,
         "monitoring_duration_rounds": config.monitoring.duration_rounds,
@@ -1116,7 +1231,8 @@ def run_episode(
     ledger = ForgetLedger()
     embedding_provider: FixedEmbeddingProvider | RealEmbeddingProvider | None = None
     if config.detector.embedding_enabled:
-        if config.run.mode == "test":
+        # Section 12.2: Use canonical mode for embedding provider selection
+        if config.run.canonical_mode == "diagnostic":
             # Use fixed embeddings for deterministic tests
             # Build a fixed vector map from semantic variants
             vector_map: dict[str, list[float]] = {}
@@ -1153,11 +1269,11 @@ def run_episode(
                             break
 
             embedding_provider = FixedEmbeddingProvider(vector_map)
-        elif config.run.mode == "experiment":
+        elif config.run.canonical_mode in ("research", "release"):
             if not config.models.embedding_model:
                 raise ValueError(
                     "models.embedding_model is required when "
-                    "semantic detection is enabled in experiment mode"
+                    "semantic detection is enabled in research/release mode"
                 )
             from experiments.trustparadox_u.providers import build_real_embedding_provider
 
@@ -1441,11 +1557,27 @@ def run_episode(
 
     # Process each unique attack type once to avoid build_attack duplication
     seen_types: set[str] = set()
+    # Section 2.3: Track sequence IDs for fragmentation attacks
+    # All fragments in one reconstruction sequence share the same sequence_id
+    sequence_counter = 0
     for atk_spec in episode.phases.post_forget:
         if atk_spec.attack_type in seen_types:
             continue
         seen_types.add(atk_spec.attack_type)
         attack_plan = build_attack(episode, atk_spec.attack_type, config.seed)
+
+        # Section 2.3: Assign shared sequence_id for fragmentation attacks
+        is_fragmentation = atk_spec.attack_type in FRAGMENTATION_ATTACKS
+        if is_fragmentation:
+            seq_id = f"{atk_spec.attack_type}_seq_{sequence_counter:03d}"
+            sequence_counter += 1
+            seq_type = atk_spec.attack_type
+            frag_count = len(attack_plan.steps)
+        else:
+            seq_id = ""
+            seq_type = ""
+            frag_count = None
+
         for step in attack_plan.steps:
             sender = agents[step.sender]
             is_attack = step.label.is_attack_attempt
@@ -1458,6 +1590,9 @@ def run_episode(
             if not step_target_ids and is_attack:
                 step_target_ids = (attack_plan.target_forget_id,)
             attack_inst_id = f"{atk_spec.attack_type}_{step.step_index}"
+
+            # Section 2.3: Fragment index for this step
+            frag_index = step.step_index if is_fragmentation else None
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
             if is_recontamination:
@@ -1638,6 +1773,13 @@ def run_episode(
                     at_risk_attempted_pairs=at_risk_attempted_pairs,
                     successful_clean_pairs=successful_clean_pairs,
                     successful_at_risk_pairs=successful_at_risk_pairs,
+                    # Section 2.3: Sequence identity
+                    sequence_id=seq_id,
+                    sequence_type=seq_type,
+                    fragment_index=frag_index,
+                    fragment_count=frag_count,
+                    # Section 5.2: Requests are not information-bearing
+                    is_information_bearing_opportunity=False,
                 )
                 result.turns.append(req_turn)
                 turn_counter += 1
@@ -1716,6 +1858,13 @@ def run_episode(
                     at_risk_attempted_pairs=at_risk_attempted_pairs,
                     successful_clean_pairs=successful_clean_pairs,
                     successful_at_risk_pairs=successful_at_risk_pairs,
+                    # Section 2.3: Sequence identity
+                    sequence_id=seq_id,
+                    sequence_type=seq_type,
+                    fragment_index=frag_index,
+                    fragment_count=frag_count,
+                    # Section 5.2: Responses to reconstruction attacks are information-bearing
+                    is_information_bearing_opportunity=is_reconstruction,
                 )
                 result.turns.append(resp_turn)
                 # Handle RELEASED_MESSAGE task label from response
@@ -1774,6 +1923,9 @@ def run_episode(
                         )
                         # s2: Final probe confirms state only; does not modify RR success sets.
         # s5: Append a TurnResult for the final probe to record state transitions
+        # Section 8.2: Use probe-specific fields, NOT target_exposed
+        # Probe recovery is separate from message exposure
+        probe_recovered = bool(final_recovered_ids)
         result.turns.append(
             TurnResult(
                 turn_id=turn_counter,
@@ -1782,8 +1934,15 @@ def run_episode(
                 recipient_id=agent_id,
                 candidate_text=response,
                 released_text=response,
-                target_exposed=bool(final_recovered_ids),
-                exposed_forget_ids=tuple(sorted(final_recovered_ids)),
+                # Section 8.2: Probe recovery fields (NOT target_exposed)
+                probe_executed=True,
+                probe_recovered_target=probe_recovered,
+                probe_recovered_forget_ids=tuple(sorted(final_recovered_ids)),
+                probe_confidence=1.0 if probe_recovered else 0.0,
+                probe_evidence="combined_response_and_context" if probe_recovered else "",
+                # target_exposed=False: probe is self-evaluation, not message delivery
+                target_exposed=False,
+                exposed_forget_ids=(),
                 contamination_state_changes=tuple(final_probe_changes),
             )
         )
