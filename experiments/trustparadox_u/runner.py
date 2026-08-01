@@ -2003,23 +2003,23 @@ def run_episode(
 
     # s11: Split RR into clean and at-risk populations
     # s3: Enforce disjoint cohorts
-    assert clean_attempted_pairs.isdisjoint(at_risk_attempted_pairs), (
-        f"RR cohorts not disjoint: {clean_attempted_pairs & at_risk_attempted_pairs}"
-    )
+    assert clean_attempted_pairs.isdisjoint(
+        at_risk_attempted_pairs
+    ), f"RR cohorts not disjoint: {clean_attempted_pairs & at_risk_attempted_pairs}"
     # s2: Use attributable success sets for numerators
-    assert successful_clean_pairs.issubset(clean_attempted_pairs), (
-        "successful_clean_pairs not subset of clean_attempted_pairs"
-    )
-    assert successful_at_risk_pairs.issubset(at_risk_attempted_pairs), (
-        "successful_at_risk_pairs not subset of at_risk_attempted_pairs"
-    )
-    assert successful_clean_pairs.isdisjoint(successful_at_risk_pairs), (
-        "successful_clean_pairs and successful_at_risk_pairs not disjoint"
-    )
+    assert successful_clean_pairs.issubset(
+        clean_attempted_pairs
+    ), "successful_clean_pairs not subset of clean_attempted_pairs"
+    assert successful_at_risk_pairs.issubset(
+        at_risk_attempted_pairs
+    ), "successful_at_risk_pairs not subset of at_risk_attempted_pairs"
+    assert successful_clean_pairs.isdisjoint(
+        successful_at_risk_pairs
+    ), "successful_clean_pairs and successful_at_risk_pairs not disjoint"
     # s3: Aggregate invariants
-    assert successful_pairs.issubset(attempted_pairs), (
-        "successful_pairs not subset of attempted_pairs"
-    )
+    assert successful_pairs.issubset(
+        attempted_pairs
+    ), "successful_pairs not subset of attempted_pairs"
     result.attempted_clean_pairs = len(clean_attempted_pairs)
     result.recontaminated_clean_pairs = len(successful_clean_pairs)
     result.attempted_at_risk_pairs = len(at_risk_attempted_pairs)
@@ -2036,12 +2036,12 @@ def run_episode(
     # Store unexpected recontamination count for auditing
     result.metadata["unexpected_recontaminated_pair_count"] = len(unexpected_recontaminated_pairs)
     # s2: Invariants for outcome classification
-    assert successful_pairs.isdisjoint(unexpected_recontaminated_pairs), (
-        "successful_pairs and unexpected_recontaminated_pairs not disjoint"
-    )
-    assert (successful_pairs | unexpected_recontaminated_pairs) == all_recontaminated_pairs, (
-        "successful + unexpected != all_recontaminated_pairs"
-    )
+    assert successful_pairs.isdisjoint(
+        unexpected_recontaminated_pairs
+    ), "successful_pairs and unexpected_recontaminated_pairs not disjoint"
+    assert (
+        successful_pairs | unexpected_recontaminated_pairs
+    ) == all_recontaminated_pairs, "successful + unexpected != all_recontaminated_pairs"
     # Store AT_RISK attempt metadata for RR denominator analysis
     result.metadata["at_risk_attempted_pair_count"] = len(at_risk_attempted_pairs)
     result.metadata["at_risk_attempted_pairs"] = sorted(

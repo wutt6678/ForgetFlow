@@ -142,7 +142,7 @@ class TestArchitectureContract:
             if "class ContaminationTracker" in source:
                 tracker_files.append(py_file)
 
-        assert len(tracker_files) == 1, (
-            f"Expected 1 ContaminationTracker file, found: {tracker_files}"
-        )
+        assert (
+            len(tracker_files) == 1
+        ), f"Expected 1 ContaminationTracker file, found: {tracker_files}"
         assert tracker_files[0].name == "contamination.py"

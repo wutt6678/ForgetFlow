@@ -265,9 +265,9 @@ class TestExactLeakage:
 
         result = run_episode(ep, _no_fw_config(), responder=responder, firewall_enabled=False)
 
-        assert _attack_released_containing(result, "0107"), (
-            "No-firewall: secret should appear in released_text"
-        )
+        assert _attack_released_containing(
+            result, "0107"
+        ), "No-firewall: secret should appear in released_text"
         assert _attack_exposed(result), "No-firewall: target_exposed should be True"
 
     def test_full_mvp_blocks_secret(self) -> None:
@@ -279,9 +279,9 @@ class TestExactLeakage:
 
         result = run_episode(ep, _full_mvp_config(), responder=responder, firewall_enabled=True)
 
-        assert not _attack_released_containing(result, "0107"), (
-            "Full MVP: secret must NOT appear in attack released_text"
-        )
+        assert not _attack_released_containing(
+            result, "0107"
+        ), "Full MVP: secret must NOT appear in attack released_text"
 
     def test_pu_rer_direction(self) -> None:
         """PU-RER: no-firewall has more exposure than full MVP."""
@@ -295,9 +295,9 @@ class TestExactLeakage:
 
         no_fw_exposed = sum(1 for t in _attack_turns(no_fw) if t.target_exposed)
         full_exposed = sum(1 for t in _attack_turns(full) if t.target_exposed)
-        assert no_fw_exposed > full_exposed, (
-            "PU-RER direction: no-firewall exposure > full MVP exposure"
-        )
+        assert (
+            no_fw_exposed > full_exposed
+        ), "PU-RER direction: no-firewall exposure > full MVP exposure"
 
 
 # =========================================================================
@@ -330,9 +330,9 @@ class TestSemanticParaphrase:
         assert len(paraphrase_turns) > 0
         pt = paraphrase_turns[0]
         assert pt.released_text is not None, "No-semantic: paraphrase message should be released"
-        assert variant.lower() in pt.released_text.lower(), (
-            "No-semantic: variant should appear in released_text"
-        )
+        assert (
+            variant.lower() in pt.released_text.lower()
+        ), "No-semantic: variant should appear in released_text"
 
     def test_full_semantic_blocks_paraphrase(self) -> None:
         """With full semantic detection, the variant is caught."""
@@ -354,9 +354,9 @@ class TestSemanticParaphrase:
         if pt.decision and pt.decision.action == "block":
             pass  # Correctly blocked
         else:
-            assert variant.lower() not in (pt.released_text or "").lower(), (
-                "Full semantic: variant should NOT be in released_text"
-            )
+            assert (
+                variant.lower() not in (pt.released_text or "").lower()
+            ), "Full semantic: variant should NOT be in released_text"
 
     def test_semantic_disclosure_counts_as_exposure(self) -> None:
         """When semantic detection is off, variant release counts as exposure."""
@@ -535,9 +535,9 @@ class TestPolicyUtility:
         attack = _attack_turns(result)
         assert len(attack) == 1
         assert attack[0].decision is not None
-        assert attack[0].decision.action == "block", (
-            f"Binary: target-containing message should be blocked, got {attack[0].decision.action}"
-        )
+        assert (
+            attack[0].decision.action == "block"
+        ), f"Binary: target-containing message should be blocked, got {attack[0].decision.action}"
         assert attack[0].released_text is None
         assert attack[0].candidate_text == POLICY_CANDIDATE
 
@@ -574,9 +574,9 @@ class TestPolicyUtility:
         rich_attack = _attack_turns(rich_result)
         assert len(binary_attack) == 1
         assert len(rich_attack) == 1
-        assert binary_attack[0].candidate_text == rich_attack[0].candidate_text, (
-            "Binary and rich must receive identical candidate messages"
-        )
+        assert (
+            binary_attack[0].candidate_text == rich_attack[0].candidate_text
+        ), "Binary and rich must receive identical candidate messages"
         assert binary_attack[0].candidate_text == POLICY_CANDIDATE
 
     def test_binary_task_failure(self) -> None:
@@ -606,9 +606,9 @@ class TestPolicyUtility:
 
         result = run_episode(ep, _rich_policy_config(), responder=responder, firewall_enabled=True)
 
-        assert not _attack_exposed(result), (
-            "Rich: target must NOT be exposed via permitted residual"
-        )
+        assert not _attack_exposed(
+            result
+        ), "Rich: target must NOT be exposed via permitted residual"
 
     def test_config_differs_only_in_rich_actions(self) -> None:
         """Verify binary and rich configs differ only in rich_actions_enabled."""
@@ -631,9 +631,9 @@ class TestPolicyUtility:
 
         _find_diffs(binary_dict, rich_dict)
 
-        assert diff_keys == {"policy.rich_actions_enabled"}, (
-            f"Configs differ in unexpected ways: {diff_keys}"
-        )
+        assert diff_keys == {
+            "policy.rich_actions_enabled"
+        }, f"Configs differ in unexpected ways: {diff_keys}"
 
 
 # =========================================================================
@@ -748,9 +748,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             actions = [attack_turns[t][i].decision.action for t in ("low", "default", "high")]
-            assert len(set(actions)) == 1, (
-                f"Turn {i}: actions differ across trust levels: {actions}"
-            )
+            assert (
+                len(set(actions)) == 1
+            ), f"Turn {i}: actions differ across trust levels: {actions}"
 
     def test_identical_released_content_across_trust(self) -> None:
         """Same released content for all trust levels."""
@@ -763,9 +763,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             released = [attack_turns[t][i].released_text for t in ("low", "default", "high")]
-            assert len(set(released)) == 1, (
-                f"Turn {i}: released content differs across trust levels: {released}"
-            )
+            assert (
+                len(set(released)) == 1
+            ), f"Turn {i}: released content differs across trust levels: {released}"
 
     def test_identical_exposure_across_trust(self) -> None:
         """Same target exposure for all trust levels."""
@@ -778,9 +778,9 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             exposed = [attack_turns[t][i].target_exposed for t in ("low", "default", "high")]
-            assert len(set(exposed)) == 1, (
-                f"Turn {i}: target_exposed differs across trust levels: {exposed}"
-            )
+            assert (
+                len(set(exposed)) == 1
+            ), f"Turn {i}: target_exposed differs across trust levels: {exposed}"
 
     def test_identical_candidate_messages(self) -> None:
         """Same candidate messages across trust levels (same responder)."""
@@ -793,6 +793,6 @@ class TestTrustInvariance:
         attack_turns = {t: _attack_turns(results[t]) for t in ("low", "default", "high")}
         for i in range(len(attack_turns["low"])):
             candidates = [attack_turns[t][i].candidate_text for t in ("low", "default", "high")]
-            assert len(set(candidates)) == 1, (
-                f"Turn {i}: candidate_text differs across trust levels: {candidates}"
-            )
+            assert (
+                len(set(candidates)) == 1
+            ), f"Turn {i}: candidate_text differs across trust levels: {candidates}"

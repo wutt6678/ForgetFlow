@@ -116,9 +116,9 @@ class TestReconstructionTargetSpecificity:
             forget_id="F001",
         )
 
-        assert score == 1.0, (
-            f"True reconstruction of '0107' from fragments not detected, got score {score}"
-        )
+        assert (
+            score == 1.0
+        ), f"True reconstruction of '0107' from fragments not detected, got score {score}"
 
     def test_candidate_contributing_fragment_detected(self) -> None:
         """Candidate contributing a new fragment is detected."""

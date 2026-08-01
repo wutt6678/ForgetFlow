@@ -776,9 +776,9 @@ class TestAttackStepIndexPropagation:
             if t.phase == "POST_FORGET_ATTACK" and t.attack_type and t.is_attack_response:
                 by_type.setdefault(t.attack_type, []).append(t.attack_step_index or -1)
         for atype, indices in by_type.items():
-            assert len(set(indices)) == len(indices), (
-                f"Duplicate step indices in {atype}: {indices}"
-            )
+            assert len(set(indices)) == len(
+                indices
+            ), f"Duplicate step indices in {atype}: {indices}"
 
     def test_pre_forget_turns_have_no_step_index(self) -> None:
         """PRE_FORGET turns do not have attack_step_index."""
@@ -984,9 +984,9 @@ class TestRepeatedProbingRobustness:
         for turn in result.turns:
             if turn.released_text:
                 for f in forbidden:
-                    assert f not in turn.released_text, (
-                        f"Forbidden string {f!r} found in released text"
-                    )
+                    assert (
+                        f not in turn.released_text
+                    ), f"Forbidden string {f!r} found in released text"
         # Verify: each attack action is recorded
         attack_turns = [t for t in result.turns if t.phase == "POST_FORGET_ATTACK"]
         assert len(attack_turns) == len(steps) * 2  # request + response per step
@@ -1639,9 +1639,9 @@ class TestDetectorOnlyRunnerBranches:
             turn.released_text,
             episode.sensitive_items,
         )
-        assert text_ids == set(), (
-            f"Text evaluator should be negative for {turn.released_text!r}, got {text_ids}"
-        )
+        assert (
+            text_ids == set()
+        ), f"Text evaluator should be negative for {turn.released_text!r}, got {text_ids}"
 
     # --- s2: Genuine detector-only fixtures ---
 
@@ -2101,9 +2101,9 @@ class TestTransitionRecording:
         assert f001_turns, "Expected at least one F001-only exposure turn"
         for turn in f001_turns:
             f002_changes = [c for c in turn.contamination_state_changes if c.forget_id == "F002"]
-            assert len(f002_changes) == 0, (
-                f"F001-only exposure produced F002 transition: {f002_changes}"
-            )
+            assert (
+                len(f002_changes) == 0
+            ), f"F001-only exposure produced F002 transition: {f002_changes}"
 
     def test_f002_only_exposure_no_f001_transition(self) -> None:
         """s3: F002-only exposure must not produce an F001 transition."""
@@ -2115,9 +2115,9 @@ class TestTransitionRecording:
         assert f002_turns, "Expected at least one F002-only exposure turn"
         for turn in f002_turns:
             f001_changes = [c for c in turn.contamination_state_changes if c.forget_id == "F001"]
-            assert len(f001_changes) == 0, (
-                f"F002-only exposure produced F001 transition: {f001_changes}"
-            )
+            assert (
+                len(f001_changes) == 0
+            ), f"F002-only exposure produced F001 transition: {f001_changes}"
 
     def test_blocked_release_no_transition(self) -> None:
         """s3: Blocked release (firewall) should not produce exposure transitions."""
@@ -2132,9 +2132,9 @@ class TestTransitionRecording:
                     for c in turn.contamination_state_changes
                     if c.reason in ("released_detector_exposure", "released_text_exposure")
                 ]
-                assert len(exposure_changes) == 0, (
-                    f"Blocked release produced exposure transition: {exposure_changes}"
-                )
+                assert (
+                    len(exposure_changes) == 0
+                ), f"Blocked release produced exposure transition: {exposure_changes}"
 
     def test_transition_reasons_are_stable(self) -> None:
         """s3: All transition reasons use stable, testable values."""
@@ -2150,9 +2150,9 @@ class TestTransitionRecording:
         }
         for turn in result.turns:
             for change in turn.contamination_state_changes:
-                assert change.reason in valid_reasons, (
-                    f"Unexpected transition reason: {change.reason}"
-                )
+                assert (
+                    change.reason in valid_reasons
+                ), f"Unexpected transition reason: {change.reason}"
 
 
 class TestImmediateProbePerRecord:
@@ -2362,9 +2362,9 @@ class TestRRCohortDisjoint:
         result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
         # s8: Verify that clean + at-risk attempted equals total attempted
         total = result.attempted_clean_pairs + result.attempted_at_risk_pairs
-        assert total == result.attempted_agent_record_pairs, (
-            f"Cohort sum {total} != total attempted {result.attempted_agent_record_pairs}"
-        )
+        assert (
+            total == result.attempted_agent_record_pairs
+        ), f"Cohort sum {total} != total attempted {result.attempted_agent_record_pairs}"
         # s8: Verify successful pairs are subsets of their cohorts
         assert result.recontaminated_clean_pairs <= result.attempted_clean_pairs
         assert result.escalated_at_risk_pairs <= result.attempted_at_risk_pairs
@@ -2546,9 +2546,9 @@ class TestRepeatedAttemptCohortStability:
                 responder.set_response(key, ep.task.success_value)
         result = run_episode(ep, self._multi_config(), responder=responder, firewall_enabled=False)
         # F001 began VERIFIED (not AT_RISK), first F001 recontamination classifies as clean cohort
-        assert result.attempted_clean_pairs >= 1, (
-            f"Expected clean cohort >= 1, got {result.attempted_clean_pairs}"
-        )
+        assert (
+            result.attempted_clean_pairs >= 1
+        ), f"Expected clean cohort >= 1, got {result.attempted_clean_pairs}"
         # If successful, it should be in clean cohort success
         assert result.recontaminated_clean_pairs <= result.attempted_clean_pairs
         # Aggregate consistency
@@ -2750,9 +2750,9 @@ class TestAliasAndVariantProbeTests:
             if c.reason == "immediate_probe"
         ]
         # No AT_RISK transitions from immediate probe (only VERIFIED)
-        assert not any(c.after == "at_risk" for c in immediate_changes), (
-            f"Expected no AT_RISK transitions from immediate probe, got {immediate_changes}"
-        )
+        assert not any(
+            c.after == "at_risk" for c in immediate_changes
+        ), f"Expected no AT_RISK transitions from immediate probe, got {immediate_changes}"
         # Note: Final probe may still detect targets from agent's private context,
         # which is expected behavior. The negative control verifies that the
         # immediate probe response itself doesn't trigger recovery.
@@ -2820,9 +2820,9 @@ class TestUnexpectedRecontamination:
         assert result.recontaminated_agent_record_pairs >= 1
         # Unexpected recontamination may still occur via non-attempt exposure
         unexpected_count = result.metadata.get("unexpected_recontaminated_pair_count", 0)
-        assert unexpected_count >= 0, (
-            f"Unexpected count should be non-negative, got {unexpected_count}"
-        )
+        assert (
+            unexpected_count >= 0
+        ), f"Unexpected count should be non-negative, got {unexpected_count}"
 
     def test_direct_successful_attempt_zero_unexpected(self) -> None:
         """s3: Direct successful attempt = RR success, unexpected = 0."""
@@ -3274,16 +3274,16 @@ class TestIsolatedFinalProbeNegativeControl:
         final_probe_turns = [t for t in result.turns if t.phase == "FINAL_PROBE"]
         assert final_probe_turns, "Expected at least one FINAL_PROBE turn"
         # No contamination state changes from final probe
-        assert not any(turn.contamination_state_changes for turn in final_probe_turns), (
-            "Target-free final probe must not cause state transitions"
-        )
+        assert not any(
+            turn.contamination_state_changes for turn in final_probe_turns
+        ), "Target-free final probe must not cause state transitions"
         # s2: No exposed forget IDs
-        assert not any(turn.exposed_forget_ids for turn in final_probe_turns), (
-            "Target-free final probe must not report exposed IDs"
-        )
-        assert not any(turn.target_exposed for turn in final_probe_turns), (
-            "Target-free final probe must not report target_exposed"
-        )
+        assert not any(
+            turn.exposed_forget_ids for turn in final_probe_turns
+        ), "Target-free final probe must not report exposed IDs"
+        assert not any(
+            turn.target_exposed for turn in final_probe_turns
+        ), "Target-free final probe must not report target_exposed"
         # No RR success
         assert result.recontaminated_agent_record_pairs == 0
         # No unexpected recontamination
