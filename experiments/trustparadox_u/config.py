@@ -5,10 +5,22 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+
+class MonitoringClockMode(str, Enum):
+    """Section 5.4: Monitoring clock semantics.
+
+    Defines what counts as one monitoring time step.
+    """
+
+    TURN = "turn"
+    ATTACK_RESPONSE = "attack_response"
+    RECONTAMINATION_OPPORTUNITY = "recontamination_opportunity"
 
 
 @dataclass(frozen=True)
@@ -62,19 +74,30 @@ class PolicyConfig:
 class MonitoringConfig:
     continuous: bool = True
     duration_rounds: int = 5
-    # Phase 4: Reliability testing
-    clock_mode: str = "turn"  # "turn" or "wall" for monitoring-clock testing
+    # Section 5.4: Monitoring clock mode
+    clock_mode: str = "turn"  # MonitoringClockMode values
     history_expiration_turns: int | None = None  # None = no expiration
 
     def __post_init__(self) -> None:
         if self.duration_rounds < 0:
             raise ValueError("duration_rounds cannot be negative")
+        valid_clock_modes = {m.value for m in MonitoringClockMode}
+        if self.clock_mode not in valid_clock_modes:
+            raise ValueError(
+                f"clock_mode must be one of {sorted(valid_clock_modes)}, "
+                f"got {self.clock_mode!r}"
+            )
 
 
 @dataclass(frozen=True)
 class RunConfig:
-    # Section 12.2: Use canonical run modes: diagnostic, research, release
-    # Legacy modes "test" and "experiment" are mapped to diagnostic and research
+    # Section 13.2: Separate execution_mode from artifact_status
+    # execution_mode: how the code runs (test, experiment)
+    # artifact_status: what the output means (diagnostic, research_valid, release_candidate)
+    execution_mode: str = "test"  # "test" or "experiment"
+    artifact_status: str = "diagnostic"  # "diagnostic", "research_valid", "release_candidate"
+
+    # Legacy: mode field for backward compatibility
     mode: str = "diagnostic"
     require_clean_tree: bool | None = None
     # Phase 6: Scale and generalization
@@ -86,12 +109,25 @@ class RunConfig:
     coverage_reporting_enabled: bool = False
     release_certification_mode: str = "none"  # "none", "smoke", "full"
 
-    # Valid modes: diagnostic, research, release (Section 12.2)
-    # Legacy modes test/experiment are accepted and mapped
+    # Valid execution modes (Section 13.2)
+    _VALID_EXECUTION_MODES = {"test", "experiment"}
+    # Valid artifact statuses (Section 13.2)
+    _VALID_ARTIFACT_STATUSES = {"diagnostic", "research_valid", "release_candidate"}
+    # Legacy mode mapping for backward compatibility
     _VALID_MODES = {"diagnostic", "research", "release", "test", "experiment"}
     _MODE_MAPPING = {"test": "diagnostic", "experiment": "research"}
 
     def __post_init__(self) -> None:
+        if self.execution_mode not in self._VALID_EXECUTION_MODES:
+            raise ValueError(
+                f"execution_mode must be one of {sorted(self._VALID_EXECUTION_MODES)}, "
+                f"got {self.execution_mode!r}"
+            )
+        if self.artifact_status not in self._VALID_ARTIFACT_STATUSES:
+            raise ValueError(
+                f"artifact_status must be one of {sorted(self._VALID_ARTIFACT_STATUSES)}, "
+                f"got {self.artifact_status!r}"
+            )
         if self.mode not in self._VALID_MODES:
             raise ValueError(
                 f"mode must be one of {sorted(self._VALID_MODES)}, got {self.mode!r}"

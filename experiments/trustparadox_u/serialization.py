@@ -328,6 +328,7 @@ def deserialize_turn(
         sequence_type=data.get("sequence_type", ""),
         fragment_index=data.get("fragment_index"),
         fragment_count=data.get("fragment_count"),
+        sequence_terminal=data.get("sequence_terminal", False),
         # Section 5.2: Information-bearing opportunity
         is_information_bearing_opportunity=data.get("is_information_bearing_opportunity", False),
         # Exposure classification
@@ -355,6 +356,7 @@ def deserialize_turn(
         monitoring_index=data.get("monitoring_index"),
         monitoring_active=data.get("monitoring_active", False),
         monitoring_duration=data.get("monitoring_duration"),
+        monitoring_clock_mode=data.get("monitoring_clock_mode", "turn"),
         monitoring_expiration_reason=data.get("monitoring_expiration_reason"),
         # Task contribution
         task_relevant=data.get("task_relevant", False),

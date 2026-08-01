@@ -549,7 +549,8 @@ class TestEnforcementIsActive:
         m = MonitoringConfig(continuous=True, duration_rounds=5)
         import pytest
 
-        with pytest.raises(ValueError, match="post_forget_round must be non-negative"):
+        # Section 5.3: enforcement_is_active is now a wrapper for monitoring_is_active
+        with pytest.raises(ValueError, match="monitoring_index must be non-negative"):
             enforcement_is_active(monitoring=m, post_forget_round=-1)
 
 

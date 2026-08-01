@@ -144,6 +144,7 @@ class TurnResult:
     sequence_type: str = ""
     fragment_index: int | None = None
     fragment_count: int | None = None
+    sequence_terminal: bool = False  # Section 3.2: True only on final evaluation step
 
     # Information-bearing opportunity classification (Section 5.2)
     is_information_bearing_opportunity: bool = False
@@ -177,6 +178,7 @@ class TurnResult:
     monitoring_index: int | None = None
     monitoring_active: bool = False
     monitoring_duration: int | None = None
+    monitoring_clock_mode: str = "turn"  # Section 5.6: MonitoringClockMode value
     monitoring_expiration_reason: str | None = None
 
     # Task contribution
@@ -278,29 +280,45 @@ def _set_seed(seed: int) -> None:
     random.seed(seed)
 
 
+def monitoring_is_active(
+    *,
+    monitoring: MonitoringConfig,
+    monitoring_index: int,
+) -> bool:
+    """Return whether monitoring is active at a given index.
+
+    Section 5.5: Required helper for monitoring-specific logic.
+    Uses zero-based monitoring index:
+      - index 0 = first monitoring opportunity
+      - duration_rounds=1 protects index 0 only
+      - continuous=True → active for every non-negative index
+    """
+    if monitoring_index < 0:
+        raise ValueError("monitoring_index must be non-negative")
+
+    if monitoring.duration_rounds < 0:
+        raise ValueError("duration_rounds must be non-negative")
+
+    if monitoring.continuous:
+        return True
+
+    return monitoring_index < monitoring.duration_rounds
+
+
 def enforcement_is_active(
     *,
     monitoring: MonitoringConfig,
     post_forget_round: int,
 ) -> bool:
-    """Return whether the configured post-forget monitoring window is active.
+    """Compatibility wrapper for monitoring_is_active.
 
-    Uses zero-based post-forget rounds:
-      - round 0 = first post-forget round
-      - duration_rounds=1 protects round 0 only
-      - continuous=True → active for every non-negative round
+    Section 5.3: Retained for backward compatibility.
+    Prefer monitoring_is_active() for new code.
     """
-    if post_forget_round < 0:
-        raise ValueError("post_forget_round must be non-negative")
-
-    duration = monitoring.duration_rounds
-    if duration < 0:
-        raise ValueError("monitoring.duration_rounds must be non-negative")
-
-    if monitoring.continuous:
-        return True
-
-    return post_forget_round < duration
+    return monitoring_is_active(
+        monitoring=monitoring,
+        monitoring_index=post_forget_round,
+    )
 
 
 def _should_monitor(
@@ -1035,6 +1053,7 @@ def _process_message_turn(
         sequence_type=sequence_type,
         fragment_index=fragment_index,
         fragment_count=fragment_count,
+        sequence_terminal=is_reconstruction and fragment_index is not None and fragment_count is not None and fragment_index == fragment_count - 1,
         # Section 5.2: Information-bearing opportunity
         is_information_bearing_opportunity=is_information_bearing_opportunity,
         target_exposed=target_exposed,
@@ -1056,6 +1075,7 @@ def _process_message_turn(
         monitoring_index=post_forget_round,
         monitoring_active=monitoring_active,
         monitoring_duration=monitoring_duration,
+        monitoring_clock_mode=config.monitoring.clock_mode,
         monitoring_expiration_reason=monitoring_expiration_reason,
     )
     return turn_result, 1, 1

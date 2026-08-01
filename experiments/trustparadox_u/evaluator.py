@@ -15,13 +15,26 @@ from experiments.trustparadox_u.runner import EpisodeResult
 
 @dataclass(frozen=True)
 class MetricValue:
-    """A metric value with numerator, denominator, and optional reason."""
+    """A metric value with numerator, denominator, and optional reason.
+
+    Section 8.3: Metric schema with evaluable flag.
+    Section 8.4: Zero-denominator rule - when denominator is zero,
+    value=null, evaluable=false, reason=no_eligible_pairs.
+    """
 
     value: float | None
     numerator: int
     denominator: int
     reason: str | None = None
     population: str | None = None
+    evaluable: bool = True  # Section 8.3: Whether metric can be evaluated
+
+    def __post_init__(self) -> None:
+        # Section 8.4: Zero-denominator rule
+        if self.denominator == 0 and self.evaluable:
+            object.__setattr__(self, "evaluable", False)
+            if self.reason is None:
+                object.__setattr__(self, "reason", "no_eligible_pairs")
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -29,6 +42,7 @@ class MetricValue:
             "numerator": self.numerator,
             "denominator": self.denominator,
             "reason": self.reason,
+            "evaluable": self.evaluable,
         }
         if self.population is not None:
             d["population"] = self.population
