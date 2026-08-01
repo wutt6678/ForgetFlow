@@ -114,3 +114,99 @@ jobs:
         env:
           FORGETFLOW_TEST_MODE: "1"
         run: poetry run pytest tests/trustparadox_u/test_result_audit.py -q
+
+  assertion-suite:
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run assertion suite
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run python scripts/run_assertion_suite.py
+
+      - name: Upload assertion results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assertion-suite-results
+          path: results/assertion_suite/
+          retention-days: 90
+
+  single-target-smoke:
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run single-target smoke
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run python scripts/run_single_target_smoke.py --output-dir results/single_target_smoke --mode diagnostic
+
+      - name: Upload single-target results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: single-target-smoke-results
+          path: results/single_target_smoke/
+          retention-days: 90
+
+  multi-target-smoke:
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run multi-target smoke
+        env:
+          FORGETFLOW_TEST_MODE: "1"
+        run: poetry run python scripts/run_multi_target_smoke.py --output-dir results/multi_target_smoke --mode diagnostic
+
+      - name: Upload multi-target results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: multi-target-smoke-results
+          path: results/multi_target_smoke/
+          retention-days: 90
