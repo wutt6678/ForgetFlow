@@ -1,0 +1,88 @@
+{
+  "audit_valid": true,
+  "manifest_valid": true,
+  "directional_checks_pass": true,
+  "no_unmatched_pairs": true,
+  "utility_defined": true,
+  "repository_clean": true,
+  "artifacts_complete": true,
+  "no_duplicate_identities": true,
+  "all_passed": true,
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "failure_reasons": [],
+  "repository_commit": "1ecace5e913b90f9d120a57ad0b67b2d53b2e882",
+  "generated_at": "2026-07-20T13:18:05.362659+00:00",
+  "mode": "diagnostic",
+  "total_runs": 117,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 13,
+  "audit_error_count": 0,
+  "duplicate_identity_count": 0,
+  "aggregate_metrics": {
+    "pu_rer": {
+      "value": 0.09467455621301775,
+      "numerator": 48,
+      "denominator": 507
+    },
+    "crr": {
+      "value": 0.2,
+      "numerator": 1,
+      "denominator": 5
+    },
+    "rr": {
+      "value": 0.23076923076923078,
+      "numerator": 9,
+      "denominator": 39
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 156
+    }
+  },
+  "directional_checks": {
+    "privacy_mvp_better": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_firewall PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.23076923076923078,
+      "passed": true
+    },
+    "semantic_protection": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_embedding PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.07692307692307693,
+      "passed": true
+    },
+    "stateful_reconstruction_safer": {
+      "claim_type": "strict_improvement",
+      "check": "stateful CRR < stateless CRR",
+      "lhs": 0.0,
+      "rhs": 0.2,
+      "passed": true
+    },
+    "rich_utility_ge_binary": {
+      "claim_type": "non_inferiority",
+      "check": "full_mvp task_success >= binary task_success",
+      "lhs": 3,
+      "rhs": 0,
+      "passed": true
+    },
+    "firewall_reduces_rr": {
+      "claim_type": "strict_improvement",
+      "check": "no_firewall RR > full_mvp RR",
+      "lhs": 1.0,
+      "rhs": 0.0,
+      "passed": true
+    }
+  },
+  "expected_pairs": 9,
+  "matched_pairs": 9,
+  "unmatched_pair_count": 0,
+  "baseline_successful_pairs": 3,
+  "utility_retention_value": 1.0,
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0"
+}

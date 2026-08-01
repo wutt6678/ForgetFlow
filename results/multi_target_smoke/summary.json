@@ -1,0 +1,25 @@
+{
+  "artifact_provenance": {
+    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "artifact_dirty": false,
+    "certification_mode": "diagnostic",
+    "run_mode": "test",
+    "schema_version": "1.1",
+    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "is_certifying": false
+  },
+  "status": "DIAGNOSTIC",
+  "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+  "repository_clean": true,
+  "audit_valid": true,
+  "manifest_valid": true,
+  "study_manifest_valid": true,
+  "utility_valid": true,
+  "all_conditions_valid": true,
+  "all_assertions_passed": false,
+  "total_runs": 30,
+  "generated_at": "2026-07-19T09:53:29.602505+00:00",
+  "mode": "diagnostic",
+  "run_mode": "test",
+  "artifacts_complete": true
+}

@@ -1,0 +1,58 @@
+{
+  "artifact_provenance": {
+    "artifact_dirty": false,
+    "certification_mode": "diagnostic",
+    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "is_certifying": false,
+    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "run_mode": "test",
+    "schema_version": "1.1"
+  },
+  "episodes_audited": 30,
+  "episodes_with_errors": 0,
+  "findings": [
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 2 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    },
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 1 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    },
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 2 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    },
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 1 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    },
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 2 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    },
+    {
+      "code": "UNEXPECTED_RECONTAMINATION_PAIRS",
+      "episode_id": "multi_credential_attribute_001_high_direct",
+      "level": "info",
+      "message": "Episode has 1 unexpected recontaminated pairs (recontamination without attributable RR success)",
+      "turn_id": null
+    }
+  ],
+  "has_errors": false
+}

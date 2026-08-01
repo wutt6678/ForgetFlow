@@ -1,0 +1,48 @@
+{
+  "crr": {
+    "denominator": 5,
+    "numerator": 1,
+    "reason": null,
+    "value": 0.2
+  },
+  "fbr": {
+    "denominator": 156,
+    "numerator": 0,
+    "reason": null,
+    "value": 0.0
+  },
+  "metadata": null,
+  "pu_rer": {
+    "denominator": 507,
+    "numerator": 48,
+    "reason": null,
+    "value": 0.09467455621301775
+  },
+  "rr": {
+    "denominator": 39,
+    "numerator": 9,
+    "population": "clean_or_verified",
+    "reason": null,
+    "value": 0.23076923076923078
+  },
+  "rr_at_risk": {
+    "denominator": 0,
+    "numerator": 0,
+    "population": "already_at_risk",
+    "reason": "no at-risk pair attempts",
+    "value": null
+  },
+  "rr_clean": {
+    "denominator": 39,
+    "numerator": 9,
+    "population": "clean_or_verified",
+    "reason": null,
+    "value": 0.23076923076923078
+  },
+  "utility_retention": {
+    "denominator": 0,
+    "numerator": 0,
+    "reason": null,
+    "value": null
+  }
+}

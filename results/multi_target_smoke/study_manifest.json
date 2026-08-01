@@ -1,0 +1,55 @@
+{
+  "artifact_dirty": false,
+  "audit_valid": true,
+  "condition_manifests": {
+    "binary_policy": "manifests/binary_policy.json",
+    "exact_only": "manifests/exact_only.json",
+    "full_mvp": "manifests/full_mvp.json",
+    "monitoring_0": "manifests/monitoring_0.json",
+    "no_firewall": "manifests/no_firewall.json"
+  },
+  "generated_at_utc": "2026-07-19T09:53:29.755409+00:00",
+  "manifest_valid": true,
+  "output_files": {
+    "aggregation_manifest.json": "aggregation_manifest.json",
+    "audit_report.json": "audit_report.json",
+    "episodes.jsonl": "episodes.jsonl",
+    "manifest_validation.json": "manifest_validation.json",
+    "manifests/binary_policy.json": "manifests/binary_policy.json",
+    "manifests/exact_only.json": "manifests/exact_only.json",
+    "manifests/full_mvp.json": "manifests/full_mvp.json",
+    "manifests/monitoring_0.json": "manifests/monitoring_0.json",
+    "manifests/no_firewall.json": "manifests/no_firewall.json",
+    "metric_counts.json": "metric_counts.json",
+    "metrics.json": "metrics.json",
+    "metrics_by_condition.json": "metrics_by_condition.json",
+    "result_audit.json": "result_audit.json",
+    "smoke_manifest.json": "smoke_manifest.json",
+    "unmatched_pairs.json": "unmatched_pairs.json",
+    "utility_pairing.json": "utility_pairing.json"
+  },
+  "output_hashes": {
+    "aggregation_manifest.json": "aa55f67b9236fa090c3391aeb25e59cd1a11b0f4db1a0b87dccaa161302828af",
+    "audit_report.json": "9a2c36c4b71657cf37b5ac5742463e21d53f7c708040cc5ee01cf8d749553799",
+    "episodes.jsonl": "3ea2d0ca9ed6aebf273bd87947f3254b82d75bb8c6b453685864b57ff98a3a39",
+    "manifest_validation.json": "d7ac2778a3ede064a3baf6aea297cc76af07949947fc292cf34c1b463f7919f0",
+    "manifests/binary_policy.json": "c08761b27d137cd6afa8734d2056fca1b291cf696e9c1ec2870c70440f569060",
+    "manifests/exact_only.json": "4dc2c00c6755a722625d3507ba27b9c73909206bfea90d3b48f60e06e39dc377",
+    "manifests/full_mvp.json": "d8a566e9312189c13cb1b4dae0a4a125679da4c91019b9c2a236474985b3ee7d",
+    "manifests/monitoring_0.json": "969e8f3b484ac7da34c68f79c1226d133bcb5e31db420760ab548d4830974cd0",
+    "manifests/no_firewall.json": "90bb213e6faba1cd28eb5b219fd62de784aaba21addf4271bd6ff2548913d5c2",
+    "metric_counts.json": "1b60fcf6c2c6b79ccdbc2845916ee47bfbe4e4377dfa4f4677c78a6d283b98f2",
+    "metrics.json": "ff8ee1847f4e5e3b7bc16391623f2c86500b63bbf3f29b37e6bbfd428ff56746",
+    "metrics_by_condition.json": "aaa1c37f9401e4b7132b6115ebcc5e857922c233477e9da06b1b3f93b8dbd5f6",
+    "result_audit.json": "9a2c36c4b71657cf37b5ac5742463e21d53f7c708040cc5ee01cf8d749553799",
+    "smoke_manifest.json": "d31360a9bef5d564d1f69921030dfd94105cbe36b61a12443e4463c0445fc774",
+    "unmatched_pairs.json": "20adb9c044a68fa5d09398189dad50060bcc6e1a38fa3cf89456e0cd195e6e2b",
+    "utility_pairing.json": "ffdef763f93a37a548567becdd7f9cc83929b0d3e67380a763a75052e4e80a9c"
+  },
+  "release_certifying": false,
+  "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+  "result_count": 30,
+  "result_schema_versions": [
+    "1.1"
+  ]
+}

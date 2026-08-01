@@ -1,0 +1,13 @@
+{
+  "artifact_provenance": {
+    "artifact_dirty": false,
+    "certification_mode": "diagnostic",
+    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "is_certifying": false,
+    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "run_mode": "test",
+    "schema_version": "1.1"
+  },
+  "unmatched_baseline_keys": [],
+  "unmatched_firewall_keys": []
+}

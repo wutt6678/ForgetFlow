@@ -1,0 +1,146 @@
+{
+  "credential_001": {
+    "pu_rer": {
+      "value": 0.07692307692307693,
+      "numerator": 15,
+      "denominator": 195,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.5,
+      "numerator": 1,
+      "denominator": 2,
+      "reason": null
+    },
+    "rr": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 78,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "attribute_001": {
+    "pu_rer": {
+      "value": 0.28205128205128205,
+      "numerator": 33,
+      "denominator": 117,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 1,
+      "reason": null
+    },
+    "rr": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 39,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  },
+  "auth_001": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 195,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 2,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.23076923076923078,
+      "numerator": 9,
+      "denominator": 39,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.23076923076923078,
+      "numerator": 9,
+      "denominator": 39,
+      "reason": null,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 39,
+      "reason": null
+    },
+    "utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": null
+    },
+    "metadata": null
+  }
+}

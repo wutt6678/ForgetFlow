@@ -1,0 +1,66 @@
+{
+  "artifact_provenance": {
+    "artifact_dirty": false,
+    "certification_mode": "diagnostic",
+    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "is_certifying": false,
+    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "run_mode": "test",
+    "schema_version": "1.1"
+  },
+  "baseline_condition": "no_firewall",
+  "conditions": {
+    "binary_policy": {
+      "baseline_successful_pairs": 6,
+      "matched_pair_count": 6,
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": [],
+      "utility_retention": {
+        "denominator": 6,
+        "numerator": 6,
+        "reason": null,
+        "value": 1.0
+      }
+    },
+    "exact_only": {
+      "baseline_successful_pairs": 6,
+      "matched_pair_count": 6,
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": [],
+      "utility_retention": {
+        "denominator": 6,
+        "numerator": 6,
+        "reason": null,
+        "value": 1.0
+      }
+    },
+    "full_mvp": {
+      "baseline_successful_pairs": 6,
+      "matched_pair_count": 6,
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": [],
+      "utility_retention": {
+        "denominator": 6,
+        "numerator": 6,
+        "reason": null,
+        "value": 1.0
+      }
+    },
+    "monitoring_0": {
+      "baseline_successful_pairs": 6,
+      "matched_pair_count": 6,
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": [],
+      "utility_retention": {
+        "denominator": 6,
+        "numerator": 6,
+        "reason": null,
+        "value": 1.0
+      }
+    }
+  }
+}

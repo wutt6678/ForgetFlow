@@ -1,0 +1,55 @@
+{
+  "artifact_provenance": {
+    "artifact_dirty": false,
+    "certification_mode": "diagnostic",
+    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "is_certifying": false,
+    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "run_mode": "test",
+    "schema_version": "1.1"
+  },
+  "crr": {
+    "denominator": 240,
+    "numerator": 48,
+    "reason": null,
+    "value": 0.2
+  },
+  "fbr": {
+    "denominator": 60,
+    "numerator": 0,
+    "reason": null,
+    "value": 0.0
+  },
+  "metadata": null,
+  "pu_rer": {
+    "denominator": 270,
+    "numerator": 0,
+    "reason": null,
+    "value": 0.0
+  },
+  "rr": {
+    "denominator": 39,
+    "numerator": 12,
+    "population": "clean_or_verified",
+    "reason": null,
+    "value": 0.3076923076923077
+  },
+  "rr_at_risk": {
+    "denominator": 21,
+    "numerator": 12,
+    "population": "already_at_risk",
+    "reason": null,
+    "value": 0.5714285714285714
+  },
+  "rr_clean": {
+    "denominator": 39,
+    "numerator": 12,
+    "population": "clean_or_verified",
+    "reason": null,
+    "value": 0.3076923076923077
+  },
+  "utility_retention": {
+    "reason": "utility retention is reported per condition against no_firewall",
+    "value": null
+  }
+}
