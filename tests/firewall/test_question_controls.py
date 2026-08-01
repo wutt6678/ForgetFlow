@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marble.firewall.detectors import RecipientContext
 from marble.firewall.history import ReconstructionChecker, _is_information_bearing
 from marble.firewall.types import ForgetRecord

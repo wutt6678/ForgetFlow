@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from experiments.trustparadox_u.assertion_contracts import classify_candidate_exposure
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marble.firewall.normalization import (
     CanonicalValue,
     canonicalize_sensitive_values,

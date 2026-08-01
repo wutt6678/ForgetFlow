@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Sequence
+from typing import Sequence
 
 from marble.firewall.normalization import text_contains_canonical_value
-from marble.firewall.types import DetectorResult, FirewallDecision, ForgetRecord
+from marble.firewall.types import FirewallDecision, ForgetRecord
 
 
 class ReleaseStatus(Enum):

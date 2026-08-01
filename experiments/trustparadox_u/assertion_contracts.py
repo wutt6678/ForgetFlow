@@ -10,6 +10,7 @@ This module implements:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 # Iteration 1: Top-level assertion suite summary

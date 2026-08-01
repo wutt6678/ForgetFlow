@@ -9,9 +9,9 @@ from experiments.trustparadox_u.config import ExperimentConfig
 from marble.firewall.audit import AuditLogger
 from marble.firewall.detectors import HybridDetector
 from marble.firewall.history import RecipientHistory, ReconstructionChecker
+from marble.firewall.normalization import text_contains_canonical_value
 from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
-from marble.firewall.normalization import text_contains_canonical_value
 from marble.firewall.types import (
     DetectorResult,
     FirewallDecision,

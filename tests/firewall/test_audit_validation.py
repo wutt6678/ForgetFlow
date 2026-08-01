@@ -6,14 +6,12 @@ import pytest
 
 from marble.firewall.audit_validation import (
     AuditInvariantChecker,
-    AuditViolation,
     validate_audit_invariants,
 )
 from marble.firewall.types import (
     DetectorResult,
     FirewallDecision,
     ForgetRecord,
-    RecordDetectionEvidence,
 )
 
 

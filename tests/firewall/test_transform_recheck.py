@@ -4,6 +4,14 @@ from __future__ import annotations
 
 import pytest
 
+from experiments.trustparadox_u.config import (
+    DetectorConfig,
+    ExperimentConfig,
+    HistoryConfig,
+    MonitoringConfig,
+    PolicyConfig,
+)
+from experiments.trustparadox_u.embedding import EmbeddingProvider
 from marble.firewall.audit import AuditLogger
 from marble.firewall.detectors import HybridDetector
 from marble.firewall.flow_gate import FlowGate
@@ -11,19 +19,10 @@ from marble.firewall.history import RecipientHistory, ReconstructionChecker
 from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
-    FirewallDecision,
     ForgetRecord,
     MessageEnvelope,
     TransformationAttempt,
 )
-from experiments.trustparadox_u.config import (
-    ExperimentConfig,
-    DetectorConfig,
-    HistoryConfig,
-    PolicyConfig,
-    MonitoringConfig,
-)
-from experiments.trustparadox_u.embedding import EmbeddingProvider
 
 
 class MockEmbeddingProvider(EmbeddingProvider):

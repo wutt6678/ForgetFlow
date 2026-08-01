@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from marble.firewall.audit_validation import (
     ReleaseStatus,
     validate_release,

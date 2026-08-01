@@ -7,7 +7,7 @@ import hashlib
 import json
 import math
 import random
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from experiments.trustparadox_u.agent import (
