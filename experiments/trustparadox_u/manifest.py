@@ -162,6 +162,7 @@ def build_artifact_provenance(
     schema_version: str = "1.1",
     abort_on_dirty: bool | None = None,
     results_commit: str | None = None,
+    repository_commit: str | None = None,
 ) -> dict[str, Any]:
     """P0 #5: Build the canonical artifact-provenance block.
 
@@ -186,7 +187,14 @@ def build_artifact_provenance(
     """
     import os
 
-    raw_commit = get_repository_commit()
+    # Callers that write result artifacts during a run will have dirtied the
+    # working tree by the time provenance is recorded.  To avoid aborting on
+    # our own output, accept a pre-captured ``repository_commit`` snapshot
+    # (taken before any artifacts were written) and derive cleanliness from it.
+    if repository_commit is not None:
+        raw_commit = repository_commit
+    else:
+        raw_commit = get_repository_commit()
     dirty = raw_commit.endswith("-dirty")
     tested_code_commit = raw_commit.removesuffix("-dirty") if dirty else raw_commit
     repository_clean = not dirty

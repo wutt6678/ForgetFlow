@@ -1061,6 +1061,9 @@ def run_multi_target_smoke(
         run_mode=run_mode,
         is_certifying=is_certifying,
         schema_version=all_results[0].schema_version if all_results else "1.1",
+        # Use the start-of-run snapshot so that artifacts written above do not
+        # make the tree appear dirty (and abort generation in CI).
+        repository_commit=repository_commit,
     )
     provenance_block["generated_at"] = generated_at
     repository_clean = bool(provenance_block["repository_clean"])
