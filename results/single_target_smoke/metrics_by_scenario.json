@@ -45,7 +45,7 @@
       "reason": null,
       "evaluable": true
     },
-    "utility_retention": {
+    "paired_policy_utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
@@ -100,7 +100,7 @@
       "reason": null,
       "evaluable": true
     },
-    "utility_retention": {
+    "paired_policy_utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
@@ -155,7 +155,7 @@
       "reason": null,
       "evaluable": true
     },
-    "utility_retention": {
+    "paired_policy_utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,

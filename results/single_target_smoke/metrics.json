@@ -14,6 +14,13 @@
     "value": 0.0
   },
   "metadata": null,
+  "paired_policy_utility_retention": {
+    "denominator": 3,
+    "evaluable": true,
+    "numerator": 3,
+    "reason": null,
+    "value": 1.0
+  },
   "pu_rer": {
     "denominator": 663,
     "evaluable": true,
@@ -44,12 +51,5 @@
     "population": "clean_or_verified",
     "reason": null,
     "value": 0.23076923076923078
-  },
-  "utility_retention": {
-    "denominator": 0,
-    "evaluable": false,
-    "numerator": 0,
-    "reason": "no_eligible_pairs",
-    "value": null
   }
 }

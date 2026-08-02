@@ -68,7 +68,7 @@
       123
     ]
   ],
-  "metric": {
+  "paired_policy_utility_retention": {
     "value": 1.0,
     "numerator": 3,
     "denominator": 3,

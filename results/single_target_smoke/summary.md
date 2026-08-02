@@ -1,7 +1,8 @@
 # Single-Target Smoke Study Summary
 
 - **Status**: DIAGNOSTIC ONLY
-- **Commit**: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty
+- **Execution status**: RESEARCH_VALID
+- **Commit**: fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc
 - **Mode**: diagnostic
 - **Fixtures**: 3
 - **Seeds**: 3
@@ -10,7 +11,7 @@
 - **Audit valid**: True
 - **Audit errors**: 0
 - **Duplicate identities**: 0
-- **Utility retention**: 1.0000
+- **paired_policy_utility_retention**: 1.0000 (3/3, evaluable=True)
 
 ## Metrics
 

@@ -2,9 +2,9 @@
 
 ## Run Identity
 
-- **Repository commit**: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty
-- **Repository clean**: False
-- **Generated at**: 2026-08-02T15:07:54.305931+00:00
+- **Repository commit**: fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc
+- **Repository clean**: True
+- **Generated at**: 2026-08-02T23:23:15.354575+00:00
 - **Mode**: diagnostic
 
 ## Fixture Matrix
@@ -52,7 +52,7 @@
 - **Matched pairs**: 9
 - **Unmatched pairs**: 0
 - **Baseline successful pairs**: 3
-- **Utility retention**: 1.0000
+- **paired_policy_utility_retention**: 1.0000
 
 ## GO/NO-GO Decision
 
