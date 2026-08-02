@@ -1,11 +1,11 @@
 {
   "artifact_provenance": {
-    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
-    "artifact_dirty": false,
+    "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
+    "artifact_dirty": true,
     "certification_mode": "diagnostic",
     "run_mode": "test",
     "schema_version": "1.1",
-    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "generated_at": "2026-08-02T03:48:28.056054+00:00",
     "is_certifying": false
   },
   "metrics_by_condition": {
@@ -14,46 +14,53 @@
         "value": 0.0,
         "numerator": 0,
         "denominator": 54,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "crr": {
-        "value": 0.5,
-        "numerator": 24,
-        "denominator": 48,
-        "reason": null
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 12,
+        "reason": null,
+        "evaluable": true
       },
       "rr": {
         "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "numerator": 3,
+        "denominator": 3,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
         "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "numerator": 3,
+        "denominator": 3,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
         "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "numerator": 9,
+        "denominator": 9,
         "reason": null,
+        "evaluable": true,
         "population": "already_at_risk"
       },
       "fbr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "utility_retention": {
         "value": null,
         "numerator": 0,
         "denominator": 0,
-        "reason": null
+        "reason": "no_eligible_pairs",
+        "evaluable": false
       },
       "metadata": null
     },
@@ -62,19 +69,22 @@
         "value": 0.0,
         "numerator": 0,
         "denominator": 54,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 48,
-        "reason": null
+        "denominator": 12,
+        "reason": null,
+        "evaluable": true
       },
       "rr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
@@ -82,6 +92,7 @@
         "numerator": 0,
         "denominator": 12,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
@@ -89,19 +100,22 @@
         "numerator": 0,
         "denominator": 0,
         "reason": "no at-risk pair attempts",
+        "evaluable": false,
         "population": "already_at_risk"
       },
       "fbr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "utility_retention": {
         "value": 1.0,
         "numerator": 6,
         "denominator": 6,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "metadata": null
     },
@@ -110,19 +124,22 @@
         "value": 0.0,
         "numerator": 0,
         "denominator": 54,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 48,
-        "reason": null
+        "denominator": 12,
+        "reason": null,
+        "evaluable": true
       },
       "rr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 6,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
@@ -130,6 +147,7 @@
         "numerator": 0,
         "denominator": 6,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
@@ -137,19 +155,22 @@
         "numerator": 0,
         "denominator": 6,
         "reason": null,
+        "evaluable": true,
         "population": "already_at_risk"
       },
       "fbr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "utility_retention": {
         "value": 1.0,
         "numerator": 6,
         "denominator": 6,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "metadata": null
     },
@@ -158,46 +179,53 @@
         "value": 0.0,
         "numerator": 0,
         "denominator": 54,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "crr": {
-        "value": 0.5,
-        "numerator": 24,
-        "denominator": 48,
-        "reason": null
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 12,
+        "reason": null,
+        "evaluable": true
       },
       "rr": {
-        "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 9,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
-        "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 9,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
-        "value": 1.0,
-        "numerator": 6,
-        "denominator": 6,
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 3,
         "reason": null,
+        "evaluable": true,
         "population": "already_at_risk"
       },
       "fbr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "utility_retention": {
         "value": 1.0,
         "numerator": 6,
         "denominator": 6,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "metadata": null
     },
@@ -206,19 +234,22 @@
         "value": 0.0,
         "numerator": 0,
         "denominator": 54,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 48,
-        "reason": null
+        "denominator": 12,
+        "reason": null,
+        "evaluable": true
       },
       "rr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 9,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
@@ -226,6 +257,7 @@
         "numerator": 0,
         "denominator": 9,
         "reason": null,
+        "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
@@ -233,19 +265,22 @@
         "numerator": 0,
         "denominator": 3,
         "reason": null,
+        "evaluable": true,
         "population": "already_at_risk"
       },
       "fbr": {
         "value": 0.0,
         "numerator": 0,
         "denominator": 12,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "utility_retention": {
         "value": 1.0,
         "numerator": 6,
         "denominator": 6,
-        "reason": null
+        "reason": null,
+        "evaluable": true
       },
       "metadata": null
     }

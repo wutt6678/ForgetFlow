@@ -2,7 +2,7 @@
   "conditions": [
     {
       "name": "no_firewall",
-      "config_hash": "5fe6f91e66a6837a38d8967f283e322002adf715f5bdf046379b5bb3531cd502",
+      "config_hash": "d68a4db3a6ea2c16d201b8f1c3c043b2954c96e044090d673741f0397c5fe938",
       "firewall_enabled": false,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -13,7 +13,7 @@
     },
     {
       "name": "exact_only",
-      "config_hash": "162a5b88e6e2739043511f7c99b3adf7c22ee7659c4391353712ef03a891adac",
+      "config_hash": "18806d5d57a86bc5a693ea0473ad9782304e7f907a6a0a9fc2f4c8a268eee31d",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=False, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -24,7 +24,7 @@
     },
     {
       "name": "lexical_only",
-      "config_hash": "e585e5ac1461256887ef17a713d5b84ebcfbf3e7da983aee042dceaf163591ac",
+      "config_hash": "7a04193cf1559c5be429fc34498f0136fd66df385877408743d5acb89ff766b6",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -35,7 +35,7 @@
     },
     {
       "name": "alias_only",
-      "config_hash": "5d27ad504686d33a2ab8174e82e7342dcf5d87abe4daaf219cb0538e1be2a3f9",
+      "config_hash": "f1928e0d1e7b48df179a996456a2cbb231ba766788c0848c24643a749607f9e8",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=False, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -46,7 +46,7 @@
     },
     {
       "name": "full_mvp",
-      "config_hash": "d458c4c31b1d759075d060dc7efa8a2c5ad8882cd4418c5d087bbc67bed65d57",
+      "config_hash": "835190418e6299214db0c0fa746df2f2f1e81388eb4fefbb8b84e9f1a89a90af",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
@@ -57,7 +57,7 @@
     },
     {
       "name": "no_embedding",
-      "config_hash": "f703b47eb836ffc4ca6d377ca1b465f7942976846af44ea723d6535fa64bddea",
+      "config_hash": "da112e494101e860b13b789380578e8efade1d5ad2bd75b209fe48059c3e7576",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
@@ -68,7 +68,7 @@
     },
     {
       "name": "no_claims",
-      "config_hash": "1a9b441ef768c6cf9eb5445d482379fe1339a15ef3c8bfdd5828d7ad0eb6ca1b",
+      "config_hash": "6820cfac6c73b0870587540ff4de3829edbdc1188a6102b766c1011dd29eb83e",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -79,7 +79,7 @@
     },
     {
       "name": "stateless",
-      "config_hash": "d2114303ccd6cd4b8d1599e2c78c6999d181ada9c32eddc0279cf5612d50f7e8",
+      "config_hash": "c3a942087b15251d0745264082a9ff50443390f1c10e07d9879ae938b641431c",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -90,7 +90,7 @@
     },
     {
       "name": "binary_policy",
-      "config_hash": "887214898844b829cab0f1f13123cdff16f649c28aa525b35eccd60626a3a1e4",
+      "config_hash": "f4c063a056fdebdc61bf668eff920ccb9f1449e0a89406e21b949c3d522446ac",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -101,7 +101,7 @@
     },
     {
       "name": "monitoring_0",
-      "config_hash": "f768777f89529aaec36d264dd741e37e0c0a7adb879db79b6a618fd401f3896c",
+      "config_hash": "66138394a834a6257625e4a8a1443d6db769274abb8ebde37f71b1c7db084279",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -112,7 +112,7 @@
     },
     {
       "name": "monitoring_1",
-      "config_hash": "007f2491ee59914fdc105b29748b0953128bec4469c7d2b617a9bdcb6914eca3",
+      "config_hash": "4aefff13ad9243b627cc5bfff37b1ab07649a0cf689e55cbe1f676cf1819055f",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -123,7 +123,7 @@
     },
     {
       "name": "continuous",
-      "config_hash": "5fe6f91e66a6837a38d8967f283e322002adf715f5bdf046379b5bb3531cd502",
+      "config_hash": "d68a4db3a6ea2c16d201b8f1c3c043b2954c96e044090d673741f0397c5fe938",
       "firewall_enabled": true,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
@@ -134,7 +134,7 @@
     },
     {
       "name": "monitoring_only",
-      "config_hash": "c24af6b74916e58986924df7e3844580d486adf01f732ccd8bc9d2f14f345b6f",
+      "config_hash": "0f7e015d112be0eca6dbba1c7ba85049265c414f9915b0ed409383b94b1f9d8b",
       "firewall_enabled": false,
       "research_identity_dimensions": {
         "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",

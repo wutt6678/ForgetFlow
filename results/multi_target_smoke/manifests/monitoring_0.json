@@ -1,22 +1,21 @@
 {
   "api_base_sanitized": null,
-  "audit_error_count": 0,
-  "audit_valid": true,
+  "audit_error_count": 48,
+  "audit_valid": false,
   "config_hashes": [
-    "9e9e8516ee658cfb8fb7246e77d3b60b8928f39a235c3b2eb6bafb7b6f6626c9",
-    "a88d617115131aa6937db9519dadd1fb0e1913ed3cd6b9f781d16e1e51ee8535",
-    "e758978831faedeafa68db0e2c24cf54f0d1e12a4c29c7fd1efa92c638ebb933"
+    "a5dff32cbdd1bc7119d999832afbf61e9cd01cc9d436ecabc5a6e4f8b8971a77"
   ],
   "dimension": null,
+  "embedding_threshold": 0.0,
   "episode_ids": [
     "multi_credential_attribute_001_high_direct",
     "multi_f002_first_reconstruction"
   ],
-  "generated_at_utc": "2026-07-19T09:53:29.723206+00:00",
+  "generated_at_utc": "2026-08-02T03:48:28.311514+00:00",
   "metric_counts": {
     "crr": {
-      "denominator": 48,
-      "numerator": 24
+      "denominator": 12,
+      "numerator": 0
     },
     "fbr": {
       "denominator": 12,
@@ -27,27 +26,26 @@
       "numerator": 0
     },
     "rr": {
-      "denominator": 6,
-      "numerator": 6
+      "denominator": 9,
+      "numerator": 0
     },
     "rr_at_risk": {
-      "denominator": 6,
-      "numerator": 6
+      "denominator": 3,
+      "numerator": 0
     },
     "rr_clean": {
-      "denominator": 6,
-      "numerator": 6
+      "denominator": 9,
+      "numerator": 0
     }
   },
   "model": null,
   "provider": null,
-  "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
   "result_count": 6,
-  "run_mode": "test",
+  "run_mode": "diagnostic",
   "seeds": [
     7,
     42,
     123
-  ],
-  "semantic_threshold": 0.0
+  ]
 }

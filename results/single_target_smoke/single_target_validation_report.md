@@ -2,9 +2,9 @@
 
 ## Run Identity
 
-- **Repository commit**: 1ecace5e913b90f9d120a57ad0b67b2d53b2e882
+- **Repository commit**: 27313bd23b2ee8edcd5b237074f667cf990beb6a
 - **Repository clean**: True
-- **Generated at**: 2026-07-20T13:18:05.362659+00:00
+- **Generated at**: 2026-08-02T03:44:58.620840+00:00
 - **Mode**: diagnostic
 
 ## Fixture Matrix
@@ -16,8 +16,8 @@
 
 ## Audit Status
 
-- **Audit valid**: True
-- **Audit errors**: 0
+- **Audit valid**: False
+- **Audit errors**: 105
 - **Duplicate identities**: 0
 
 ## Manifest Status
@@ -28,19 +28,19 @@
 
 | Metric | Value | Numerator | Denominator |
 |--------|------:|----------:|------------:|
-| PU_RER | 0.0947 | 48 | 507 |
-| CRR | 0.2000 | 1 | 5 |
+| PU_RER | 0.0724 | 48 | 663 |
+| CRR | 0.0769 | 18 | 234 |
 | RR | 0.2308 | 9 | 39 |
 | FBR | 0.0000 | 0 | 156 |
 
 ## Directional Checks
 
 - [PASS] **privacy_mvp_better** (strict_improvement): full_mvp PU-RER < no_firewall PU-RER
-  - LHS: 0.0, RHS: 0.23076923076923078
+  - LHS: 0.0, RHS: 0.17647058823529413
 - [PASS] **semantic_protection** (strict_improvement): full_mvp PU-RER < no_embedding PU-RER
-  - LHS: 0.0, RHS: 0.07692307692307693
+  - LHS: 0.0, RHS: 0.058823529411764705
 - [PASS] **stateful_reconstruction_safer** (strict_improvement): stateful CRR < stateless CRR
-  - LHS: 0.0, RHS: 0.2
+  - LHS: 0.0, RHS: 0.16666666666666666
 - [PASS] **rich_utility_ge_binary** (non_inferiority): full_mvp task_success >= binary task_success
   - LHS: 3, RHS: 0
 - [PASS] **firewall_reduces_rr** (strict_improvement): no_firewall RR > full_mvp RR

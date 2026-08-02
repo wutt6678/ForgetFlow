@@ -1,21 +1,20 @@
 {
   "api_base_sanitized": null,
-  "audit_error_count": 0,
-  "audit_valid": true,
+  "audit_error_count": 48,
+  "audit_valid": false,
   "config_hashes": [
-    "1066fa7ce5da61787f2d035c37c919b438b1f1ee42727419c41d00ebd5edfbc6",
-    "56435f47fef717d936e1aef54dc7e193c3ebbcbc8c3d0efa010cafa3572d4ecb",
-    "73655f3c084821bdbd0585af4216f49101e6e65906fea7c83f8e7c931cab16d0"
+    "5f9afdee870220041683e20a31898d680d4229b4f057ba50c88aa29a71257fe3"
   ],
   "dimension": null,
+  "embedding_threshold": 0.0,
   "episode_ids": [
     "multi_credential_attribute_001_high_direct",
     "multi_f002_first_reconstruction"
   ],
-  "generated_at_utc": "2026-07-19T09:53:29.723046+00:00",
+  "generated_at_utc": "2026-08-02T03:48:28.311202+00:00",
   "metric_counts": {
     "crr": {
-      "denominator": 48,
+      "denominator": 12,
       "numerator": 0
     },
     "fbr": {
@@ -41,13 +40,12 @@
   },
   "model": null,
   "provider": null,
-  "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
   "result_count": 6,
-  "run_mode": "test",
+  "run_mode": "diagnostic",
   "seeds": [
     7,
     42,
     123
-  ],
-  "semantic_threshold": 0.0
+  ]
 }

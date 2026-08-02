@@ -4,19 +4,22 @@
       "value": 0.07692307692307693,
       "numerator": 15,
       "denominator": 195,
-      "reason": null
+      "reason": null,
+      "evaluable": true
     },
     "crr": {
-      "value": 0.5,
-      "numerator": 1,
-      "denominator": 2,
-      "reason": null
+      "value": 0.23076923076923078,
+      "numerator": 18,
+      "denominator": 78,
+      "reason": null,
+      "evaluable": true
     },
     "rr": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
       "reason": "no clean/verified pair attempts",
+      "evaluable": false,
       "population": "clean_or_verified"
     },
     "rr_clean": {
@@ -24,6 +27,7 @@
       "numerator": 0,
       "denominator": 0,
       "reason": "no clean/verified pair attempts",
+      "evaluable": false,
       "population": "clean_or_verified"
     },
     "rr_at_risk": {
@@ -31,19 +35,22 @@
       "numerator": 0,
       "denominator": 0,
       "reason": "no at-risk pair attempts",
+      "evaluable": false,
       "population": "already_at_risk"
     },
     "fbr": {
       "value": 0.0,
       "numerator": 0,
       "denominator": 78,
-      "reason": null
+      "reason": null,
+      "evaluable": true
     },
     "utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
-      "reason": null
+      "reason": "no_eligible_pairs",
+      "evaluable": false
     },
     "metadata": null
   },
@@ -52,19 +59,22 @@
       "value": 0.28205128205128205,
       "numerator": 33,
       "denominator": 117,
-      "reason": null
+      "reason": null,
+      "evaluable": true
     },
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 1,
-      "reason": null
+      "denominator": 78,
+      "reason": null,
+      "evaluable": true
     },
     "rr": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
       "reason": "no clean/verified pair attempts",
+      "evaluable": false,
       "population": "clean_or_verified"
     },
     "rr_clean": {
@@ -72,6 +82,7 @@
       "numerator": 0,
       "denominator": 0,
       "reason": "no clean/verified pair attempts",
+      "evaluable": false,
       "population": "clean_or_verified"
     },
     "rr_at_risk": {
@@ -79,19 +90,22 @@
       "numerator": 0,
       "denominator": 0,
       "reason": "no at-risk pair attempts",
+      "evaluable": false,
       "population": "already_at_risk"
     },
     "fbr": {
       "value": 0.0,
       "numerator": 0,
       "denominator": 39,
-      "reason": null
+      "reason": null,
+      "evaluable": true
     },
     "utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
-      "reason": null
+      "reason": "no_eligible_pairs",
+      "evaluable": false
     },
     "metadata": null
   },
@@ -99,20 +113,23 @@
     "pu_rer": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 195,
-      "reason": null
+      "denominator": 351,
+      "reason": null,
+      "evaluable": true
     },
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 2,
-      "reason": null
+      "denominator": 78,
+      "reason": null,
+      "evaluable": true
     },
     "rr": {
       "value": 0.23076923076923078,
       "numerator": 9,
       "denominator": 39,
       "reason": null,
+      "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
@@ -120,6 +137,7 @@
       "numerator": 9,
       "denominator": 39,
       "reason": null,
+      "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_at_risk": {
@@ -127,19 +145,22 @@
       "numerator": 0,
       "denominator": 0,
       "reason": "no at-risk pair attempts",
+      "evaluable": false,
       "population": "already_at_risk"
     },
     "fbr": {
       "value": 0.0,
       "numerator": 0,
       "denominator": 39,
-      "reason": null
+      "reason": null,
+      "evaluable": true
     },
     "utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
-      "reason": null
+      "reason": "no_eligible_pairs",
+      "evaluable": false
     },
     "metadata": null
   }

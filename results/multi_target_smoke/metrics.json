@@ -1,21 +1,23 @@
 {
   "artifact_provenance": {
-    "artifact_dirty": false,
+    "artifact_dirty": true,
     "certification_mode": "diagnostic",
-    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "generated_at": "2026-08-02T03:48:28.056054+00:00",
     "is_certifying": false,
-    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
     "run_mode": "test",
     "schema_version": "1.1"
   },
   "crr": {
-    "denominator": 240,
-    "numerator": 48,
+    "denominator": 60,
+    "evaluable": true,
+    "numerator": 0,
     "reason": null,
-    "value": 0.2
+    "value": 0.0
   },
   "fbr": {
     "denominator": 60,
+    "evaluable": true,
     "numerator": 0,
     "reason": null,
     "value": 0.0
@@ -23,30 +25,34 @@
   "metadata": null,
   "pu_rer": {
     "denominator": 270,
+    "evaluable": true,
     "numerator": 0,
     "reason": null,
     "value": 0.0
   },
   "rr": {
     "denominator": 39,
-    "numerator": 12,
+    "evaluable": true,
+    "numerator": 3,
     "population": "clean_or_verified",
     "reason": null,
-    "value": 0.3076923076923077
+    "value": 0.07692307692307693
   },
   "rr_at_risk": {
     "denominator": 21,
-    "numerator": 12,
+    "evaluable": true,
+    "numerator": 9,
     "population": "already_at_risk",
     "reason": null,
-    "value": 0.5714285714285714
+    "value": 0.42857142857142855
   },
   "rr_clean": {
     "denominator": 39,
-    "numerator": 12,
+    "evaluable": true,
+    "numerator": 3,
     "population": "clean_or_verified",
     "reason": null,
-    "value": 0.3076923076923077
+    "value": 0.07692307692307693
   },
   "utility_retention": {
     "reason": "utility retention is reported per condition against no_firewall",

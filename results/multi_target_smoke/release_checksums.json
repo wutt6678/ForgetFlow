@@ -1,21 +1,21 @@
 {
   "artifact_provenance": {
-    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
-    "artifact_dirty": false,
+    "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
+    "artifact_dirty": true,
     "certification_mode": "diagnostic",
     "run_mode": "test",
     "schema_version": "1.1",
-    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "generated_at": "2026-08-02T03:48:28.056054+00:00",
     "is_certifying": false
   },
-  "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
   "algorithm": "sha256",
   "files": {
-    "multi_target_report.json": "5906c831aca745071d0dce3e1085c6468862049f1be3d75a3ba1a5ff647753f2",
-    "summary.json": "24b739e8e23c041f6ff4fdd1d3eae925a935e933f7a6dc73f1ffb5d66a7eca15",
-    "summary.md": "80c878edd03b0a6b69bc324c181de35ab5bd2b603b565d4694a8dde5d9e2b1a1",
-    "episodes.jsonl": "3ea2d0ca9ed6aebf273bd87947f3254b82d75bb8c6b453685864b57ff98a3a39",
-    "study_manifest.json": "6cb39ecd3492ae8d86da60d1a27ede2109daac139115b1c829a73632b649bef0",
-    "study_manifest_validation.json": "d7ac2778a3ede064a3baf6aea297cc76af07949947fc292cf34c1b463f7919f0"
+    "multi_target_report.json": "ba219d049e349126bd03f84cb6e65a253659b692c0fd31fbf07cc891a45f2e6c",
+    "summary.json": "a3454022d2470a223e29ad57ec491e18a56ddb108b54d6a442dea9840f9116aa",
+    "summary.md": "52ddca92a97c80e61005711e0f1705654248593b6321e8b63ab148514e2d2b3e",
+    "episodes.jsonl": "f92331bd671420f8ded46950ac1591949a8a46206b71476803e1b3e97ce20c49",
+    "study_manifest.json": "e42f0ee6bda79906de25bb1c3176ff7a0eedb1e045958a9b42a8cce426d89ecd",
+    "study_manifest_validation.json": "9fa4b9dcf287851faea369c76517a51cd2cbbe5dcd7ace10dcdac0895e735b2f"
   }
 }

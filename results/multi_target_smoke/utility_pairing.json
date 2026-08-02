@@ -1,10 +1,10 @@
 {
   "artifact_provenance": {
-    "artifact_dirty": false,
+    "artifact_dirty": true,
     "certification_mode": "diagnostic",
-    "generated_at": "2026-07-19T09:53:29.602505+00:00",
+    "generated_at": "2026-08-02T03:48:28.056054+00:00",
     "is_certifying": false,
-    "repository_commit": "79e18d6356f9247e68280e06ee28f16757eafe8a",
+    "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
     "run_mode": "test",
     "schema_version": "1.1"
   },
@@ -18,6 +18,7 @@
       "unmatched_firewall_keys": [],
       "utility_retention": {
         "denominator": 6,
+        "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
@@ -31,6 +32,7 @@
       "unmatched_firewall_keys": [],
       "utility_retention": {
         "denominator": 6,
+        "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
@@ -44,6 +46,7 @@
       "unmatched_firewall_keys": [],
       "utility_retention": {
         "denominator": 6,
+        "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
@@ -57,6 +60,7 @@
       "unmatched_firewall_keys": [],
       "utility_retention": {
         "denominator": 6,
+        "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0

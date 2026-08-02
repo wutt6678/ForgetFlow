@@ -1,14 +1,14 @@
 # Single-Target Smoke Study Summary
 
 - **Status**: DIAGNOSTIC ONLY
-- **Commit**: 1ecace5e913b90f9d120a57ad0b67b2d53b2e882
+- **Commit**: 27313bd23b2ee8edcd5b237074f667cf990beb6a
 - **Mode**: diagnostic
 - **Fixtures**: 3
 - **Seeds**: 3
 - **Conditions**: 13
 - **Total runs**: 117
-- **Audit valid**: True
-- **Audit errors**: 0
+- **Audit valid**: False
+- **Audit errors**: 105
 - **Duplicate identities**: 0
 - **Utility retention**: 1.0000
 
@@ -16,8 +16,8 @@
 
 | Metric | Value | Numerator | Denominator |
 |--------|------:|----------:|------------:|
-| PU-RER | 0.0947 | 48 | 507 |
-| CRR | 0.2000 | 1 | 5 |
+| PU-RER | 0.0724 | 48 | 663 |
+| CRR | 0.0769 | 18 | 234 |
 | RR | 0.2308 | 9 | 39 |
 | FBR | 0.0000 | 0 | 156 |
 
