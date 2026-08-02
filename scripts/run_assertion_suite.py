@@ -729,8 +729,18 @@ def run_assertion_suite(output_dir: Path) -> dict:
 
 def main():
     """Main entry point."""
-    output_dir = PROJECT_ROOT / "results" / "assertion_suite"
-    report = run_assertion_suite(output_dir)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run deterministic assertion suite")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=PROJECT_ROOT / "results" / "assertion_suite",
+        help="Output directory for artifacts",
+    )
+    args = parser.parse_args()
+
+    report = run_assertion_suite(args.output_dir)
 
     # Iteration 1: Nonzero exit on assertion failure (per spec)
     # Exit nonzero when:

@@ -1160,7 +1160,19 @@ if __name__ == "__main__":
         default="diagnostic",
         help="Smoke study mode (default: diagnostic)",
     )
+    parser.add_argument(
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Override default seeds (default: 42 123 7)",
+    )
     args = parser.parse_args()
+
+    # Override SEEDS in place if provided
+    if args.seeds:
+        SEEDS.clear()
+        SEEDS.extend(args.seeds)
 
     try:
         report = run_smoke_study(args.output_dir, mode=args.mode)

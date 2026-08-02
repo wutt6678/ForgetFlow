@@ -940,6 +940,53 @@ def run_multi_target_smoke(
         for r in all_results:
             f.write(json.dumps(serialize_episode_result(r)) + "\n")
 
+    # Write record_evidence.jsonl (per-record evidence extraction)
+    record_evidence_path = output_dir / "record_evidence.jsonl"
+    with open(record_evidence_path, "w") as f:
+        for r in all_results:
+            cond_name = r.metadata.get("smoke_condition", "unknown")
+            for turn_idx, turn in enumerate(r.turns):
+                if not turn.exposed_forget_ids:
+                    continue
+                evidence_entry = {
+                    "run_id": r.run_id,
+                    "episode_id": r.episode_id,
+                    "condition": cond_name,
+                    "seed": r.seed,
+                    "scenario_id": r.scenario_id,
+                    "turn_index": turn_idx,
+                    "phase": turn.phase,
+                    "exposed_forget_ids": list(turn.exposed_forget_ids),
+                    "reconstructed_forget_ids": list(getattr(turn, "reconstructed_forget_ids", ())),
+                    "target_exposed": turn.target_exposed,
+                    "candidate_exposure_class": turn.candidate_exposure_class,
+                    "released_exposure_class": turn.released_exposure_class,
+                }
+                f.write(json.dumps(evidence_entry) + "\n")
+
+    # Write reconstruction_sequences.jsonl
+    recon_seq_path = output_dir / "reconstruction_sequences.jsonl"
+    with open(recon_seq_path, "w") as f:
+        for r in all_results:
+            cond_name = r.metadata.get("smoke_condition", "unknown")
+            for turn_idx, turn in enumerate(r.turns):
+                if not getattr(turn, "is_reconstruction", False):
+                    continue
+                seq_entry = {
+                    "run_id": r.run_id,
+                    "episode_id": r.episode_id,
+                    "condition": cond_name,
+                    "seed": r.seed,
+                    "scenario_id": r.scenario_id,
+                    "turn_index": turn_idx,
+                    "reconstructed_forget_ids": list(getattr(turn, "reconstructed_forget_ids", ())),
+                    "target_reconstructed": getattr(turn, "target_reconstructed", False),
+                    "sequence_terminal": getattr(turn, "sequence_terminal", False),
+                    "fragment_index": getattr(turn, "fragment_index", None),
+                    "fragment_count": getattr(turn, "fragment_count", None),
+                }
+                f.write(json.dumps(seq_entry) + "\n")
+
     # Audit
     audit_report = audit_results(all_results)
     audit_valid = not audit_report.has_errors
