@@ -1,23 +1,28 @@
 {
   "artifact_provenance": {
-    "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
-    "artifact_dirty": true,
+    "tested_code_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "results_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "repository_clean": true,
+    "artifact_dirty": false,
+    "workflow_run_id": "",
+    "workflow_attempt": "",
     "certification_mode": "diagnostic",
     "run_mode": "test",
     "schema_version": "1.1",
-    "generated_at": "2026-08-02T15:23:28.438861+00:00",
+    "generated_at": "2026-08-02T23:26:39.612382+00:00",
     "is_certifying": false
   },
-  "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
-  "repository_clean": false,
-  "generated_at": "2026-08-02T15:23:28.438861+00:00",
+  "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+  "repository_clean": true,
+  "generated_at": "2026-08-02T23:26:39.612382+00:00",
   "mode": "diagnostic",
   "run_mode": "test",
   "total_runs": 30,
   "fixture_count": 2,
   "seed_count": 3,
   "condition_count": 5,
-  "all_assertions_passed": false,
+  "all_assertions_passed": true,
   "audit_valid": true,
   "manifest_valid": true,
   "study_manifest_valid": true,
@@ -61,8 +66,8 @@
     },
     {
       "name": "protected_unprotected_outcome_symmetry",
-      "passed": false,
-      "detail": "compared_turn_count=75, mismatch_count=6, mismatches=[\"reconstructed_forget_ids: () vs ('F001',)\", \"reconstructed_forget_ids: () vs ('F001',)\", \"reconstructed_forget_ids: () vs ('F001',)\"]"
+      "passed": true,
+      "detail": "compared_turn_count=75, mismatch_count=0"
     },
     {
       "name": "reintroduced_subset_of_exposed",
@@ -126,8 +131,8 @@
     },
     {
       "name": "protected_unexpected_recontamination_zero",
-      "passed": false,
-      "detail": "Unexpected by condition: {'monitoring_0': 3, 'no_firewall': 0, 'binary_policy': 3, 'full_mvp': 0, 'exact_only': 6}"
+      "passed": true,
+      "detail": "Unexpected by condition: {'no_firewall': 0, 'monitoring_0': 3, 'binary_policy': 3, 'full_mvp': 0, 'exact_only': 6}"
     },
     {
       "name": "disk_metrics_match_in_memory",
@@ -267,7 +272,7 @@
       "reason": null,
       "evaluable": true
     },
-    "utility_retention": {
+    "paired_policy_utility_retention": {
       "value": null,
       "numerator": 0,
       "denominator": 0,
@@ -277,6 +282,9 @@
     "metadata": null
   },
   "status": "DIAGNOSTIC",
+  "execution_status": "RESEARCH_VALID",
+  "research_valid": true,
+  "release_candidate": false,
   "certification_mode": "diagnostic",
   "is_certifying": false,
   "missing_artifacts": [],

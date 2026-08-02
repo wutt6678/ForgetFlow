@@ -1,7 +1,8 @@
 # Multi-Target Smoke Study Summary
 
 - **Status**: DIAGNOSTIC
-- **Commit**: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty
+- **Commit**: f480763e5d1e834126cda1da598f7aa98f7a9050
+- **Execution status**: RESEARCH_VALID
 - **Mode**: diagnostic
 - **Run mode**: test
 - **Fixtures**: 2
@@ -22,7 +23,7 @@
 - [PASS] **tracker_state_per_agent_record_pair**: Validated 30 agent-record state pairs
 - [PASS] **expected_tracker_pairs_present**: Expected (CK,F001) and (CK,F002) pairs found in all results
 - [PASS] **state_isolation**: F001-only=18, F002-only=12, combined=0, mismatches=0
-- [FAIL] **protected_unprotected_outcome_symmetry**: compared_turn_count=75, mismatch_count=6, mismatches=["reconstructed_forget_ids: () vs ('F001',)", "reconstructed_forget_ids: () vs ('F001',)", "reconstructed_forget_ids: () vs ('F001',)"]
+- [PASS] **protected_unprotected_outcome_symmetry**: compared_turn_count=75, mismatch_count=0
 - [PASS] **reintroduced_subset_of_exposed**: All reintroduced IDs are subsets of exposed and targeted IDs
 - [PASS] **positive_F001_reconstruction**: F001-only reconstruction turns: 6
 - [PASS] **positive_F002_reconstruction**: F002-only reconstruction turns: 6 (both=6)
@@ -35,7 +36,7 @@
 - [PASS] **multi_target_has_multiple_items**: Scenario has 2 sensitive items
 - [PASS] **multi_target_has_recontamination_steps**: Recontamination steps: 3
 - [PASS] **multi_target_audit_valid**: Audit errors: 0
-- [FAIL] **protected_unexpected_recontamination_zero**: Unexpected by condition: {'monitoring_0': 3, 'no_firewall': 0, 'binary_policy': 3, 'full_mvp': 0, 'exact_only': 6}
+- [PASS] **protected_unexpected_recontamination_zero**: Unexpected by condition: {'no_firewall': 0, 'monitoring_0': 3, 'binary_policy': 3, 'full_mvp': 0, 'exact_only': 6}
 - [PASS] **disk_metrics_match_in_memory**: Verified 30 results match across disk round-trip
 - [PASS] **disk_record_level_fields**: All record-level fields match across 30 results
 
@@ -49,3 +50,13 @@
 | RR_clean | 0.14285714285714285 | 6 | 42 |
 | RR_at_risk | 0.3333333333333333 | 6 | 18 |
 | FBR | 0.0 | 0 | 60 |
+
+## paired_policy_utility_retention (per condition)
+
+| Condition | Value | Numerator | Denominator | Evaluable |
+|-----------|------:|----------:|------------:|:---------:|
+| binary_policy | 1.0 | 6 | 6 | True |
+| exact_only | 1.0 | 6 | 6 | True |
+| full_mvp | 1.0 | 6 | 6 | True |
+| monitoring_0 | 1.0 | 6 | 6 | True |
+| no_firewall | None | 0 | 0 | False |

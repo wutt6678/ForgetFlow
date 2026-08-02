@@ -1,11 +1,16 @@
 {
   "artifact_provenance": {
-    "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
-    "artifact_dirty": true,
+    "tested_code_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "results_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "repository_clean": true,
+    "artifact_dirty": false,
+    "workflow_run_id": "",
+    "workflow_attempt": "",
     "certification_mode": "diagnostic",
     "run_mode": "test",
     "schema_version": "1.1",
-    "generated_at": "2026-08-02T15:23:28.438861+00:00",
+    "generated_at": "2026-08-02T23:26:39.612382+00:00",
     "is_certifying": false
   },
   "valid": true,

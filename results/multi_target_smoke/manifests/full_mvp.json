@@ -11,7 +11,7 @@
     "multi_credential_attribute_001_high_direct",
     "multi_f002_first_reconstruction"
   ],
-  "generated_at_utc": "2026-08-02T15:23:28.851282+00:00",
+  "generated_at_utc": "2026-08-02T23:26:39.885354+00:00",
   "metric_counts": {
     "crr": {
       "denominator": 12,
@@ -40,7 +40,7 @@
   },
   "model": "fixed",
   "provider": "fixed",
-  "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
+  "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
   "result_count": 6,
   "run_mode": "diagnostic",
   "seeds": [

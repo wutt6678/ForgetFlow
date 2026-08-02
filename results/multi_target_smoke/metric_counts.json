@@ -1,12 +1,17 @@
 {
   "artifact_provenance": {
-    "artifact_dirty": true,
+    "artifact_dirty": false,
     "certification_mode": "diagnostic",
-    "generated_at": "2026-08-02T15:23:28.438861+00:00",
+    "generated_at": "2026-08-02T23:26:39.612382+00:00",
     "is_certifying": false,
-    "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
+    "repository_clean": true,
+    "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "results_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
     "run_mode": "test",
-    "schema_version": "1.1"
+    "schema_version": "1.1",
+    "tested_code_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "workflow_attempt": "",
+    "workflow_run_id": ""
   },
   "crr": {
     "denominator": 60,

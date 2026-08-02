@@ -1,70 +1,89 @@
 {
   "artifact_provenance": {
-    "artifact_dirty": true,
+    "artifact_dirty": false,
     "certification_mode": "diagnostic",
-    "generated_at": "2026-08-02T15:23:28.438861+00:00",
+    "generated_at": "2026-08-02T23:26:39.612382+00:00",
     "is_certifying": false,
-    "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
+    "repository_clean": true,
+    "repository_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "results_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
     "run_mode": "test",
-    "schema_version": "1.1"
+    "schema_version": "1.1",
+    "tested_code_commit": "f480763e5d1e834126cda1da598f7aa98f7a9050",
+    "workflow_attempt": "",
+    "workflow_run_id": ""
   },
   "baseline_condition": "no_firewall",
   "conditions": {
     "binary_policy": {
       "baseline_successful_pairs": 6,
       "matched_pair_count": 6,
-      "protected_successful_pairs": 6,
-      "unmatched_baseline_keys": [],
-      "unmatched_firewall_keys": [],
-      "utility_retention": {
+      "paired_policy_utility_retention": {
         "denominator": 6,
         "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
-      }
+      },
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": []
     },
     "exact_only": {
       "baseline_successful_pairs": 6,
       "matched_pair_count": 6,
-      "protected_successful_pairs": 6,
-      "unmatched_baseline_keys": [],
-      "unmatched_firewall_keys": [],
-      "utility_retention": {
+      "paired_policy_utility_retention": {
         "denominator": 6,
         "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
-      }
+      },
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": []
     },
     "full_mvp": {
       "baseline_successful_pairs": 6,
       "matched_pair_count": 6,
-      "protected_successful_pairs": 6,
-      "unmatched_baseline_keys": [],
-      "unmatched_firewall_keys": [],
-      "utility_retention": {
+      "paired_policy_utility_retention": {
         "denominator": 6,
         "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
-      }
+      },
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": []
     },
     "monitoring_0": {
       "baseline_successful_pairs": 6,
       "matched_pair_count": 6,
-      "protected_successful_pairs": 6,
-      "unmatched_baseline_keys": [],
-      "unmatched_firewall_keys": [],
-      "utility_retention": {
+      "paired_policy_utility_retention": {
         "denominator": 6,
         "evaluable": true,
         "numerator": 6,
         "reason": null,
         "value": 1.0
-      }
+      },
+      "protected_successful_pairs": 6,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": []
+    },
+    "no_firewall": {
+      "baseline_successful_pairs": 0,
+      "matched_pair_count": 0,
+      "paired_policy_utility_retention": {
+        "denominator": 0,
+        "evaluable": false,
+        "numerator": 0,
+        "reason": "baseline_condition",
+        "value": null
+      },
+      "protected_successful_pairs": 0,
+      "unmatched_baseline_keys": [],
+      "unmatched_firewall_keys": []
     }
   }
 }
