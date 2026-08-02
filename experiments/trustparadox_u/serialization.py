@@ -342,6 +342,14 @@ def deserialize_turn(
         exposed_forget_ids=exposed_forget_ids,
         target_reconstructed=data.get("target_reconstructed", False),
         reconstructed_forget_ids=reconstructed_forget_ids,
+        # P0 #3: Reconstruction contributor provenance
+        reconstruction_contributing_message_ids=tuple(
+            data.get("reconstruction_contributing_message_ids", [])
+        ),
+        reconstruction_contributing_fragments=tuple(
+            data.get("reconstruction_contributing_fragments", [])
+        ),
+        reconstruction_value=data.get("reconstruction_value"),
         target_reintroduced=data.get("target_reintroduced", False),
         reintroduced_forget_ids=reintroduced_forget_ids,
         # Section 8.2: Probe-specific fields

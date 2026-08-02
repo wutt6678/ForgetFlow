@@ -24,6 +24,8 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from experiments.trustparadox_u.evaluator import UTILITY_METRIC_NAME  # noqa: E402
+
 
 @dataclass
 class ConsistencyCheck:
@@ -120,44 +122,75 @@ def check_hash_consistency(results_dir: Path) -> ConsistencyCheck:
 
 
 def check_utility_consistency(results_dir: Path) -> ConsistencyCheck:
-    """Check that utility values are consistent across files."""
+    """Check that utility values are consistent across files (Section 15).
+
+    The canonical metric ``paired_policy_utility_retention`` must carry identical
+    value/numerator/denominator/reason/evaluable across metrics_by_condition.json,
+    utility_pairing.json, and summary.json for every condition.
+    """
     violations: list[str] = []
 
     for subdir in ["single_target_smoke", "multi_target_smoke"]:
-        # Load metrics
-        metrics = load_json(results_dir / subdir / "metrics.json")
+        base = results_dir / subdir
+        metrics = load_json(base / "metrics.json")
         if not metrics:
             continue
 
-        # Handle provenance wrapper
-        if "artifact_provenance" in metrics:
-            metrics = {k: v for k, v in metrics.items() if k != "artifact_provenance"}
+        # Load the per-condition artifacts (strip provenance wrappers).
+        metrics_by_cond_raw = load_json(base / "metrics_by_condition.json") or {}
+        metrics_by_cond = metrics_by_cond_raw.get("metrics_by_condition", {})
 
-        # Load utility pairing
-        utility = load_json(results_dir / subdir / "utility_pairing.json")
-        if not utility:
-            continue
-
-        # Handle provenance wrapper
+        utility = load_json(base / "utility_pairing.json") or {}
         if "artifact_provenance" in utility:
             utility = {k: v for k, v in utility.items() if k != "artifact_provenance"}
 
-        # Compare utility retention values
-        metrics_utility = metrics.get("utility_retention", {})
-        # Note: metrics_value extracted for potential future comparison
-        _ = metrics_utility.get("value") if isinstance(metrics_utility, dict) else None
+        summary = load_json(base / "summary.json") or {}
 
-        # For multi-target, utility is per-condition
+        # Multi-target: per-condition canonical metric must agree across artifacts.
         if "conditions" in utility:
             for cond_name, cond_data in utility["conditions"].items():
-                cond_utility = cond_data.get("utility_retention", {})
-                if isinstance(cond_utility, dict):
-                    cond_value = cond_utility.get("value")
-                    # Just verify it exists and is numeric or None
-                    if cond_value is not None and not isinstance(cond_value, (int, float)):
+                cond_utility = cond_data.get(UTILITY_METRIC_NAME, {})
+                if not isinstance(cond_utility, dict):
+                    violations.append(
+                        f"{subdir}/{cond_name}: utility metric not a dict in utility_pairing.json"
+                    )
+                    continue
+                cond_value = cond_utility.get("value")
+                if cond_value is not None and not isinstance(cond_value, (int, float)):
+                    violations.append(
+                        f"{subdir}/{cond_name}: utility value not numeric: {cond_value}"
+                    )
+
+                # metrics_by_condition.json must carry the identical metric dict.
+                mbc_entry = metrics_by_cond.get(cond_name, {})
+                mbc_utility = mbc_entry.get(UTILITY_METRIC_NAME)
+                if mbc_utility is not None and mbc_utility != cond_utility:
+                    violations.append(
+                        f"{subdir}/{cond_name}: {UTILITY_METRIC_NAME} differs between "
+                        f"utility_pairing.json and metrics_by_condition.json"
+                    )
+
+                # summary.json must carry the identical per-condition metric dict.
+                summary_utility = summary.get(UTILITY_METRIC_NAME, {})
+                if isinstance(summary_utility, dict) and cond_name in summary_utility:
+                    if summary_utility[cond_name] != cond_utility:
                         violations.append(
-                            f"{subdir}/{cond_name}: utility value not numeric: {cond_value}"
+                            f"{subdir}/{cond_name}: {UTILITY_METRIC_NAME} differs between "
+                            f"utility_pairing.json and summary.json"
                         )
+        else:
+            # Single-target: summary.json metric must match utility_pairing.json.
+            pairing_metric = utility.get(UTILITY_METRIC_NAME)
+            summary_metric = summary.get(UTILITY_METRIC_NAME)
+            if (
+                pairing_metric is not None
+                and summary_metric is not None
+                and pairing_metric != summary_metric
+            ):
+                violations.append(
+                    f"{subdir}: {UTILITY_METRIC_NAME} differs between "
+                    f"utility_pairing.json and summary.json"
+                )
 
     return ConsistencyCheck(
         check_name="utility_consistency",

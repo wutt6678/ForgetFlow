@@ -5,14 +5,14 @@
   "execution_completed": 10,
   "execution_skipped": 0,
   "execution_failed": 0,
-  "assertion_cases_passed": 4,
-  "assertion_cases_failed": 6,
-  "individual_assertions_passed": 11,
-  "individual_assertions_failed": 7,
+  "assertion_cases_passed": 5,
+  "assertion_cases_failed": 5,
+  "individual_assertions_passed": 12,
+  "individual_assertions_failed": 6,
   "assertion_consistency_failures": 0,
   "audit_failures": 0,
   "suite_passed": false,
-  "timestamp": "2026-08-02T03:34:17.348660+00:00",
+  "timestamp": "2026-08-02T18:57:13.074226+00:00",
   "results": [
     {
       "case_id": "exact_disclosure",
@@ -122,11 +122,11 @@
         },
         {
           "assertion": "Claim exposure detected",
-          "passed": false,
-          "details": "has_claim_exposure=False"
+          "passed": true,
+          "details": "has_claim_exposure=True"
         }
       ],
-      "all_assertions_passed": false,
+      "all_assertions_passed": true,
       "consistency_violations": []
     },
     {

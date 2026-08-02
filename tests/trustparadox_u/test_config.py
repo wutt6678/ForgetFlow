@@ -81,6 +81,107 @@ class TestExperimentConfig:
         assert d["detector"]["embedding_threshold"] == 0.80
 
 
+class TestConditionTrialHashes:
+    """P1 #13: condition and trial hash semantics.
+
+    The condition hash captures all behavioural configuration (firewall flag,
+    detector/history/policy/monitoring, thresholds, model identifiers, rule
+    versions) but EXCLUDES trial identity (seed, scenario, secret variant).
+    The trial hash additionally includes scenario, seed, and secret variant.
+    """
+
+    @staticmethod
+    def _cfg(**overrides: object) -> ExperimentConfig:
+        kwargs: dict = dict(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(embedding_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+            monitoring=MonitoringConfig(),
+        )
+        kwargs.update(overrides)
+        return ExperimentConfig(**kwargs)
+
+    def test_firewall_enabled_changes_condition_hash(self) -> None:
+        """firewall_enabled is part of condition identity."""
+        cfg = self._cfg()
+        assert cfg.condition_hash(firewall_enabled=True) != cfg.condition_hash(
+            firewall_enabled=False
+        )
+
+    def test_monitoring_duration_changes_condition_hash(self) -> None:
+        """Monitoring configuration is part of condition identity."""
+        a = self._cfg(monitoring=MonitoringConfig(continuous=False, duration_rounds=0))
+        b = self._cfg(monitoring=MonitoringConfig(continuous=False, duration_rounds=5))
+        c = self._cfg(monitoring=MonitoringConfig(continuous=True))
+        hashes = {
+            a.condition_hash(firewall_enabled=True),
+            b.condition_hash(firewall_enabled=True),
+            c.condition_hash(firewall_enabled=True),
+        }
+        assert len(hashes) == 3
+
+    def test_detector_history_policy_change_condition_hash(self) -> None:
+        """Detector/history/policy configuration is part of condition identity."""
+        base = self._cfg()
+        ref = base.condition_hash(firewall_enabled=True)
+        variants = [
+            self._cfg(detector=DetectorConfig(embedding_enabled=False, entity_enabled=False)),
+            self._cfg(history=HistoryConfig(window_size=10)),
+            self._cfg(policy=PolicyConfig(rich_actions_enabled=False)),
+        ]
+        for variant in variants:
+            assert variant.condition_hash(firewall_enabled=True) != ref
+
+    def test_condition_hash_excludes_seed(self) -> None:
+        """Seed is trial identity, not condition identity."""
+        a = self._cfg(seed=42)
+        b = self._cfg(seed=99)
+        assert a.condition_hash(firewall_enabled=True) == b.condition_hash(firewall_enabled=True)
+
+    def test_seed_changes_trial_hash_only(self) -> None:
+        """Changing seed changes trial hash but NOT condition hash."""
+        a = self._cfg(seed=42)
+        b = self._cfg(seed=99)
+        # Condition hash is seed-independent.
+        assert a.condition_hash(firewall_enabled=True) == b.condition_hash(firewall_enabled=True)
+        # Trial hash is seed-dependent.
+        th_a = a.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_credential", secret_variant_id="sv1"
+        )
+        th_b = b.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_credential", secret_variant_id="sv1"
+        )
+        assert th_a != th_b
+
+    def test_trial_hash_includes_scenario_and_variant(self) -> None:
+        """Trial hash changes with scenario and secret variant."""
+        cfg = self._cfg()
+        base = cfg.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_credential", secret_variant_id="sv1"
+        )
+        diff_scenario = cfg.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_authorization", secret_variant_id="sv1"
+        )
+        diff_variant = cfg.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_credential", secret_variant_id="sv2"
+        )
+        assert base != diff_scenario
+        assert base != diff_variant
+
+    def test_hashes_are_sha256(self) -> None:
+        """Both hashes are valid 64-char SHA-256 hex digests."""
+        cfg = self._cfg()
+        cond = cfg.condition_hash(firewall_enabled=True)
+        trial = cfg.trial_hash(
+            firewall_enabled=True, scenario_id="pilot_credential", secret_variant_id="sv1"
+        )
+        for h in (cond, trial):
+            assert len(h) == 64
+            assert all(c in "0123456789abcdef" for c in h)
+
+
 class TestLoadConfig:
     def test_load_smoke(self) -> None:
         cfg = load_config(SMOKE_YAML)

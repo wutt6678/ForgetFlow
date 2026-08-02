@@ -339,7 +339,13 @@ class TestSmokeGateLogic:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert not report.all_passed
         assert report.top_line_status == "NO-GO"
@@ -375,7 +381,13 @@ class TestSmokeGateLogic:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=0,
-            utility_retention_value=None,
+            paired_policy_utility_retention={
+                "value": None,
+                "numerator": 0,
+                "denominator": 0,
+                "reason": "no_eligible_pairs",
+                "evaluable": False,
+            },
         )
         assert not report.all_passed
 
@@ -410,7 +422,13 @@ class TestSmokeGateLogic:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert not report.all_passed
 
@@ -445,7 +463,13 @@ class TestSmokeGateLogic:
             matched_pairs=20,
             unmatched_pair_count=7,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert not report.all_passed
 
@@ -484,7 +508,13 @@ class TestExitCodes:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert _get_exit_code(report) == EXIT_SUCCESS
 
@@ -519,7 +549,13 @@ class TestExitCodes:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert _get_exit_code(report) == EXIT_AUDIT
 
@@ -558,7 +594,13 @@ class TestExitCodes:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert _get_exit_code(report) == EXIT_DIRECTIONAL
 
@@ -597,7 +639,13 @@ class TestExitCodes:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=0,
-            utility_retention_value=None,
+            paired_policy_utility_retention={
+                "value": None,
+                "numerator": 0,
+                "denominator": 0,
+                "reason": "no_eligible_pairs",
+                "evaluable": False,
+            },
         )
         assert _get_exit_code(report) == EXIT_UTILITY_PAIRING
 
@@ -739,7 +787,13 @@ class TestDiagnosticMode:
             matched_pairs=27,
             unmatched_pair_count=0,
             baseline_successful_pairs=10,
-            utility_retention_value=0.5,
+            paired_policy_utility_retention={
+                "value": 0.5,
+                "numerator": 5,
+                "denominator": 10,
+                "reason": None,
+                "evaluable": True,
+            },
         )
         assert report.top_line_status == "DIAGNOSTIC ONLY"
         assert report.mode == "diagnostic"

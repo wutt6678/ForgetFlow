@@ -1,8 +1,8 @@
 {
   "top_line_status": "DIAGNOSTIC ONLY",
-  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a",
-  "repository_clean": true,
-  "audit_valid": false,
+  "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
+  "repository_clean": false,
+  "audit_valid": true,
   "duplicate_identity_count": 0,
   "utility_defined": true,
   "directional_checks_pass": true,
@@ -13,9 +13,9 @@
   "condition_count": 13,
   "smoke_report_version": "1.0.0",
   "artifact_schema_version": "1.0.0",
-  "generated_at": "2026-08-02T03:44:58.620840+00:00",
+  "generated_at": "2026-08-02T15:07:54.305931+00:00",
   "mode": "diagnostic",
   "failure_reasons": [
-    "Audit invalid: 105 errors"
+    "Repository dirty: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty"
   ]
 }

@@ -4,6 +4,11 @@
 Reads only persisted artifacts and recomputes all metrics independently,
 then compares against persisted aggregates with documented tolerance.
 
+The recomputation deserializes the persisted ``episodes.jsonl`` and applies the
+canonical evaluator functions, then compares the result against the persisted
+``metrics.json`` aggregate.  Any disagreement indicates the persisted aggregate
+is inconsistent with the persisted raw episodes.
+
 Usage:
     poetry run python scripts/verify_metrics.py --results-dir results/<sha>
 """
@@ -20,8 +25,26 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from experiments.trustparadox_u.evaluator import (  # noqa: E402
+    compute_crr,
+    compute_fbr,
+    compute_pu_rer,
+    compute_rr_clean,
+)
+from experiments.trustparadox_u.serialization import load_episode_results  # noqa: E402
+
 # Comparison tolerance for floating-point values
 TOLERANCE = 1e-9
+
+# Metrics independently recomputed and compared against metrics.json.
+# NOTE: the canonical top-level ``rr`` is the clean/verified-population rate
+# (s4), i.e. compute_rr_clean — the same function evaluate_all() reports.
+_RECOMPUTERS = {
+    "pu_rer": compute_pu_rer,
+    "crr": compute_crr,
+    "rr": compute_rr_clean,
+    "fbr": compute_fbr,
+}
 
 
 @dataclass
@@ -52,248 +75,63 @@ class VerificationResult:
         }
 
 
-def load_episodes(results_dir: Path, subdir: str) -> list[dict[str, Any]]:
-    """Load episodes from a JSONL file."""
-    episodes_path = results_dir / subdir / "episodes.jsonl"
-    if not episodes_path.exists():
-        return []
-    episodes = []
-    with open(episodes_path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                episodes.append(json.loads(line))
-    return episodes
-
-
-def recompute_pu_rer(episodes: list[dict[str, Any]]) -> tuple[int, int, float | None]:
-    """Recompute PU-RER from oracle exposure and information-bearing opportunities.
-
-    PU-RER = (oracle-exposed information-bearing opportunities) / (total information-bearing opportunities)
-    """
-    numerator = 0
-    denominator = 0
-
-    for ep in episodes:
-        turns = ep.get("turns", [])
-        for turn in turns:
-            # Only count information-bearing opportunities
-            if not turn.get("is_information_bearing_opportunity", False):
-                continue
-            denominator += 1
-            # Oracle exposure: target_exposed field
-            if turn.get("target_exposed", False):
-                numerator += 1
-
-    value = numerator / denominator if denominator > 0 else None
-    return numerator, denominator, value
-
-
-def recompute_crr(episodes: list[dict[str, Any]]) -> tuple[int, int, float | None]:
-    """Recompute CRR from reconstruction sequences.
-
-    CRR = (successful reconstruction sequences) / (eligible reconstruction sequences)
-    """
-    # Group by reconstruction sequence
-    sequences: dict[str, dict[str, Any]] = {}
-
-    for ep in episodes:
-        turns = ep.get("turns", [])
-        condition = ep.get("metadata", {}).get("smoke_condition", "unknown")
-        seed = ep.get("seed", 0)
-        scenario = ep.get("scenario_id", "unknown")
-
-        for turn in turns:
-            if not turn.get("is_reconstruction", False):
-                continue
-
-            forget_id = turn.get("reconstructed_forget_ids", [None])[0]
-            if not forget_id:
-                continue
-
-            # Build sequence key
-            seq_key = f"{condition}|{seed}|{scenario}|{forget_id}"
-
-            if seq_key not in sequences:
-                sequences[seq_key] = {
-                    "eligible": False,
-                    "reconstructed": False,
-                    "contributors": [],
-                }
-
-            # Mark as eligible if this is a reconstruction attempt
-            sequences[seq_key]["eligible"] = True
-
-            # Check if reconstructed
-            if turn.get("target_reconstructed", False):
-                sequences[seq_key]["reconstructed"] = True
-
-    numerator = sum(1 for s in sequences.values() if s["eligible"] and s["reconstructed"])
-    denominator = sum(1 for s in sequences.values() if s["eligible"])
-
-    value = numerator / denominator if denominator > 0 else None
-    return numerator, denominator, value
-
-
-def recompute_rr(episodes: list[dict[str, Any]]) -> tuple[int, int, float | None]:
-    """Recompute RR from attributable recontamination outcomes.
-
-    RR = (recontaminated agent-record pairs) / (attempted agent-record pairs)
-    """
-    numerator = 0
-    denominator = 0
-
-    for ep in episodes:
-        # Use episode-level counters if available
-        attempted = ep.get("attempted_agent_record_pairs", 0)
-        recontaminated = ep.get("recontaminated_agent_record_pairs", 0)
-
-        denominator += attempted
-        numerator += recontaminated
-
-    value = numerator / denominator if denominator > 0 else None
-    return numerator, denominator, value
-
-
-def recompute_fbr(episodes: list[dict[str, Any]]) -> tuple[int, int, float | None]:
-    """Recompute FBR from declared benign opportunities.
-
-    FBR = (benign opportunities correctly released) / (total benign opportunities)
-    """
-    numerator = 0
-    denominator = 0
-
-    for ep in episodes:
-        turns = ep.get("turns", [])
-        for turn in turns:
-            # Count benign opportunities (legitimate task turns)
-            if turn.get("phase") == "LEGITIMATE_TASK":
-                denominator += 1
-                # Check if released successfully
-                if turn.get("released_text") is not None:
-                    numerator += 1
-
-    value = numerator / denominator if denominator > 0 else None
-    return numerator, denominator, value
-
-
 def verify_metrics(results_dir: Path, subdir: str) -> list[VerificationResult]:
     """Verify metrics for a specific result subdirectory."""
     results: list[VerificationResult] = []
 
-    # Load persisted metrics
+    # Load persisted metrics aggregate.
     metrics_path = results_dir / subdir / "metrics.json"
     if not metrics_path.exists():
         return results
 
     persisted = json.loads(metrics_path.read_text())
 
-    # Handle provenance wrapper
+    # Handle provenance wrapper.
     if "artifact_provenance" in persisted:
         persisted = {k: v for k, v in persisted.items() if k != "artifact_provenance"}
 
-    # Load episodes
-    episodes = load_episodes(results_dir, subdir)
-    if not episodes:
+    # Load persisted raw episodes.
+    episodes_path = results_dir / subdir / "episodes.jsonl"
+    if not episodes_path.exists():
         return results
 
-    # Recompute each metric
-    recomputed_pu_rer = recompute_pu_rer(episodes)
-    recomputed_crr = recompute_crr(episodes)
-    recomputed_rr = recompute_rr(episodes)
-    recomputed_fbr = recompute_fbr(episodes)
+    try:
+        episode_results = load_episode_results(episodes_path)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"  [WARN] Could not deserialize {episodes_path}: {exc}")
+        return results
 
-    # Compare PU-RER
-    persisted_pu = persisted.get("pu_rer", {})
-    pu_match = (
-        persisted_pu.get("numerator", -1) == recomputed_pu_rer[0]
-        and persisted_pu.get("denominator", -1) == recomputed_pu_rer[1]
-    )
-    if persisted_pu.get("value") is not None and recomputed_pu_rer[2] is not None:
-        pu_match = pu_match and abs(persisted_pu["value"] - recomputed_pu_rer[2]) < TOLERANCE
+    if not episode_results:
+        return results
 
-    results.append(
-        VerificationResult(
-            metric_name="pu_rer",
-            persisted_value=persisted_pu.get("value"),
-            recomputed_value=recomputed_pu_rer[2],
-            persisted_numerator=persisted_pu.get("numerator", 0),
-            recomputed_numerator=recomputed_pu_rer[0],
-            persisted_denominator=persisted_pu.get("denominator", 0),
-            recomputed_denominator=recomputed_pu_rer[1],
-            match=pu_match,
-            detail=f"PU-RER: {recomputed_pu_rer[0]}/{recomputed_pu_rer[1]}",
+    # Independently recompute each metric from the persisted episodes and
+    # compare against the persisted aggregate.
+    for name, recompute in _RECOMPUTERS.items():
+        recomputed = recompute(episode_results).to_dict()
+        persisted_metric = persisted.get(name, {})
+
+        match = persisted_metric.get("numerator", -1) == recomputed.get(
+            "numerator"
+        ) and persisted_metric.get("denominator", -1) == recomputed.get("denominator")
+
+        persisted_value = persisted_metric.get("value")
+        recomputed_value = recomputed.get("value")
+        if persisted_value is not None and recomputed_value is not None:
+            match = match and abs(persisted_value - recomputed_value) < TOLERANCE
+
+        results.append(
+            VerificationResult(
+                metric_name=name,
+                persisted_value=persisted_value,
+                recomputed_value=recomputed_value,
+                persisted_numerator=persisted_metric.get("numerator", 0),
+                recomputed_numerator=recomputed.get("numerator", 0),
+                persisted_denominator=persisted_metric.get("denominator", 0),
+                recomputed_denominator=recomputed.get("denominator", 0),
+                match=match,
+                detail=f"{name}: {recomputed.get('numerator')}/{recomputed.get('denominator')}",
+            )
         )
-    )
-
-    # Compare CRR
-    persisted_crr = persisted.get("crr", {})
-    crr_match = (
-        persisted_crr.get("numerator", -1) == recomputed_crr[0]
-        and persisted_crr.get("denominator", -1) == recomputed_crr[1]
-    )
-    if persisted_crr.get("value") is not None and recomputed_crr[2] is not None:
-        crr_match = crr_match and abs(persisted_crr["value"] - recomputed_crr[2]) < TOLERANCE
-
-    results.append(
-        VerificationResult(
-            metric_name="crr",
-            persisted_value=persisted_crr.get("value"),
-            recomputed_value=recomputed_crr[2],
-            persisted_numerator=persisted_crr.get("numerator", 0),
-            recomputed_numerator=recomputed_crr[0],
-            persisted_denominator=persisted_crr.get("denominator", 0),
-            recomputed_denominator=recomputed_crr[1],
-            match=crr_match,
-            detail=f"CRR: {recomputed_crr[0]}/{recomputed_crr[1]}",
-        )
-    )
-
-    # Compare RR
-    persisted_rr = persisted.get("rr", {})
-    rr_match = (
-        persisted_rr.get("numerator", -1) == recomputed_rr[0]
-        and persisted_rr.get("denominator", -1) == recomputed_rr[1]
-    )
-    if persisted_rr.get("value") is not None and recomputed_rr[2] is not None:
-        rr_match = rr_match and abs(persisted_rr["value"] - recomputed_rr[2]) < TOLERANCE
-
-    results.append(
-        VerificationResult(
-            metric_name="rr",
-            persisted_value=persisted_rr.get("value"),
-            recomputed_value=recomputed_rr[2],
-            persisted_numerator=persisted_rr.get("numerator", 0),
-            recomputed_numerator=recomputed_rr[0],
-            persisted_denominator=persisted_rr.get("denominator", 0),
-            recomputed_denominator=recomputed_rr[1],
-            match=rr_match,
-            detail=f"RR: {recomputed_rr[0]}/{recomputed_rr[1]}",
-        )
-    )
-
-    # Compare FBR
-    persisted_fbr = persisted.get("fbr", {})
-    fbr_match = (
-        persisted_fbr.get("numerator", -1) == recomputed_fbr[0]
-        and persisted_fbr.get("denominator", -1) == recomputed_fbr[1]
-    )
-    if persisted_fbr.get("value") is not None and recomputed_fbr[2] is not None:
-        fbr_match = fbr_match and abs(persisted_fbr["value"] - recomputed_fbr[2]) < TOLERANCE
-
-    results.append(
-        VerificationResult(
-            metric_name="fbr",
-            persisted_value=persisted_fbr.get("value"),
-            recomputed_value=recomputed_fbr[2],
-            persisted_numerator=persisted_fbr.get("numerator", 0),
-            recomputed_numerator=recomputed_fbr[0],
-            persisted_denominator=persisted_fbr.get("denominator", 0),
-            recomputed_denominator=recomputed_fbr[1],
-            match=fbr_match,
-            detail=f"FBR: {recomputed_fbr[0]}/{recomputed_fbr[1]}",
-        )
-    )
 
     return results
 

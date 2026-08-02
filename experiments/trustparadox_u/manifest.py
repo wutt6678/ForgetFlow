@@ -154,6 +154,75 @@ def get_repository_commit(*, reject_dirty: bool = False) -> str:
     return commit
 
 
+def build_artifact_provenance(
+    *,
+    mode: str = "diagnostic",
+    run_mode: str = "test",
+    is_certifying: bool = False,
+    schema_version: str = "1.1",
+    abort_on_dirty: bool | None = None,
+    results_commit: str | None = None,
+) -> dict[str, Any]:
+    """P0 #5: Build the canonical artifact-provenance block.
+
+    Every artifact must carry the same provenance fields so downstream
+    validators can confirm the results were generated from one exact clean
+    tested commit.  Fields:
+
+    - ``tested_code_commit``: the commit whose code was executed (the GitHub
+      Actions checkout SHA in CI).
+    - ``results_commit``: the commit the resulting artifacts are bound to
+      (may differ from ``tested_code_commit`` when artifacts are committed
+      separately).
+    - ``repository_clean`` / ``artifact_dirty``: working-tree cleanliness.
+    - ``workflow_run_id`` / ``workflow_attempt``: CI run identity (empty when
+      running locally).
+    - ``generated_at``: UTC timestamp of generation.
+
+    When ``abort_on_dirty`` is true (default: when running inside GitHub
+    Actions, or when ``FORGETFLOW_REQUIRE_CLEAN_TREE=1``) a dirty working tree
+    raises ``RuntimeError`` instead of producing ``-dirty`` artifacts.  Set
+    ``FORGETFLOW_REQUIRE_CLEAN_TREE=0`` to force non-aborting behaviour.
+    """
+    import os
+
+    raw_commit = get_repository_commit()
+    dirty = raw_commit.endswith("-dirty")
+    tested_code_commit = raw_commit.removesuffix("-dirty") if dirty else raw_commit
+    repository_clean = not dirty
+
+    if abort_on_dirty is None:
+        env_override = os.environ.get("FORGETFLOW_REQUIRE_CLEAN_TREE")
+        if env_override is not None:
+            abort_on_dirty = env_override not in ("0", "false", "False", "")
+        else:
+            abort_on_dirty = os.environ.get("GITHUB_ACTIONS") == "true"
+
+    if abort_on_dirty and dirty:
+        raise RuntimeError(
+            "Refusing to generate research artifacts from a dirty working tree "
+            f"(commit={tested_code_commit}). Commit or stash changes first, or "
+            "set FORGETFLOW_REQUIRE_CLEAN_TREE=0 to override."
+        )
+
+    return {
+        "tested_code_commit": tested_code_commit,
+        # results_commit defaults to the tested commit but may be overridden
+        # when artifacts are committed to a separate revision (P0 #5).
+        "results_commit": results_commit if results_commit is not None else tested_code_commit,
+        "repository_commit": raw_commit,
+        "repository_clean": repository_clean,
+        "artifact_dirty": dirty,
+        "workflow_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+        "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+        "certification_mode": mode,
+        "run_mode": run_mode,
+        "schema_version": schema_version,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "is_certifying": is_certifying,
+    }
+
+
 def require_single_metadata_value(
     results: list[Any],
     field: str,

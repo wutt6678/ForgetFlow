@@ -519,6 +519,112 @@ class TestGetRepositoryCommitDirtyDetection:
             assert commit == "unknown"
 
 
+class TestBuildArtifactProvenance:
+    """P0 #5: canonical commit-provenance block for every artifact."""
+
+    @staticmethod
+    def _mock_git(mock_run, *, dirty: bool, sha: str = "a" * 40) -> None:
+        from unittest.mock import MagicMock
+
+        rev_parse = MagicMock()
+        rev_parse.returncode = 0
+        rev_parse.stdout = f"{sha}\n"
+        status = MagicMock()
+        status.stdout = " M some_file.py\n" if dirty else ""
+        mock_run.side_effect = [rev_parse, status]
+
+    def test_clean_tree_fields(self) -> None:
+        """A clean tree yields repository_clean=True, artifact_dirty=False."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        sha = "b" * 40
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=False, sha=sha)
+            prov = build_artifact_provenance(abort_on_dirty=True)
+
+        assert prov["tested_code_commit"] == sha
+        assert prov["results_commit"] == sha
+        assert prov["repository_commit"] == sha
+        assert prov["repository_clean"] is True
+        assert prov["artifact_dirty"] is False
+        for key in ("workflow_run_id", "workflow_attempt", "generated_at"):
+            assert key in prov
+
+    def test_smoke_rejects_dirty_repository(self) -> None:
+        """abort_on_dirty=True raises RuntimeError on a dirty tree."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=True)
+            with pytest.raises(RuntimeError, match="dirty working tree"):
+                build_artifact_provenance(abort_on_dirty=True)
+
+    def test_dirty_tree_permitted_when_not_aborting(self) -> None:
+        """Without abort, a dirty tree is flagged but not fatal."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        sha = "c" * 40
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=True, sha=sha)
+            prov = build_artifact_provenance(abort_on_dirty=False)
+
+        assert prov["tested_code_commit"] == sha  # suffix stripped
+        assert prov["repository_commit"] == f"{sha}-dirty"
+        assert prov["repository_clean"] is False
+        assert prov["artifact_dirty"] is True
+
+    def test_artifact_commit_matches_checkout_sha(self) -> None:
+        """tested_code_commit equals the resolved HEAD SHA (checkout SHA)."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        sha = "d" * 40
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=False, sha=sha)
+            prov = build_artifact_provenance(abort_on_dirty=True)
+
+        assert prov["tested_code_commit"] == sha
+        assert prov["results_commit"] == prov["tested_code_commit"]
+
+    def test_workflow_identity_from_environment(self, monkeypatch) -> None:
+        """workflow_run_id / workflow_attempt are read from the CI environment."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        monkeypatch.setenv("GITHUB_RUN_ID", "12345")
+        monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "2")
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=False)
+            prov = build_artifact_provenance(abort_on_dirty=False)
+
+        assert prov["workflow_run_id"] == "12345"
+        assert prov["workflow_attempt"] == "2"
+
+    def test_results_commit_distinct_from_tested_code_commit(self) -> None:
+        """results_commit may differ from tested_code_commit when overridden."""
+        from unittest.mock import patch
+
+        from experiments.trustparadox_u.manifest import build_artifact_provenance
+
+        tested_sha = "e" * 40
+        results_sha = "f" * 40
+        with patch("subprocess.run") as mock_run:
+            self._mock_git(mock_run, dirty=False, sha=tested_sha)
+            prov = build_artifact_provenance(abort_on_dirty=False, results_commit=results_sha)
+
+        assert prov["tested_code_commit"] == tested_sha
+        assert prov["results_commit"] == results_sha
+        assert prov["results_commit"] != prov["tested_code_commit"]
+
+
 class TestRequireSingleMetadataValue:
     """Tests for require_single_metadata_value helper."""
 

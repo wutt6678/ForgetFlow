@@ -327,12 +327,12 @@ class TestProtectedUnexpectedGate:
         )
 
     def test_one_protected_nonzero_fails(self) -> None:
-        """One protected condition nonzero -> gate fails."""
+        """One FULLY protected condition nonzero -> gate fails (P0 #8)."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
         assert (
             check_protected_unexpected_gate(
-                {"no_firewall": 0, "exact_only": 1, "full_mvp": 0},
+                {"no_firewall": 0, "exact_only": 0, "full_mvp": 1},
                 required_conditions={"no_firewall", "exact_only", "full_mvp"},
             )
             is False
@@ -351,15 +351,56 @@ class TestProtectedUnexpectedGate:
         )
 
     def test_multiple_protected_one_fails(self) -> None:
-        """Multiple protected conditions, one nonzero -> gate fails."""
+        """Multiple conditions, one FULLY protected nonzero -> gate fails (P0 #8)."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
         assert (
             check_protected_unexpected_gate(
-                {"no_firewall": 2, "exact_only": 0, "full_mvp": 0, "binary_policy": 1},
+                {"no_firewall": 2, "exact_only": 0, "full_mvp": 1, "binary_policy": 0},
                 required_conditions={"no_firewall", "exact_only", "full_mvp", "binary_policy"},
             )
             is False
+        )
+
+    def test_partial_condition_nonzero_passes(self) -> None:
+        """P0 #8: partially protected nonzero with full_mvp zero -> gate passes.
+
+        Partially protected ablations (exact_only, binary_policy, monitoring_0)
+        are allowed unexpected recontamination corresponding to their disabled
+        capabilities; only fully protected conditions gate the study.
+        """
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert (
+            check_protected_unexpected_gate(
+                {"no_firewall": 0, "exact_only": 6, "full_mvp": 0, "binary_policy": 3},
+                required_conditions={"no_firewall", "exact_only", "full_mvp", "binary_policy"},
+            )
+            is True
+        )
+
+    def test_full_mvp_no_unexpected_recontamination(self) -> None:
+        """P0 #8: full_mvp (fully protected) at zero -> gate passes."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert (
+            check_protected_unexpected_gate(
+                {"no_firewall": 4, "exact_only": 6, "full_mvp": 0, "monitoring_0": 3},
+                required_conditions={"no_firewall", "exact_only", "full_mvp", "monitoring_0"},
+            )
+            is True
+        )
+
+    def test_unprotected_recontamination_expected(self) -> None:
+        """P0 #8: unprotected baseline nonzero does not fail the gate."""
+        from scripts.run_multi_target_smoke import check_protected_unexpected_gate
+
+        assert (
+            check_protected_unexpected_gate(
+                {"no_firewall": 9, "full_mvp": 0},
+                required_conditions={"no_firewall", "full_mvp"},
+            )
+            is True
         )
 
     # Fail-closed tests (s3: required_conditions parameter)
@@ -413,12 +454,12 @@ class TestProtectedUnexpectedGate:
         )
 
     def test_fail_closed_one_required_nonzero(self) -> None:
-        """s3: All required present but one nonzero -> fail."""
+        """s3: All required present but one FULLY protected nonzero -> fail (P0 #8)."""
         from scripts.run_multi_target_smoke import check_protected_unexpected_gate
 
         assert (
             check_protected_unexpected_gate(
-                {"no_firewall": 0, "exact_only": 1, "full_mvp": 0},
+                {"no_firewall": 0, "exact_only": 0, "full_mvp": 1},
                 required_conditions={"no_firewall", "exact_only", "full_mvp"},
             )
             is False

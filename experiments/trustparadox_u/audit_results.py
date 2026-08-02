@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from experiments.trustparadox_u.identity import (
     ResearchRunIdentity,
@@ -61,6 +61,34 @@ class AuditReport:
     def warnings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.level == "warning"]
 
+    # P0 #9: Canonical audit codes that must always appear in the
+    # counts-by-code breakdown (even when zero) so downstream gates and
+    # reviewers can confirm each invariant was evaluated.
+    REQUIRED_AUDIT_CODES: ClassVar[tuple[str, ...]] = (
+        "TARGETLESS_RECONSTRUCTION",
+        "MISSING_RECONSTRUCTION_CONTRIBUTORS",
+        "MISSING_RECONSTRUCTION_VALUE",
+        "HASH_MISMATCH",
+        "UTILITY_MISMATCH",
+        "PROBE_EXPOSURE_CONFLATION",
+        "UNEXPECTED_RECONTAMINATION",
+    )
+
+    def counts_by_code(self, *, level: str | None = None) -> dict[str, int]:
+        """P0 #9: Aggregate finding counts grouped by audit code.
+
+        Always includes the canonical required codes (zero-filled) so the
+        report explicitly demonstrates each invariant was checked.  When
+        ``level`` is given (e.g. ``"error"``) only findings of that level are
+        counted.
+        """
+        counts: dict[str, int] = {code: 0 for code in self.REQUIRED_AUDIT_CODES}
+        for f in self.findings:
+            if level is not None and f.level != level:
+                continue
+            counts[f.code] = counts.get(f.code, 0) + 1
+        return dict(sorted(counts.items()))
+
     def compute_validation_status(self, *, run_mode: str = "diagnostic") -> None:
         """Section 13.3-13.5: Compute validation status fields.
 
@@ -101,6 +129,9 @@ class AuditReport:
             "episodes_audited": self.episodes_audited,
             "episodes_with_errors": self.episodes_with_errors,
             "has_errors": self.has_errors,
+            # P0 #9: counts-by-code breakdown (errors and all findings)
+            "error_counts_by_code": self.counts_by_code(level="error"),
+            "counts_by_code": self.counts_by_code(),
             # Section 13.3: Validation status fields
             "artifact_checks_passed": self.artifact_checks_passed,
             "research_claims_evaluable": self.research_claims_evaluable,
@@ -315,6 +346,49 @@ def _audit_turn(turn: TurnResult, episode_id: str) -> list[AuditFinding]:
                 turn_id=turn.turn_id,
             )
         )
+
+    # P0 #3: Contributor provenance invariant — a complete reconstruction must
+    # name its delivered contributors and a reconstructed value/proposition.
+    if turn.target_reconstructed:
+        if not turn.reconstruction_contributing_message_ids:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_RECONSTRUCTION_CONTRIBUTORS",
+                    message=(
+                        f"Turn {turn.turn_id}: target_reconstructed=True but "
+                        f"reconstruction_contributing_message_ids is empty"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
+        if not turn.reconstruction_contributing_fragments:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_RECONSTRUCTION_CONTRIBUTORS",
+                    message=(
+                        f"Turn {turn.turn_id}: target_reconstructed=True but "
+                        f"reconstruction_contributing_fragments is empty"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
+        if not turn.reconstruction_value:
+            findings.append(
+                AuditFinding(
+                    level="error",
+                    code="MISSING_RECONSTRUCTION_VALUE",
+                    message=(
+                        f"Turn {turn.turn_id}: target_reconstructed=True but "
+                        f"reconstruction_value is empty"
+                    ),
+                    episode_id=episode_id,
+                    turn_id=turn.turn_id,
+                )
+            )
 
     # Refusal-only invariant: reconstructed text must be information-bearing
     if turn.target_reconstructed and turn.released_text is not None:
@@ -1118,6 +1192,9 @@ def write_audit_report(output_dir: str | Path, report: AuditReport) -> Path:
         "has_errors": report.has_errors,
         "error_count": len(report.errors()),
         "warning_count": len(report.warnings()),
+        # P0 #9: counts-by-code breakdown (errors and all findings)
+        "error_counts_by_code": report.counts_by_code(level="error"),
+        "counts_by_code": report.counts_by_code(),
     }
 
     with open(report_path, "w") as f:

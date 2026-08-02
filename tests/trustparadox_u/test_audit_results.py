@@ -228,3 +228,71 @@ class TestAuditor:
         report = audit_results([r1, r2])
         assert report.episodes_audited == 2
         assert report.episodes_with_errors == 1
+
+
+class TestCountsByCode:
+    """P0 #9: audit must report finding counts grouped by code."""
+
+    def test_required_codes_always_present_zero_filled(self) -> None:
+        """An empty report still lists every canonical code with count 0."""
+        from experiments.trustparadox_u.audit_results import AuditReport
+
+        report = AuditReport()
+        counts = report.counts_by_code()
+        for code in (
+            "TARGETLESS_RECONSTRUCTION",
+            "MISSING_RECONSTRUCTION_CONTRIBUTORS",
+            "HASH_MISMATCH",
+            "UTILITY_MISMATCH",
+            "PROBE_EXPOSURE_CONFLATION",
+            "UNEXPECTED_RECONTAMINATION",
+        ):
+            assert counts[code] == 0
+
+    def test_counts_aggregate_by_code(self) -> None:
+        """Findings are grouped and counted by their code."""
+        from experiments.trustparadox_u.audit_results import AuditFinding, AuditReport
+
+        report = AuditReport(
+            findings=[
+                AuditFinding(level="error", code="HASH_MISMATCH", message="a"),
+                AuditFinding(level="error", code="HASH_MISMATCH", message="b"),
+                AuditFinding(level="warning", code="UTILITY_MISMATCH", message="c"),
+            ]
+        )
+        assert report.counts_by_code()["HASH_MISMATCH"] == 2
+        assert report.counts_by_code()["UTILITY_MISMATCH"] == 1
+        # Level filter: only errors counted
+        assert report.counts_by_code(level="error")["HASH_MISMATCH"] == 2
+        assert report.counts_by_code(level="error")["UTILITY_MISMATCH"] == 0
+
+    def test_to_dict_includes_counts_by_code(self) -> None:
+        """Serialized report exposes both error and all-finding breakdowns."""
+        from experiments.trustparadox_u.audit_results import AuditFinding, AuditReport
+
+        report = AuditReport(
+            findings=[AuditFinding(level="error", code="HASH_MISMATCH", message="x")]
+        )
+        data = report.to_dict()
+        assert data["counts_by_code"]["HASH_MISMATCH"] == 1
+        assert data["error_counts_by_code"]["HASH_MISMATCH"] == 1
+
+    def test_write_audit_report_includes_counts_by_code(self, tmp_path) -> None:
+        """The on-disk result_audit.json carries the counts-by-code breakdown."""
+        import json
+
+        from experiments.trustparadox_u.audit_results import (
+            AuditFinding,
+            AuditReport,
+            write_audit_report,
+        )
+
+        report = AuditReport(
+            findings=[AuditFinding(level="error", code="UNEXPECTED_RECONTAMINATION", message="x")]
+        )
+        path = write_audit_report(tmp_path, report)
+        data = json.loads(path.read_text())
+        assert data["counts_by_code"]["UNEXPECTED_RECONTAMINATION"] == 1
+        assert data["error_counts_by_code"]["UNEXPECTED_RECONTAMINATION"] == 1
+        # Zero-filled canonical codes are present too
+        assert data["counts_by_code"]["TARGETLESS_RECONSTRUCTION"] == 0

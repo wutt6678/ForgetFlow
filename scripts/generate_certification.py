@@ -25,6 +25,13 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from experiments.trustparadox_u.status import (  # noqa: E402
+    DIAGNOSTIC_VALID,
+    RELEASE_CANDIDATE,
+    RESEARCH_VALID,
+    status_at_least,
+)
+
 
 @dataclass
 class ChecksumEntry:
@@ -57,9 +64,13 @@ class Certification:
     static_check_status: str
     artifact_completeness: bool
     audit_status: str
+    manifest_status: str
+    assertion_status: str
     metric_consistency_status: str
     directional_check_status: str
     checksum_status: str
+    research_valid: bool
+    release_candidate: bool
     certification_status: str
     failure_reasons: list[str] = field(default_factory=list)
 
@@ -75,9 +86,13 @@ class Certification:
             "static_check_status": self.static_check_status,
             "artifact_completeness": self.artifact_completeness,
             "audit_status": self.audit_status,
+            "manifest_status": self.manifest_status,
+            "assertion_status": self.assertion_status,
             "metric_consistency_status": self.metric_consistency_status,
             "directional_check_status": self.directional_check_status,
             "checksum_status": self.checksum_status,
+            "research_valid": self.research_valid,
+            "release_candidate": self.release_candidate,
             "certification_status": self.certification_status,
             "failure_reasons": self.failure_reasons,
         }
@@ -125,14 +140,21 @@ def generate_checksums(results_dir: Path, certification_dir: Path) -> list[Check
     """Generate checksums for all result files."""
     entries: list[ChecksumEntry] = []
 
+    certification_dir_resolved = certification_dir.resolve()
+
     # Walk the results directory
     for path in sorted(results_dir.rglob("*")):
         if not path.is_file():
             continue
 
-        # Skip the checksums file itself
-        if path.name == "checksums.sha256":
+        # Skip everything inside the certification directory itself so that
+        # re-runs are idempotent (stale checksums/certification artifacts must
+        # not be hashed into the new checksum set).
+        try:
+            path.resolve().relative_to(certification_dir_resolved)
             continue
+        except ValueError:
+            pass
 
         rel_path = path.relative_to(results_dir)
         entries.append(
@@ -177,10 +199,14 @@ def verify_checksums(certification_dir: Path) -> bool:
     if not checksums_path.exists():
         return False
 
+    # Resolve to absolute paths so the check works regardless of the caller's
+    # working directory. The checksum file lists paths relative to the results
+    # directory (the certification directory's parent), so run from there.
+    results_dir = certification_dir.parent.resolve()
     result = subprocess.run(
-        f"sha256sum --check {checksums_path}",
+        f"sha256sum --check {checksums_path.resolve()}",
         shell=True,
-        cwd=certification_dir.parent,
+        cwd=results_dir,
         capture_output=True,
         text=True,
     )
@@ -198,8 +224,12 @@ def load_phase_results(results_dir: Path) -> dict[str, Any]:
 def determine_certification_status(
     results_dir: Path,
     checksums_valid: bool,
-) -> tuple[str, list[str]]:
-    """Determine certification status based on all checks."""
+) -> tuple[str, list[str], dict[str, bool]]:
+    """Determine certification status based on all checks.
+
+    Returns the canonical status, the list of failure reasons, and a mapping
+    of individual gate outcomes used to populate the certification fields.
+    """
     failure_reasons: list[str] = []
 
     # Load manifest
@@ -264,13 +294,28 @@ def determine_certification_status(
     if all_passed:
         # Check if we can certify as release candidate
         # Requires: all tests pass, ruff, mypy, integration, checksums
-        status = "RELEASE_CANDIDATE"
+        status = RELEASE_CANDIDATE
     elif not failure_reasons:
-        status = "RESEARCH_VALID"
+        status = RESEARCH_VALID
     else:
-        status = "DIAGNOSTIC"
+        # Section 16: a certification that does not reach research validity is
+        # only a complete diagnostic execution.
+        status = DIAGNOSTIC_VALID
 
-    return status, failure_reasons
+    checks = {
+        "static": static_passed,
+        "tests": test_passed,
+        "assertions": assertion_passed,
+        "smoke": smoke_passed,
+        "manifest": smoke_passed and consistency_passed,
+        "verification": verify_passed,
+        "consistency": consistency_passed,
+        "checksums": checksums_valid,
+        "research_valid": status in (RESEARCH_VALID, RELEASE_CANDIDATE),
+        "release_candidate": status == RELEASE_CANDIDATE,
+    }
+
+    return status, failure_reasons, checks
 
 
 def generate_certification(
@@ -294,7 +339,7 @@ def generate_certification(
     print(f"  Checksums valid: {checksums_valid}")
 
     # Determine certification status
-    status, failure_reasons = determine_certification_status(results_dir, checksums_valid)
+    status, failure_reasons, checks = determine_certification_status(results_dir, checksums_valid)
 
     # Load environment info
     repo_state_path = results_dir / "provenance" / "repository_state.json"
@@ -334,16 +379,18 @@ def generate_certification(
             "os_info": repo_state.get("os_info", ""),
         },
         test_counts=test_counts,
-        static_check_status="PASS" if not any("Static" in r for r in failure_reasons) else "FAIL",
+        static_check_status="PASS" if checks["static"] else "FAIL",
         artifact_completeness=not any("artifact" in r.lower() for r in failure_reasons),
-        audit_status="PASS" if not any("audit" in r.lower() for r in failure_reasons) else "FAIL",
+        audit_status="PASS" if checks["smoke"] else "FAIL",
+        manifest_status="PASS" if checks["manifest"] else "FAIL",
+        assertion_status="PASS" if checks["assertions"] else "FAIL",
         metric_consistency_status="PASS"
-        if not any("verification" in r.lower() for r in failure_reasons)
+        if checks["verification"] and checks["consistency"]
         else "FAIL",
-        directional_check_status="PASS"
-        if not any("directional" in r.lower() for r in failure_reasons)
-        else "FAIL",
+        directional_check_status="PASS" if checks["smoke"] else "FAIL",
         checksum_status="PASS" if checksums_valid else "FAIL",
+        research_valid=checks["research_valid"],
+        release_candidate=checks["release_candidate"],
         certification_status=status,
         failure_reasons=failure_reasons,
     )
@@ -378,9 +425,13 @@ def generate_certification(
         f"| Static checks | {certification.static_check_status} |",
         f"| Artifact completeness | {'PASS' if certification.artifact_completeness else 'FAIL'} |",
         f"| Audit | {certification.audit_status} |",
+        f"| Manifest | {certification.manifest_status} |",
+        f"| Assertions | {certification.assertion_status} |",
         f"| Metric consistency | {certification.metric_consistency_status} |",
         f"| Directional checks | {certification.directional_check_status} |",
         f"| Checksums | {certification.checksum_status} |",
+        f"| Research valid | {'PASS' if certification.research_valid else 'FAIL'} |",
+        f"| Release candidate | {'PASS' if certification.release_candidate else 'FAIL'} |",
         "",
     ]
 
@@ -462,7 +513,7 @@ def main() -> int:
     print(f"Certification: {certification_dir / 'certification.json'}")
     print(f"Checksums: {certification_dir / 'checksums.sha256'}")
 
-    return 0 if certification.certification_status != "DIAGNOSTIC" else 1
+    return 0 if status_at_least(certification.certification_status, RESEARCH_VALID) else 1
 
 
 if __name__ == "__main__":

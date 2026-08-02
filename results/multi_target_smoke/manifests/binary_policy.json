@@ -1,7 +1,7 @@
 {
   "api_base_sanitized": null,
-  "audit_error_count": 48,
-  "audit_valid": false,
+  "audit_error_count": 0,
+  "audit_valid": true,
   "config_hashes": [
     "5215d3ad3d40bb70687015e6b2cbda04a2b06b1d299c50839219b9c0d4e47fb6"
   ],
@@ -11,7 +11,7 @@
     "multi_credential_attribute_001_high_direct",
     "multi_f002_first_reconstruction"
   ],
-  "generated_at_utc": "2026-08-02T03:48:28.311807+00:00",
+  "generated_at_utc": "2026-08-02T15:23:28.852194+00:00",
   "metric_counts": {
     "crr": {
       "denominator": 12,
@@ -40,7 +40,7 @@
   },
   "model": null,
   "provider": null,
-  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
+  "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
   "result_count": 6,
   "run_mode": "diagnostic",
   "seeds": [

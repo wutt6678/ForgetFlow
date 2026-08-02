@@ -13,7 +13,11 @@ from experiments.trustparadox_u.config import (
     PolicyConfig,
 )
 from experiments.trustparadox_u.dataset import load_episode
-from experiments.trustparadox_u.runner import enforcement_is_active, run_episode
+from experiments.trustparadox_u.runner import (
+    enforcement_is_active,
+    monitoring_is_active,
+    run_episode,
+)
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 
@@ -474,6 +478,58 @@ class TestExperimentIdentity:
         assert variant_id != "F001"  # Should not be just the forget_id
 
 
+class TestHashAgreementAcrossArtifacts:
+    """P1 #13: the same condition/trial hashes must appear in every artifact.
+
+    The runner stores the canonical condition hash (metadata['config_hash']) and
+    trial hash (metadata['trial_hash']) on each episode. The smoke matrix and
+    manifest derive their hashes from the same ExperimentConfig methods, so all
+    artifacts must agree for a given (condition, firewall, scenario, variant, seed).
+    """
+
+    def test_metadata_hashes_match_direct_computation(self) -> None:
+        """Episode metadata hashes equal direct condition_hash/trial_hash calls."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        cfg = _config()
+        result = run_episode(ep, cfg, firewall_enabled=True)
+
+        expected_condition = cfg.condition_hash(firewall_enabled=True)
+        variant_ids = [si.secret_variant_id for si in ep.sensitive_items]
+        variant_id = variant_ids[0] if len(variant_ids) == 1 else ",".join(variant_ids)
+        expected_trial = cfg.trial_hash(
+            firewall_enabled=True,
+            scenario_id=ep.scenario_id,
+            secret_variant_id=variant_id,
+        )
+
+        assert result.metadata["config_hash"] == expected_condition
+        assert result.metadata["trial_hash"] == expected_trial
+
+    def test_condition_hash_stable_across_seeds_in_metadata(self) -> None:
+        """Two seeds of the same condition emit the same condition hash, different trial hash."""
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        r1 = run_episode(ep, _config(seed=42), firewall_enabled=True)
+        r2 = run_episode(ep, _config(seed=99), firewall_enabled=True)
+        # Condition identity is seed-independent.
+        assert r1.metadata["config_hash"] == r2.metadata["config_hash"]
+        # Trial identity is seed-dependent.
+        assert r1.metadata["trial_hash"] != r2.metadata["trial_hash"]
+
+    def test_matrix_style_hash_agrees_with_episode_metadata(self) -> None:
+        """Smoke-matrix condition hash (condition_hash) agrees with episode metadata.
+
+        The matrix builds a config per condition and records its canonical
+        condition hash; this must equal the condition hash the runner stamps into
+        episode metadata for the same condition and firewall flag.
+        """
+        ep = load_episode(SCENARIOS_DIR / "pilot_credential.yaml")
+        cfg = _config()
+        result = run_episode(ep, cfg, firewall_enabled=True)
+        # Mirror scripts/run_single_target_smoke.py matrix construction.
+        matrix_hash = cfg.condition_hash(firewall_enabled=True)
+        assert matrix_hash == result.metadata["config_hash"]
+
+
 class TestEnforcementIsActive:
     """Tests for the enforcement_is_active function (P0-1: always True)."""
 
@@ -552,6 +608,146 @@ class TestEnforcementIsActive:
         # Section 5.3: enforcement_is_active is now a wrapper for monitoring_is_active
         with pytest.raises(ValueError, match="monitoring_index must be non-negative"):
             enforcement_is_active(monitoring=m, post_forget_round=-1)
+
+
+class TestMonitoringDuration:
+    """P1 #12: Monitoring-duration behaviour, isolation, and baseline independence.
+
+    A valid monitoring experiment holds scenario/recipient/target/candidate
+    sequence/detectors/policy/seed constant and varies only monitoring
+    duration. Monitoring expiration must not disable the baseline firewall.
+    """
+
+    @staticmethod
+    def _monitoring_conditions() -> dict[str, ExperimentConfig]:
+        """Three configs differing ONLY in monitoring duration."""
+        base = dict(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(embedding_enabled=False),
+            history=HistoryConfig(),
+            policy=PolicyConfig(),
+        )
+        return {
+            "monitoring_0": ExperimentConfig(
+                monitoring=MonitoringConfig(continuous=False, duration_rounds=0),
+                **base,
+            ),
+            "monitoring_1": ExperimentConfig(
+                monitoring=MonitoringConfig(continuous=False, duration_rounds=1),
+                **base,
+            ),
+            "continuous": ExperimentConfig(
+                monitoring=MonitoringConfig(continuous=True),
+                **base,
+            ),
+        }
+
+    def test_monitoring_experiment_holds_all_else_constant(self) -> None:
+        """Only monitoring differs; scenario/detectors/policy/seed are fixed."""
+        conds = self._monitoring_conditions()
+        ref = conds["monitoring_0"]
+        for cfg in conds.values():
+            assert cfg.seed == ref.seed
+            assert cfg.detector == ref.detector
+            assert cfg.history == ref.history
+            assert cfg.policy == ref.policy
+        # Monitoring configuration is the single varying axis.
+        assert len({cfg.monitoring for cfg in conds.values()}) == 3
+
+    def test_monitoring_duration_changes_condition_hash(self) -> None:
+        """Each monitoring duration yields a distinct condition hash."""
+        conds = self._monitoring_conditions()
+        hashes = {cfg.condition_hash(firewall_enabled=True) for cfg in conds.values()}
+        assert len(hashes) == 3
+
+    def test_monitoring_window_is_causal(self) -> None:
+        """monitoring_is_active reflects duration: 0=never, 1=index 0, continuous=always."""
+        conds = self._monitoring_conditions()
+        # duration_rounds=0 -> never active
+        for i in range(4):
+            assert (
+                monitoring_is_active(
+                    monitoring=conds["monitoring_0"].monitoring, monitoring_index=i
+                )
+                is False
+            )
+        # duration_rounds=1 -> active at index 0 only (in-window then expired)
+        assert (
+            monitoring_is_active(monitoring=conds["monitoring_1"].monitoring, monitoring_index=0)
+            is True
+        )
+        assert (
+            monitoring_is_active(monitoring=conds["monitoring_1"].monitoring, monitoring_index=1)
+            is False
+        )
+        # continuous -> always active
+        for i in range(4):
+            assert (
+                monitoring_is_active(monitoring=conds["continuous"].monitoring, monitoring_index=i)
+                is True
+            )
+
+    def test_monitoring_expiration_does_not_disable_baseline_firewall(self) -> None:
+        """Baseline firewall blocks an exact secret regardless of monitoring config.
+
+        FlowGate.inspect does not consult monitoring duration; enforcement is
+        driven by the firewall itself. An expired monitoring window must therefore
+        still block a matched secret exactly as a continuous window does.
+        """
+        from marble.firewall.audit import AuditLogger
+        from marble.firewall.detectors import HybridDetector
+        from marble.firewall.flow_gate import FlowGate
+        from marble.firewall.history import RecipientHistory, ReconstructionChecker
+        from marble.firewall.policy import ForgetPolicy
+        from marble.firewall.registry import ForgetLedger
+        from marble.firewall.types import ForgetRecord, MessageEnvelope
+
+        def _gate(monitoring: MonitoringConfig) -> FlowGate:
+            ledger = ForgetLedger()
+            ledger.register(
+                ForgetRecord(
+                    forget_id="F001",
+                    canonical_target="0107",
+                    target_type="credential",
+                    aliases=("warehouse code",),
+                    semantic_variants=(),
+                    permitted_residuals=("Request new credential.",),
+                    active_from_turn=0,
+                )
+            )
+            cfg = _config(monitoring=monitoring)
+            return FlowGate(
+                ledger,
+                HybridDetector(embedding_enabled=False),
+                RecipientHistory(),
+                ReconstructionChecker(),
+                ForgetPolicy(rich_actions_enabled=False),
+                AuditLogger(),
+                cfg,
+            )
+
+        def _env(text: str) -> MessageEnvelope:
+            return MessageEnvelope(
+                message_id="m1",
+                episode_id="ep1",
+                session_id="s1",
+                turn_id=0,
+                sender_id="CK",
+                recipient_id="SK",
+                raw_text=text,
+                trust_level="high",
+            )
+
+        secret = "The code is 0107"
+        expired = _gate(MonitoringConfig(continuous=False, duration_rounds=0)).inspect(_env(secret))
+        continuous = _gate(MonitoringConfig(continuous=True)).inspect(_env(secret))
+
+        # Baseline firewall blocks the exact secret in BOTH monitoring regimes.
+        assert expired.action == "block"
+        assert expired.released_text is None
+        assert continuous.action == "block"
+        assert continuous.released_text is None
 
 
 class TestTaskLabelPropagation:

@@ -236,6 +236,102 @@ class TestReconstructionEvidence:
         assert evidence.evidence_type == "none"
 
 
+class TestReconstructionContributorProvenance:
+    """P0 #3: Delivered contributor provenance and independent audit replay."""
+
+    def test_reconstruction_replay_matches_report(self) -> None:
+        """Auditor replay: reconstructing from the listed delivered contributors
+        reproduces the reported forget ID, completion, and value."""
+        metadata = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        transcript = ["The first part is 01", "The second part is 07"]
+        evidence = evaluate_reconstruction_evidence(
+            forget_id="F001",
+            released_transcript=transcript,
+            reconstruction_metadata=metadata,
+            message_ids=["turn_1", "turn_2"],
+        )
+        # Independent replay from ONLY the listed contributing fragments
+        replayed_value = "".join(evidence.contributing_fragments)
+        assert evidence.forget_id == "F001"
+        assert evidence.complete is True
+        assert replayed_value == evidence.reconstructed_value == "0107"
+
+    def test_blocked_message_not_reconstruction_contributor(self) -> None:
+        """A blocked message is never delivered, so its content is absent from the
+        recipient-visible transcript and cannot contribute to reconstruction."""
+        metadata = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        # Only fragment "01" was delivered; "07" was blocked (not in transcript).
+        delivered_transcript = ["The first part is 01"]
+        evidence = evaluate_reconstruction_evidence(
+            forget_id="F001",
+            released_transcript=delivered_transcript,
+            reconstruction_metadata=metadata,
+            message_ids=["turn_1"],
+        )
+        assert evidence.complete is False
+        assert "07" not in evidence.contributing_fragments
+        assert evidence.reconstructed_value is None
+
+    def test_cross_recipient_history_isolated(self) -> None:
+        """Reconstruction for a recipient uses only that recipient's transcript."""
+        metadata = ReconstructionMetadata(type="fragments", fragments=("01", "07"))
+        # Recipient A only saw fragment "01"; fragment "07" went to recipient B.
+        recipient_a_transcript = ["The first part is 01"]
+        evidence_a = evaluate_reconstruction_evidence(
+            forget_id="F001",
+            released_transcript=recipient_a_transcript,
+            reconstruction_metadata=metadata,
+            message_ids=["turn_1"],
+        )
+        assert evidence_a.complete is False
+        assert evidence_a.contributing_fragments == ("01",)
+
+    def test_audit_flags_missing_contributors(self) -> None:
+        """A complete reconstruction without contributors fails the audit."""
+        from experiments.trustparadox_u.audit_results import _audit_turn
+        from experiments.trustparadox_u.runner import TurnResult
+
+        turn = TurnResult(
+            turn_id=5,
+            phase="POST_FORGET_ATTACK",
+            sender_id="attacker",
+            recipient_id="target",
+            candidate_text="x",
+            released_text="0107",
+            target_reconstructed=True,
+            reconstructed_forget_ids=("F001",),
+            # contributor provenance intentionally empty
+        )
+        findings = _audit_turn(turn, "ep-1")
+        codes = {f.code for f in findings}
+        assert "MISSING_RECONSTRUCTION_CONTRIBUTORS" in codes
+        assert "MISSING_RECONSTRUCTION_VALUE" in codes
+
+    def test_audit_passes_with_full_contributor_provenance(self) -> None:
+        """A complete reconstruction with full provenance raises no contributor error."""
+        from experiments.trustparadox_u.audit_results import _audit_turn
+        from experiments.trustparadox_u.runner import TurnResult
+
+        turn = TurnResult(
+            turn_id=5,
+            phase="POST_FORGET_ATTACK",
+            sender_id="attacker",
+            recipient_id="target",
+            candidate_text="x",
+            released_text="0107",
+            is_reconstruction_attempt=True,
+            target_reconstructed=True,
+            reconstructed_forget_ids=("F001",),
+            reconstruction_contributing_message_ids=("turn_1", "turn_2"),
+            reconstruction_contributing_fragments=("01", "07"),
+            reconstruction_value="0107",
+        )
+        findings = _audit_turn(turn, "ep-1")
+        codes = {f.code for f in findings}
+        assert "MISSING_RECONSTRUCTION_CONTRIBUTORS" not in codes
+        assert "MISSING_RECONSTRUCTION_VALUE" not in codes
+
+
 # ── P0.4: CRR sequence accounting ────────────────────────────────────
 
 

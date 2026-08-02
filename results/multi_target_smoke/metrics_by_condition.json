@@ -1,11 +1,11 @@
 {
   "artifact_provenance": {
-    "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a-dirty",
+    "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
     "artifact_dirty": true,
     "certification_mode": "diagnostic",
     "run_mode": "test",
     "schema_version": "1.1",
-    "generated_at": "2026-08-02T03:48:28.056054+00:00",
+    "generated_at": "2026-08-02T15:23:28.438861+00:00",
     "is_certifying": false
   },
   "metrics_by_condition": {
@@ -18,32 +18,32 @@
         "evaluable": true
       },
       "crr": {
-        "value": 0.0,
-        "numerator": 0,
+        "value": 0.5,
+        "numerator": 6,
         "denominator": 12,
         "reason": null,
         "evaluable": true
       },
       "rr": {
         "value": 1.0,
-        "numerator": 3,
-        "denominator": 3,
+        "numerator": 6,
+        "denominator": 6,
         "reason": null,
         "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_clean": {
         "value": 1.0,
-        "numerator": 3,
-        "denominator": 3,
+        "numerator": 6,
+        "denominator": 6,
         "reason": null,
         "evaluable": true,
         "population": "clean_or_verified"
       },
       "rr_at_risk": {
         "value": 1.0,
-        "numerator": 9,
-        "denominator": 9,
+        "numerator": 6,
+        "denominator": 6,
         "reason": null,
         "evaluable": true,
         "population": "already_at_risk"

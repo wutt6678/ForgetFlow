@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,13 +32,22 @@ from experiments.trustparadox_u.config import (  # noqa: E402
     RunConfig,
 )
 from experiments.trustparadox_u.dataset import load_episode  # noqa: E402
-from experiments.trustparadox_u.evaluator import evaluate_all  # noqa: E402
+from experiments.trustparadox_u.evaluator import (  # noqa: E402
+    UTILITY_METRIC_NAME,
+    compute_utility_retention,
+    evaluate_all,
+)
 from experiments.trustparadox_u.identity import ResearchRunIdentity  # noqa: E402
-from experiments.trustparadox_u.manifest import SmokeManifest, get_repository_commit  # noqa: E402
+from experiments.trustparadox_u.manifest import (  # noqa: E402
+    SmokeManifest,
+    build_artifact_provenance,
+    get_repository_commit,
+)
 
 # P0/P1/P2 infrastructure imports
 from experiments.trustparadox_u.runner import EpisodeResult, run_episode  # noqa: E402
 from experiments.trustparadox_u.serialization import serialize_episode_result  # noqa: E402
+from experiments.trustparadox_u.status import EXECUTION_COMPLETE, compute_status  # noqa: E402
 
 SCENARIOS_DIR = PROJECT_ROOT / "data" / "trustparadox_u" / "scenarios"
 
@@ -624,7 +633,10 @@ def _generate_markdown_report(
             f"- **Matched pairs**: {report.get('matched_pairs', 0)}",
             f"- **Unmatched pairs**: {report.get('unmatched_pair_count', 0)}",
             f"- **Baseline successful pairs**: {report.get('baseline_successful_pairs', 0)}",
-            f"- **Utility retention**: {format_metric(report.get('utility_retention_value'))}",
+            (
+                f"- **{UTILITY_METRIC_NAME}**: "
+                f"{format_metric(report.get(UTILITY_METRIC_NAME, {}).get('value'))}"
+            ),
             "",
             "## GO/NO-GO Decision",
             "",
@@ -680,11 +692,19 @@ class SmokeReport:
     matched_pairs: int
     unmatched_pair_count: int
     baseline_successful_pairs: int
-    utility_retention_value: float | None
+    # Section 15: canonical paired policy utility retention metric dict
+    # (value/numerator/denominator/reason/evaluable). Identical across artifacts.
+    paired_policy_utility_retention: dict[str, Any]
 
     # Versioning (defaults OK since they come after all required fields)
     smoke_report_version: str = SMOKE_REPORT_VERSION
     artifact_schema_version: str = ARTIFACT_SCHEMA_VERSION
+    # P0 #5: canonical commit-provenance block embedded in every artifact
+    artifact_provenance: dict[str, Any] = field(default_factory=dict)
+    # Section 16: canonical execution-status taxonomy value (separate from the
+    # GO/NO-GO top_line_status). One of EXECUTION_COMPLETE / DIAGNOSTIC_VALID /
+    # RESEARCH_VALID / RELEASE_CANDIDATE.
+    execution_status: str = EXECUTION_COMPLETE
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -715,9 +735,11 @@ class SmokeReport:
             "matched_pairs": self.matched_pairs,
             "unmatched_pair_count": self.unmatched_pair_count,
             "baseline_successful_pairs": self.baseline_successful_pairs,
-            "utility_retention_value": self.utility_retention_value,
+            UTILITY_METRIC_NAME: self.paired_policy_utility_retention,
             "smoke_report_version": self.smoke_report_version,
             "artifact_schema_version": self.artifact_schema_version,
+            "artifact_provenance": self.artifact_provenance,
+            "execution_status": self.execution_status,
         }
 
 
@@ -744,6 +766,14 @@ def run_smoke_study(
         raise ValueError(f"Release mode requires clean repository, got: {repository_commit}")
 
     generated_at = datetime.now(timezone.utc).isoformat()
+
+    # P0 #5: canonical commit-provenance block (aborts on dirty tree in CI).
+    provenance_block = build_artifact_provenance(
+        mode=mode,
+        run_mode=mode,
+        is_certifying=(mode == "release"),
+    )
+    provenance_block["generated_at"] = generated_at
 
     all_results: list[EpisodeResult] = []
     condition_results: dict[str, list[EpisodeResult]] = {}
@@ -809,7 +839,9 @@ def run_smoke_study(
         matrix_conditions.append(
             {
                 "name": cond_name,
-                "config_hash": cfg.config_hash(),
+                # Section 13: matrix carries the canonical condition hash (seed-independent,
+                # firewall-aware) so it agrees with episode metadata and manifests.
+                "config_hash": cfg.condition_hash(firewall_enabled=fw_enabled),
                 "firewall_enabled": fw_enabled,
                 "research_identity_dimensions": {
                     "detector": str(cfg.detector),
@@ -831,9 +863,91 @@ def run_smoke_study(
     # Compute metrics
     evaluation = evaluate_all(all_results)
 
-    # Write aggregate metrics
+    # Section 15: compute the canonical paired policy utility retention metric
+    # (full_mvp vs no_firewall) up front so the identical value/numerator/
+    # denominator/reason/evaluable block can be written verbatim into metrics.json,
+    # metrics_by_condition.json, utility_pairing.json, summary.json, the validation
+    # report, and summary.md.
+    no_fw = condition_results.get("no_firewall", [])
+    fw = condition_results.get("full_mvp", [])
+    utility_pairing: dict[str, Any]
+    unmatched: dict[str, Any]
+    utility_metric: dict[str, Any] = {
+        "value": None,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no_paired_baseline",
+        "evaluable": False,
+    }
+    expected_pairs = 0
+    matched_pairs = 0
+    baseline_successful_pairs = 0
+
+    if no_fw and fw:
+        try:
+            utility_result = compute_utility_retention(fw, no_fw)
+        except ValueError:
+            utility_result = None
+        if utility_result is not None:
+            utility_metric = utility_result.metric.to_dict()
+            expected_pairs = utility_result.expected_pairs
+            matched_pairs = utility_result.matched_pairs
+            baseline_successful_pairs = utility_result.baseline_successful_pairs
+
+            utility_pairing = {
+                "expected_pairs": expected_pairs,
+                "matched_pairs": matched_pairs,
+                "unmatched_pairs": len(utility_result.unmatched_firewall_keys)
+                + len(utility_result.unmatched_baseline_keys),
+                "baseline_successful_pairs": baseline_successful_pairs,
+                "matched_keys": [list(k) for k in utility_result.matched_keys],
+                UTILITY_METRIC_NAME: utility_metric,
+            }
+            unmatched = {
+                "unmatched_firewall_keys": [
+                    list(k) for k in utility_result.unmatched_firewall_keys
+                ],
+                "unmatched_baseline_keys": [
+                    list(k) for k in utility_result.unmatched_baseline_keys
+                ],
+            }
+        else:
+            # Duplicate pairing keys make the metric non-evaluable (Section 15).
+            utility_metric = {
+                "value": None,
+                "numerator": 0,
+                "denominator": 0,
+                "reason": "duplicate_pairing_keys",
+                "evaluable": False,
+            }
+            utility_pairing = {
+                "expected_pairs": 0,
+                "matched_pairs": 0,
+                "unmatched_pairs": 0,
+                "baseline_successful_pairs": 0,
+                "matched_keys": [],
+                UTILITY_METRIC_NAME: utility_metric,
+            }
+            unmatched = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
+    else:
+        utility_pairing = {
+            "expected_pairs": 0,
+            "matched_pairs": 0,
+            "unmatched_pairs": 0,
+            "baseline_successful_pairs": 0,
+            "matched_keys": [],
+            UTILITY_METRIC_NAME: utility_metric,
+        }
+        unmatched = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
+
+    (output_dir / "utility_pairing.json").write_text(json.dumps(utility_pairing, indent=2))
+    (output_dir / "unmatched_pairs.json").write_text(json.dumps(unmatched, indent=2))
+
+    # Write aggregate metrics (canonical utility injected for cross-artifact agreement)
+    aggregate_metrics_dict = evaluation.to_dict()
+    aggregate_metrics_dict[UTILITY_METRIC_NAME] = utility_metric
     metrics_path = output_dir / "metrics.json"
-    metrics_path.write_text(json.dumps(evaluation.to_dict(), indent=2, sort_keys=True))
+    metrics_path.write_text(json.dumps(aggregate_metrics_dict, indent=2, sort_keys=True))
 
     # Write aggregate metric counts
     metric_counts = {
@@ -848,8 +962,10 @@ def run_smoke_study(
     counts_path = output_dir / "metric_counts.json"
     counts_path.write_text(json.dumps(metric_counts, indent=2, sort_keys=True))
 
-    # Write per-condition metrics
+    # Write per-condition metrics (full_mvp carries the canonical paired utility)
     per_condition_metrics = _compute_per_condition_metrics(condition_results)
+    if "full_mvp" in per_condition_metrics:
+        per_condition_metrics["full_mvp"][UTILITY_METRIC_NAME] = utility_metric
     (output_dir / "metrics_by_condition.json").write_text(
         json.dumps(per_condition_metrics, indent=2)
     )
@@ -897,59 +1013,17 @@ def run_smoke_study(
     manifest_path = output_dir / "smoke_manifest.json"
     manifest_path.write_text(manifest.to_json())
 
-    # Utility pairing (no_firewall vs full_mvp)
-    no_fw = condition_results.get("no_firewall", [])
-    fw = condition_results.get("full_mvp", [])
-    utility_pairing: dict[str, Any]
-    unmatched: dict[str, Any]
-    utility_retention_value: float | None = None
-    expected_pairs = 0
-    matched_pairs = 0
-    baseline_successful_pairs = 0
-
-    if no_fw and fw:
-        from experiments.trustparadox_u.evaluator import compute_utility_retention
-
-        utility_result = compute_utility_retention(fw, no_fw)
-        utility_retention_value = utility_result.metric.value
-        expected_pairs = utility_result.expected_pairs
-        matched_pairs = utility_result.matched_pairs
-        baseline_successful_pairs = utility_result.baseline_successful_pairs
-
-        utility_pairing = {
-            "expected_pairs": expected_pairs,
-            "matched_pairs": matched_pairs,
-            "unmatched_pairs": len(utility_result.unmatched_firewall_keys)
-            + len(utility_result.unmatched_baseline_keys),
-            "baseline_successful_pairs": baseline_successful_pairs,
-            "matched_keys": [list(k) for k in utility_result.matched_keys],
-            "metric": utility_result.metric.to_dict(),
-        }
-        unmatched = {
-            "unmatched_firewall_keys": [list(k) for k in utility_result.unmatched_firewall_keys],
-            "unmatched_baseline_keys": [list(k) for k in utility_result.unmatched_baseline_keys],
-        }
-    else:
-        utility_pairing = {
-            "expected_pairs": 0,
-            "matched_pairs": 0,
-            "unmatched_pairs": 0,
-            "baseline_successful_pairs": 0,
-            "matched_keys": [],
-            "metric": None,
-        }
-        unmatched = {"unmatched_firewall_keys": [], "unmatched_baseline_keys": []}
-
-    (output_dir / "utility_pairing.json").write_text(json.dumps(utility_pairing, indent=2))
-    (output_dir / "unmatched_pairs.json").write_text(json.dumps(unmatched, indent=2))
-
     # Run directional checks
     checks = _directional_checks(condition_results)
     directional_checks_pass = all(c["passed"] for c in checks.values())
 
     # Compute validity flags
     no_unmatched_pairs = utility_pairing.get("unmatched_pairs", 0) == 0
-    utility_defined = utility_retention_value is not None
+    # Section 15: a non-evaluable utility metric (zero denominator / unmatched /
+    # duplicate keys) must not pass — it blocks the directional GO claim.
+    utility_defined = (
+        bool(utility_metric.get("evaluable")) and utility_metric.get("value") is not None
+    )
     # summary.json and summary.md are written later; check the rest now.
     artifacts_complete = len(_validate_required_artifacts(output_dir)) == 0
 
@@ -1039,7 +1113,8 @@ def run_smoke_study(
         matched_pairs=matched_pairs,
         unmatched_pair_count=utility_pairing.get("unmatched_pairs", 0),
         baseline_successful_pairs=baseline_successful_pairs,
-        utility_retention_value=utility_retention_value,
+        paired_policy_utility_retention=utility_metric,
+        artifact_provenance=provenance_block,
     )
 
     # Write JSON report
@@ -1063,7 +1138,7 @@ def run_smoke_study(
 - **Audit valid**: {audit_valid}
 - **Audit errors**: {len(audit_report.errors())}
 - **Duplicate identities**: {len(duplicates)}
-- **Utility retention**: {format_metric(utility_retention_value)}
+- **{UTILITY_METRIC_NAME}**: {format_metric(utility_metric.get('value'))} ({utility_metric.get('numerator', 0)}/{utility_metric.get('denominator', 0)}, evaluable={utility_metric.get('evaluable', False)})
 
 ## Metrics
 
@@ -1088,11 +1163,13 @@ def run_smoke_study(
     artifacts_complete = len(_validate_required_artifacts(output_dir)) == 0
     summary_json = {
         "top_line_status": top_line_status,
+        "artifact_provenance": provenance_block,
         "repository_commit": repository_commit,
         "repository_clean": repository_clean,
         "audit_valid": audit_valid,
         "duplicate_identity_count": len(duplicates),
         "utility_defined": utility_defined,
+        UTILITY_METRIC_NAME: utility_metric,
         "directional_checks_pass": directional_checks_pass,
         "artifact_set_complete": artifacts_complete,
         "total_runs": len(all_results),
@@ -1116,8 +1193,48 @@ def run_smoke_study(
     elif top_line_status != "DIAGNOSTIC ONLY":
         top_line_status = "GO" if all_passed else "NO-GO"
 
+    # Section 16: canonical execution-status taxonomy (separate from GO/NO-GO).
+    #   EXECUTION_COMPLETE / DIAGNOSTIC_VALID : run finished, artifacts complete,
+    #       no duplicate identities (no file corruption).
+    #   RESEARCH_VALID : + audit/manifest valid, directional checks pass, utility
+    #       defined, no unmatched pairs (metrics consistent / intended effects).
+    #   RELEASE_CANDIDATE : RESEARCH_VALID + clean repository in release mode.
+    execution_complete = artifacts_complete and no_duplicate_identities
+    diagnostic_valid = execution_complete
+    research_valid = (
+        diagnostic_valid
+        and audit_valid
+        and manifest_valid
+        and directional_checks_pass
+        and no_unmatched_pairs
+        and utility_defined
+        and repository_clean
+    )
+    release_candidate = research_valid and mode == "release"
+    execution_status = compute_status(
+        execution_complete=execution_complete,
+        diagnostic_valid=diagnostic_valid,
+        research_valid=research_valid,
+        release_candidate=release_candidate,
+    )
+    report.execution_status = execution_status
+
+    # Rewrite the validation report now that the final status is settled.
+    report_path.write_text(json.dumps(report.to_dict(), indent=2))
+
+    # Update summary.md with the final execution status.
+    summary_md = summary_md.replace(
+        f"- **Status**: {top_line_status}",
+        f"- **Status**: {top_line_status}\n- **Execution status**: {execution_status}",
+        1,
+    )
+    (output_dir / "summary.md").write_text(summary_md)
+
     # Update summary.json with final status
     summary_json["top_line_status"] = top_line_status
+    summary_json["execution_status"] = execution_status
+    summary_json["research_valid"] = research_valid
+    summary_json["release_candidate"] = release_candidate
     summary_json["artifact_set_complete"] = artifacts_complete
     (output_dir / "summary.json").write_text(json.dumps(summary_json, indent=2))
 

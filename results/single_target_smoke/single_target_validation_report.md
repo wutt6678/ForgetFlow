@@ -2,9 +2,9 @@
 
 ## Run Identity
 
-- **Repository commit**: 27313bd23b2ee8edcd5b237074f667cf990beb6a
-- **Repository clean**: True
-- **Generated at**: 2026-08-02T03:44:58.620840+00:00
+- **Repository commit**: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty
+- **Repository clean**: False
+- **Generated at**: 2026-08-02T15:07:54.305931+00:00
 - **Mode**: diagnostic
 
 ## Fixture Matrix
@@ -16,8 +16,8 @@
 
 ## Audit Status
 
-- **Audit valid**: False
-- **Audit errors**: 105
+- **Audit valid**: True
+- **Audit errors**: 0
 - **Duplicate identities**: 0
 
 ## Manifest Status

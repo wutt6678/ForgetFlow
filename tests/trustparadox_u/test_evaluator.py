@@ -8,6 +8,7 @@ from experiments.trustparadox_u.evaluator import (
     compute_rr,
     compute_utility_retention,
     evaluate_all,
+    is_pu_rer_eligible,
 )
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 from marble.firewall.types import DetectorResult, FirewallDecision
@@ -300,3 +301,193 @@ class TestPairedUtilityRetention:
         assert result.metric.value == 1.0
         assert result.metric.numerator == 1
         assert result.metric.denominator == 1
+
+
+class TestSequenceTrials:
+    """P1 #10: CRR is sequence-level and recomputable from the trial artifact."""
+
+    @staticmethod
+    def _recon_turn(
+        turn_id: int,
+        *,
+        seq_id: str,
+        recipient: str = "SK",
+        forget_id: str = "F001",
+        reconstructed: bool = False,
+    ) -> TurnResult:
+        return TurnResult(
+            turn_id=turn_id,
+            phase="POST_FORGET_ATTACK",
+            sender_id="CK",
+            recipient_id=recipient,
+            candidate_text="frag",
+            released_text="frag",
+            is_reconstruction_attempt=True,
+            target_reconstructed=reconstructed,
+            reconstructed_forget_ids=(forget_id,) if reconstructed else (),
+            target_forget_ids=(forget_id,),
+            sequence_id=seq_id,
+        )
+
+    @staticmethod
+    def _result(
+        *,
+        condition: str,
+        seed: int,
+        turns: list[TurnResult],
+        run_id: str = "r1",
+        episode_id: str = "e1",
+    ) -> EpisodeResult:
+        result = EpisodeResult(
+            run_id=run_id,
+            episode_id=episode_id,
+            scenario_id="s1",
+            trust_level="high",
+            seed=seed,
+            turns=turns,
+        )
+        result.metadata = {"smoke_condition": condition}
+        return result
+
+    def test_crr_preserves_conditions(self) -> None:
+        """Distinct conditions yield distinct trials (never collapsed)."""
+        from experiments.trustparadox_u.evaluator import extract_sequence_trials
+
+        results = [
+            self._result(
+                condition="full_mvp", seed=42, turns=[self._recon_turn(0, seq_id="seq_0")]
+            ),
+            self._result(
+                condition="no_firewall", seed=42, turns=[self._recon_turn(0, seq_id="seq_0")]
+            ),
+        ]
+        trials = extract_sequence_trials(results)
+        assert {t.condition for t in trials} == {"full_mvp", "no_firewall"}
+        assert len(trials) == 2
+
+    def test_crr_preserves_seeds(self) -> None:
+        """Distinct seeds yield distinct trials (never collapsed)."""
+        from experiments.trustparadox_u.evaluator import extract_sequence_trials
+
+        results = [
+            self._result(condition="full_mvp", seed=1, turns=[self._recon_turn(0, seq_id="seq_0")]),
+            self._result(condition="full_mvp", seed=2, turns=[self._recon_turn(0, seq_id="seq_0")]),
+        ]
+        trials = extract_sequence_trials(results)
+        assert {t.seed for t in trials} == {1, 2}
+        assert len(trials) == 2
+
+    def test_crr_counts_sequence_once(self) -> None:
+        """Multiple turns in one sequence collapse to a single trial."""
+        from experiments.trustparadox_u.evaluator import extract_sequence_trials
+
+        turns = [
+            self._recon_turn(0, seq_id="seq_0"),
+            self._recon_turn(1, seq_id="seq_0"),
+            self._recon_turn(2, seq_id="seq_0", reconstructed=True),
+        ]
+        trials = extract_sequence_trials([self._result(condition="c", seed=42, turns=turns)])
+        assert len(trials) == 1
+        assert trials[0].recovered is True
+
+    def test_crr_not_turn_level(self) -> None:
+        """CRR denominator counts sequences, not the turns within them."""
+        turns = [
+            self._recon_turn(0, seq_id="seq_0"),
+            self._recon_turn(1, seq_id="seq_0", reconstructed=True),
+        ]
+        metric = compute_crr([self._result(condition="c", seed=42, turns=turns)])
+        # 2 turns but exactly 1 sequence trial
+        assert metric.denominator == 1
+        assert metric.numerator == 1
+
+    def test_crr_recomputed_from_sequence_artifact(self) -> None:
+        """Recomputing CRR from trial rows matches compute_crr exactly."""
+        from experiments.trustparadox_u.evaluator import extract_sequence_trials
+
+        results = [
+            self._result(
+                condition="no_firewall",
+                seed=42,
+                run_id="r1",
+                turns=[
+                    self._recon_turn(0, seq_id="seq_0"),
+                    self._recon_turn(1, seq_id="seq_0", reconstructed=True),
+                ],
+            ),
+            self._result(
+                condition="full_mvp",
+                seed=42,
+                run_id="r2",
+                turns=[self._recon_turn(0, seq_id="seq_0")],
+            ),
+        ]
+        metric = compute_crr(results)
+        trials = [t.to_dict() for t in extract_sequence_trials(results)]
+        recomputed_denominator = sum(1 for t in trials if t["eligible"])
+        recomputed_numerator = sum(1 for t in trials if t["recovered"])
+        assert recomputed_denominator == metric.denominator
+        assert recomputed_numerator == metric.numerator
+
+
+class TestPuRerEligibility:
+    """P1 #11: PU-RER denominator counts only information-bearing opportunities."""
+
+    @staticmethod
+    def _turn(
+        *,
+        phase: str = "POST_FORGET_ATTACK",
+        is_attack_request: bool = False,
+        is_information_bearing_opportunity: bool = False,
+        is_exposure_attempt: bool = False,
+        oracle_candidate_exposure: str = "none",
+        oracle_released_exposure: str = "none",
+    ) -> TurnResult:
+        return TurnResult(
+            turn_id=0,
+            phase=phase,
+            sender_id="CK",
+            recipient_id="SK",
+            candidate_text="x",
+            released_text="x",
+            is_attack_request=is_attack_request,
+            is_information_bearing_opportunity=is_information_bearing_opportunity,
+            is_exposure_attempt=is_exposure_attempt,
+            oracle_candidate_exposure=oracle_candidate_exposure,
+            oracle_released_exposure=oracle_released_exposure,
+        )
+
+    def test_question_not_pu_rer_eligible(self) -> None:
+        """A pure question / non-answer attack request is not eligible."""
+        turn = self._turn(is_attack_request=True, is_exposure_attempt=True)
+        assert is_pu_rer_eligible(turn) is False
+
+    def test_positive_claim_pu_rer_eligible(self) -> None:
+        """A declared information-bearing opportunity is eligible."""
+        turn = self._turn(is_information_bearing_opportunity=True)
+        assert is_pu_rer_eligible(turn) is True
+
+    def test_pu_rer_denominator_stable_across_conditions(self) -> None:
+        """Eligibility depends on fixture labels, not firewall behaviour."""
+        # Same fixture turn evaluated under two conditions: the firewall changes
+        # the released outcome but NOT the eligibility classification.
+        eligible_turn = self._turn(
+            is_information_bearing_opportunity=True, oracle_released_exposure="full"
+        )
+        blocked_turn = self._turn(
+            is_information_bearing_opportunity=True, oracle_released_exposure="none"
+        )
+        assert is_pu_rer_eligible(eligible_turn) is True
+        assert is_pu_rer_eligible(blocked_turn) is True
+
+    def test_pu_rer_population_documented(self) -> None:
+        """The eligibility rule is fully determined by the documented fields."""
+        # Non-post-forget phase is never eligible regardless of other flags.
+        assert (
+            is_pu_rer_eligible(
+                self._turn(phase="BASELINE", is_information_bearing_opportunity=True)
+            )
+            is False
+        )
+        # Legacy exposure-attempt fallback (not an attack request) is eligible.
+        assert is_pu_rer_eligible(self._turn(is_exposure_attempt=True)) is True

@@ -96,13 +96,30 @@ class FlowGate:
                 reconstruction_threshold=self.config.history.reconstruction_threshold,
                 forget_id=rec.forget_id,
             )
-        # Aggregate: max score across all records (for policy decision)
-        recon_score = max(per_record_recon_scores.values()) if per_record_recon_scores else 0.0
+
+        # P0: Derive matched targets from record-specific reconstruction evidence.
+        # A positive reconstruction score MUST identify the forgotten record.
+        recon_threshold = self.config.history.reconstruction_threshold
+        recon_matched_ids = sorted(
+            fid for fid, score in per_record_recon_scores.items() if score >= recon_threshold
+        )
+
+        # Aggregate: max score across MATCHED records only (for policy decision)
+        # If no records match, reconstruction_score must be 0.
+        if recon_matched_ids:
+            recon_score = max(per_record_recon_scores[fid] for fid in recon_matched_ids)
+        else:
+            recon_score = 0.0
 
         # 5. Merge reconstruction score and update per-record evidence
+        # Combine detector matches with reconstruction matches
+        all_matched_ids = sorted(set(det_result.matched_forget_ids) | set(recon_matched_ids))
+
         updated_record_evidence = []
         for ev in det_result.record_evidence:
             ev_recon = per_record_recon_scores.get(ev.forget_id, 0.0)
+            # Mark as matched if detector matched OR reconstruction matched
+            ev_matched = ev.matched or ev.forget_id in recon_matched_ids
             updated_record_evidence.append(
                 RecordDetectionEvidence(
                     forget_id=ev.forget_id,
@@ -110,7 +127,11 @@ class FlowGate:
                     entity_score=ev.entity_score,
                     semantic_score=ev.semantic_score,
                     reconstruction_score=ev_recon,
-                    matched=ev.matched,
+                    matched=ev_matched,
+                    proposition_score=ev.proposition_score,
+                    proposition_relevant=ev.proposition_relevant,
+                    proposition_entailed=ev.proposition_entailed,
+                    reason_codes=ev.reason_codes,
                 )
             )
         det_result = DetectorResult(
@@ -118,7 +139,7 @@ class FlowGate:
             entity_score=det_result.entity_score,
             semantic_score=det_result.semantic_score,
             reconstruction_score=recon_score,
-            matched_forget_ids=det_result.matched_forget_ids,
+            matched_forget_ids=tuple(all_matched_ids),
             evidence=det_result.evidence,
             record_evidence=tuple(updated_record_evidence),
         )

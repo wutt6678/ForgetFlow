@@ -1,25 +1,25 @@
 {
-  "audit_valid": false,
+  "audit_valid": true,
   "manifest_valid": true,
   "directional_checks_pass": true,
   "no_unmatched_pairs": true,
   "utility_defined": true,
-  "repository_clean": true,
+  "repository_clean": false,
   "artifacts_complete": true,
   "no_duplicate_identities": true,
   "all_passed": false,
   "top_line_status": "DIAGNOSTIC ONLY",
   "failure_reasons": [
-    "Audit invalid: 105 errors"
+    "Repository dirty: 3699ecb527f23da5aa344099bfad05e1e455cef4-dirty"
   ],
-  "repository_commit": "27313bd23b2ee8edcd5b237074f667cf990beb6a",
-  "generated_at": "2026-08-02T03:44:58.620840+00:00",
+  "repository_commit": "3699ecb527f23da5aa344099bfad05e1e455cef4-dirty",
+  "generated_at": "2026-08-02T15:07:54.305931+00:00",
   "mode": "diagnostic",
   "total_runs": 117,
   "fixture_count": 3,
   "seed_count": 3,
   "condition_count": 13,
-  "audit_error_count": 105,
+  "audit_error_count": 0,
   "duplicate_identity_count": 0,
   "aggregate_metrics": {
     "pu_rer": {

@@ -37,6 +37,13 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from experiments.trustparadox_u.status import (  # noqa: E402
+    DIAGNOSTIC_VALID,
+    RELEASE_CANDIDATE,
+    RESEARCH_VALID,
+    status_at_least,
+)
+
 # Exit codes
 EXIT_SUCCESS = 0
 EXIT_REPOSITORY_DIRTY = 2
@@ -607,13 +614,23 @@ class ResultsGenerator:
             summary_path = self.single_target_dir / "summary.json"
             if summary_path.exists():
                 summary = json.loads(summary_path.read_text())
-                status = summary.get("top_line_status", "NO-GO")
-                if status == "GO":
-                    print(f"  [PASS] Status: {status}")
+                # Section 16: prefer the canonical execution-status taxonomy.
+                execution_status = summary.get("execution_status")
+                if execution_status is not None:
+                    if status_at_least(execution_status, RESEARCH_VALID):
+                        print(f"  [PASS] Execution status: {execution_status}")
+                    else:
+                        phase.status = "FAIL"
+                        phase.errors.append(f"Execution status: {execution_status}")
+                        self.failure_reasons.append(f"Single-target smoke: {execution_status}")
                 else:
-                    phase.status = "FAIL"
-                    phase.errors.append(f"Smoke status: {status}")
-                    self.failure_reasons.append(f"Single-target smoke: {status}")
+                    status = summary.get("top_line_status", "NO-GO")
+                    if status == "GO":
+                        print(f"  [PASS] Status: {status}")
+                    else:
+                        phase.status = "FAIL"
+                        phase.errors.append(f"Smoke status: {status}")
+                        self.failure_reasons.append(f"Single-target smoke: {status}")
             else:
                 phase.status = "FAIL"
                 phase.errors.append("Summary not found")
@@ -659,13 +676,23 @@ class ResultsGenerator:
             report_path = self.multi_target_dir / "multi_target_report.json"
             if report_path.exists():
                 report = json.loads(report_path.read_text())
-                status = report.get("status", "NO-GO")
-                if status == "GO":
-                    print(f"  [PASS] Status: {status}")
+                # Section 16: prefer the canonical execution-status taxonomy.
+                execution_status = report.get("execution_status")
+                if execution_status is not None:
+                    if status_at_least(execution_status, RESEARCH_VALID):
+                        print(f"  [PASS] Execution status: {execution_status}")
+                    else:
+                        phase.status = "FAIL"
+                        phase.errors.append(f"Execution status: {execution_status}")
+                        self.failure_reasons.append(f"Multi-target smoke: {execution_status}")
                 else:
-                    phase.status = "FAIL"
-                    phase.errors.append(f"Multi-target status: {status}")
-                    self.failure_reasons.append(f"Multi-target smoke: {status}")
+                    status = report.get("status", "NO-GO")
+                    if status == "GO":
+                        print(f"  [PASS] Status: {status}")
+                    else:
+                        phase.status = "FAIL"
+                        phase.errors.append(f"Multi-target status: {status}")
+                        self.failure_reasons.append(f"Multi-target smoke: {status}")
             else:
                 phase.status = "FAIL"
                 phase.errors.append("Report not found")
@@ -702,18 +729,18 @@ class ResultsGenerator:
         try:
             # Run TrustParadox-U evaluation
             cmd_result = self._run_command(
-                f"poetry run python scripts/run_trustparadox_u.py "
-                f"--output-dir {self.trustparadox_dir}",
+                f"poetry run python scripts/generate_trustparadox_u_results.py "
+                f"--output-dir {self.trustparadox_dir} --commit {self.tested_commit}",
                 "trustparadox_u/trustparadox_output.txt",
-                check=False,  # Script may not exist yet
+                check=False,
             )
             phase.commands.append(cmd_result)
 
             if cmd_result.exit_code != 0:
-                # Create minimal placeholder if script doesn't exist
+                # TrustParadox-U is optional evidence; record but do not block.
                 phase.status = "SKIP"
-                phase.errors.append("TrustParadox-U script not available")
-                print("  [SKIP] TrustParadox-U script not available")
+                phase.errors.append("TrustParadox-U generation failed")
+                print("  [SKIP] TrustParadox-U generation failed")
             else:
                 print("  [PASS] TrustParadox-U complete")
 
@@ -840,11 +867,11 @@ class ResultsGenerator:
             cert_path = self.certification_dir / "certification.json"
             if cert_path.exists():
                 cert = json.loads(cert_path.read_text())
-                status = cert.get("certification_status", "DIAGNOSTIC")
+                status = cert.get("certification_status", DIAGNOSTIC_VALID)
                 print(f"  Certification status: {status}")
-                if status == "RELEASE_CANDIDATE":
+                if status == RELEASE_CANDIDATE:
                     print("  [PASS] Release candidate")
-                elif status == "RESEARCH_VALID":
+                elif status == RESEARCH_VALID:
                     print("  [PASS] Research valid")
                 else:
                     phase.errors.append(f"Certification status: {status}")
@@ -881,11 +908,11 @@ class ResultsGenerator:
 
         # Determine certification status
         if all_passed:
-            certification_status = "RELEASE_CANDIDATE"
+            certification_status = RELEASE_CANDIDATE
         elif any(p.status == "FAIL" for p in self.phase_results):
-            certification_status = "DIAGNOSTIC"
+            certification_status = DIAGNOSTIC_VALID
         else:
-            certification_status = "RESEARCH_VALID"
+            certification_status = RESEARCH_VALID
 
         manifest = {
             "schema_version": "1.0.0",
