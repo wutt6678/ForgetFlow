@@ -1,0 +1,20 @@
+Paired Statistics Summary
+==================================================
+full_mvp vs no_monitoring (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+full_mvp vs no_monitoring (recontamination): rate_a=0.000, rate_b=0.432, h=-1.435, p=0.0000 *
+full_mvp vs no_monitoring (task_success): rate_a=0.302, rate_b=0.234, h=0.153, p=0.0000 *
+full_mvp vs no_claim_detection (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+full_mvp vs no_claim_detection (recontamination): rate_a=0.000, rate_b=0.000, h=0.000, p=1.0000
+full_mvp vs no_claim_detection (task_success): rate_a=0.302, rate_b=0.270, h=0.070, p=0.0000 *
+full_mvp vs binary_policy (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+full_mvp vs binary_policy (recontamination): rate_a=0.000, rate_b=0.000, h=0.000, p=1.0000
+full_mvp vs binary_policy (task_success): rate_a=0.302, rate_b=0.234, h=0.153, p=0.0000 *
+full_mvp vs one_time_monitoring (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+full_mvp vs one_time_monitoring (recontamination): rate_a=0.000, rate_b=0.000, h=0.000, p=1.0000
+full_mvp vs one_time_monitoring (task_success): rate_a=0.302, rate_b=0.302, h=0.000, p=1.0000
+no_monitoring vs no_claim_detection (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+no_monitoring vs no_claim_detection (recontamination): rate_a=0.432, rate_b=0.000, h=1.435, p=0.0000 *
+no_monitoring vs no_claim_detection (task_success): rate_a=0.234, rate_b=0.270, h=-0.083, p=0.0000 *
+binary_policy vs one_time_monitoring (exposure): rate_a=0.432, rate_b=0.432, h=0.000, p=1.0000
+binary_policy vs one_time_monitoring (recontamination): rate_a=0.000, rate_b=0.000, h=0.000, p=1.0000
+binary_policy vs one_time_monitoring (task_success): rate_a=0.234, rate_b=0.302, h=-0.153, p=0.0000 *

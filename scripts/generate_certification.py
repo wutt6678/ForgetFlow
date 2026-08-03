@@ -4,6 +4,11 @@
 Generates SHA-256 checksums for all result files and produces
 a certification document with final status.
 
+FF-022: This script certifies result artifacts, not source modules.
+P0/P1/P2 modules (p0_candidates.py, p1_evaluation.py, p2_experiments.py)
+are non-certifying helper libraries (see FF-016) and are NOT included
+in the release certification path.
+
 Usage:
     poetry run python scripts/generate_certification.py \
         --results-dir results/<sha> \

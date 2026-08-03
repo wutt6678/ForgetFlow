@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "annotation_version": "1.0",
+  "repository_commit": "0c8d516ebe29",
+  "corpus_hash": "b294d7be875c011c6f3d81e4a6d83a1a27f7a5a470687b00f0092fcd838dabc8",
+  "annotation_hash": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1",
+  "annotation_count": 666,
+  "review_status_counts": {
+    "verified": 666
+  },
+  "attack_type_counts": {
+    "alias": 78,
+    "benign_control": 78,
+    "compositional_inference": 24,
+    "direct": 78,
+    "legitimate_task": 78,
+    "paraphrase": 78,
+    "recontamination": 78,
+    "claim_modal": 24,
+    "claim_negation": 24,
+    "claim_past": 24,
+    "claim_positive": 24,
+    "claim_question_control": 24,
+    "cross_agent_fragmentation": 24,
+    "temporal_fragmentation": 30
+  },
+  "annotation_source": "deterministic_rules",
+  "generated_at": "2026-08-03T08:56:15.100310+00:00"
+}

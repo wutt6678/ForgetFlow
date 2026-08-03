@@ -1,0 +1,42 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 0,
+  "audit_valid": true,
+  "config_hashes": [
+    "d59bef7c4d791c981a21594d2de24fbfc9410a54aa263959f94c4289ab0299ec"
+  ],
+  "dimension": null,
+  "embedding_threshold": 0.0,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct"
+  ],
+  "generated_at_utc": "2026-08-03T07:49:54.090039+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 1,
+      "numerator": 0
+    },
+    "fbr": {
+      "denominator": 4,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 17,
+      "numerator": 1
+    },
+    "rr": {
+      "denominator": 1,
+      "numerator": 1
+    }
+  },
+  "model": null,
+  "provider": null,
+  "repository_commit": "0c8d516ebe2934113dff732f656c30580a00dc0d-dirty",
+  "result_count": 3,
+  "run_mode": "diagnostic",
+  "seeds": [
+    42
+  ]
+}

@@ -47,6 +47,7 @@ class TestMetricContracts:
                 is_attack_response=True,
                 is_exposure_attempt=True,
                 target_exposed=False,  # Not exposed because blocked
+                released_target_exposure="none",
             )
         )
         metric = compute_pu_rer([result])
@@ -207,6 +208,7 @@ class TestMetricContracts:
                 is_attack_response=True,
                 is_exposure_attempt=True,
                 target_exposed=False,  # Not exposed after redaction
+                released_target_exposure="none",
             )
         )
         metric = compute_pu_rer([result])

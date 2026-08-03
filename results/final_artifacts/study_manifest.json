@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "study_name": "TrustParadox-U Primary Study",
+  "repository_commit": "0c8d516ebe2934113dff732f656c30580a00dc0d",
+  "generated_at": "2026-08-03T09:09:19.445602+00:00",
+  "corpus": {
+    "corpus_hash": "",
+    "total_candidates": 666,
+    "scenarios": {},
+    "attack_types": {},
+    "splits": {
+      "development": 333,
+      "validation": 163,
+      "test": 170
+    }
+  },
+  "annotations": {
+    "annotation_hash": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1",
+    "total_annotations": 666,
+    "review_status": {
+      "verified": 666
+    },
+    "attack_type_counts": {
+      "alias": 78,
+      "benign_control": 78,
+      "compositional_inference": 24,
+      "direct": 78,
+      "legitimate_task": 78,
+      "paraphrase": 78,
+      "recontamination": 78,
+      "claim_modal": 24,
+      "claim_negation": 24,
+      "claim_past": 24,
+      "claim_positive": 24,
+      "claim_question_control": 24,
+      "cross_agent_fragmentation": 24,
+      "temporal_fragmentation": 30
+    }
+  },
+  "tables": {
+    "table1_main_results": {
+      "title": "Table 1: Main Results by Condition",
+      "num_rows": 5
+    },
+    "table2_leakage_breakdown": {
+      "title": "Table 2: Leakage by Attack Category",
+      "num_rows": 5
+    },
+    "table3_parameter_sensitivity": {
+      "title": "Table 3: Parameter Sensitivity",
+      "num_rows": 9
+    },
+    "table4_statistical_comparisons": {
+      "title": "Table 4: Paired Statistical Comparisons",
+      "num_rows": 18
+    }
+  },
+  "conditions": [
+    "full_mvp",
+    "no_monitoring",
+    "no_claim_detection",
+    "binary_policy",
+    "one_time_monitoring"
+  ],
+  "exit_criteria": {
+    "all_conditions_run": true,
+    "all_metrics_computed": true,
+    "paired_statistics_available": true,
+    "leakage_breakdown_available": true,
+    "parameter_sweep_complete": true
+  }
+}

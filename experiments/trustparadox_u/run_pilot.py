@@ -77,7 +77,10 @@ CONDITIONS: dict[str, ExperimentConfig] = {}
 
 
 def _build_conditions() -> dict[str, ExperimentConfig]:
-    """Build the 7 experiment conditions."""
+    """Build the 7 experiment conditions.
+
+    FF-015: Each ablation differs from full_mvp by exactly one component.
+    """
     return {
         "no_firewall": _config(
             exact=False,
@@ -89,12 +92,22 @@ def _build_conditions() -> dict[str, ExperimentConfig]:
             duration_rounds=0,
             firewall_enabled=False,
         ),
-        "exact_only": _config(semantic=False),
+        "exact_only": _config(
+            exact=True,
+            entity=False,
+            semantic=False,
+            history=False,
+            rich_actions=False,
+            continuous=False,
+            duration_rounds=0,
+        ),
         "full_mvp": _config(),
-        "no_semantic": _config(semantic=False),
-        "stateless": _config(semantic=False, history=False),
-        "binary_policy": _config(semantic=False, rich_actions=False),
-        "one_time_monitoring": _config(continuous=False, duration_rounds=5),
+        "no_embedding": _config(semantic=False),  # Only embedding disabled
+        "stateless": _config(history=False),  # Only history disabled
+        "binary_policy": _config(rich_actions=False),  # Only rich_actions disabled
+        "one_time_monitoring": _config(
+            continuous=False, duration_rounds=1
+        ),  # Only monitoring changes
     }
 
 
@@ -263,10 +276,10 @@ def verify_directional_expectations(results: list[dict[str, Any]]) -> dict[str, 
         full_mvp = _avg_metric(scenario, "full_mvp", "exposure_rate")
         checks[f"{scenario}: full_mvp_exposure < no_firewall"] = full_mvp <= no_fw
 
-        # 2. full semantic PU-RER < no semantic on paraphrase
-        # (comparing full_mvp which has semantic vs no_semantic)
-        no_sem = _avg_metric(scenario, "no_semantic", "exposure_rate")
-        checks[f"{scenario}: full_mvp_exposure <= no_semantic"] = full_mvp <= no_sem
+        # 2. full semantic PU-RER < no embedding on paraphrase
+        # (comparing full_mvp which has semantic vs no_embedding)
+        no_emb = _avg_metric(scenario, "no_embedding", "exposure_rate")
+        checks[f"{scenario}: full_mvp_exposure <= no_embedding"] = full_mvp <= no_emb
 
         # 3. recipient-aware CRR < stateless (reconstruction rate)
         stateless = _avg_metric(scenario, "stateless", "reconstruction_rate")

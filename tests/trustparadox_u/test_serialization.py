@@ -1650,3 +1650,133 @@ class TestImmediateProbeSerialization:
         assert turn.phase == "IMMEDIATE_PROBE"
         assert turn.target_exposed is False
         assert turn.exposed_forget_ids == ()
+
+
+class TestFF020ArtifactRoundTrip:
+    """FF-020: Every serialized artifact must round-trip without data loss."""
+
+    def test_episode_result_candidate_sample_id_round_trip(self, tmp_path: Path) -> None:
+        """FF-018: candidate_sample_id survives serialization round trip."""
+        from experiments.trustparadox_u.runner import EpisodeResult
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0001",
+            episode_id="ep1",
+            scenario_id="s1",
+            trust_level="default",
+            seed=42,
+            candidate_sample_id="cand_abc123",
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        assert loaded[0].candidate_sample_id == "cand_abc123"
+
+    def test_episode_result_empty_candidate_sample_id_round_trip(self, tmp_path: Path) -> None:
+        """Empty candidate_sample_id survives serialization round trip."""
+        from experiments.trustparadox_u.runner import EpisodeResult
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0002",
+            episode_id="ep2",
+            scenario_id="s2",
+            trust_level="default",
+            seed=42,
+            candidate_sample_id="",
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        assert loaded[0].candidate_sample_id == ""
+
+    def test_turn_released_target_exposure_round_trip(self, tmp_path: Path) -> None:
+        """FF-007: released_target_exposure survives serialization round trip."""
+        from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
+        from experiments.trustparadox_u.serialization import (
+            load_episode_results,
+            serialize_episode_result,
+        )
+
+        result = EpisodeResult(
+            run_id="run_0003",
+            episode_id="ep3",
+            scenario_id="s3",
+            trust_level="default",
+            seed=42,
+        )
+        result.turns.append(
+            TurnResult(
+                turn_id=0,
+                phase="POST_FORGET",
+                sender_id="SK",
+                recipient_id="CK",
+                candidate_text="probe",
+                released_text="The code is 0107.",
+                released_target_exposure="exact_value_disclosure",
+                released_target_exposure_by_forget_id={"F001": "exact_value_disclosure"},
+            )
+        )
+        episodes_file = tmp_path / "episodes.jsonl"
+        episodes_file.write_text(json.dumps(serialize_episode_result(result)) + "\n")
+        loaded = load_episode_results(episodes_file)
+        assert len(loaded) == 1
+        turn = loaded[0].turns[0]
+        assert turn.released_target_exposure == "exact_value_disclosure"
+        assert turn.released_target_exposure_by_forget_id == {"F001": "exact_value_disclosure"}
+
+    def test_trial_artifact_round_trip(self, tmp_path: Path) -> None:
+        """FF-013: Trial artifacts survive serialization round trip."""
+        from experiments.trustparadox_u.evaluator import (
+            RecontaminationTrial,
+            SequenceTrial,
+        )
+
+        # SequenceTrial round trip
+        seq = SequenceTrial(
+            condition="full_mvp",
+            run_id="run_001",
+            episode_id="ep1",
+            seed=42,
+            scenario_id="s1",
+            recipient_id="CK",
+            forget_id="F001",
+            sequence_id="seq1",
+            eligible=True,
+            complete=True,
+            recovered=True,
+            expected_step_count=3,
+            executed_step_count=3,
+            terminal_step_executed=True,
+        )
+        seq_dict = seq.to_dict()
+        assert seq_dict["episode_id"] == "ep1"
+        assert seq_dict["recovered"] is True
+
+        # RecontaminationTrial round trip (with FF-011 probe fields)
+        recontam = RecontaminationTrial(
+            condition="full_mvp",
+            run_id="run_002",
+            episode_id="ep2",
+            seed=42,
+            scenario_id="s2",
+            agent_id="CK",
+            forget_id="F002",
+            eligible=True,
+            target_reached_recipient=True,
+            probe_executed=True,
+            probe_recovered_target=True,
+            target_recoverable_after_monitor=True,
+        )
+        recontam_dict = recontam.to_dict()
+        assert recontam_dict["probe_executed"] is True
+        assert recontam_dict["probe_recovered_target"] is True

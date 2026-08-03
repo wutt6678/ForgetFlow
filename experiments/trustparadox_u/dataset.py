@@ -484,14 +484,124 @@ def load_episodes_from_dir(directory: str | Path) -> list[TrustParadoxEpisode]:
     return episodes
 
 
-def load_split(path: str | Path) -> list[str]:
-    """Load episode IDs from a JSONL split file."""
-    p = Path(path)
-    ids = []
-    with open(p) as f:
-        for line in f:
+def load_split(
+    data_root: str | Path,
+    split_name: str,
+) -> list[TrustParadoxEpisode]:
+    """FF-002: Canonical split loader.
+
+    Reads data_root/splits/<split_name>.jsonl, extracts episode IDs,
+    resolves each to exactly one source episode YAML, and returns
+    the loaded episodes in deterministic order.
+
+    Raises:
+        FileNotFoundError: If the split file does not exist.
+        ValueError: If the split is empty, contains duplicates,
+            references unknown episode IDs, or resolves to zero episodes.
+    """
+    data_root = Path(data_root)
+    splits_dir = data_root / "splits"
+    split_file = splits_dir / f"{split_name}.jsonl"
+
+    if not split_file.exists():
+        # Check if the split name is completely unknown vs just missing file
+        known_splits = (
+            {p.stem for p in splits_dir.glob("*.jsonl")} if splits_dir.exists() else set()
+        )
+        if known_splits and split_name not in known_splits:
+            raise ValueError(f"Unknown split: {split_name!r}. Known splits: {sorted(known_splits)}")
+        raise FileNotFoundError(f"Split file not found: {split_file}")
+
+    # Read episode IDs from JSONL
+    episode_ids: list[str] = []
+    seen: set[str] = set()
+    with open(split_file) as f:
+        for line_num, line in enumerate(f, start=1):
             line = line.strip()
-            if line:
-                entry = json.loads(line)
-                ids.append(entry["episode_id"])
+            if not line:
+                continue
+            entry = json.loads(line)
+            eid = entry.get("episode_id", "")
+            if not eid:
+                raise ValueError(f"Split file {split_file} line {line_num}: missing episode_id")
+            if eid in seen:
+                raise ValueError(f"Duplicate episode_id in split file: {eid!r}")
+            seen.add(eid)
+            episode_ids.append(eid)
+
+    if not episode_ids:
+        raise ValueError(f"Split {split_name!r} resolved to zero episodes")
+
+    # Build episode_id -> episode mapping from all scenario YAMLs
+    scenarios_dir = data_root / "scenarios"
+    if not scenarios_dir.exists():
+        raise FileNotFoundError(f"Scenarios directory not found: {scenarios_dir}")
+
+    episode_map: dict[str, TrustParadoxEpisode] = {}
+    for yp in sorted(scenarios_dir.glob("*.yaml")):
+        ep = load_episode(yp)
+        if ep.episode_id in episode_map:
+            raise ValueError(f"Duplicate episode in scenarios dir: {ep.episode_id!r}")
+        episode_map[ep.episode_id] = ep
+
+    # Resolve each ID to exactly one episode
+    resolved: list[TrustParadoxEpisode] = []
+    for eid in episode_ids:
+        if eid not in episode_map:
+            raise ValueError(
+                f"Unknown episode_id in split {split_name!r}: {eid!r}. "
+                f"Available: {sorted(episode_map.keys())}"
+            )
+        resolved.append(episode_map[eid])
+
+    return resolved
+
+
+def load_split_ids(data_root: str | Path, split_name: str) -> list[str]:
+    """Load episode IDs from a split file without resolving episodes.
+
+    Useful for smoke runners that manage their own episode loading.
+    """
+    data_root = Path(data_root)
+    split_file = data_root / "splits" / f"{split_name}.jsonl"
+
+    if not split_file.exists():
+        known_splits = (
+            {p.stem for p in (data_root / "splits").glob("*.jsonl")}
+            if (data_root / "splits").exists()
+            else set()
+        )
+        if known_splits and split_name not in known_splits:
+            raise ValueError(f"Unknown split: {split_name!r}. Known splits: {sorted(known_splits)}")
+        raise FileNotFoundError(f"Split file not found: {split_file}")
+
+    ids: list[str] = []
+    seen: set[str] = set()
+    with open(split_file) as f:
+        for line_num, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            entry = json.loads(line)
+            eid = entry.get("episode_id", "")
+            if not eid:
+                raise ValueError(f"Split file line {line_num}: missing episode_id")
+            if eid in seen:
+                raise ValueError(f"Duplicate episode_id in split: {eid!r}")
+            seen.add(eid)
+            ids.append(eid)
+
+    if not ids:
+        raise ValueError(f"Split {split_name!r} is empty")
+
     return ids
+
+
+def compute_split_file_hash(split_file: str | Path) -> str:
+    """Compute SHA-256 hash of a split file for manifest provenance."""
+    p = Path(split_file)
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()

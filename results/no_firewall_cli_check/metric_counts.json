@@ -1,0 +1,18 @@
+{
+  "pu_rer": {
+    "numerator": 1,
+    "denominator": 17
+  },
+  "crr": {
+    "numerator": 0,
+    "denominator": 1
+  },
+  "rr": {
+    "numerator": 1,
+    "denominator": 1
+  },
+  "fbr": {
+    "numerator": 0,
+    "denominator": 4
+  }
+}

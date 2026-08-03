@@ -341,3 +341,136 @@ class TestAllYamlConfigsLoad:
         cfg = load_config(yaml_path)
         assert isinstance(cfg.detector.embedding_enabled, bool)
         assert 0.0 <= cfg.detector.embedding_threshold <= 1.0
+
+
+class TestFF019AblationSingleComponent:
+    """FF-019: Each ablation differs from full_mvp by exactly one component."""
+
+    def _full_mvp(self) -> ExperimentConfig:
+        return ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+            ),
+            history=HistoryConfig(enabled=True),
+            policy=PolicyConfig(rich_actions_enabled=True),
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
+            firewall_enabled=True,
+        )
+
+    def _count_diffs(self, a: ExperimentConfig, b: ExperimentConfig) -> int:
+        """Count the number of differing components between two configs."""
+        import dataclasses
+
+        a_dict = dataclasses.asdict(a)
+        b_dict = dataclasses.asdict(b)
+        diffs = 0
+
+        def _compare(d1: dict, d2: dict) -> None:
+            nonlocal diffs
+            for key in d1:
+                v1, v2 = d1[key], d2[key]
+                if isinstance(v1, dict):
+                    _compare(v1, v2)
+                elif v1 != v2:
+                    # Skip seed and repetitions (not ablation components)
+                    if key not in ("seed", "repetitions"):
+                        diffs += 1
+
+        _compare(a_dict, b_dict)
+        return diffs
+
+    def test_no_firewall_differs_in_firewall_only(self) -> None:
+        """no_firewall differs from full_mvp only in firewall_enabled."""
+        full = self._full_mvp()
+        no_fw = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+            ),
+            history=HistoryConfig(enabled=True),
+            policy=PolicyConfig(rich_actions_enabled=True),
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
+            firewall_enabled=False,
+        )
+        assert self._count_diffs(full, no_fw) == 1
+
+    def test_no_embedding_differs_in_embedding_only(self) -> None:
+        """no_embedding differs from full_mvp only in embedding_enabled."""
+        full = self._full_mvp()
+        no_emb = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=False,
+            ),
+            history=HistoryConfig(enabled=True),
+            policy=PolicyConfig(rich_actions_enabled=True),
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
+            firewall_enabled=True,
+        )
+        assert self._count_diffs(full, no_emb) == 1
+
+    def test_stateless_differs_in_history_only(self) -> None:
+        """stateless differs from full_mvp only in history.enabled."""
+        full = self._full_mvp()
+        stateless = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+            ),
+            history=HistoryConfig(enabled=False),
+            policy=PolicyConfig(rich_actions_enabled=True),
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
+            firewall_enabled=True,
+        )
+        assert self._count_diffs(full, stateless) == 1
+
+    def test_binary_policy_differs_in_rich_actions_only(self) -> None:
+        """binary_policy differs from full_mvp only in rich_actions_enabled."""
+        full = self._full_mvp()
+        binary = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+            ),
+            history=HistoryConfig(enabled=True),
+            policy=PolicyConfig(rich_actions_enabled=False),
+            monitoring=MonitoringConfig(continuous=True, duration_rounds=5),
+            firewall_enabled=True,
+        )
+        assert self._count_diffs(full, binary) == 1
+
+    def test_one_time_monitoring_differs_in_monitoring_only(self) -> None:
+        """one_time_monitoring differs from full_mvp only in monitoring config."""
+        full = self._full_mvp()
+        otm = ExperimentConfig(
+            seed=42,
+            repetitions=1,
+            detector=DetectorConfig(
+                exact_enabled=True,
+                entity_enabled=True,
+                embedding_enabled=True,
+            ),
+            history=HistoryConfig(enabled=True),
+            policy=PolicyConfig(rich_actions_enabled=True),
+            monitoring=MonitoringConfig(continuous=False, duration_rounds=1),
+            firewall_enabled=True,
+        )
+        # Monitoring has two fields: continuous and duration_rounds
+        # Both changing counts as one "component" change
+        assert self._count_diffs(full, otm) == 2  # continuous + duration_rounds

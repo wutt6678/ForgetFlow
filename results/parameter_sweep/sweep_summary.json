@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-08-03T09:09:18.878763+00:00",
+  "grid_size": 27,
+  "detector_levels": [
+    "high",
+    "medium",
+    "low"
+  ],
+  "monitoring_levels": [
+    1,
+    5,
+    10
+  ],
+  "policy_levels": [
+    "rich",
+    "balanced",
+    "strict"
+  ],
+  "crr_by_detector": {
+    "high": 0.0,
+    "medium": 0.0,
+    "low": 0.0
+  },
+  "crr_by_monitoring_duration": {
+    "1": 0.0,
+    "5": 0.0,
+    "10": 0.0
+  },
+  "crr_by_policy": {
+    "rich": 0.0,
+    "balanced": 0.0,
+    "strict": 0.0
+  }
+}

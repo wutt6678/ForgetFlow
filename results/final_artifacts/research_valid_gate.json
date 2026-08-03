@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0.0",
+  "gate_name": "research_valid",
+  "verdict": "research_valid",
+  "all_passed": true,
+  "repository_commit": "0c8d516ebe2934113dff732f656c30580a00dc0d",
+  "generated_at": "2026-08-03T09:13:00.626616+00:00",
+  "gates": {
+    "all_conditions_run": {
+      "passed": true,
+      "conditions_run": 5,
+      "conditions_expected": 5,
+      "missing": []
+    },
+    "corpus_valid": {
+      "passed": true,
+      "candidate_count": 666,
+      "corpus_hash": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1"
+    },
+    "annotations_valid": {
+      "passed": true,
+      "annotation_count": 666,
+      "unresolved": 0
+    },
+    "leakage_analysis_available": {
+      "passed": true,
+      "categories": 5,
+      "attack_types": 14
+    },
+    "paired_statistics_available": {
+      "passed": true,
+      "num_comparisons": 18
+    },
+    "parameter_sweep_complete": {
+      "passed": true,
+      "grid_size": 27
+    },
+    "closed_loop_validation": {
+      "passed": true,
+      "num_mismatches": 0
+    },
+    "final_artifacts": {
+      "passed": true,
+      "missing": [],
+      "present": 6,
+      "total": 6
+    },
+    "all_tests_pass": {
+      "passed": true,
+      "output": "1542 passed, 4 skipped in 7.01s"
+    }
+  }
+}

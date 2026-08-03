@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from experiments.trustparadox_u.audit_results import audit_results  # noqa: E402
+from experiments.trustparadox_u.candidates import FrozenCandidateIndex  # noqa: E402
 from experiments.trustparadox_u.config import (  # noqa: E402
     DetectorConfig,
     ExperimentConfig,
@@ -276,12 +277,13 @@ def _make_config(seed: int, overrides: dict[str, Any]) -> ExperimentConfig:
 
 def _build_smoke_responder(
     episode: Any,
-    candidate_corpus: list[dict[str, Any]] | None = None,
+    frozen_corpus: Any = None,
 ) -> Any:
     """Build a ScriptedResponder that uses the deterministic candidate corpus.
 
-    Phase 0.6: If candidate_corpus is provided, use it as the source of
-    candidate messages instead of the built-in corpus.
+    FF-003: If frozen_corpus (FrozenCandidateIndex) is provided, use it as the
+    source of candidate messages instead of the built-in corpus.
+    The frozen corpus is searched by (scenario_id, attack_type).
 
     For legitimate_task turns, returns the task's success_value text so that
     the no-firewall baseline has task_success=True. For attack turns, returns
@@ -289,18 +291,29 @@ def _build_smoke_responder(
     test can validate that the firewall prevents real leakage.
     """
     from experiments.trustparadox_u.agent import ScriptedResponder
-    from experiments.trustparadox_u.candidates import get_candidates_for_scenario
+    from experiments.trustparadox_u.candidates import (
+        FrozenCandidateIndex,
+        get_candidates_for_scenario,
+    )
 
     responder = ScriptedResponder()
     success_value = episode.task.success_value
 
-    # Get candidates for this scenario
-    candidates = get_candidates_for_scenario(episode.scenario_id)
+    # Get candidates for this scenario — prefer frozen corpus over built-in
+    if frozen_corpus is not None and isinstance(frozen_corpus, FrozenCandidateIndex):
+        # FF-003: Use frozen corpus for paired replay
+        candidates = [c for c in frozen_corpus.candidates if c.scenario_id == episode.scenario_id]
+        # Convert FrozenCandidate to a compatible dict-like access
+        candidate_map: dict[str, str] = {}
+        for c in candidates:
+            candidate_map[c.attack_type] = c.candidate_text
+    else:
+        # Built-in corpus
 
-    # Build a map of attack_type -> candidate_text
-    candidate_map: dict[str, str] = {}
-    for c in candidates:
-        candidate_map[c.attack_type] = c.candidate_text
+        builtin_candidates = get_candidates_for_scenario(episode.scenario_id)
+        candidate_map = {}
+        for c in builtin_candidates:
+            candidate_map[c.attack_type] = c.candidate_text
 
     # Build a map of forget_id -> canonical_target for recontamination
     canonical_targets: dict[str, str] = {}
@@ -573,6 +586,28 @@ def _directional_checks(
         "passed": no_fw_rr > full_mvp_rr,
     }
 
+    # FF-017: binary_policy CRR >= full_mvp CRR (weaker policy → more reconstruction)
+    binary_eval = evaluate_all(condition_results.get("binary_policy", []))
+    binary_crr = binary_eval.crr.value if binary_eval.crr.value is not None else 0.0
+    checks["binary_policy_reconstruction_increases"] = {
+        "claim_type": "non_inferiority",
+        "check": "binary_policy CRR >= full_mvp CRR",
+        "lhs": binary_crr,
+        "rhs": stateful_crr,
+        "passed": binary_crr >= stateful_crr,
+    }
+
+    # FF-017: one_time_monitoring RR >= full_mvp RR (weaker monitoring → more recontamination)
+    otm_eval = evaluate_all(condition_results.get("one_time_monitoring", []))
+    otm_rr = otm_eval.rr.value if otm_eval.rr.value is not None else 0.0
+    checks["one_time_monitoring_recontamination_increases"] = {
+        "claim_type": "non_inferiority",
+        "check": "one_time_monitoring RR >= full_mvp RR",
+        "lhs": otm_rr,
+        "rhs": full_mvp_rr,
+        "passed": otm_rr >= full_mvp_rr,
+    }
+
     return checks
 
 
@@ -763,52 +798,47 @@ class SmokeReport:
         }
 
 
-def _load_candidates_corpus(corpus_path: Path) -> list[dict[str, Any]]:
-    """Phase 0.6: Load a frozen candidate corpus from JSONL."""
-    if not corpus_path.exists():
-        raise FileNotFoundError(f"Candidate corpus not found: {corpus_path}")
-    candidates: list[dict[str, Any]] = []
-    with open(corpus_path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                candidates.append(json.loads(line))
-    return candidates
+def _load_candidates_corpus(corpus_path: Path) -> Any:
+    """FF-003: Load a frozen candidate corpus from JSONL.
+
+    Returns a FrozenCandidateIndex for deterministic replay.
+    """
+    from experiments.trustparadox_u.candidates import load_frozen_corpus
+
+    return load_frozen_corpus(corpus_path)
 
 
 def _filter_fixtures_by_split(
     fixtures: list[str],
     split: str,
 ) -> list[str]:
-    """Phase 0.6: Filter fixtures by dataset split.
+    """FF-002: Filter fixtures by dataset split.
 
-    Uses the splits/ JSONL files to determine which scenario_ids belong
-    to each split. Falls back to all fixtures if split file is missing.
+    Uses load_split_ids() to determine which episode_ids belong
+    to each split. Fails if no fixtures belong to the requested split.
     """
-    splits_dir = PROJECT_ROOT / "data" / "trustparadox_u" / "splits"
-    split_file = splits_dir / f"{split}.jsonl"
-    if not split_file.exists():
-        return fixtures
+    from experiments.trustparadox_u.dataset import load_split_ids
 
-    # Load scenario_ids for this split
-    split_scenario_ids: set[str] = set()
-    with open(split_file) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                entry = json.loads(line)
-                sid = entry.get("scenario_id", "")
-                if sid:
-                    split_scenario_ids.add(sid)
+    # Load episode_ids for this split (raises on unknown/empty splits)
+    split_episode_ids: set[str] = set(
+        load_split_ids(PROJECT_ROOT / "data" / "trustparadox_u", split)
+    )
 
-    # Filter fixtures to those whose scenario_id is in the split
+    # Filter fixtures to those whose episode_id is in the split
     filtered = []
     for fixture_name in fixtures:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
-        if ep.scenario_id in split_scenario_ids:
+        if ep.episode_id in split_episode_ids:
             filtered.append(fixture_name)
 
-    return filtered if filtered else fixtures
+    if not filtered:
+        raise ValueError(
+            f"No fixtures match split {split!r}. "
+            f"Split episode_ids: {sorted(split_episode_ids)}, "
+            f"fixture episode_ids: {[load_episode(SCENARIOS_DIR / f).episode_id for f in fixtures]}"
+        )
+
+    return filtered
 
 
 def run_smoke_study(
@@ -818,6 +848,7 @@ def run_smoke_study(
     split: str | None = None,
     candidate_corpus_path: Path | None = None,
     repetitions_override: int | None = None,
+    config_path: Path | None = None,
 ) -> SmokeReport:
     """Run the complete smoke study and return validation results.
 
@@ -827,6 +858,7 @@ def run_smoke_study(
         split: Dataset split for scenario filtering (development/validation/test)
         candidate_corpus_path: Path to frozen candidate corpus JSONL
         repetitions_override: Override for config.repetitions
+        config_path: FF-004: Path to experiment config YAML (Mode A: single-condition)
     """
     if mode not in ("release", "diagnostic"):
         raise ValueError(f"Invalid mode: {mode}. Must be 'release' or 'diagnostic'.")
@@ -855,13 +887,41 @@ def run_smoke_study(
     run_ids: set[str] = set()
     run_id_to_condition: dict[str, str] = {}
 
-    # Phase 0.6: Load candidate corpus if provided
-    candidate_corpus = None
+    # FF-003: Load frozen candidate corpus if provided
+    frozen_corpus = None
     if candidate_corpus_path is not None:
-        candidate_corpus = _load_candidate_corpus(candidate_corpus_path)
+        frozen_corpus = _load_candidates_corpus(candidate_corpus_path)
 
     # Phase 0.6: Determine effective repetitions
-    effective_repetitions = repetitions_override if repetitions_override is not None else 1
+    # FF-005: Deterministic Phase 2 requires repetitions=1.
+    # Repeating the same scripted candidate with the same seed does not
+    # create an independent observation.
+    if repetitions_override is not None and repetitions_override > 1:
+        raise ValueError(
+            f"Deterministic smoke requires repetitions=1, got {repetitions_override}. "
+            "Use candidate_sample_id for independent observations (Phase 3)."
+        )
+    effective_repetitions = 1
+
+    # FF-004: Build effective conditions list
+    # When --config is provided, use Mode A: single-condition execution
+    if config_path is not None:
+        from experiments.trustparadox_u.config import load_config
+
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        # Derive condition name from file stem
+        cond_name_from_file = config_path.stem
+        # Load and validate the config (fail early if invalid)
+        _loaded_cfg = load_config(config_path)
+        effective_conditions: list[tuple[str, dict[str, Any], bool]] = [
+            (cond_name_from_file, {"_loaded_config": _loaded_cfg}, _loaded_cfg.firewall_enabled),
+        ]
+        print(
+            f"FF-004: Using single-condition mode from {config_path} (condition: {cond_name_from_file})"
+        )
+    else:
+        effective_conditions = CONDITIONS
 
     # Phase 0.6: Filter fixtures by split if provided
     active_fixtures = FIXTURES
@@ -870,26 +930,46 @@ def run_smoke_study(
 
     print(
         f"Running smoke study ({mode} mode): "
-        f"{len(active_fixtures)} fixtures x {len(SEEDS)} seeds x {len(CONDITIONS)} conditions"
+        f"{len(active_fixtures)} fixtures x {len(SEEDS)} seeds x {len(effective_conditions)} conditions"
         f" x {effective_repetitions} repetitions"
     )
 
     for fixture_name in active_fixtures:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
-        responder = _build_smoke_responder(ep, candidate_corpus=candidate_corpus)
+        responder = _build_smoke_responder(ep, frozen_corpus=frozen_corpus)
         for seed in SEEDS:
             for rep_idx in range(effective_repetitions):
-                for cond_name, cond_overrides, _fw_flag in CONDITIONS:
-                    cfg = _make_config(seed, cond_overrides)
+                for cond_name, cond_overrides, _fw_flag in effective_conditions:
+                    # FF-004: Use loaded config directly if provided
+                    if "_loaded_config" in cond_overrides:
+                        cfg = cond_overrides["_loaded_config"]
+                        # Override seed for this run
+                        from dataclasses import replace
+
+                        cfg = replace(cfg, seed=seed)
+                    else:
+                        cfg = _make_config(seed, cond_overrides)
                     # Phase 0.4: derive firewall_enabled from resolved config
                     fw_enabled = cfg.firewall_enabled
-                    # Include condition name and repetition in run_id for uniqueness
+                    # FF-005: rep_idx is always 0 for deterministic Phase 2
+                    # Include condition name in run_id for uniqueness
                     run_id = hashlib.sha256(
-                        f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}|{rep_idx}".encode()
+                        f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
                     ).hexdigest()[:20]
                     result = run_episode(
                         ep, cfg, responder=responder, firewall_enabled=fw_enabled, run_id=run_id
                     )
+
+                    # FF-018: Set candidate_sample_id from frozen corpus
+                    if frozen_corpus is not None and isinstance(
+                        frozen_corpus, FrozenCandidateIndex
+                    ):
+                        # Use the first candidate_id for this scenario as the sample link
+                        scenario_candidates = [
+                            c for c in frozen_corpus.candidates if c.scenario_id == ep.scenario_id
+                        ]
+                        if scenario_candidates:
+                            result.candidate_sample_id = scenario_candidates[0].candidate_id
 
                     # Track unique run IDs
                     if result.run_id in run_ids:
@@ -901,6 +981,9 @@ def run_smoke_study(
                     result.metadata["smoke_condition"] = cond_name
                     result.metadata["firewall_enabled"] = fw_enabled
                     result.metadata["repetition_index"] = rep_idx
+                    # FF-003: Record frozen corpus provenance
+                    if frozen_corpus is not None:
+                        result.metadata["candidate_corpus_hash"] = frozen_corpus.corpus_hash
 
                     all_results.append(result)
                     condition_results.setdefault(cond_name, []).append(result)
@@ -927,8 +1010,11 @@ def run_smoke_study(
 
     # Write smoke matrix
     matrix_conditions = []
-    for cond_name, cond_overrides, _fw_flag in CONDITIONS:
-        cfg = _make_config(0, cond_overrides)
+    for cond_name, cond_overrides, _fw_flag in effective_conditions:
+        if "_loaded_config" in cond_overrides:
+            cfg = cond_overrides["_loaded_config"]
+        else:
+            cfg = _make_config(0, cond_overrides)
         fw_enabled = cfg.firewall_enabled
         matrix_conditions.append(
             {
@@ -1055,6 +1141,18 @@ def run_smoke_study(
     }
     counts_path = output_dir / "metric_counts.json"
     counts_path.write_text(json.dumps(metric_counts, indent=2, sort_keys=True))
+
+    # FF-013: Write trial-level audit artifacts
+    from experiments.trustparadox_u.evaluator import (
+        write_reconstruction_trials,
+        write_recontamination_trials,
+    )
+
+    recon_trials_path = output_dir / "reconstruction_trials.jsonl"
+    write_reconstruction_trials(all_results, recon_trials_path)
+
+    recontam_trials_path = output_dir / "recontamination_trials.jsonl"
+    write_recontamination_trials(all_results, recontam_trials_path)
 
     # Write per-condition metrics (full_mvp carries the canonical paired utility)
     per_condition_metrics = _compute_per_condition_metrics(condition_results)
@@ -1416,6 +1514,7 @@ if __name__ == "__main__":
             split=args.split,
             candidate_corpus_path=args.candidate_corpus,
             repetitions_override=args.repetitions,
+            config_path=args.config,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

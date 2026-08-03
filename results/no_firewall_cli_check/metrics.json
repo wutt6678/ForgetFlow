@@ -1,0 +1,55 @@
+{
+  "pu_rer": {
+    "value": 0.058823529411764705,
+    "numerator": 1,
+    "denominator": 17,
+    "reason": null,
+    "evaluable": true
+  },
+  "crr": {
+    "value": 0.0,
+    "numerator": 0,
+    "denominator": 1,
+    "reason": null,
+    "evaluable": true
+  },
+  "rr": {
+    "value": 1.0,
+    "numerator": 1,
+    "denominator": 1,
+    "reason": null,
+    "evaluable": true,
+    "population": "clean_or_verified"
+  },
+  "rr_clean": {
+    "value": 1.0,
+    "numerator": 1,
+    "denominator": 1,
+    "reason": null,
+    "evaluable": true,
+    "population": "clean_or_verified"
+  },
+  "rr_at_risk": {
+    "value": null,
+    "numerator": 0,
+    "denominator": 0,
+    "reason": "no at-risk pair attempts",
+    "evaluable": false,
+    "population": "already_at_risk"
+  },
+  "fbr": {
+    "value": 0.0,
+    "numerator": 0,
+    "denominator": 4,
+    "reason": null,
+    "evaluable": true
+  },
+  "paired_policy_utility_retention": {
+    "value": null,
+    "numerator": 0,
+    "denominator": 0,
+    "reason": "no_eligible_pairs",
+    "evaluable": false
+  },
+  "metadata": null
+}

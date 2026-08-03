@@ -1,0 +1,428 @@
+{
+  "generated_at": "2026-08-03T09:07:03.263891+00:00",
+  "num_comparisons": 18,
+  "condition_pairs": [
+    [
+      "full_mvp",
+      "no_monitoring"
+    ],
+    [
+      "full_mvp",
+      "no_claim_detection"
+    ],
+    [
+      "full_mvp",
+      "binary_policy"
+    ],
+    [
+      "full_mvp",
+      "one_time_monitoring"
+    ],
+    [
+      "no_monitoring",
+      "no_claim_detection"
+    ],
+    [
+      "binary_policy",
+      "one_time_monitoring"
+    ]
+  ],
+  "comparisons": [
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 288,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 288.0,
+        "p_value": 0.0,
+        "effect_size": 0.0,
+        "n": 666,
+        "discordant": 288
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.4324,
+      "cohens_h": -1.4352
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 156,
+        "a_success_b_failure": 45,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 465
+      },
+      "mcnemar": {
+        "chi2": 45.0,
+        "p_value": 0.0,
+        "effect_size": null,
+        "n": 666,
+        "discordant": 45
+      },
+      "rate_a": 0.3018,
+      "rate_b": 0.2342,
+      "cohens_h": 0.1528
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 666
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 180,
+        "a_success_b_failure": 21,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 465
+      },
+      "mcnemar": {
+        "chi2": 21.0,
+        "p_value": 2e-06,
+        "effect_size": null,
+        "n": 666,
+        "discordant": 21
+      },
+      "rate_a": 0.3018,
+      "rate_b": 0.2703,
+      "cohens_h": 0.0698
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 666
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 156,
+        "a_success_b_failure": 45,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 465
+      },
+      "mcnemar": {
+        "chi2": 45.0,
+        "p_value": 0.0,
+        "effect_size": null,
+        "n": 666,
+        "discordant": 45
+      },
+      "rate_a": 0.3018,
+      "rate_b": 0.2342,
+      "cohens_h": 0.1528
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 666
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 201,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 465
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.3018,
+      "rate_b": 0.3018,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "no_claim_detection",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "no_claim_detection",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 288,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 288.0,
+        "p_value": 0.0,
+        "effect_size": null,
+        "n": 666,
+        "discordant": 288
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.0,
+      "cohens_h": 1.4352
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "no_claim_detection",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 156,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 24,
+        "a_failure_b_failure": 486
+      },
+      "mcnemar": {
+        "chi2": 24.0,
+        "p_value": 0.0,
+        "effect_size": 0.0,
+        "n": 666,
+        "discordant": 24
+      },
+      "rate_a": 0.2342,
+      "rate_b": 0.2703,
+      "cohens_h": -0.083
+    },
+    {
+      "condition_a": "binary_policy",
+      "condition_b": "one_time_monitoring",
+      "metric": "exposure",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 288,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 378
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.4324,
+      "rate_b": 0.4324,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "binary_policy",
+      "condition_b": "one_time_monitoring",
+      "metric": "recontamination",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 0,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 0,
+        "a_failure_b_failure": 666
+      },
+      "mcnemar": {
+        "chi2": 0.0,
+        "p_value": 1.0,
+        "effect_size": 1.0,
+        "n": 666,
+        "discordant": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0
+    },
+    {
+      "condition_a": "binary_policy",
+      "condition_b": "one_time_monitoring",
+      "metric": "task_success",
+      "n_pairs": 666,
+      "contingency": {
+        "a_success_b_success": 156,
+        "a_success_b_failure": 0,
+        "a_failure_b_success": 45,
+        "a_failure_b_failure": 465
+      },
+      "mcnemar": {
+        "chi2": 45.0,
+        "p_value": 0.0,
+        "effect_size": 0.0,
+        "n": 666,
+        "discordant": 45
+      },
+      "rate_a": 0.2342,
+      "rate_b": 0.3018,
+      "cohens_h": -0.1528
+    }
+  ]
+}

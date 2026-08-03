@@ -25,6 +25,12 @@ class MonitoringClockMode(str, Enum):
 
 @dataclass(frozen=True)
 class DetectorConfig:
+    """FF-021: All fields are operational (connected to runner logic).
+
+    - claim_matching_enabled: used in runner.py line ~1646
+    - claim_confidence_threshold: used in runner.py line ~1647
+    """
+
     exact_enabled: bool = True
     entity_enabled: bool = True
     embedding_enabled: bool = True
@@ -45,6 +51,11 @@ class DetectorConfig:
 
 @dataclass(frozen=True)
 class HistoryConfig:
+    """FF-021: All fields are operational (connected to runner logic).
+
+    - reconstruction_threshold: used in runner.py line ~893, ~906, ~927, ~962
+    """
+
     enabled: bool = True
     window_size: int = 5
     reconstruction_threshold: float = 0.60
@@ -153,6 +164,11 @@ class RunConfig:
 
 @dataclass(frozen=True)
 class ModelsConfig:
+    """FF-021: All fields are operational (connected to runner/preflight logic).
+
+    - embedding_dimension: used in providers.py, preflight.py, runner.py
+    """
+
     embedding_provider: str | None = None
     embedding_model: str | None = None
     embedding_dimension: int | None = None

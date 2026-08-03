@@ -1,4 +1,9 @@
-"""P1-16 through P1-25: Post-hoc evaluation and advanced metrics infrastructure."""
+"""P1-16 through P1-25: Post-hoc evaluation and advanced metrics infrastructure.
+
+FF-016: This module is a non-certifying helper library.
+It is NOT on the release-certification path.
+Use direct commands (smoke runner, evaluator) instead.
+"""
 
 from __future__ import annotations
 

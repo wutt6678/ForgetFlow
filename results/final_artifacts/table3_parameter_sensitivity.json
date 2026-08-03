@@ -1,0 +1,51 @@
+{
+  "table": "Table 3: Parameter Sensitivity",
+  "rows": [
+    {
+      "parameter": "detector",
+      "level": "high",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "detector",
+      "level": "low",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "detector",
+      "level": "medium",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "monitoring_duration",
+      "level": "1",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "monitoring_duration",
+      "level": "10",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "monitoring_duration",
+      "level": "5",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "policy",
+      "level": "balanced",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "policy",
+      "level": "rich",
+      "mean_crr": 0.0
+    },
+    {
+      "parameter": "policy",
+      "level": "strict",
+      "mean_crr": 0.0
+    }
+  ],
+  "grid_size": 27
+}

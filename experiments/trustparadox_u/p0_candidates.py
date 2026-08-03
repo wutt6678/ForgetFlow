@@ -1,4 +1,9 @@
-"""P0-4/5/6: Assertion-shaped candidates with claim/coreference support."""
+"""P0-4/5/6: Assertion-shaped candidates with claim/coreference support.
+
+FF-016: This module is a non-certifying helper library.
+It is NOT on the release-certification path.
+Use direct commands (smoke runner, candidate generation) instead.
+"""
 
 from __future__ import annotations
 
@@ -305,16 +310,13 @@ def run_phase0() -> Phase0Artifact:
                 for c in claim_candidates
             ],
             "fragment_sequences": [
-                {"id": fs.sequence_id, "fragments": list(fs.fragments)}
-                for fs in fragment_sequences
+                {"id": fs.sequence_id, "fragments": list(fs.fragments)} for fs in fragment_sequences
             ],
             "recontamination_messages": [
-                {"id": rm.message_id, "text": rm.text}
-                for rm in recontamination_msgs
+                {"id": rm.message_id, "text": rm.text} for rm in recontamination_msgs
             ],
             "task_fixtures": [
-                {"id": tf.fixture_id, "scenario": tf.scenario_id}
-                for tf in task_fixtures
+                {"id": tf.fixture_id, "scenario": tf.scenario_id} for tf in task_fixtures
             ],
         },
         sort_keys=True,

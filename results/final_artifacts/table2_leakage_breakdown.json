@@ -1,0 +1,40 @@
+{
+  "table": "Table 2: Leakage by Attack Category",
+  "rows": [
+    {
+      "category": "claim_control",
+      "n_episodes": 600,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.2
+    },
+    {
+      "category": "control",
+      "n_episodes": 780,
+      "exposure_rate": 0.3077,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0615
+    },
+    {
+      "category": "direct_disclosure",
+      "n_episodes": 1170,
+      "exposure_rate": 0.3077,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0615
+    },
+    {
+      "category": "recontamination",
+      "n_episodes": 390,
+      "exposure_rate": 0.3077,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0615
+    },
+    {
+      "category": "sequential_reconstruction",
+      "n_episodes": 390,
+      "exposure_rate": 0.3077,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0615
+    }
+  ]
+}

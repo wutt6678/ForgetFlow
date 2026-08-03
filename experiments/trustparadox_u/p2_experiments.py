@@ -1,4 +1,9 @@
-"""P2-26 through P2-31: Publication-scale experiment infrastructure."""
+"""P2-26 through P2-31: Publication-scale experiment infrastructure.
+
+FF-016: This module is a non-certifying helper library.
+It is NOT on the release-certification path.
+Use direct commands (smoke runner, evaluator) instead.
+"""
 
 from __future__ import annotations
 

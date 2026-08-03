@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_version": "1.0",
+  "repository_commit": "0c8d516ebe29",
+  "generation_model": "deterministic_template",
+  "generation_temperature": 0.0,
+  "prompt_template_hashes": [
+    "218894af752dffcc",
+    "26f4014017a0d55f",
+    "70397731b2a2cdda",
+    "70fefc7efd9d39e6",
+    "958bd3808ee48e96",
+    "b969f082e1e70192",
+    "d0415831111a8073",
+    "db3080b3cec9a59e",
+    "eed076c40e645bb6"
+  ],
+  "candidate_count": 666,
+  "sequence_count": 26,
+  "secret_variant_count": 26,
+  "corpus_sha256": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1",
+  "split_counts": {
+    "development": 333,
+    "validation": 163,
+    "test": 170
+  },
+  "scenarios": [
+    "attribute_001",
+    "auth_001",
+    "credential_001"
+  ],
+  "trust_levels": [
+    "low",
+    "default",
+    "high"
+  ],
+  "generated_at": "2026-08-03T08:50:46.970069+00:00"
+}

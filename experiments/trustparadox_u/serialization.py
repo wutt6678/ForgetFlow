@@ -337,6 +337,12 @@ def deserialize_turn(
         oracle_released_exposure=data.get("oracle_released_exposure", "none"),
         detected_candidate_exposure=data.get("detected_candidate_exposure", "none"),
         detected_released_exposure=data.get("detected_released_exposure", "none"),
+        # FF-006: Frozen independent oracle label (None = legacy data)
+        released_target_exposure=data.get("released_target_exposure"),
+        # FF-007: Per-target exposure labels
+        released_target_exposure_by_forget_id=dict(
+            data.get("released_target_exposure_by_forget_id", {})
+        ),
         # Outcome flags
         target_exposed=data.get("target_exposed", False),
         exposed_forget_ids=exposed_forget_ids,
@@ -440,6 +446,7 @@ def deserialize_episode_result(
         scenario_id=data["scenario_id"],
         trust_level=data["trust_level"],
         seed=data["seed"],
+        candidate_sample_id=data.get("candidate_sample_id", ""),
         turns=turns,
         contamination_states=contamination_states,
         audit_entries=data.get("audit_entries", []),

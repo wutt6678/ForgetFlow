@@ -1,28 +1,116 @@
 """Tests for dataset loading."""
 
+import json
+import tempfile
 from pathlib import Path
 
 import pytest
 
 from experiments.trustparadox_u.dataset import (
     SensitiveItemSpec,
+    compute_split_file_hash,
     load_episode,
     load_single_target_episode,
     load_split,
+    load_split_ids,
     validate_attack_target_references,
     validate_representation_ownership,
     validate_single_target_episode,
 )
 
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
-SPLITS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "splits"
+DATA_ROOT = Path(__file__).parents[2] / "data" / "trustparadox_u"
+SPLITS_DIR = DATA_ROOT / "splits"
 
 
 class TestDataset:
-    def test_load_split(self) -> None:
-        ids = load_split(SPLITS_DIR / "development.jsonl")
-        assert len(ids) == 3
+    """FF-002: Canonical split loader tests."""
+
+    def test_development_loads_episodes(self) -> None:
+        """Development split loads the correct episodes."""
+        episodes = load_split(DATA_ROOT, "development")
+        assert len(episodes) == 3
+        episode_ids = {ep.episode_id for ep in episodes}
+        assert "credential_001_high_direct" in episode_ids
+
+    def test_validation_loads_episodes(self) -> None:
+        """Validation split loads episodes."""
+        episodes = load_split(DATA_ROOT, "validation")
+        assert len(episodes) >= 1
+
+    def test_test_loads_episodes(self) -> None:
+        """Test split loads episodes."""
+        episodes = load_split(DATA_ROOT, "test")
+        assert len(episodes) >= 1
+
+    def test_unknown_split_raises_value_error(self) -> None:
+        """Unknown split name raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown split"):
+            load_split(DATA_ROOT, "nonexistent_split_xyz")
+
+    def test_load_split_ids_returns_ids(self) -> None:
+        """load_split_ids returns episode ID strings."""
+        ids = load_split_ids(DATA_ROOT, "development")
+        assert isinstance(ids, list)
+        assert all(isinstance(i, str) for i in ids)
         assert "credential_001_high_direct" in ids
+
+    def test_load_split_ids_unknown_split(self) -> None:
+        """load_split_ids raises ValueError for unknown split."""
+        with pytest.raises(ValueError, match="Unknown split"):
+            load_split_ids(DATA_ROOT, "nonexistent_split_xyz")
+
+    def test_missing_split_file_raises(self) -> None:
+        """Missing split file raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            load_split(DATA_ROOT / "nonexistent_root", "development")
+
+    def test_duplicate_id_raises(self) -> None:
+        """Duplicate episode_id in split file raises ValueError."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_root = Path(tmpdir)
+            # Create splits dir with duplicate
+            splits = tmp_root / "splits"
+            splits.mkdir()
+            dup_file = splits / "dup_test.jsonl"
+            with open(dup_file, "w") as f:
+                f.write(json.dumps({"episode_id": "ep1"}) + "\n")
+                f.write(json.dumps({"episode_id": "ep1"}) + "\n")
+            with pytest.raises(ValueError, match="Duplicate episode_id"):
+                load_split_ids(tmp_root, "dup_test")
+
+    def test_empty_split_raises(self) -> None:
+        """Empty split file raises ValueError."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_root = Path(tmpdir)
+            splits = tmp_root / "splits"
+            splits.mkdir()
+            empty_file = splits / "empty_test.jsonl"
+            empty_file.write_text("")
+            with pytest.raises(ValueError, match="empty"):
+                load_split_ids(tmp_root, "empty_test")
+
+    def test_unknown_episode_id_raises(self) -> None:
+        """Split referencing unknown episode_id raises ValueError."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_root = Path(tmpdir)
+            splits = tmp_root / "splits"
+            splits.mkdir()
+            scenarios = tmp_root / "scenarios"
+            scenarios.mkdir()
+            # Create a split referencing a non-existent episode
+            split_file = splits / "bad_test.jsonl"
+            with open(split_file, "w") as f:
+                f.write(json.dumps({"episode_id": "nonexistent_episode"}) + "\n")
+            with pytest.raises(ValueError, match="Unknown episode_id"):
+                load_split(tmp_root, "bad_test")
+
+    def test_split_file_hash_is_deterministic(self) -> None:
+        """Split file hash is stable across calls."""
+        h1 = compute_split_file_hash(SPLITS_DIR / "development.jsonl")
+        h2 = compute_split_file_hash(SPLITS_DIR / "development.jsonl")
+        assert h1 == h2
+        assert len(h1) == 64  # SHA-256 hex digest
 
 
 class TestSecretVariantId:

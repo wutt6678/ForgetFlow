@@ -1,0 +1,29 @@
+{
+  "findings": [],
+  "episodes_audited": 117,
+  "episodes_with_errors": 0,
+  "has_errors": false,
+  "error_counts_by_code": {
+    "HASH_MISMATCH": 0,
+    "MISSING_RECONSTRUCTION_CONTRIBUTORS": 0,
+    "MISSING_RECONSTRUCTION_VALUE": 0,
+    "PROBE_EXPOSURE_CONFLATION": 0,
+    "TARGETLESS_RECONSTRUCTION": 0,
+    "UNEXPECTED_RECONTAMINATION": 0,
+    "UTILITY_MISMATCH": 0
+  },
+  "counts_by_code": {
+    "HASH_MISMATCH": 0,
+    "MISSING_RECONSTRUCTION_CONTRIBUTORS": 0,
+    "MISSING_RECONSTRUCTION_VALUE": 0,
+    "PROBE_EXPOSURE_CONFLATION": 0,
+    "TARGETLESS_RECONSTRUCTION": 0,
+    "UNEXPECTED_RECONTAMINATION": 0,
+    "UTILITY_MISMATCH": 0
+  },
+  "artifact_checks_passed": true,
+  "research_claims_evaluable": false,
+  "research_valid": false,
+  "release_candidate": false,
+  "diagnostic_reason": null
+}
