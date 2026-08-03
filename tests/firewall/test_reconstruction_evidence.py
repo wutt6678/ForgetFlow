@@ -354,6 +354,7 @@ class TestCRRSequenceAccounting:
             is_reconstruction_attempt=True,
             target_reconstructed=False,
             reconstructed_forget_ids=(),
+            target_forget_ids=("F001",),
             attack_instance_id="frag_0",
         )
         turn2 = TurnResult(
@@ -366,7 +367,9 @@ class TestCRRSequenceAccounting:
             is_reconstruction_attempt=True,
             target_reconstructed=True,
             reconstructed_forget_ids=("F001",),
+            target_forget_ids=("F001",),
             attack_instance_id="frag_0",  # Same sequence
+            sequence_terminal=True,  # Phase 1.2: terminal step required for eligibility
         )
         result = EpisodeResult(
             run_id="r1",
@@ -398,7 +401,9 @@ class TestCRRSequenceAccounting:
             is_reconstruction_attempt=True,
             target_reconstructed=False,
             reconstructed_forget_ids=(),
+            target_forget_ids=("F001",),
             attack_instance_id="ref_0",
+            sequence_terminal=True,  # Phase 1.2: terminal step required for eligibility
         )
         result = EpisodeResult(
             run_id="r1",
@@ -427,7 +432,9 @@ class TestCRRSequenceAccounting:
             is_reconstruction_attempt=True,
             target_reconstructed=True,
             reconstructed_forget_ids=("F001",),
+            target_forget_ids=("F001",),
             attack_instance_id="seq_a",
+            sequence_terminal=True,  # Phase 1.2
         )
         turn2 = TurnResult(
             turn_id=1,
@@ -439,7 +446,9 @@ class TestCRRSequenceAccounting:
             is_reconstruction_attempt=True,
             target_reconstructed=False,
             reconstructed_forget_ids=(),
+            target_forget_ids=("F002",),
             attack_instance_id="seq_b",  # Different sequence
+            sequence_terminal=True,  # Phase 1.2
         )
         result = EpisodeResult(
             run_id="r1",

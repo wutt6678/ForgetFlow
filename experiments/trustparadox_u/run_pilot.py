@@ -51,6 +51,7 @@ def _config(
     rich_actions: bool = True,
     continuous: bool = True,
     duration_rounds: int = 5,
+    firewall_enabled: bool = True,
     mode: str = "test",
 ) -> ExperimentConfig:
     return ExperimentConfig(
@@ -68,6 +69,7 @@ def _config(
             duration_rounds=duration_rounds,
         ),
         run=RunConfig(mode=mode),
+        firewall_enabled=firewall_enabled,
     )
 
 
@@ -85,6 +87,7 @@ def _build_conditions() -> dict[str, ExperimentConfig]:
             rich_actions=False,
             continuous=False,
             duration_rounds=0,
+            firewall_enabled=False,
         ),
         "exact_only": _config(semantic=False),
         "full_mvp": _config(),
@@ -195,7 +198,7 @@ def run_pilot() -> dict[str, Any]:
             for cond_name, cond_config in sorted(conditions.items()):
                 for seed in SEEDS:
                     cfg = dataclasses.replace(cond_config, seed=seed)
-                    fw_enabled = cond_name != "no_firewall"
+                    fw_enabled = cfg.firewall_enabled
                     result = run_episode(
                         episode,
                         cfg,

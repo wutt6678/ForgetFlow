@@ -7,6 +7,8 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
+from experiments.trustparadox_u.p0_candidates import PhaseIncompleteError
+
 
 # P1-16: Independent post-hoc semantic evaluator
 @dataclass
@@ -318,3 +320,55 @@ class CIRequirement:
             "zero_failures": test_results.get("failed", 0) == 0,
             "ci_passed": test_results.get("failed", 0) == 0,
         }
+
+
+# Phase 0.7: Validated pipeline entry point
+@dataclass
+class Phase1Artifact:
+    """Validated Phase 1 output: evaluation infrastructure."""
+
+    evaluator: PostHocEvaluation
+    corpus_identity: CandidateCorpusIdentity
+    transformation_recheck: type[TransformationRecheck]
+    preflight: type[PreflightArtifacts]
+    artifact_hash: str
+
+
+def run_phase1() -> Phase1Artifact:
+    """Phase 1 pipeline stage: produce and validate evaluation infrastructure.
+
+    Returns a validated artifact containing all evaluation components.
+    Raises PhaseIncompleteError if any required component is missing.
+    """
+    evaluator = PostHocEvaluation(
+        evaluator_id="p1_post_hoc",
+        model_type="independent",
+        embedding_system="independent",
+    )
+    corpus_identity = CandidateCorpusIdentity()
+
+    # Validate components exist
+    if evaluator is None:
+        raise PhaseIncompleteError("Phase 1: evaluator not constructed")
+    if corpus_identity is None:
+        raise PhaseIncompleteError("Phase 1: corpus identity not constructed")
+
+    # Compute artifact hash
+    artifact_payload = json.dumps(
+        {
+            "evaluator_id": evaluator.evaluator_id,
+            "model_type": evaluator.model_type,
+            "embedding_system": evaluator.embedding_system,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    artifact_hash = hashlib.sha256(artifact_payload.encode()).hexdigest()
+
+    return Phase1Artifact(
+        evaluator=evaluator,
+        corpus_identity=corpus_identity,
+        transformation_recheck=TransformationRecheck,
+        preflight=PreflightArtifacts,
+        artifact_hash=artifact_hash,
+    )

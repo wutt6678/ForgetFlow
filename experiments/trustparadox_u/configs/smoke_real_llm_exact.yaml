@@ -22,8 +22,10 @@ firewall:
   detector:
     exact_enabled: true
     entity_enabled: false
-    semantic_enabled: false
-    semantic_threshold: 0.80
+    embedding_enabled: false
+    embedding_threshold: 0.80
+    claim_matching_enabled: false
+    claim_confidence_threshold: 0.70
   history:
     enabled: false
     window_size: 1

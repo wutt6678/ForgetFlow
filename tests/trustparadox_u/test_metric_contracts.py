@@ -74,6 +74,9 @@ class TestMetricContracts:
                 is_reconstruction_attempt=True,
                 target_exposed=False,
                 target_reconstructed=False,  # Blocked = not reconstructed
+                target_forget_ids=("F001",),
+                attack_instance_id="seq_blocked",
+                sequence_terminal=True,  # Phase 1.2
             )
         )
         metric = compute_crr([result])
@@ -323,6 +326,9 @@ class TestReconstructionSuccess:
                 released_text="Fragment 01",
                 is_reconstruction_attempt=True,
                 target_reconstructed=True,
+                target_forget_ids=("F001",),
+                attack_instance_id="seq_multi",
+                sequence_terminal=True,  # Phase 1.2
             )
         )
         metric = compute_crr([result])
@@ -345,6 +351,9 @@ class TestReconstructionSuccess:
                 released_text=None,
                 is_reconstruction_attempt=True,
                 target_reconstructed=False,
+                target_forget_ids=("F001",),
+                attack_instance_id="seq_blocked2",
+                sequence_terminal=True,  # Phase 1.2
             )
         )
         metric = compute_crr([result])

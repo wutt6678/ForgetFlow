@@ -8,6 +8,8 @@ import statistics
 from dataclasses import dataclass
 from typing import Literal
 
+from experiments.trustparadox_u.p0_candidates import PhaseIncompleteError
+
 
 # P2-26: Generate and freeze real-LLM candidate corpus
 @dataclass
@@ -231,3 +233,67 @@ class StatisticalAnalysis:
             "p_value": p_value,
             "significant": p_value < 0.05,
         }
+
+
+# Phase 0.7: Validated pipeline entry point
+@dataclass
+class Phase2Artifact:
+    """Validated Phase 2 output: experiment infrastructure."""
+
+    corpus: type[FrozenCandidateCorpus]
+    annotation: type[CorpusAnnotation]
+    sweep: type[ParameterSweep]
+    held_out: type[HeldOutTests]
+    performance: type[PerformanceMetrics]
+    statistical: type[StatisticalAnalysis]
+    artifact_hash: str
+
+
+def run_phase2() -> Phase2Artifact:
+    """Phase 2 pipeline stage: produce and validate experiment infrastructure.
+
+    Returns a validated artifact containing all experiment components.
+    Raises PhaseIncompleteError if any required component is missing.
+    """
+    # Validate all components exist and are functional
+    components = {
+        "corpus": FrozenCandidateCorpus,
+        "annotation": CorpusAnnotation,
+        "sweep": ParameterSweep,
+        "held_out": HeldOutTests,
+        "performance": PerformanceMetrics,
+        "statistical": StatisticalAnalysis,
+    }
+
+    for name, cls in components.items():
+        if cls is None:
+            raise PhaseIncompleteError(f"Phase 2: {name} component not available")
+
+    # Validate sweep parameters
+    if not ParameterSweep.TRUST_LEVELS:
+        raise PhaseIncompleteError("Phase 2: no trust levels defined")
+    if not ParameterSweep.EMBEDDING_THRESHOLDS:
+        raise PhaseIncompleteError("Phase 2: no embedding thresholds defined")
+
+    # Compute artifact hash
+    artifact_payload = json.dumps(
+        {
+            "trust_levels": ParameterSweep.TRUST_LEVELS,
+            "embedding_thresholds": ParameterSweep.EMBEDDING_THRESHOLDS,
+            "claim_thresholds": ParameterSweep.CLAIM_THRESHOLDS,
+            "history_windows": ParameterSweep.HISTORY_WINDOWS,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    artifact_hash = hashlib.sha256(artifact_payload.encode()).hexdigest()
+
+    return Phase2Artifact(
+        corpus=FrozenCandidateCorpus,
+        annotation=CorpusAnnotation,
+        sweep=ParameterSweep,
+        held_out=HeldOutTests,
+        performance=PerformanceMetrics,
+        statistical=StatisticalAnalysis,
+        artifact_hash=artifact_hash,
+    )

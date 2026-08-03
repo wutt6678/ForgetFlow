@@ -8,7 +8,9 @@ firewall:
   detector:
     exact_enabled: true
     entity_enabled: true
-    semantic_enabled: false
+    embedding_enabled: false
+    claim_matching_enabled: true
+    claim_confidence_threshold: 0.70
   history:
     enabled: true
     window_size: 5

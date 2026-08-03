@@ -119,6 +119,9 @@ class TestEvaluator:
                 is_reconstruction_attempt=True,
                 target_exposed=False,
                 target_reconstructed=False,  # Blocked = not reconstructed
+                target_forget_ids=("F001",),
+                attack_instance_id="seq_blocked",
+                sequence_terminal=True,  # Phase 1.2
             )
         )
         metric = compute_crr([result])
@@ -314,6 +317,7 @@ class TestSequenceTrials:
         recipient: str = "SK",
         forget_id: str = "F001",
         reconstructed: bool = False,
+        terminal: bool = False,
     ) -> TurnResult:
         return TurnResult(
             turn_id=turn_id,
@@ -327,6 +331,7 @@ class TestSequenceTrials:
             reconstructed_forget_ids=(forget_id,) if reconstructed else (),
             target_forget_ids=(forget_id,),
             sequence_id=seq_id,
+            sequence_terminal=terminal,
         )
 
     @staticmethod
@@ -355,10 +360,10 @@ class TestSequenceTrials:
 
         results = [
             self._result(
-                condition="full_mvp", seed=42, turns=[self._recon_turn(0, seq_id="seq_0")]
+                condition="full_mvp", seed=42, turns=[self._recon_turn(0, seq_id="seq_0", terminal=True)]
             ),
             self._result(
-                condition="no_firewall", seed=42, turns=[self._recon_turn(0, seq_id="seq_0")]
+                condition="no_firewall", seed=42, turns=[self._recon_turn(0, seq_id="seq_0", terminal=True)]
             ),
         ]
         trials = extract_sequence_trials(results)
@@ -370,8 +375,8 @@ class TestSequenceTrials:
         from experiments.trustparadox_u.evaluator import extract_sequence_trials
 
         results = [
-            self._result(condition="full_mvp", seed=1, turns=[self._recon_turn(0, seq_id="seq_0")]),
-            self._result(condition="full_mvp", seed=2, turns=[self._recon_turn(0, seq_id="seq_0")]),
+            self._result(condition="full_mvp", seed=1, turns=[self._recon_turn(0, seq_id="seq_0", terminal=True)]),
+            self._result(condition="full_mvp", seed=2, turns=[self._recon_turn(0, seq_id="seq_0", terminal=True)]),
         ]
         trials = extract_sequence_trials(results)
         assert {t.seed for t in trials} == {1, 2}
@@ -384,7 +389,7 @@ class TestSequenceTrials:
         turns = [
             self._recon_turn(0, seq_id="seq_0"),
             self._recon_turn(1, seq_id="seq_0"),
-            self._recon_turn(2, seq_id="seq_0", reconstructed=True),
+            self._recon_turn(2, seq_id="seq_0", reconstructed=True, terminal=True),
         ]
         trials = extract_sequence_trials([self._result(condition="c", seed=42, turns=turns)])
         assert len(trials) == 1
@@ -394,7 +399,7 @@ class TestSequenceTrials:
         """CRR denominator counts sequences, not the turns within them."""
         turns = [
             self._recon_turn(0, seq_id="seq_0"),
-            self._recon_turn(1, seq_id="seq_0", reconstructed=True),
+            self._recon_turn(1, seq_id="seq_0", reconstructed=True, terminal=True),
         ]
         metric = compute_crr([self._result(condition="c", seed=42, turns=turns)])
         # 2 turns but exactly 1 sequence trial
@@ -412,14 +417,14 @@ class TestSequenceTrials:
                 run_id="r1",
                 turns=[
                     self._recon_turn(0, seq_id="seq_0"),
-                    self._recon_turn(1, seq_id="seq_0", reconstructed=True),
+                    self._recon_turn(1, seq_id="seq_0", reconstructed=True, terminal=True),
                 ],
             ),
             self._result(
                 condition="full_mvp",
                 seed=42,
                 run_id="r2",
-                turns=[self._recon_turn(0, seq_id="seq_0")],
+                turns=[self._recon_turn(0, seq_id="seq_0", terminal=True)],
             ),
         ]
         metric = compute_crr(results)

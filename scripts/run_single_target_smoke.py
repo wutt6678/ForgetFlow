@@ -97,10 +97,11 @@ ARTIFACT_SCHEMA_VERSION = "1.0.0"
 # Condition definitions: (name, config_overrides, firewall_enabled)
 # Each condition must be scientifically distinct
 # Per spec: separate embedding and claim detection, redefine exact-only as true exact-only baseline
+# Phase 0.4: firewall_enabled is now stored in overrides and read from config
 CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
     (
         "no_firewall",
-        {},
+        {"firewall_enabled": False},
         False,
     ),
     (
@@ -115,6 +116,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "history": HistoryConfig(enabled=False),
             "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
             "policy": PolicyConfig(rich_actions_enabled=False),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -130,6 +132,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "history": HistoryConfig(enabled=False),
             "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
             "policy": PolicyConfig(rich_actions_enabled=False),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -147,6 +150,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
             "history": HistoryConfig(enabled=False),
             "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
             "policy": PolicyConfig(rich_actions_enabled=False),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -159,6 +163,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
                 embedding_enabled=True,
                 claim_matching_enabled=True,
             ),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -171,6 +176,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
                 embedding_enabled=False,
                 claim_matching_enabled=True,
             ),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -183,6 +189,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
                 embedding_enabled=True,
                 claim_matching_enabled=False,
             ),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -190,6 +197,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "stateless",
         {
             "history": HistoryConfig(enabled=False),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -197,6 +205,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "binary_policy",
         {
             "policy": PolicyConfig(rich_actions_enabled=False),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -204,6 +213,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "monitoring_0",
         {
             "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -211,6 +221,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "monitoring_1",
         {
             "monitoring": MonitoringConfig(continuous=False, duration_rounds=1),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -218,6 +229,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "continuous",
         {
             "monitoring": MonitoringConfig(continuous=True),
+            "firewall_enabled": True,
         },
         True,
     ),
@@ -227,6 +239,7 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         "monitoring_only",
         {
             "monitoring": MonitoringConfig(continuous=True, duration_rounds=3),
+            "firewall_enabled": False,
         },
         False,  # No firewall
     ),
@@ -255,13 +268,20 @@ def _make_config(seed: int, overrides: dict[str, Any]) -> ExperimentConfig:
         policy=PolicyConfig(),
         monitoring=MonitoringConfig(),
         run=RunConfig(mode="test"),
+        firewall_enabled=True,
     )
     kwargs.update(overrides)
     return ExperimentConfig(**kwargs)
 
 
-def _build_smoke_responder(episode: Any) -> Any:
+def _build_smoke_responder(
+    episode: Any,
+    candidate_corpus: list[dict[str, Any]] | None = None,
+) -> Any:
     """Build a ScriptedResponder that uses the deterministic candidate corpus.
+
+    Phase 0.6: If candidate_corpus is provided, use it as the source of
+    candidate messages instead of the built-in corpus.
 
     For legitimate_task turns, returns the task's success_value text so that
     the no-firewall baseline has task_success=True. For attack turns, returns
@@ -743,15 +763,70 @@ class SmokeReport:
         }
 
 
+def _load_candidates_corpus(corpus_path: Path) -> list[dict[str, Any]]:
+    """Phase 0.6: Load a frozen candidate corpus from JSONL."""
+    if not corpus_path.exists():
+        raise FileNotFoundError(f"Candidate corpus not found: {corpus_path}")
+    candidates: list[dict[str, Any]] = []
+    with open(corpus_path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                candidates.append(json.loads(line))
+    return candidates
+
+
+def _filter_fixtures_by_split(
+    fixtures: list[str],
+    split: str,
+) -> list[str]:
+    """Phase 0.6: Filter fixtures by dataset split.
+
+    Uses the splits/ JSONL files to determine which scenario_ids belong
+    to each split. Falls back to all fixtures if split file is missing.
+    """
+    splits_dir = PROJECT_ROOT / "data" / "trustparadox_u" / "splits"
+    split_file = splits_dir / f"{split}.jsonl"
+    if not split_file.exists():
+        return fixtures
+
+    # Load scenario_ids for this split
+    split_scenario_ids: set[str] = set()
+    with open(split_file) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entry = json.loads(line)
+                sid = entry.get("scenario_id", "")
+                if sid:
+                    split_scenario_ids.add(sid)
+
+    # Filter fixtures to those whose scenario_id is in the split
+    filtered = []
+    for fixture_name in fixtures:
+        ep = load_episode(SCENARIOS_DIR / fixture_name)
+        if ep.scenario_id in split_scenario_ids:
+            filtered.append(fixture_name)
+
+    return filtered if filtered else fixtures
+
+
 def run_smoke_study(
     output_dir: Path,
     mode: str = "diagnostic",
+    *,
+    split: str | None = None,
+    candidate_corpus_path: Path | None = None,
+    repetitions_override: int | None = None,
 ) -> SmokeReport:
     """Run the complete smoke study and return validation results.
 
     Args:
         output_dir: Directory to write artifacts
         mode: "release" or "diagnostic"
+        split: Dataset split for scenario filtering (development/validation/test)
+        candidate_corpus_path: Path to frozen candidate corpus JSONL
+        repetitions_override: Override for config.repetitions
     """
     if mode not in ("release", "diagnostic"):
         raise ValueError(f"Invalid mode: {mode}. Must be 'release' or 'diagnostic'.")
@@ -780,37 +855,55 @@ def run_smoke_study(
     run_ids: set[str] = set()
     run_id_to_condition: dict[str, str] = {}
 
+    # Phase 0.6: Load candidate corpus if provided
+    candidate_corpus = None
+    if candidate_corpus_path is not None:
+        candidate_corpus = _load_candidate_corpus(candidate_corpus_path)
+
+    # Phase 0.6: Determine effective repetitions
+    effective_repetitions = repetitions_override if repetitions_override is not None else 1
+
+    # Phase 0.6: Filter fixtures by split if provided
+    active_fixtures = FIXTURES
+    if split is not None:
+        active_fixtures = _filter_fixtures_by_split(FIXTURES, split)
+
     print(
         f"Running smoke study ({mode} mode): "
-        f"{len(FIXTURES)} fixtures x {len(SEEDS)} seeds x {len(CONDITIONS)} conditions"
+        f"{len(active_fixtures)} fixtures x {len(SEEDS)} seeds x {len(CONDITIONS)} conditions"
+        f" x {effective_repetitions} repetitions"
     )
 
-    for fixture_name in FIXTURES:
+    for fixture_name in active_fixtures:
         ep = load_episode(SCENARIOS_DIR / fixture_name)
-        responder = _build_smoke_responder(ep)
+        responder = _build_smoke_responder(ep, candidate_corpus=candidate_corpus)
         for seed in SEEDS:
-            for cond_name, cond_overrides, fw_enabled in CONDITIONS:
-                cfg = _make_config(seed, cond_overrides)
-                # Include condition name in run_id for uniqueness
-                run_id = hashlib.sha256(
-                    f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
-                ).hexdigest()[:20]
-                result = run_episode(
-                    ep, cfg, responder=responder, firewall_enabled=fw_enabled, run_id=run_id
-                )
+            for rep_idx in range(effective_repetitions):
+                for cond_name, cond_overrides, _fw_flag in CONDITIONS:
+                    cfg = _make_config(seed, cond_overrides)
+                    # Phase 0.4: derive firewall_enabled from resolved config
+                    fw_enabled = cfg.firewall_enabled
+                    # Include condition name and repetition in run_id for uniqueness
+                    run_id = hashlib.sha256(
+                        f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}|{rep_idx}".encode()
+                    ).hexdigest()[:20]
+                    result = run_episode(
+                        ep, cfg, responder=responder, firewall_enabled=fw_enabled, run_id=run_id
+                    )
 
-                # Track unique run IDs
-                if result.run_id in run_ids:
-                    raise ValueError(f"Duplicate run_id: {result.run_id}")
-                run_ids.add(result.run_id)
-                run_id_to_condition[result.run_id] = cond_name
+                    # Track unique run IDs
+                    if result.run_id in run_ids:
+                        raise ValueError(f"Duplicate run_id: {result.run_id}")
+                    run_ids.add(result.run_id)
+                    run_id_to_condition[result.run_id] = cond_name
 
-                # Add condition metadata
-                result.metadata["smoke_condition"] = cond_name
-                result.metadata["firewall_enabled"] = fw_enabled
+                    # Add condition metadata
+                    result.metadata["smoke_condition"] = cond_name
+                    result.metadata["firewall_enabled"] = fw_enabled
+                    result.metadata["repetition_index"] = rep_idx
 
-                all_results.append(result)
-                condition_results.setdefault(cond_name, []).append(result)
+                    all_results.append(result)
+                    condition_results.setdefault(cond_name, []).append(result)
 
     print(f"Completed {len(all_results)} runs")
 
@@ -834,8 +927,9 @@ def run_smoke_study(
 
     # Write smoke matrix
     matrix_conditions = []
-    for cond_name, cond_overrides, fw_enabled in CONDITIONS:
+    for cond_name, cond_overrides, _fw_flag in CONDITIONS:
         cfg = _make_config(0, cond_overrides)
+        fw_enabled = cfg.firewall_enabled
         matrix_conditions.append(
             {
                 "name": cond_name,
@@ -1284,6 +1378,30 @@ if __name__ == "__main__":
         default=None,
         help="Override default seeds (default: 42 123 7)",
     )
+    parser.add_argument(
+        "--split",
+        choices=["development", "validation", "test"],
+        default=None,
+        help="Dataset split to use for scenario filtering",
+    )
+    parser.add_argument(
+        "--candidate-corpus",
+        type=Path,
+        default=None,
+        help="Path to frozen candidate corpus JSONL",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to experiment config YAML (overrides built-in conditions)",
+    )
+    parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=None,
+        help="Override repetitions (default: from config or 1)",
+    )
     args = parser.parse_args()
 
     # Override SEEDS in place if provided
@@ -1292,7 +1410,13 @@ if __name__ == "__main__":
         SEEDS.extend(args.seeds)
 
     try:
-        report = run_smoke_study(args.output_dir, mode=args.mode)
+        report = run_smoke_study(
+            args.output_dir,
+            mode=args.mode,
+            split=args.split,
+            candidate_corpus_path=args.candidate_corpus,
+            repetitions_override=args.repetitions,
+        )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(EXIT_INPUT_CONFIG)

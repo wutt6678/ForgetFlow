@@ -17,6 +17,7 @@ from experiments.trustparadox_u.config import (
 )
 
 SMOKE_YAML = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "configs" / "smoke.yaml"
+CONFIGS_DIR = Path(__file__).parents[2] / "experiments" / "trustparadox_u" / "configs"
 
 
 class TestDetectorConfig:
@@ -310,3 +311,33 @@ models:
                     load_config(f.name)
             finally:
                 os.unlink(f.name)
+
+
+class TestAllYamlConfigsLoad:
+    """Phase 0.2: Every YAML config in the configs directory must load."""
+
+    _yaml_files = sorted(CONFIGS_DIR.glob("*.yaml"))
+
+    @pytest.mark.parametrize("yaml_path", _yaml_files, ids=lambda p: p.name)
+    def test_config_loads(self, yaml_path: Path) -> None:
+        cfg = load_config(yaml_path)
+        assert isinstance(cfg, ExperimentConfig)
+        assert cfg.seed is not None
+        assert cfg.repetitions >= 1
+
+    @pytest.mark.parametrize("yaml_path", _yaml_files, ids=lambda p: p.name)
+    def test_config_has_firewall_enabled(self, yaml_path: Path) -> None:
+        cfg = load_config(yaml_path)
+        assert isinstance(cfg.firewall_enabled, bool)
+
+    @pytest.mark.parametrize("yaml_path", _yaml_files, ids=lambda p: p.name)
+    def test_config_detector_has_claim_fields(self, yaml_path: Path) -> None:
+        cfg = load_config(yaml_path)
+        assert isinstance(cfg.detector.claim_matching_enabled, bool)
+        assert 0.0 <= cfg.detector.claim_confidence_threshold <= 1.0
+
+    @pytest.mark.parametrize("yaml_path", _yaml_files, ids=lambda p: p.name)
+    def test_config_detector_has_embedding_fields(self, yaml_path: Path) -> None:
+        cfg = load_config(yaml_path)
+        assert isinstance(cfg.detector.embedding_enabled, bool)
+        assert 0.0 <= cfg.detector.embedding_threshold <= 1.0

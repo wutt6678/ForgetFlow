@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import sys
@@ -206,9 +207,9 @@ def run_real_llm_smoke(
                 try:
                     ep = load_episode(SCENARIOS_DIR / scenario_file)
 
-                    # Override trust level if needed
-                    # (scenarios have a fixed trust_level in YAML;
-                    #  for the smoke test we use what's in the file)
+                    # Phase 0.5: Replace episode trust level with requested trust condition
+                    ep = dataclasses.replace(ep, trust_level=trust_level)
+
                     run_id = hashlib.sha256(
                         f"{ep.episode_id}|{trust_level}|{rep}|{config.seed}".encode()
                     ).hexdigest()[:20]
@@ -217,7 +218,7 @@ def run_real_llm_smoke(
                         ep,
                         config,
                         responder=chat_provider,
-                        firewall_enabled=True,
+                        firewall_enabled=config.firewall_enabled,
                         run_id=run_id,
                     )
 

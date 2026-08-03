@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 
+class PhaseIncompleteError(Exception):
+    """Raised when a pipeline phase cannot produce its required artifact."""
+
+
 # P0-4: Assertion-shaped disclosure candidates (not questions)
 @dataclass(frozen=True)
 class AssertionCandidate:
@@ -240,3 +244,88 @@ def create_binary_policy_config() -> dict:
         "policy": {"rich_actions_enabled": False},  # ONLY difference from full_mvp
         "monitoring": {"continuous": True},
     }
+
+
+# Phase 0.7: Validated pipeline entry point
+@dataclass
+class Phase0Artifact:
+    """Validated Phase 0 output: candidate corpus."""
+
+    claim_candidates: list[AssertionCandidate]
+    fragment_sequences: list[FragmentSequence]
+    recontamination_messages: list[RecontaminationMessage]
+    task_fixtures: list[TaskSuccessFixture]
+    corpus_hash: str
+
+
+def run_phase0() -> Phase0Artifact:
+    """Phase 0 pipeline stage: produce and validate the candidate corpus.
+
+    Returns a validated artifact containing all candidate types.
+    Raises PhaseIncompleteError if any required component is empty.
+    """
+    import hashlib
+    import json
+
+    claim_candidates = list(CLAIM_COREFERENCE_CANDIDATES)
+    fragment_sequences = list(FRAGMENT_SEQUENCES)
+    recontamination_msgs = list(RECONTAMINATION_MESSAGES)
+    task_fixtures = list(TASK_SUCCESS_FIXTURES)
+
+    # Validate each component
+    if not claim_candidates:
+        raise PhaseIncompleteError("Phase 0: no claim candidates produced")
+    if not fragment_sequences:
+        raise PhaseIncompleteError("Phase 0: no fragment sequences produced")
+    if not recontamination_msgs:
+        raise PhaseIncompleteError("Phase 0: no recontamination messages produced")
+    if not task_fixtures:
+        raise PhaseIncompleteError("Phase 0: no task success fixtures produced")
+
+    # Validate individual items
+    for c in claim_candidates:
+        errors = validate_claim_candidate(c)
+        if errors:
+            raise PhaseIncompleteError(f"Phase 0: invalid claim candidate: {errors}")
+    for fs in fragment_sequences:
+        errors = fs.validate()
+        if errors:
+            raise PhaseIncompleteError(f"Phase 0: invalid fragment sequence: {errors}")
+    for rm in recontamination_msgs:
+        if not rm.is_target_bearing():
+            raise PhaseIncompleteError(
+                f"Phase 0: recontamination message {rm.message_id} is not target-bearing"
+            )
+
+    # Compute corpus hash
+    corpus_payload = json.dumps(
+        {
+            "claim_candidates": [
+                {"id": c.candidate_id, "text": c.text, "scenario": c.scenario_id}
+                for c in claim_candidates
+            ],
+            "fragment_sequences": [
+                {"id": fs.sequence_id, "fragments": list(fs.fragments)}
+                for fs in fragment_sequences
+            ],
+            "recontamination_messages": [
+                {"id": rm.message_id, "text": rm.text}
+                for rm in recontamination_msgs
+            ],
+            "task_fixtures": [
+                {"id": tf.fixture_id, "scenario": tf.scenario_id}
+                for tf in task_fixtures
+            ],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    corpus_hash = hashlib.sha256(corpus_payload.encode()).hexdigest()
+
+    return Phase0Artifact(
+        claim_candidates=claim_candidates,
+        fragment_sequences=fragment_sequences,
+        recontamination_messages=recontamination_msgs,
+        task_fixtures=task_fixtures,
+        corpus_hash=corpus_hash,
+    )

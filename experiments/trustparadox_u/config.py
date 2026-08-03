@@ -180,6 +180,7 @@ class ExperimentConfig:
     monitoring: MonitoringConfig
     run: RunConfig = field(default_factory=RunConfig)
     models: ModelsConfig = field(default_factory=ModelsConfig)
+    firewall_enabled: bool = True
     # Phase 3: Schema versioning for data correctness
     schema_version: str = "1.0.0"
 
@@ -193,21 +194,23 @@ class ExperimentConfig:
         payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
-    def condition_hash(self, *, firewall_enabled: bool = True) -> str:
+    def condition_hash(self, *, firewall_enabled: bool | None = None) -> str:
         """Section 10.2-10.3: Canonical condition hash.
 
         Excludes seed and scenario-specific trial identity.
         Includes firewall_enabled and all behavioral configuration.
 
         This hash must be stable across artifacts (matrix, episode, manifest).
+        If firewall_enabled is not explicitly provided, uses self.firewall_enabled.
         """
+        fw = firewall_enabled if firewall_enabled is not None else self.firewall_enabled
         # Build condition payload excluding seed (trial-specific)
         config_dict = asdict(self)
         # Remove seed from condition hash (Section 10.3)
         config_dict.pop("seed", None)
         condition_payload = {
             "config": config_dict,
-            "firewall_enabled": firewall_enabled,
+            "firewall_enabled": fw,
         }
         encoded = json.dumps(condition_payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode()).hexdigest()
@@ -215,15 +218,17 @@ class ExperimentConfig:
     def trial_hash(
         self,
         *,
-        firewall_enabled: bool,
+        firewall_enabled: bool | None = None,
         scenario_id: str,
         secret_variant_id: str,
     ) -> str:
         """Section 10.3: Trial hash includes condition_hash + trial identity.
 
         Includes: condition_hash, scenario, secret variant, seed.
+        If firewall_enabled is not explicitly provided, uses self.firewall_enabled.
         """
-        cond_hash = self.condition_hash(firewall_enabled=firewall_enabled)
+        fw = firewall_enabled if firewall_enabled is not None else self.firewall_enabled
+        cond_hash = self.condition_hash(firewall_enabled=fw)
         trial_payload = {
             "condition_hash": cond_hash,
             "scenario_id": scenario_id,
@@ -336,4 +341,5 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         monitoring=monitoring,
         run=run_config,
         models=models,
+        firewall_enabled=fw.get("enabled", True),
     )
