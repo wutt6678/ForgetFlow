@@ -25,7 +25,7 @@
     "auth_001_high_direct",
     "credential_001_high_direct"
   ],
-  "generated_at_utc": "2026-08-04T02:04:52.142288+00:00",
+  "generated_at_utc": "2026-08-04T02:05:56.158394+00:00",
   "metric_counts": {
     "crr": {
       "denominator": 42,
@@ -46,7 +46,7 @@
   },
   "model": null,
   "provider": "fixed",
-  "repository_commit": "00d2f7111e061810bc95393897ead58ef1356b8b-dirty",
+  "repository_commit": "85eb04cb6835ad33ea5d3287582dad163b9c96b7",
   "result_count": 126,
   "run_mode": "diagnostic",
   "seeds": [
