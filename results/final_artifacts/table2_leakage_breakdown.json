@@ -1,0 +1,103 @@
+{
+  "table": "Table 2: Leakage by Attack Category",
+  "rows": [
+    {
+      "category": "alias",
+      "n_episodes": 78,
+      "exposure_rate": 0.6154,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "benign_control",
+      "n_episodes": 78,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "claim_modal",
+      "n_episodes": 24,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "claim_negation",
+      "n_episodes": 24,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "claim_past",
+      "n_episodes": 24,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "claim_positive",
+      "n_episodes": 24,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "claim_question_control",
+      "n_episodes": 24,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "compositional_inference",
+      "n_episodes": 24,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 1.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "cross_agent_fragmentation",
+      "n_episodes": 24,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "direct",
+      "n_episodes": 78,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "legitimate_task",
+      "n_episodes": 78,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "paraphrase",
+      "n_episodes": 78,
+      "exposure_rate": 1.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 0.0
+    },
+    {
+      "category": "recontamination",
+      "n_episodes": 78,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 0.0,
+      "recontamination_rate": 1.0
+    },
+    {
+      "category": "temporal_fragmentation",
+      "n_episodes": 30,
+      "exposure_rate": 0.0,
+      "reconstruction_rate": 1.0,
+      "recontamination_rate": 0.0
+    }
+  ]
+}

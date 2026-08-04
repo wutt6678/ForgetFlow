@@ -1,0 +1,88 @@
+{
+  "schema_version": "2.0.0",
+  "study_name": "TrustParadox-U Primary Study",
+  "repository_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
+  "provenance": {
+    "tested_code_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
+    "artifact_generation_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
+    "repository_clean": true,
+    "workflow_run_id": "",
+    "workflow_attempt": "",
+    "generated_at": "2026-08-04T11:15:13.224067+00:00"
+  },
+  "generated_at": "2026-08-04T11:15:13.224087+00:00",
+  "corpus": {
+    "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+    "total_candidates": 768,
+    "scenarios": [
+      "attribute_001",
+      "auth_001",
+      "credential_001"
+    ],
+    "attack_types": {},
+    "splits": {
+      "development": 384,
+      "validation": 180,
+      "test": 204
+    }
+  },
+  "annotations": {
+    "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
+    "total_annotations": 768,
+    "review_status": {
+      "adjudicated": 462,
+      "verified": 306
+    },
+    "attack_type_counts": {
+      "alias": 78,
+      "benign_control": 78,
+      "compositional_inference": 72,
+      "direct": 78,
+      "legitimate_task": 78,
+      "paraphrase": 78,
+      "recontamination": 78,
+      "claim_modal": 24,
+      "claim_negation": 24,
+      "claim_past": 24,
+      "claim_positive": 24,
+      "claim_question_control": 24,
+      "cross_agent_fragmentation": 48,
+      "temporal_fragmentation": 60
+    }
+  },
+  "tables": {
+    "table1_main_results": {
+      "title": "Table 1: Main Results by Condition",
+      "num_rows": 6
+    },
+    "table2_leakage_breakdown": {
+      "title": "Table 2: Leakage by Attack Category",
+      "num_rows": 14
+    },
+    "table3_parameter_sensitivity": {
+      "title": "Table 3: Parameter Sensitivity",
+      "num_rows": 19
+    },
+    "table4_statistical_comparisons": {
+      "title": "Table 4: Paired Statistical Comparisons",
+      "num_rows": 46
+    }
+  },
+  "conditions": [
+    "no_firewall",
+    "full_mvp",
+    "no_monitoring",
+    "no_claim_detection",
+    "binary_policy",
+    "one_time_monitoring"
+  ],
+  "exit_criteria": {
+    "all_tables_built": true,
+    "all_conditions_run": true,
+    "all_metrics_computed": true,
+    "paired_statistics_available": true,
+    "leakage_breakdown_available": true,
+    "parameter_sweep_complete": true
+  },
+  "certification": "see research_valid_gate.json for the research-valid verdict"
+}
