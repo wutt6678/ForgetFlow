@@ -1,10 +1,10 @@
 {
-  "run_id": "frozen_replay_6fa3d8f",
-  "generated_at": "2026-08-04T22:36:20.492932+00:00",
+  "run_id": "frozen_replay_58b1de9",
+  "generated_at": "2026-08-04T22:45:21.954116+00:00",
   "mode": "research",
   "study_class": "diagnostic",
   "seed": 42,
-  "git_commit": "6fa3d8f",
+  "git_commit": "58b1de9",
   "conditions": [
     "no_firewall",
     "exact_only",
@@ -32,27 +32,27 @@
   },
   "artifact_files": {
     "episodes.jsonl": {
-      "sha256": "8b96f64adc5e65bc559c2882d035a304fe7d1d94be799eb43362f975eeea8b71",
+      "sha256": "c13785d9aeca4102ffdfd12613b793d03bdc9bf330f768cdef032b7afd1802a7",
       "bytes": 4739751
     },
     "turns.jsonl": {
-      "sha256": "84dc96dbc1c03f29ccbdfb1374a3bf416f284d52bd20606bb135a382e56d90f3",
+      "sha256": "96c67701b4a19c165f6320d2fe4c6bea45bd4a59f0ca6342d1db6e1aa41c73c7",
       "bytes": 40913112
     },
     "message_audit.jsonl": {
-      "sha256": "8e8a935c05f858cb99020f44a9df0c81a5a68d587e63281de5963ae3e4e109f5",
+      "sha256": "7778d0e830c4155fce4163201179c6828c43d0bf3a3239980c65c78282c18626",
       "bytes": 19603410
     },
     "candidate_trials.jsonl": {
-      "sha256": "51d72afa7f8707643bc714837bc0ff6a76267636e8118da958a87e1b6090521c",
+      "sha256": "629b4702359dce85645839c531c819acb759f2d32c308495525f31a25176e29c",
       "bytes": 4490268
     },
     "reconstruction_trials.jsonl": {
-      "sha256": "4beca6f5ecb8ef17a056a1d5abcfd42abca859565674a755cf2a6d6912371810",
+      "sha256": "fa9568208a388f10842fc46108ef1ad77cce94645134715962696bb211b4f3ca",
       "bytes": 966252
     },
     "recontamination_trials.jsonl": {
-      "sha256": "05cedea92efa0971e5319ef01b083837696e7c0a8d354e491b8f78cd32db369b",
+      "sha256": "bdcb04d26428d2f21b5cbfdcf87550b3da3d299ad28bd55d900d8181769e7721",
       "bytes": 515745
     },
     "utility_trials.jsonl": {
@@ -77,11 +77,11 @@
     }
   },
   "provenance": {
-    "tested_code_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
-    "artifact_generation_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:36:14.857581+00:00"
+    "generated_at": "2026-08-04T22:45:16.286474+00:00"
   }
 }

@@ -2,16 +2,39 @@
   "schema_version": "2.0.0",
   "study_name": "TrustParadox-U Primary Study",
   "study_class": "diagnostic",
-  "repository_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+  "protocol_version": "1.0.0",
+  "table_question_map": {
+    "table1_main_results": [
+      "RQ1",
+      "RQ2",
+      "RQ3",
+      "RQ4",
+      "RQ5"
+    ],
+    "table2_leakage_breakdown": [
+      "RQ1"
+    ],
+    "table3_parameter_sensitivity": [
+      "RQ1"
+    ],
+    "table4_statistical_comparisons": [
+      "RQ1",
+      "RQ2",
+      "RQ3",
+      "RQ4",
+      "RQ5"
+    ]
+  },
+  "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
   "provenance": {
-    "tested_code_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
-    "artifact_generation_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:36:38.482665+00:00"
+    "generated_at": "2026-08-04T22:45:40.066192+00:00"
   },
-  "generated_at": "2026-08-04T22:36:38.482746+00:00",
+  "generated_at": "2026-08-04T22:45:40.066299+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,

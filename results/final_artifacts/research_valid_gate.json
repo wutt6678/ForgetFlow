@@ -7,26 +7,31 @@
   "research_valid": false,
   "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+  "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
   "provenance": {
-    "tested_code_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
-    "artifact_generation_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:36:55.547976+00:00"
+    "generated_at": "2026-08-04T22:45:57.084157+00:00"
   },
-  "generated_at": "2026-08-04T22:36:55.547990+00:00",
+  "generated_at": "2026-08-04T22:45:57.084170+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "repository_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+      "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
       "findings": []
     },
     "no_invalidated_artifacts": {
       "passed": true,
       "invalidation_markers": [],
       "stale_research_valid_claims": []
+    },
+    "research_protocol": {
+      "passed": true,
+      "question_count": 7,
+      "findings": []
     },
     "corpus_valid": {
       "passed": true,
@@ -112,7 +117,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1732 passed, 4 skipped in 14.87s"
+      "output": "1745 passed, 4 skipped in 14.87s"
     },
     "static_checks": {
       "passed": true,
