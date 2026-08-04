@@ -227,6 +227,10 @@ def build_study_manifest(
         build_certification_provenance,
         code_tree_is_clean,
     )
+    from experiments.trustparadox_u.research_protocol import (
+        PROTOCOL_VERSION,
+        TABLE_QUESTION_MAP,
+    )
     from experiments.trustparadox_u.status import (
         STUDY_CLASS_DIAGNOSTIC,
         validate_study_class,
@@ -257,6 +261,10 @@ def build_study_manifest(
         "schema_version": "2.0.0",
         "study_name": "TrustParadox-U Primary Study",
         "study_class": study_class,
+        # Remediation §2: artifacts are interpretable against the protocol
+        # version that declared their questions and table mappings.
+        "protocol_version": PROTOCOL_VERSION,
+        "table_question_map": {k: list(v) for k, v in TABLE_QUESTION_MAP.items()},
         "repository_commit": provenance["artifact_generation_commit"],
         "provenance": provenance,
         "generated_at": datetime.now(timezone.utc).isoformat(),

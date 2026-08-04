@@ -734,6 +734,27 @@ def check_empirical_study_design() -> dict[str, Any]:
     return {"passed": not findings, "study_class": study_class, "findings": findings}
 
 
+def check_research_protocol() -> dict[str, Any]:
+    """A versioned protocol declares every question/comparison (§2).
+
+    The protocol must exist, carry a semver version, cover the minimum
+    primary claims, and map every final table to a declared question.
+    """
+    from experiments.trustparadox_u.research_protocol import (
+        QUESTIONS,
+        validate_protocol,
+    )
+
+    findings = validate_protocol()
+    if len(QUESTIONS) < 7:
+        findings.append(f"minimum_primary_claims_not_declared: {len(QUESTIONS)} < 7")
+    return {
+        "passed": not findings,
+        "question_count": len(QUESTIONS),
+        "findings": findings,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Verdict
 # ---------------------------------------------------------------------------
@@ -741,6 +762,7 @@ def check_empirical_study_design() -> dict[str, Any]:
 SUBSTANTIVE_GATES: tuple[str, ...] = (
     "repository_provenance",
     "no_invalidated_artifacts",
+    "research_protocol",
     "corpus_valid",
     "annotations_valid",
     "conditions_valid",
@@ -798,6 +820,7 @@ def run_research_valid_gate() -> dict[str, Any]:
     gates = {
         "repository_provenance": check_repository_provenance(),
         "no_invalidated_artifacts": check_no_invalidated_artifacts(),
+        "research_protocol": check_research_protocol(),
         "corpus_valid": check_corpus_valid(),
         "annotations_valid": check_annotations_valid(),
         "conditions_valid": check_conditions_valid(),

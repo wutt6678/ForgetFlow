@@ -27,6 +27,7 @@ from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
     check_no_invalidated_artifacts,
     check_replay_complete,
     check_repository_provenance,
+    check_research_protocol,
     check_statistical_analysis_valid,
     check_tests_pass,
     run_research_valid_gate,
@@ -199,6 +200,18 @@ class TestEmpiricalStudyDesignGate:
         assert result["study_class"] == "diagnostic"
         assert result["research_valid"] is False
         assert result["gates"]["empirical_study_design"]["passed"] is False
+
+
+class TestResearchProtocolGate:
+    """Remediation §2: a versioned protocol must back every claim."""
+
+    def test_protocol_gate_passes(self) -> None:
+        result = check_research_protocol()
+        assert result["passed"] is True, result
+        assert result["question_count"] >= 7
+
+    def test_protocol_gate_is_substantive(self) -> None:
+        assert "research_protocol" in SUBSTANTIVE_GATES
 
 
 class TestTestsGateNeverAutoPasses:
