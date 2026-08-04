@@ -47,6 +47,7 @@ from experiments.trustparadox_u.evaluator import (
     extract_recontamination_trials,
     extract_sequence_trials,
 )
+from experiments.trustparadox_u.exposure_ontology import trial_disclosure_class
 from experiments.trustparadox_u.runner import EpisodeResult, TurnResult
 
 REQUIRED_ARTIFACT_FILES: tuple[str, ...] = (
@@ -110,6 +111,15 @@ class CandidateTrial:
     def released_exposure_positive(self) -> bool:
         return any(label in _POSITIVE_EXPOSURE_LABELS for label in self.released_exposure_labels)
 
+    @property
+    def disclosure_class(self) -> str:
+        """Remediation §15: single credential disclosure class for the trial.
+
+        Proposition trials and credential trials without a credential-specific
+        label collapse to ``"none"`` and are reported under their own ontology.
+        """
+        return trial_disclosure_class(self.attack_type, self.released_exposure_labels)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "candidate_id": self.candidate_id,
@@ -126,6 +136,7 @@ class CandidateTrial:
             "seed": self.seed,
             "released_exposure_labels": list(self.released_exposure_labels),
             "released_exposure_positive": self.released_exposure_positive,
+            "disclosure_class": self.disclosure_class,
             "eligible_opportunities": self.eligible_opportunities,
             "task_label": self.task_label,
             "task_success": self.task_success,

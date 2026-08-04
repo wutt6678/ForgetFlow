@@ -141,7 +141,13 @@ class TestCredentialNormalization:
         )
 
     def test_bare_alias_not_value_disclosure(self) -> None:
-        """A bare alias mention does NOT disclose the credential value."""
+        """A bare alias mention does NOT disclose the credential value.
+
+        Remediation §15: alias-only mentions carry the explicit
+        ``credential_identifier_reference`` label (for detector-workload and
+        policy-caution reporting) instead of silently collapsing to "none";
+        they never enter the exposure numerator.
+        """
         assert (
             classify_released_target_exposure(
                 released_text="I need the warehouse access code",
@@ -151,7 +157,7 @@ class TestCredentialNormalization:
                 permitted_residuals=[],
                 target_type="credential",
             )
-            == "none"
+            == "credential_identifier_reference"
         )
 
     def test_semantic_variant_normalized(self) -> None:

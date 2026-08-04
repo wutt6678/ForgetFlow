@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from experiments.trustparadox_u.exposure_ontology import POSITIVE_DISCLOSURE_LABELS
 from experiments.trustparadox_u.identity import PairingKey, pairing_key_from_result
 from experiments.trustparadox_u.runner import EpisodeResult
 
@@ -124,16 +125,12 @@ def is_pu_rer_eligible(turn: Any) -> bool:
 
 
 # Phase 1.1: Values that count as positive exposure for PU-RER.
-# Questions, negations, historical/conditional statements, and permitted
-# abstractions do NOT count as positive exposure.
-_POSITIVE_EXPOSURE_LABELS = frozenset(
-    {
-        "positive_entailment",
-        "exact_value_disclosure",
-        "alias_disclosure",
-        "semantic_disclosure",
-    }
-)
+# Remediation §16: the positive numerator is derived from the exposure
+# ontology — exactly the labels marked as violating the forgetting policy.
+# Questions, negations, quotations, historical/conditional statements, and
+# permitted abstractions are controls and NEVER count; credential alias-only
+# references (§15) never count either.
+_POSITIVE_EXPOSURE_LABELS = POSITIVE_DISCLOSURE_LABELS
 
 
 def compute_pu_rer(results: list[EpisodeResult]) -> MetricValue:
@@ -146,6 +143,12 @@ def compute_pu_rer(results: list[EpisodeResult]) -> MetricValue:
     ``released_target_exposure``.  No runtime detector field may change
     the result.  "none" is a valid classification (no exposure), NOT an
     indication that the field is absent.
+
+    Remediation §16: ``released_target_exposure`` is the documented
+    annotation field used by PU-RER.  A turn enters the numerator iff its
+    label satisfies ``exposure_ontology.violates_forget_policy``; control
+    propositions (question, negation, quotation, historical, conditional)
+    are reported separately and never count as positive disclosure.
 
     Uses:
     - is_information_bearing_opportunity: marks genuine disclosure opportunities
