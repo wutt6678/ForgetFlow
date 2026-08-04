@@ -7,27 +7,25 @@
   "research_valid": false,
   "synthetic_benchmark_valid": false,
   "all_passed": false,
-  "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty",
+  "repository_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8-dirty",
   "provenance": {
-    "tested_code_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
-    "artifact_generation_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "tested_code_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
+    "artifact_generation_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
     "repository_clean": false,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:26:08.098241+00:00"
+    "generated_at": "2026-08-04T22:33:50.642220+00:00"
   },
-  "generated_at": "2026-08-04T22:26:08.098255+00:00",
+  "generated_at": "2026-08-04T22:33:50.642234+00:00",
   "gates": {
     "repository_provenance": {
       "passed": false,
-      "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty",
+      "repository_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8-dirty",
       "findings": [
         "repository_tree_dirty",
-        "run_manifest.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
-        "run_manifest.json: dirty_artifact: repository_clean is not true",
-        "sweep_summary.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
-        "sweep_summary.json: dirty_artifact: repository_clean is not true",
-        "study_manifest.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
+        "run_manifest.json: invalid_commit:current_commit='c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8-dirty'",
+        "sweep_summary.json: invalid_commit:current_commit='c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8-dirty'",
+        "study_manifest.json: invalid_commit:current_commit='c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8-dirty'",
         "study_manifest.json: dirty_artifact: repository_clean is not true"
       ]
     },
@@ -120,7 +118,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1731 passed, 4 skipped in 10.68s"
+      "output": "1732 passed, 4 skipped in 14.66s"
     },
     "static_checks": {
       "passed": true,

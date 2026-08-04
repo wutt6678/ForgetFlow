@@ -127,6 +127,14 @@ class TestStudyManifest:
         assert "exit_criteria" in manifest
         assert all(manifest["exit_criteria"].values())
 
+    def test_records_study_class(self) -> None:
+        # Remediation §4: every artifact records its study class.
+        from experiments.trustparadox_u.status import STUDY_CLASSES
+
+        tables = {"t1": build_table1_main_results()}
+        manifest = build_study_manifest(tables, build_corpus_summary(), build_annotation_summary())
+        assert manifest["study_class"] in STUDY_CLASSES
+
 
 class TestMarkdownFormatter:
     """Tests for markdown table formatting."""

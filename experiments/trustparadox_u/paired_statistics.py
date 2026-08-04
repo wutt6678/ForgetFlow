@@ -468,9 +468,23 @@ def write_paired_statistics(
     output_dir: Path,
 ) -> None:
     """Write paired statistics to disk."""
+    from experiments.trustparadox_u.status import (
+        STUDY_CLASS_DIAGNOSTIC,
+        validate_study_class,
+    )
+
+    # Remediation §4: every artifact records the study class that produced
+    # it; the replay run manifest is the source of truth for this study.
+    study_class = STUDY_CLASS_DIAGNOSTIC
+    replay_manifest = RESULTS_DIR / "run_manifest.json"
+    if replay_manifest.exists():
+        study_class = str(json.loads(replay_manifest.read_text()).get("study_class", study_class))
+    validate_study_class(study_class)
+
     output_dir.mkdir(parents=True, exist_ok=True)
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "study_class": study_class,
         "num_comparisons": len(comparisons),
         "condition_pairs": [list(pair) for pair in CONDITION_PAIRS],
         "baseline_condition": BASELINE_CONDITION,

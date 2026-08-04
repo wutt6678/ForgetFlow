@@ -227,8 +227,20 @@ def build_study_manifest(
         build_certification_provenance,
         code_tree_is_clean,
     )
+    from experiments.trustparadox_u.status import (
+        STUDY_CLASS_DIAGNOSTIC,
+        validate_study_class,
+    )
 
     provenance = build_certification_provenance(repository_clean=code_tree_is_clean())
+
+    # Remediation §4: every artifact records the study class that produced
+    # it; the replay run manifest is the source of truth for this study.
+    study_class = STUDY_CLASS_DIAGNOSTIC
+    replay_manifest = RESULTS_DIR / "run_manifest.json"
+    if replay_manifest.exists():
+        study_class = str(json.loads(replay_manifest.read_text()).get("study_class", study_class))
+    validate_study_class(study_class)
 
     def _table(prefix: str) -> dict[str, Any]:
         return next(
@@ -244,6 +256,7 @@ def build_study_manifest(
     return {
         "schema_version": "2.0.0",
         "study_name": "TrustParadox-U Primary Study",
+        "study_class": study_class,
         "repository_commit": provenance["artifact_generation_commit"],
         "provenance": provenance,
         "generated_at": datetime.now(timezone.utc).isoformat(),

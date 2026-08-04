@@ -1,16 +1,17 @@
 {
   "schema_version": "2.0.0",
   "study_name": "TrustParadox-U Primary Study",
-  "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+  "study_class": "diagnostic",
+  "repository_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
   "provenance": {
-    "tested_code_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
-    "artifact_generation_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "tested_code_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
+    "artifact_generation_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
     "repository_clean": false,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:23:09.057231+00:00"
+    "generated_at": "2026-08-04T22:31:38.928164+00:00"
   },
-  "generated_at": "2026-08-04T22:23:09.057259+00:00",
+  "generated_at": "2026-08-04T22:31:38.928250+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,
