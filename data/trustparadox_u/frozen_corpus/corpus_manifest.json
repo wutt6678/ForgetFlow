@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "corpus_version": "2.0",
-  "repository_commit": "00fbb260fd95",
+  "repository_commit": "bcedb14f962b",
   "generation_model": "deterministic_template",
   "generation_temperature": 0.0,
   "prompt_template_hashes": [
@@ -19,7 +19,7 @@
   "sequence_count": 78,
   "secret_variant_count": 26,
   "target_spec_count": 26,
-  "target_spec_sha256": "01e612fe0410854c92386dc667cf349e8c0c4fa0444002fb4fc41499d66b7fd5",
+  "target_spec_sha256": "7669e0216756241b9ea9560d8da173effdb20367c462231083d94fc0441acb1c",
   "corpus_sha256": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
   "split_counts": {
     "development": 384,
@@ -36,5 +36,5 @@
     "default",
     "high"
   ],
-  "generated_at": "2026-08-04T04:40:23.206467+00:00"
+  "generated_at": "2026-08-04T23:11:19.825173+00:00"
 }
