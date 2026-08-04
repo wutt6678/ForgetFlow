@@ -7,6 +7,8 @@
   "sweeps": {
     "embedding_threshold": {
       "config_path": "detector.embedding_threshold",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
       "split": "validation",
       "split_rationale": "Exposure (paraphrase) and benign candidates are in validation.",
       "metric_function": "PU-RER vs FBR",
@@ -34,7 +36,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.2
         },
         {
           "value": 0.6,
@@ -57,7 +59,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.19
         },
         {
           "value": 0.7,
@@ -80,7 +82,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.2
         },
         {
           "value": 0.8,
@@ -103,7 +105,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.19
         },
         {
           "value": 0.9,
@@ -126,7 +128,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.19
         },
         {
           "value": 0.95,
@@ -149,13 +151,15 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.19
         }
       ],
       "selected_value": 0.8
     },
     "claim_confidence_threshold": {
       "config_path": "detector.claim_confidence_threshold",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
       "split": "validation",
       "split_rationale": "Claim (claim_past) and claim-control candidates are in validation.",
       "metric_function": "claim PU-RER vs claim-control FBR",
@@ -183,7 +187,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.18
+          "elapsed_seconds": 0.21
         },
         {
           "value": 0.5,
@@ -206,7 +210,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.21
+          "elapsed_seconds": 0.19
         },
         {
           "value": 0.7,
@@ -229,7 +233,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.2
         },
         {
           "value": 0.85,
@@ -252,13 +256,15 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.2
         }
       ],
       "selected_value": 0.7
     },
     "history.window_size": {
       "config_path": "history.window_size",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
       "split": "development",
       "split_rationale": "The FF92-010 template-family split places no reconstruction/recontamination candidates in the validation split, so this parameter's metric is not evaluable there; swept on development instead.",
       "metric_function": "CRR vs memory/latency",
@@ -279,7 +285,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.31
+          "elapsed_seconds": 0.37
         },
         {
           "value": 2.0,
@@ -295,7 +301,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.37
         },
         {
           "value": 3.0,
@@ -311,7 +317,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.37
         },
         {
           "value": 5.0,
@@ -327,7 +333,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.38
         },
         {
           "value": 8.0,
@@ -343,13 +349,15 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.37
         }
       ],
       "selected_value": 5.0
     },
     "monitoring.duration_rounds": {
       "config_path": "monitoring.duration_rounds",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
       "split": "development",
       "split_rationale": "The FF92-010 template-family split places no reconstruction/recontamination candidates in the validation split, so this parameter's metric is not evaluable there; swept on development instead.",
       "metric_function": "RR vs monitoring cost",
@@ -363,15 +371,15 @@
           "metrics": {
             "rr": {
               "value": 1.0,
-              "numerator": 9,
-              "denominator": 9,
+              "numerator": 78,
+              "denominator": 78,
               "reason": null,
               "evaluable": true,
               "population": "clean_or_verified"
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.2
+          "elapsed_seconds": 0.26
         },
         {
           "value": 1.0,
@@ -381,14 +389,14 @@
             "rr": {
               "value": 0.0,
               "numerator": 0,
-              "denominator": 9,
+              "denominator": 78,
               "reason": null,
               "evaluable": true,
               "population": "clean_or_verified"
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.25
+          "elapsed_seconds": 0.31
         },
         {
           "value": 3.0,
@@ -398,14 +406,14 @@
             "rr": {
               "value": 0.0,
               "numerator": 0,
-              "denominator": 9,
+              "denominator": 78,
               "reason": null,
               "evaluable": true,
               "population": "clean_or_verified"
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.29
+          "elapsed_seconds": 0.36
         },
         {
           "value": 5.0,
@@ -415,14 +423,14 @@
             "rr": {
               "value": 0.0,
               "numerator": 0,
-              "denominator": 9,
+              "denominator": 78,
               "reason": null,
               "evaluable": true,
               "population": "clean_or_verified"
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.36
         }
       ],
       "selected_value": 5.0
@@ -497,7 +505,7 @@
       }
     },
     "num_trials": 204,
-    "elapsed_seconds": 0.17
+    "elapsed_seconds": 0.23
   },
   "validation": {
     "distinct_condition_hashes": {
@@ -511,15 +519,21 @@
         "validation"
       ],
       "final_evaluation_split": "test"
+    },
+    "sweep_purpose_labels": {
+      "passed": true,
+      "unlabeled_sweeps": [],
+      "selection_sweeps_on_test": [],
+      "sensitivity_sweeps_without_note": []
     }
   },
-  "generated_at": "2026-08-04T22:45:39.011356+00:00",
+  "generated_at": "2026-08-04T23:52:50.292724+00:00",
   "provenance": {
-    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
-    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "tested_code_commit": "e6b32685fcffeeb19a5737fcfda9a1e742a7d417",
+    "artifact_generation_commit": "e6b32685fcffeeb19a5737fcfda9a1e742a7d417",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:45:34.587397+00:00"
+    "generated_at": "2026-08-04T23:52:44.871930+00:00"
   }
 }
