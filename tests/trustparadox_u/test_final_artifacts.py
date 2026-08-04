@@ -59,17 +59,30 @@ class TestTable2LeakageBreakdown:
 
 
 class TestTable3ParameterSensitivity:
-    """Tests for Table 3."""
+    """Tests for Table 3 (FF92-018 one-at-a-time sweep)."""
 
     def test_has_rows(self) -> None:
         t3 = build_table3_parameter_sensitivity()
         assert "rows" in t3
-        assert len(t3["rows"]) == 9  # 3+3+3
+        # One row per swept value: 6 + 4 + 5 + 4 across the four parameters.
+        assert len(t3["rows"]) == 19
 
     def test_has_all_parameters(self) -> None:
         t3 = build_table3_parameter_sensitivity()
         params = {r["parameter"] for r in t3["rows"]}
-        assert params == {"detector", "monitoring_duration", "policy"}
+        assert params == {
+            "embedding_threshold",
+            "claim_confidence_threshold",
+            "history.window_size",
+            "monitoring.duration_rounds",
+        }
+
+    def test_each_parameter_has_selection(self) -> None:
+        t3 = build_table3_parameter_sensitivity()
+        params = {r["parameter"] for r in t3["rows"]}
+        for parameter in params:
+            selected = [r for r in t3["rows"] if r["parameter"] == parameter and r["selected"]]
+            assert len(selected) == 1
 
 
 class TestTable4StatisticalComparisons:

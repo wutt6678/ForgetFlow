@@ -1,8 +1,0 @@
-{
-  "passed": true,
-  "max_candidates": 50,
-  "tolerance": 0.001,
-  "num_conditions": 5,
-  "num_mismatches": 0,
-  "mismatches": []
-}

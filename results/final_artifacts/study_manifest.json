@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "study_name": "TrustParadox-U Primary Study",
-  "repository_commit": "5c6342b07d21eaf22aaaf5e5d60f545986c444f6",
-  "generated_at": "2026-08-04T08:03:45.153282+00:00",
+  "repository_commit": "4eb1ff46ec801f499b895d8b391183b395cb2cb7",
+  "generated_at": "2026-08-04T08:42:36.241825+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,
@@ -53,7 +53,7 @@
     },
     "table3_parameter_sensitivity": {
       "title": "Table 3: Parameter Sensitivity",
-      "num_rows": 9
+      "num_rows": 19
     },
     "table4_statistical_comparisons": {
       "title": "Table 4: Paired Statistical Comparisons",

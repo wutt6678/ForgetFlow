@@ -104,25 +104,41 @@ def build_table2_leakage_breakdown() -> dict[str, Any]:
 
 
 def build_table3_parameter_sensitivity() -> dict[str, Any]:
-    """Table 3: Parameter sensitivity from sweep."""
+    """Table 3: Parameter sensitivity from the FF92-018 sweep.
+
+    One row per swept value of each hyperparameter, showing the metrics
+    belonging to that parameter's function plus the frozen selection.
+    """
     summary_path = SWEEP_DIR / "sweep_summary.json"
     if not summary_path.exists():
         return {"error": "sweep_summary.json not found"}
 
     data = json.loads(summary_path.read_text())
 
+    def _value(metric: dict[str, Any] | None) -> float | None:
+        if not metric:
+            return None
+        value = metric.get("value")
+        return round(value, 4) if value is not None else None
+
     rows = []
-    for det, crr in sorted(data.get("crr_by_detector", {}).items()):
-        rows.append({"parameter": "detector", "level": det, "mean_crr": round(crr, 4)})
-    for dur, crr in sorted(data.get("crr_by_monitoring_duration", {}).items()):
-        rows.append({"parameter": "monitoring_duration", "level": dur, "mean_crr": round(crr, 4)})
-    for pol, crr in sorted(data.get("crr_by_policy", {}).items()):
-        rows.append({"parameter": "policy", "level": pol, "mean_crr": round(crr, 4)})
+    for parameter, sweep in sorted(data.get("sweeps", {}).items()):
+        selected = sweep.get("selected_value")
+        for point in sweep.get("points", []):
+            row: dict[str, Any] = {
+                "parameter": parameter,
+                "value": point.get("value"),
+                "split": sweep.get("split", ""),
+                "selected": point.get("value") == selected,
+            }
+            for metric_name, metric in point.get("metrics", {}).items():
+                row[f"{metric_name}_value"] = _value(metric)
+            rows.append(row)
 
     return {
         "table": "Table 3: Parameter Sensitivity",
         "rows": rows,
-        "grid_size": data.get("grid_size", 0),
+        "num_parameters": len(data.get("sweeps", {})),
     }
 
 

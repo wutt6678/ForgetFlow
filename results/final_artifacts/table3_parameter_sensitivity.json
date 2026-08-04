@@ -2,50 +2,148 @@
   "table": "Table 3: Parameter Sensitivity",
   "rows": [
     {
-      "parameter": "detector",
-      "level": "high",
-      "mean_crr": 0.0
+      "parameter": "claim_confidence_threshold",
+      "value": 0.3,
+      "split": "validation",
+      "selected": false,
+      "claim_pu_rer_value": 0.0,
+      "claim_control_fbr_value": 0.0
     },
     {
-      "parameter": "detector",
-      "level": "low",
-      "mean_crr": 0.0
+      "parameter": "claim_confidence_threshold",
+      "value": 0.5,
+      "split": "validation",
+      "selected": false,
+      "claim_pu_rer_value": 0.0,
+      "claim_control_fbr_value": 0.0
     },
     {
-      "parameter": "detector",
-      "level": "medium",
-      "mean_crr": 0.0
+      "parameter": "claim_confidence_threshold",
+      "value": 0.7,
+      "split": "validation",
+      "selected": true,
+      "claim_pu_rer_value": 0.0,
+      "claim_control_fbr_value": 0.0
     },
     {
-      "parameter": "monitoring_duration",
-      "level": "1",
-      "mean_crr": 0.0
+      "parameter": "claim_confidence_threshold",
+      "value": 0.85,
+      "split": "validation",
+      "selected": false,
+      "claim_pu_rer_value": 0.0,
+      "claim_control_fbr_value": 0.0
     },
     {
-      "parameter": "monitoring_duration",
-      "level": "10",
-      "mean_crr": 0.0
+      "parameter": "embedding_threshold",
+      "value": 0.5,
+      "split": "validation",
+      "selected": false,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
     },
     {
-      "parameter": "monitoring_duration",
-      "level": "5",
-      "mean_crr": 0.0
+      "parameter": "embedding_threshold",
+      "value": 0.6,
+      "split": "validation",
+      "selected": false,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
     },
     {
-      "parameter": "policy",
-      "level": "balanced",
-      "mean_crr": 0.0
+      "parameter": "embedding_threshold",
+      "value": 0.7,
+      "split": "validation",
+      "selected": false,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
     },
     {
-      "parameter": "policy",
-      "level": "rich",
-      "mean_crr": 0.0
+      "parameter": "embedding_threshold",
+      "value": 0.8,
+      "split": "validation",
+      "selected": true,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
     },
     {
-      "parameter": "policy",
-      "level": "strict",
-      "mean_crr": 0.0
+      "parameter": "embedding_threshold",
+      "value": 0.9,
+      "split": "validation",
+      "selected": false,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
+    },
+    {
+      "parameter": "embedding_threshold",
+      "value": 0.95,
+      "split": "validation",
+      "selected": false,
+      "pu_rer_value": 0.0,
+      "fbr_value": 0.0
+    },
+    {
+      "parameter": "history.window_size",
+      "value": 1.0,
+      "split": "development",
+      "selected": false,
+      "crr_value": 0.4444
+    },
+    {
+      "parameter": "history.window_size",
+      "value": 2.0,
+      "split": "development",
+      "selected": false,
+      "crr_value": 0.0
+    },
+    {
+      "parameter": "history.window_size",
+      "value": 3.0,
+      "split": "development",
+      "selected": false,
+      "crr_value": 0.0
+    },
+    {
+      "parameter": "history.window_size",
+      "value": 5.0,
+      "split": "development",
+      "selected": true,
+      "crr_value": 0.0
+    },
+    {
+      "parameter": "history.window_size",
+      "value": 8.0,
+      "split": "development",
+      "selected": false,
+      "crr_value": 0.0
+    },
+    {
+      "parameter": "monitoring.duration_rounds",
+      "value": 0.0,
+      "split": "development",
+      "selected": false,
+      "rr_value": 1.0
+    },
+    {
+      "parameter": "monitoring.duration_rounds",
+      "value": 1.0,
+      "split": "development",
+      "selected": false,
+      "rr_value": 0.0
+    },
+    {
+      "parameter": "monitoring.duration_rounds",
+      "value": 3.0,
+      "split": "development",
+      "selected": false,
+      "rr_value": 0.0
+    },
+    {
+      "parameter": "monitoring.duration_rounds",
+      "value": 5.0,
+      "split": "development",
+      "selected": true,
+      "rr_value": 0.0
     }
   ],
-  "grid_size": 27
+  "num_parameters": 4
 }

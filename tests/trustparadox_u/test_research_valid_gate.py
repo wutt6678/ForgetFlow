@@ -1,4 +1,4 @@
-"""Tests for Iterations 15-16: Closed-loop validation and research-valid gate."""
+"""Tests for FF92-020 reproducibility validation and the research-valid gate."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.closed_loop_validation import (  # noqa: E402
-    _compare_metrics,
-    run_closed_loop_validation,
+from experiments.trustparadox_u.deterministic_reproducibility_validation import (  # noqa: E402
+    run_deterministic_reproducibility_validation,
+    trial_hash,
 )
 from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
     check_all_conditions_run,
@@ -25,40 +25,41 @@ from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
 )
 
 
-class TestCompareMetrics:
-    """Tests for metric comparison."""
+class TestDeterministicReproducibilityValidation:
+    """FF92-020: reproducibility validation compares at every layer."""
 
-    def test_identical_metrics_match(self) -> None:
-        m = {"full_mvp": {"crr": {"value": 0.5}}}
-        diffs = _compare_metrics(m, m)
-        assert len(diffs) == 0
-
-    def test_different_metrics_differ(self) -> None:
-        m1 = {"full_mvp": {"crr": {"value": 0.5}}}
-        m2 = {"full_mvp": {"crr": {"value": 0.9}}}
-        diffs = _compare_metrics(m1, m2, tolerance=0.01)
-        assert len(diffs) == 1
-
-    def test_none_values_skipped(self) -> None:
-        m1 = {"full_mvp": {"crr": {"value": None}}}
-        m2 = {"full_mvp": {"crr": {"value": 0.5}}}
-        diffs = _compare_metrics(m1, m2)
-        assert len(diffs) == 0
-
-    def test_within_tolerance(self) -> None:
-        m1 = {"full_mvp": {"crr": {"value": 0.5}}}
-        m2 = {"full_mvp": {"crr": {"value": 0.505}}}
-        diffs = _compare_metrics(m1, m2, tolerance=0.01)
-        assert len(diffs) == 0
-
-
-class TestClosedLoopValidation:
-    """Tests for closed-loop validation."""
-
-    def test_deterministic_reproducibility(self) -> None:
-        result = run_closed_loop_validation(max_candidates=10)
+    def test_reproducible_across_all_layers(self) -> None:
+        result = run_deterministic_reproducibility_validation(max_candidates=10)
         assert result["passed"] is True
         assert result["num_mismatches"] == 0
+        assert set(result["checks"]) == {
+            "candidate_level",
+            "trial_level",
+            "metric_counts",
+            "hashes",
+        }
+        for check in result["checks"].values():
+            assert check["passed"] is True
+
+    def test_no_closed_loop_naming(self) -> None:
+        result = run_deterministic_reproducibility_validation(max_candidates=5)
+        assert result["validation"] == "deterministic_reproducibility"
+
+    def test_trial_hashes_match_across_reruns(self) -> None:
+        from experiments.trustparadox_u.frozen_replay import run_frozen_replay
+
+        run1 = run_frozen_replay(max_candidates_per_condition=5, run_id="th1")
+        run2 = run_frozen_replay(max_candidates_per_condition=5, run_id="th2")
+        for condition in run1:
+            hashes1 = {
+                r.candidate_sample_id: trial_hash(r)
+                for r in run1[condition].episode_results
+            }
+            hashes2 = {
+                r.candidate_sample_id: trial_hash(r)
+                for r in run2[condition].episode_results
+            }
+            assert hashes1 == hashes2
 
 
 class TestGateChecks:
@@ -89,7 +90,8 @@ class TestGateChecks:
     def test_parameter_sweep_complete(self) -> None:
         result = check_parameter_sweep_complete()
         assert result["passed"] is True
-        assert result["grid_size"] == 27
+        assert result["num_sweeps"] == 4
+        assert result["final_test_split"] == "test"
 
     def test_final_artifacts(self) -> None:
         result = check_final_artifacts()
@@ -113,7 +115,7 @@ class TestResearchValidGate:
             "leakage_analysis_available",
             "paired_statistics_available",
             "parameter_sweep_complete",
-            "closed_loop_validation",
+            "deterministic_reproducibility_validation",
             "final_artifacts",
             "all_tests_pass",
         }

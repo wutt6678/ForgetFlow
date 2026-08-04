@@ -1,0 +1,29 @@
+{
+  "validation": "deterministic_reproducibility",
+  "repair_item": "FF92-020",
+  "scope_note": "Deterministic rerun comparison. Closed-loop validation (adaptive multi-round generation) is future work.",
+  "passed": true,
+  "max_candidates": 50,
+  "seed": 42,
+  "num_conditions": 6,
+  "checks": {
+    "candidate_level": {
+      "passed": true,
+      "num_mismatches": 0
+    },
+    "trial_level": {
+      "passed": true,
+      "num_mismatches": 0
+    },
+    "metric_counts": {
+      "passed": true,
+      "num_mismatches": 0
+    },
+    "hashes": {
+      "passed": true,
+      "num_mismatches": 0
+    }
+  },
+  "num_mismatches": 0,
+  "mismatches": []
+}

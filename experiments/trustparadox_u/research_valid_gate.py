@@ -140,25 +140,81 @@ def check_paired_statistics_available() -> dict[str, Any]:
 
 
 def check_parameter_sweep_complete() -> dict[str, Any]:
-    """Check that parameter sweep is complete."""
+    """FF92-018: check the one-at-a-time hyperparameter sweep is complete.
+
+    Requires the schema-2.0 sweep with all four core hyperparameters swept,
+    a frozen selection for each, passing artifact validation checks, and a
+    final evaluation on the test split.
+    """
     path = RESULTS_DIR / "parameter_sweep" / "sweep_summary.json"
     if not path.exists():
         return {"passed": False, "reason": "sweep_summary.json not found"}
 
     data = json.loads(path.read_text())
-    grid_size = data.get("grid_size", 0)
-    return {"passed": grid_size == 27, "grid_size": grid_size}
+    if data.get("schema_version") != "2.0":
+        return {
+            "passed": False,
+            "reason": f"expected schema_version 2.0, got {data.get('schema_version')!r}",
+        }
+
+    required_sweeps = {
+        "embedding_threshold",
+        "claim_confidence_threshold",
+        "history.window_size",
+        "monitoring.duration_rounds",
+    }
+    sweeps = data.get("sweeps", {})
+    missing = required_sweeps - set(sweeps)
+    if missing:
+        return {"passed": False, "reason": f"missing sweeps: {sorted(missing)}"}
+
+    unselected = [name for name, s in sweeps.items() if "selected_value" not in s]
+    if unselected:
+        return {"passed": False, "reason": f"sweeps without selection: {unselected}"}
+
+    failed = [
+        name for name, check in data.get("validation", {}).items() if not check.get("passed")
+    ]
+    if failed:
+        return {"passed": False, "reason": f"validation checks failed: {failed}"}
+
+    final = data.get("final_test_evaluation", {})
+    if final.get("split") != "test":
+        return {"passed": False, "reason": "final evaluation is not on the test split"}
+
+    return {
+        "passed": True,
+        "num_sweeps": len(sweeps),
+        "final_test_split": final["split"],
+    }
 
 
-def check_closed_loop_validation() -> dict[str, Any]:
-    """Check that closed-loop validation passes."""
-    path = RESULTS_DIR / "closed_loop_validation" / "validation_result.json"
+def check_deterministic_reproducibility_validation() -> dict[str, Any]:
+    """FF92-020: check the deterministic reproducibility validation.
+
+    Requires all four comparison layers (candidate-level, trial-level,
+    metric counts, hashes) to pass — aggregate equality alone is not
+    sufficient.
+    """
+    path = (
+        RESULTS_DIR
+        / "deterministic_reproducibility_validation"
+        / "validation_result.json"
+    )
     if not path.exists():
         return {"passed": False, "reason": "validation_result.json not found"}
 
     data = json.loads(path.read_text())
+    checks = data.get("checks", {})
+    failed = [name for name, check in checks.items() if not check.get("passed")]
+    if failed:
+        return {"passed": False, "reason": f"failed layers: {failed}"}
+    if not data.get("passed", False):
+        return {"passed": False, "reason": "overall validation did not pass"}
     return {
-        "passed": data.get("passed", False),
+        "passed": True,
+        "num_conditions": data.get("num_conditions", 0),
+        "num_layers": len(checks),
         "num_mismatches": data.get("num_mismatches", -1),
     }
 
@@ -241,7 +297,9 @@ def run_research_valid_gate() -> dict[str, Any]:
         "leakage_analysis_available": check_leakage_analysis_available(),
         "paired_statistics_available": check_paired_statistics_available(),
         "parameter_sweep_complete": check_parameter_sweep_complete(),
-        "closed_loop_validation": check_closed_loop_validation(),
+        "deterministic_reproducibility_validation": (
+            check_deterministic_reproducibility_validation()
+        ),
         "final_artifacts": check_final_artifacts(),
         "all_tests_pass": check_all_tests_pass(),
     }
