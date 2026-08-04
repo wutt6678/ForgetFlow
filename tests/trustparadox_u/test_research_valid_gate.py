@@ -20,10 +20,13 @@ from experiments.trustparadox_u.deterministic_reproducibility_validation import 
 from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
     SUBSTANTIVE_GATES,
     check_annotations_valid,
+    check_conditions_valid,
     check_corpus_valid,
     check_metrics_recompute,
     check_no_invalidated_artifacts,
+    check_replay_complete,
     check_repository_provenance,
+    check_statistical_analysis_valid,
     check_tests_pass,
     run_research_valid_gate,
     verdict_for,
@@ -79,6 +82,24 @@ class TestCorpusAndAnnotationGates:
         result = check_annotations_valid()
         assert result["passed"] is True, result
         assert result["annotation_count"] > 0
+
+
+class TestRealArtifactGates:
+    """Content gates on the committed trial/statistics artifacts."""
+
+    def test_conditions_match_frozen_builders(self) -> None:
+        result = check_conditions_valid()
+        assert result["passed"] is True, result
+
+    def test_replay_covers_every_candidate_via_trial_units(self) -> None:
+        result = check_replay_complete()
+        assert result["passed"] is True, result
+        assert result["trial_count"] == result["expected_count"]
+
+    def test_statistical_comparisons_pair_consistently(self) -> None:
+        result = check_statistical_analysis_valid()
+        assert result["passed"] is True, result
+        assert result["num_comparisons"] > 0
 
 
 class TestFileExistenceIsNotCertification:

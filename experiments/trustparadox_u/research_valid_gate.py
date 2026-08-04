@@ -52,9 +52,21 @@ PROVENANCE_ARTIFACTS: tuple[Path, ...] = (
 
 
 def _current_commit() -> str:
+    """HEAD commit for certification.
+
+    Dirtiness for certification is measured on the code tree only
+    (``code_tree_is_clean`` excludes ``results/``): pipeline writers
+    inevitably leave uncommitted regenerated artifacts behind, and that
+    alone must not poison the commit they were generated from.
+    """
+    from experiments.trustparadox_u.artifact_provenance import code_tree_is_clean
     from experiments.trustparadox_u.manifest import get_repository_commit
 
-    return get_repository_commit()
+    return (
+        get_repository_commit().removesuffix("-dirty")
+        if code_tree_is_clean()
+        else get_repository_commit()
+    )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -260,16 +272,23 @@ def check_conditions_valid() -> dict[str, Any]:
         findings.append(f"baseline_missing: {BASELINE_CONDITION}")
     for name in sorted(set(resolved) & expected):
         expected_config = dataclasses.asdict(build_config_for_condition(name, seed=seed))
-        if resolved[name] != expected_config:
+        # The resolved configs are JSON-serialized: normalize tuples to
+        # lists before comparing.
+        normalized = json.loads(json.dumps(expected_config))
+        if resolved[name] != normalized:
             findings.append(f"config_mismatch: {name}")
     return {"passed": not findings, "conditions": sorted(resolved), "findings": findings}
 
 
 def check_replay_complete() -> dict[str, Any]:
-    """Every corpus candidate must have exactly one complete trial per
-    condition, no failures, and trial targets must match the corpus."""
+    """Every corpus candidate must be covered by exactly one trial unit per
+    condition: one trial record per unit, no failures, and each record's
+    member/target lineage must match the corpus exactly."""
     from experiments.trustparadox_u.candidates import load_frozen_corpus
-    from experiments.trustparadox_u.frozen_replay import CONDITIONS
+    from experiments.trustparadox_u.frozen_replay import (
+        CONDITIONS,
+        partition_trial_units,
+    )
     from experiments.trustparadox_u.trial_artifacts import load_trial_records
 
     manifest_path = REPLAY_DIR / "run_manifest.json"
@@ -286,21 +305,35 @@ def check_replay_complete() -> dict[str, Any]:
         index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
     except (OSError, ValueError, KeyError) as exc:
         return {"passed": False, "reason": f"corpus_unreadable: {exc}"}
-    expected_count = len(index.candidates) * len(CONDITIONS)
-    if manifest.get("candidate_count") != expected_count:
+    units = partition_trial_units(list(index.candidates))
+    expected_members = len(index.candidates) * len(CONDITIONS)
+    expected_trials = len(units) * len(CONDITIONS)
+    if manifest.get("candidate_count") != expected_members:
         findings.append(
-            f"candidate_count_mismatch: {manifest.get('candidate_count')} != {expected_count}"
+            f"candidate_count_mismatch: {manifest.get('candidate_count')} != {expected_members}"
         )
 
     try:
         trials = load_trial_records(trials_path)
     except (OSError, ValueError, KeyError) as exc:
         return {"passed": False, "reason": f"trials_unreadable: {exc}"}
-    if len(trials) != expected_count:
-        findings.append(f"trial_count_mismatch: {len(trials)} != {expected_count}")
-    pairs = [(t.get("candidate_id"), t.get("condition_id")) for t in trials]
-    if len(set(pairs)) != len(pairs):
-        findings.append("duplicate_candidate_condition_pairs")
+    if len(trials) != expected_trials:
+        findings.append(f"trial_count_mismatch: {len(trials)} != {expected_trials}")
+
+    expected_keys = {
+        (condition, unit.representative.candidate_id, tuple(m.candidate_id for m in unit.members))
+        for condition in CONDITIONS
+        for unit in units
+    }
+    actual_keys = {
+        (t.get("condition_id"), t.get("candidate_id"), tuple(t.get("candidate_ids", ())))
+        for t in trials
+    }
+    if len(actual_keys) != len(trials):
+        findings.append("duplicate_trial_keys")
+    if actual_keys != expected_keys:
+        findings.append(f"trial_unit_mismatches: {len(actual_keys ^ expected_keys)}")
+
     failed = [t["candidate_id"] for t in trials if t.get("result_status") != "success"]
     if failed:
         findings.append(f"failed_trials: {len(failed)}")
@@ -318,7 +351,8 @@ def check_replay_complete() -> dict[str, Any]:
     return {
         "passed": not findings,
         "trial_count": len(trials),
-        "expected_count": expected_count,
+        "expected_count": expected_trials,
+        "expected_member_count": expected_members,
         "findings": findings[:20],
     }
 
@@ -444,7 +478,10 @@ def check_statistical_analysis_valid() -> dict[str, Any]:
             findings.append(f"unmatched_not_reported: {label}")
         if comp.get("bootstrap_ci_95") is None:
             findings.append(f"bootstrap_ci_missing: {label}")
-        if comp.get("pairing_unit") != "candidate_id":
+        # Reconstruction trials exist per sequence, so their comparisons
+        # pair on sequence_id; every other metric pairs on candidate_id.
+        expected_unit = "sequence_id" if comp.get("metric") == "reconstruction" else "candidate_id"
+        if comp.get("pairing_unit") != expected_unit:
             findings.append(f"pairing_unit_mismatch: {label}")
     return {
         "passed": not findings,
