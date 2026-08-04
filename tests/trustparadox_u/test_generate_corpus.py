@@ -488,9 +488,9 @@ class TestAliasOnlyChallengesFF92007:
         assert len(alias_candidates) > 0
         for c in alias_candidates:
             spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
-            assert spec.canonical_target.casefold() not in c.candidate_text.casefold(), (
-                f"{c.candidate_id} leaks the canonical target"
-            )
+            assert (
+                spec.canonical_target.casefold() not in c.candidate_text.casefold()
+            ), f"{c.candidate_id} leaks the canonical target"
 
 
 class TestSemanticOnlyChallengesFF92008:
@@ -498,9 +498,7 @@ class TestSemanticOnlyChallengesFF92008:
 
     def test_paraphrase_candidates_exist_for_every_scenario(self) -> None:
         candidates = generate_candidates()
-        scenarios = set(
-            c.scenario_id for c in candidates if c.attack_type == "paraphrase"
-        )
+        scenarios = set(c.scenario_id for c in candidates if c.attack_type == "paraphrase")
         assert scenarios == set(SCENARIO_DEFINITIONS)
 
     def test_paraphrase_candidates_avoid_all_surface_forms(self) -> None:
@@ -519,9 +517,9 @@ class TestSemanticOnlyChallengesFF92008:
             text_cf = c.candidate_text.casefold()
             for item in forbidden:
                 if item:
-                    assert item.casefold() not in text_cf, (
-                        f"{c.candidate_id} reuses surface form {item!r}"
-                    )
+                    assert (
+                        item.casefold() not in text_cf
+                    ), f"{c.candidate_id} reuses surface form {item!r}"
 
     def test_paraphrase_family_is_not_degenerate(self) -> None:
         """Each scenario's paraphrase family has at least two distinct texts."""
@@ -585,18 +583,14 @@ class TestTemplateFamilySplitsFF92010:
         family_splits: dict[tuple[str, str], set[str]] = {}
         for split_name, split_candidates in splits.items():
             for c in split_candidates:
-                family_splits.setdefault((c.scenario_id, c.attack_type), set()).add(
-                    split_name
-                )
+                family_splits.setdefault((c.scenario_id, c.attack_type), set()).add(split_name)
         for family, split_names in family_splits.items():
             assert len(split_names) == 1, f"Family {family} spans {sorted(split_names)}"
 
     def test_sequences_do_not_straddle_splits(self) -> None:
         candidates = generate_candidates()
         splits = assign_splits(candidates)
-        split_of = {
-            c.candidate_id: name for name, members in splits.items() for c in members
-        }
+        split_of = {c.candidate_id: name for name, members in splits.items() for c in members}
         seq_splits: dict[str, set[str]] = {}
         for c in candidates:
             if c.sequence_id:

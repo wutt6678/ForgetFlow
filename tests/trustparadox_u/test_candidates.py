@@ -292,9 +292,7 @@ class TestFF92013CanonicalHashing:
     def test_provenance_change_changes_corpus_hash(self) -> None:
         """Generation provenance is part of the hashed content."""
         idx1 = FrozenCandidateIndex(candidates=(self._fc(),))
-        idx2 = FrozenCandidateIndex(
-            candidates=(self._fc(generation_model="different_model"),)
-        )
+        idx2 = FrozenCandidateIndex(candidates=(self._fc(generation_model="different_model"),))
         assert idx1.corpus_hash != idx2.corpus_hash
 
     def test_hash_record_excludes_timestamps(self) -> None:
@@ -307,9 +305,7 @@ class TestFF92013CanonicalHashing:
     def test_canonical_hash_order_independent(self) -> None:
         """Record order does not affect the canonical hash."""
         r1 = frozen_candidate_hash_record(self._fc(candidate_id="a"))
-        r2 = frozen_candidate_hash_record(
-            self._fc(candidate_id="b", candidate_text="other")
-        )
+        r2 = frozen_candidate_hash_record(self._fc(candidate_id="b", candidate_text="other"))
         assert canonical_jsonl_hash([r1, r2]) == canonical_jsonl_hash([r2, r1])
 
     def test_manifest_recompute_matches(self) -> None:

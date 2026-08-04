@@ -116,8 +116,7 @@ SWEEP_SPECS: tuple[SweepSpec, ...] = (
         secondary_metric="fbr",
         secondary_population=None,
         selection_rule=(
-            "Minimize PU-RER; ties broken by lower FBR, then closeness to the "
-            "full-MVP default."
+            "Minimize PU-RER; ties broken by lower FBR, then closeness to the " "full-MVP default."
         ),
         cost_proxy="none",
     ),
@@ -162,9 +161,7 @@ SWEEP_SPECS: tuple[SweepSpec, ...] = (
         config_path="monitoring.duration_rounds",
         # FF92-018: continuous=True makes duration_rounds a no-op, so the
         # sweep pins continuous=False and both paths differ from the base.
-        expected_diff_paths=frozenset(
-            {"monitoring.duration_rounds", "monitoring.continuous"}
-        ),
+        expected_diff_paths=frozenset({"monitoring.duration_rounds", "monitoring.continuous"}),
         values=(0.0, 1.0, 3.0, 5.0),
         split="development",
         split_rationale=_NO_RECONSTRUCTION_IN_VALIDATION,
@@ -271,12 +268,8 @@ def run_trials(
                 f"(candidate {candidate.candidate_id!r})"
             )
         spec = target_spec_from_episode(base_ep, candidate)
-        trial_ep = build_trial_episode(
-            base_ep, candidate, spec, sequence_members=unit.members
-        )
-        responder = build_trial_responder(
-            trial_ep, candidate, sequence_members=unit.members
-        )
+        trial_ep = build_trial_episode(base_ep, candidate, spec, sequence_members=unit.members)
+        responder = build_trial_responder(trial_ep, candidate, sequence_members=unit.members)
         result = run_episode(
             episode=trial_ep,
             config=config,
@@ -294,9 +287,7 @@ def run_trials(
     return results, time.monotonic() - start
 
 
-def filter_results_by_attack(
-    results: list[EpisodeResult], attack_type: str
-) -> list[EpisodeResult]:
+def filter_results_by_attack(results: list[EpisodeResult], attack_type: str) -> list[EpisodeResult]:
     """Keep only trials whose episode attack type matches."""
     return [r for r in results if r.metadata.get("attack_type") == attack_type]
 
@@ -314,9 +305,7 @@ def extract_sweep_metrics(
         return {"pu_rer": metrics.pu_rer.to_dict(), "fbr": metrics.fbr.to_dict()}
     if spec.name == "claim_confidence_threshold":
         claim = evaluate_all(filter_results_by_attack(results, "claim_past"))
-        control = evaluate_all(
-            filter_results_by_attack(results, "claim_question_control")
-        )
+        control = evaluate_all(filter_results_by_attack(results, "claim_question_control"))
         return {
             "claim_pu_rer": claim.pu_rer.to_dict(),
             "claim_control_fbr": control.fbr.to_dict(),
@@ -351,9 +340,7 @@ def select_point(spec: SweepSpec, points: list[dict[str, Any]]) -> float:
         "claim_pu_rer" if spec.name == "claim_confidence_threshold" else spec.primary_metric
     )
     secondary_key = (
-        "claim_control_fbr"
-        if spec.name == "claim_confidence_threshold"
-        else spec.secondary_metric
+        "claim_control_fbr" if spec.name == "claim_confidence_threshold" else spec.secondary_metric
     )
 
     def sort_key(point: dict[str, Any]) -> tuple[float, float, float, float]:
@@ -415,9 +402,7 @@ def run_sweep(
         for value in spec.values:
             config = build_sweep_config(spec, value, seed=seed)
             run_id = f"sweep_{spec.name}_{value}"
-            results, elapsed = run_trials(
-                config, candidates, scenario_episodes, run_id
-            )
+            results, elapsed = run_trials(config, candidates, scenario_episodes, run_id)
             metrics = extract_sweep_metrics(spec, results)
             points.append(
                 {
@@ -557,6 +542,11 @@ def main() -> int:
     """Run the FF92-018 hyperparameter sweep."""
     import argparse
 
+    from experiments.trustparadox_u.artifact_provenance import (
+        build_certification_provenance,
+        code_tree_is_clean,
+    )
+
     parser = argparse.ArgumentParser(description="FF92-018 hyperparameter sweep")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
@@ -576,7 +566,12 @@ def main() -> int:
     print("FF92-018: Core Hyperparameter Sweep (one parameter at a time)")
     print("=" * 60)
 
+    # FF92-023: snapshot certification provenance before any artifact is
+    # written, so this run's own output cannot self-invalidate it.
+    provenance = build_certification_provenance(repository_clean=code_tree_is_clean())
+
     summary = run_sweep(seed=args.seed, max_candidates=args.max_candidates)
+    summary["provenance"] = provenance
     write_sweep_results(summary, args.output_dir)
 
     failed = [name for name, check in summary["validation"].items() if not check["passed"]]

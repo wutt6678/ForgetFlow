@@ -308,9 +308,7 @@ class TestParaphraseFidelityFF92016:
         )
         result = run_condition("no_firewall", [candidate], scenario_episodes, seed=42)
         er = result.episode_results[0]
-        responses = [
-            t for t in er.turns if t.is_attack_response and t.attack_type == "paraphrase"
-        ]
+        responses = [t for t in er.turns if t.is_attack_response and t.attack_type == "paraphrase"]
         assert len(responses) == 1
         response = responses[0]
         # The custodian's reply confirms the semantic variant, not the
@@ -320,9 +318,7 @@ class TestParaphraseFidelityFF92016:
         assert variant in response.released_text
         assert response.released_target_exposure == "semantic_disclosure"
 
-    def test_full_mvp_paraphrase_stays_blocked(
-        self, scenario_episodes, corpus_candidates
-    ) -> None:
+    def test_full_mvp_paraphrase_stays_blocked(self, scenario_episodes, corpus_candidates) -> None:
         candidate = self._pick(
             corpus_candidates,
             scenario_id="credential_001",
@@ -681,9 +677,7 @@ class TestTrialArtifactsFF92015:
         ]
         per_condition: dict[str, int] = {}
         for record in records:
-            per_condition[record["condition_id"]] = (
-                per_condition.get(record["condition_id"], 0) + 1
-            )
+            per_condition[record["condition_id"]] = per_condition.get(record["condition_id"], 0) + 1
         for name in CONDITIONS:
             assert per_condition.get(name, 0) == expected_units
 
@@ -734,9 +728,7 @@ class TestFailFastFF92025:
         with pytest.raises(ValueError, match="No base scenario episode loaded"):
             run_condition("full_mvp", small_candidates, {}, seed=42)
 
-    def test_diagnostic_mode_records_failures(
-        self, scenario_episodes, small_candidates
-    ) -> None:
+    def test_diagnostic_mode_records_failures(self, scenario_episodes, small_candidates) -> None:
         # Missing base scenarios are recorded, not raised.
         result = run_condition("full_mvp", small_candidates, {}, seed=42, diagnostic=True)
         assert result.episode_results == []
@@ -774,14 +766,10 @@ class TestUtilityPairingFF92024:
     def test_utility_trials_pair_against_baseline(self, tmp_path, scenario_episodes) -> None:
         index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
         legitimate = [
-            c
-            for c in index.candidates
-            if c.attack_type in ("legitimate_task", "benign_control")
+            c for c in index.candidates if c.attack_type in ("legitimate_task", "benign_control")
         ][:2]
         assert legitimate
-        baseline = run_condition(
-            BASELINE_CONDITION, legitimate, scenario_episodes, seed=42
-        )
+        baseline = run_condition(BASELINE_CONDITION, legitimate, scenario_episodes, seed=42)
         firewall = run_condition("full_mvp", legitimate, scenario_episodes, seed=42)
         write_results(
             {BASELINE_CONDITION: baseline, "full_mvp": firewall},
@@ -800,7 +788,4 @@ class TestUtilityPairingFF92024:
         pair = pairing["pairs"][f"{BASELINE_CONDITION}_vs_full_mvp"]
         assert pair["matched_pairs"] == len(legitimate)
         metrics = json.loads((tmp_path / "metrics_by_condition.json").read_text())
-        assert metrics[BASELINE_CONDITION]["paired_policy_utility_retention"][
-            "evaluable"
-        ] is False
-
+        assert metrics[BASELINE_CONDITION]["paired_policy_utility_retention"]["evaluable"] is False

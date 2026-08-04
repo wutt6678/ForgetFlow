@@ -303,9 +303,7 @@ def compare_paired_outcomes(
     differences = [int(x) - int(y) for x, y in pairs]
 
     mcnemar = exact_mcnemar_test(b, c)
-    permutation = paired_permmutation_test(
-        differences, seed=seed, n_permutations=n_permutations
-    )
+    permutation = paired_permmutation_test(differences, seed=seed, n_permutations=n_permutations)
     bootstrap = paired_bootstrap_ci(differences, seed=seed, n_iterations=n_bootstrap)
 
     return {
@@ -352,12 +350,8 @@ def load_paired_inputs(replay_dir: Path) -> dict[str, Any]:
             CandidateTrial.from_dict(r)
             for r in load_trial_records(replay_dir / "candidate_trials.jsonl")
         ],
-        "reconstruction_records": load_trial_records(
-            replay_dir / "reconstruction_trials.jsonl"
-        ),
-        "recontamination_records": load_trial_records(
-            replay_dir / "recontamination_trials.jsonl"
-        ),
+        "reconstruction_records": load_trial_records(replay_dir / "reconstruction_trials.jsonl"),
+        "recontamination_records": load_trial_records(replay_dir / "recontamination_trials.jsonl"),
         "utility_trials": [
             UtilityTrial.from_dict(r)
             for r in load_trial_records(replay_dir / "utility_trials.jsonl")
@@ -375,8 +369,7 @@ def _utility_outcome_pairs(
         success, blocked = pairs.setdefault(key, ({}, {}))
         if trial.candidate_id in success:
             raise ValueError(
-                f"Duplicate utility pairing unit {trial.candidate_id!r} "
-                f"for {key!r}"
+                f"Duplicate utility pairing unit {trial.candidate_id!r} " f"for {key!r}"
             )
         if trial.eligible:
             success[trial.candidate_id] = trial.firewall_task_success
@@ -394,21 +387,15 @@ def run_paired_statistics(
 ) -> list[dict[str, Any]]:
     """Run every applicable paired comparison; never pool conditions."""
     exposure = exposure_outcomes_by_condition(inputs["candidate_trials"])
-    reconstruction = reconstruction_outcomes_by_condition(
-        inputs["reconstruction_records"]
-    )
-    recontamination = recontamination_outcomes_by_condition(
-        inputs["recontamination_records"]
-    )
+    reconstruction = reconstruction_outcomes_by_condition(inputs["reconstruction_records"])
+    recontamination = recontamination_outcomes_by_condition(inputs["recontamination_records"])
     false_block = false_block_outcomes_by_condition(inputs["candidate_trials"])
     utility_pairs = _utility_outcome_pairs(inputs["utility_trials"])
 
     comparisons: list[dict[str, Any]] = []
     for cond_a, cond_b in condition_pairs:
 
-        def compare(
-            table: dict[str, dict[str, bool]], metric: str, unit: str
-        ) -> None:
+        def compare(table: dict[str, dict[str, bool]], metric: str, unit: str) -> None:
             if cond_a in table and cond_b in table:
                 comparisons.append(
                     compare_paired_outcomes(

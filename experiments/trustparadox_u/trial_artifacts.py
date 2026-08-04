@@ -388,9 +388,7 @@ def build_utility_trials(
         return []
     baseline_index = by_condition.get(baseline_condition)
     if baseline_index is None:
-        if not any(
-            condition != baseline_condition for condition in by_condition
-        ):
+        if not any(condition != baseline_condition for condition in by_condition):
             # Only baseline trials exist (e.g. a small subset run): there is
             # nothing to pair against, so utility is undefined, not broken.
             return []
@@ -432,9 +430,7 @@ def build_utility_trials(
 # ---------------------------------------------------------------------------
 
 
-def _metric_dict(
-    numerator: int, denominator: int, *, reason: str | None = None
-) -> dict[str, Any]:
+def _metric_dict(numerator: int, denominator: int, *, reason: str | None = None) -> dict[str, Any]:
     if denominator == 0:
         return {
             "value": None,
@@ -602,9 +598,7 @@ def build_pairing_report(
     for condition, group in sorted(pairs_by_condition.items()):
         matched = len(group)
         baseline_failures = sum(1 for t in group if not t.baseline_task_success)
-        firewall_failures = sum(
-            1 for t in group if t.eligible and not t.firewall_task_success
-        )
+        firewall_failures = sum(1 for t in group if t.eligible and not t.firewall_task_success)
         false_blocks = sum(1 for t in group if t.eligible and t.firewall_blocked)
         pairs[f"{baseline_condition}_vs_{condition}"] = {
             "baseline_condition": baseline_condition,
@@ -762,10 +756,16 @@ def build_run_manifest(
     artifact_dir: Path,
     artifact_files: Sequence[str],
     git_commit: str = "",
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run provenance manifest with per-artifact content hashes."""
+    """Run provenance manifest with per-artifact content hashes.
+
+    FF92-023: the certification provenance block (tested code commit,
+    artifact generation commit, repository cleanliness, workflow
+    identity) is stored inside the manifest itself.
+    """
     total_failed = sum(len(entries) for entries in failed_candidates.values())
-    return {
+    manifest = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
@@ -777,10 +777,16 @@ def build_run_manifest(
         "failed_candidate_count": total_failed,
         "failed_candidates": failed_candidates,
         "artifact_files": {
-            name: {"sha256": _sha256_of(artifact_dir / name), "bytes": (artifact_dir / name).stat().st_size}
+            name: {
+                "sha256": _sha256_of(artifact_dir / name),
+                "bytes": (artifact_dir / name).stat().st_size,
+            }
             for name in artifact_files
         },
     }
+    if provenance is not None:
+        manifest["provenance"] = dict(provenance)
+    return manifest
 
 
 # ---------------------------------------------------------------------------
@@ -808,6 +814,7 @@ def write_trial_artifacts(
     mode: str,
     candidate_count: int,
     git_commit: str = "",
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write the full FF92-015 artifact set and return the run manifest.
 
@@ -876,7 +883,9 @@ def write_trial_artifacts(
         conditions,
         baseline_condition,
     )
-    (output_dir / "metrics_by_condition.json").write_text(json.dumps(metrics_by_condition, indent=2))
+    (output_dir / "metrics_by_condition.json").write_text(
+        json.dumps(metrics_by_condition, indent=2)
+    )
 
     metrics_by_attack = metrics_by_condition_and_attack_from_artifacts(
         written_candidate_trials, written_recon, written_recont
@@ -905,10 +914,9 @@ def write_trial_artifacts(
         candidate_count=candidate_count,
         failed_candidates=failed_candidates,
         artifact_dir=output_dir,
-        artifact_files=[
-            name for name in REQUIRED_ARTIFACT_FILES if name != "run_manifest.json"
-        ],
+        artifact_files=[name for name in REQUIRED_ARTIFACT_FILES if name != "run_manifest.json"],
         git_commit=git_commit,
+        provenance=provenance,
     )
     (output_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

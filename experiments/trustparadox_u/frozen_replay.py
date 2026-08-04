@@ -688,9 +688,7 @@ def build_trial_responder(
         # sentence-final form the runner registers for embedding detection.
         item = trial_episode.sensitive_items[0]
         if not item.semantic_variants:
-            raise ValueError(
-                f"Paraphrase trial {eid!r} has no semantic variant to disclose"
-            )
+            raise ValueError(f"Paraphrase trial {eid!r} has no semantic variant to disclose")
         disclosure = f"{item.semantic_variants[0]}."
         scripts[f"{eid}:{entry.attacker}:{entry.instruction}"] = entry.instruction
         scripts[f"{eid}:{entry.target_agent}:{entry.instruction}"] = disclosure
@@ -782,12 +780,8 @@ def run_condition(
                     f"(candidate {candidate.candidate_id!r})"
                 )
             spec = target_spec_from_episode(base_ep, candidate)
-            trial_ep = build_trial_episode(
-                base_ep, candidate, spec, sequence_members=unit.members
-            )
-            responder = build_trial_responder(
-                trial_ep, candidate, sequence_members=unit.members
-            )
+            trial_ep = build_trial_episode(base_ep, candidate, spec, sequence_members=unit.members)
+            responder = build_trial_responder(trial_ep, candidate, sequence_members=unit.members)
             result = run_episode(
                 episode=trial_ep,
                 config=config,
@@ -919,6 +913,7 @@ def write_results(
     candidate_count: int | None = None,
     diagnostic: bool = False,
     git_commit: str = "",
+    provenance: dict[str, Any] | None = None,
 ) -> None:
     """Write frozen replay results to disk.
 
@@ -929,9 +924,7 @@ def write_results(
     output_dir.mkdir(parents=True, exist_ok=True)
     conditions = list(results.keys())
     configs = {name: build_config_for_condition(name, seed=seed) for name in conditions}
-    failed_by_condition = {
-        name: list(cr.failed_candidates) for name, cr in results.items()
-    }
+    failed_by_condition = {name: list(cr.failed_candidates) for name, cr in results.items()}
     if candidate_count is None:
         candidate_count = sum(
             len(unit.members) for cr in results.values() for unit in cr.trial_units
@@ -950,6 +943,7 @@ def write_results(
         mode="diagnostic" if diagnostic else "research",
         candidate_count=candidate_count,
         git_commit=git_commit,
+        provenance=provenance,
     )
 
     # Shallow summary index (never the authoritative dataset).
@@ -974,6 +968,11 @@ def main() -> int:
     import argparse
     import subprocess
 
+    from experiments.trustparadox_u.artifact_provenance import (
+        build_certification_provenance,
+        code_tree_is_clean,
+    )
+
     parser = argparse.ArgumentParser(description="Frozen replay runner")
     parser.add_argument(
         "--diagnostic",
@@ -990,6 +989,10 @@ def main() -> int:
 
     print("Iteration 9: Frozen Replay Runner")
     print("=" * 50)
+
+    # FF92-023: snapshot certification provenance before any artifact is
+    # written, so this run's own output cannot self-invalidate it.
+    provenance = build_certification_provenance(repository_clean=code_tree_is_clean())
 
     # Get run ID from git
     git_commit = ""
@@ -1012,6 +1015,7 @@ def main() -> int:
         run_id=run_id,
         diagnostic=args.diagnostic,
         git_commit=git_commit,
+        provenance=provenance,
     )
 
     # Fail loudly if a diagnostic run recorded candidate failures.

@@ -156,8 +156,7 @@ def _build_annotations() -> list[dict[str, Any]]:
         "c_multi": "direct",
     }
     return [
-        {"candidate_id": cid, "attack_type": attack}
-        for cid, attack in attack_by_candidate.items()
+        {"candidate_id": cid, "attack_type": attack} for cid, attack in attack_by_candidate.items()
     ]
 
 
@@ -279,16 +278,12 @@ class TestValidationChecks:
     def test_condition_counts_sum_to_global(self) -> None:
         analysis = run_leakage_analysis(_inputs())
         for metric in ("pu_rer", "crr", "rr", "fbr"):
-            cond_num = sum(
-                cell[metric]["numerator"] for cell in analysis["by_condition"].values()
-            )
+            cond_num = sum(cell[metric]["numerator"] for cell in analysis["by_condition"].values())
             assert cond_num == analysis["global"][metric]["numerator"]
 
     def test_annotation_mismatch_raises(self) -> None:
         inputs = _inputs()
-        inputs["annotations"] = [
-            a for a in inputs["annotations"] if a["candidate_id"] != "c_multi"
-        ]
+        inputs["annotations"] = [a for a in inputs["annotations"] if a["candidate_id"] != "c_multi"]
         with pytest.raises(ValueError, match="annotation"):
             run_leakage_analysis(inputs)
 

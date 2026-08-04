@@ -59,16 +59,11 @@ class TestBuildSweepConfig:
 
     def test_each_value_produces_distinct_condition_hash(self) -> None:
         for spec in SWEEP_SPECS:
-            hashes = {
-                build_sweep_config(spec, value).condition_hash()
-                for value in spec.values
-            }
+            hashes = {build_sweep_config(spec, value).condition_hash() for value in spec.values}
             assert len(hashes) == len(spec.values), spec.name
 
     def test_duration_sweep_disables_continuous_monitoring(self) -> None:
-        spec = next(
-            s for s in SWEEP_SPECS if s.name == "monitoring.duration_rounds"
-        )
+        spec = next(s for s in SWEEP_SPECS if s.name == "monitoring.duration_rounds")
         for value in spec.values:
             config = build_sweep_config(spec, value)
             assert config.monitoring.continuous is False

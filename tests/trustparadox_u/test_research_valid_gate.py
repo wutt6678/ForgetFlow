@@ -52,12 +52,10 @@ class TestDeterministicReproducibilityValidation:
         run2 = run_frozen_replay(max_candidates_per_condition=5, run_id="th2")
         for condition in run1:
             hashes1 = {
-                r.candidate_sample_id: trial_hash(r)
-                for r in run1[condition].episode_results
+                r.candidate_sample_id: trial_hash(r) for r in run1[condition].episode_results
             }
             hashes2 = {
-                r.candidate_sample_id: trial_hash(r)
-                for r in run2[condition].episode_results
+                r.candidate_sample_id: trial_hash(r) for r in run2[condition].episode_results
             }
             assert hashes1 == hashes2
 

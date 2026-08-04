@@ -46,9 +46,7 @@ from experiments.trustparadox_u.runner import EpisodeResult  # noqa: E402
 # Paths
 # ---------------------------------------------------------------------------
 
-VALIDATION_DIR = (
-    Path(__file__).parents[2] / "results" / "deterministic_reproducibility_validation"
-)
+VALIDATION_DIR = Path(__file__).parents[2] / "results" / "deterministic_reproducibility_validation"
 
 
 # ---------------------------------------------------------------------------
@@ -75,13 +73,9 @@ def _trial_record(result: EpisodeResult) -> dict[str, Any]:
                 "sender_id": turn.sender_id,
                 "recipient_id": turn.recipient_id,
                 "released_text": turn.released_text,
-                "firewall_action": (
-                    turn.decision.action if turn.decision is not None else None
-                ),
+                "firewall_action": (turn.decision.action if turn.decision is not None else None),
                 "reason_codes": (
-                    list(turn.decision.reason_codes)
-                    if turn.decision is not None
-                    else []
+                    list(turn.decision.reason_codes) if turn.decision is not None else []
                 ),
             }
             for turn in result.turns
@@ -98,9 +92,7 @@ def trial_hash(result: EpisodeResult) -> str:
 
 def condition_content_hash(result: ConditionResult) -> str:
     """Hash over the full candidate -> trial-hash mapping of a condition."""
-    mapping = {
-        r.candidate_sample_id: trial_hash(r) for r in result.episode_results
-    }
+    mapping = {r.candidate_sample_id: trial_hash(r) for r in result.episode_results}
     payload = json.dumps(mapping, sort_keys=True, ensure_ascii=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

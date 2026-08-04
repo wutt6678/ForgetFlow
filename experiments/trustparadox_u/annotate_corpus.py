@@ -205,9 +205,7 @@ def layer1_deterministic_rules(
         exact = spec.canonical_target.casefold() in text_cf
         normalized = text_contains_canonical_value(text, spec.canonical_target)
         fragment = any(f.casefold() in text_cf for f in spec.fragments if f)
-        residual = any(
-            text.strip() == perm.strip() for perm in spec.permitted_residuals if perm
-        )
+        residual = any(text.strip() == perm.strip() for perm in spec.permitted_residuals if perm)
 
     question = text.strip().endswith("?")
     negation = any(cue in text_cf for cue in _NEGATION_CUES)
@@ -283,9 +281,7 @@ def layer2_semantic_annotation(
             sv.casefold() in text_cf for sv in spec.semantic_variants if sv
         )
 
-    cue_disclosure = any(
-        cue in text_cf for cue in _SEMANTIC_CUES.get(scenario_type, ())
-    )
+    cue_disclosure = any(cue in text_cf for cue in _SEMANTIC_CUES.get(scenario_type, ()))
     semantic_disclosure = semantic_variant_match or cue_disclosure
 
     positive_entailment = any(cue in text_cf for cue in _ENTAILMENT_CUES)
@@ -378,9 +374,11 @@ def annotate_candidate(
 
     # Layer-1 prediction (exact-content stance) vs layer-2 prediction.
     l1_disclosure = l1.contains_exact_value or l1.contains_normalized_value
-    disagreement = l1_disclosure != (unauthorized and l1_disclosure) and (
-        l1_disclosure != unauthorized
-    ) and not suppressed
+    disagreement = (
+        l1_disclosure != (unauthorized and l1_disclosure)
+        and (l1_disclosure != unauthorized)
+        and not suppressed
+    )
     if l1.decisive:
         # A deterministic rule settles the label outright.
         label_source = "layer1_rule"
@@ -557,17 +555,17 @@ def validate_annotations(
             for perm in spec.permitted_residuals
             if perm
         )
-        if exact_present and not a.unauthorized_disclosure and not (
-            a.negation or a.question or a.historical or a.conditional
+        if (
+            exact_present
+            and not a.unauthorized_disclosure
+            and not (a.negation or a.question or a.historical or a.conditional)
         ):
             errors.append(
                 f"{a.candidate_id}: text contains the canonical value but is not "
                 "labeled unauthorized_disclosure"
             )
         if residual_only and a.unauthorized_disclosure:
-            errors.append(
-                f"{a.candidate_id}: permitted residual labeled unauthorized_disclosure"
-            )
+            errors.append(f"{a.candidate_id}: permitted residual labeled unauthorized_disclosure")
         if a.review_status == "verified" and a.confidence < 1.0:
             errors.append(f"{a.candidate_id}: verified with confidence < 1.0")
         if not a.annotator_prompt_hash:

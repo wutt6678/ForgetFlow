@@ -111,12 +111,8 @@ def load_leakage_inputs(
     ]
     return {
         "candidate_trials": candidate_trials,
-        "reconstruction_records": load_trial_records(
-            replay_dir / "reconstruction_trials.jsonl"
-        ),
-        "recontamination_records": load_trial_records(
-            replay_dir / "recontamination_trials.jsonl"
-        ),
+        "reconstruction_records": load_trial_records(replay_dir / "reconstruction_trials.jsonl"),
+        "recontamination_records": load_trial_records(replay_dir / "recontamination_trials.jsonl"),
         "annotations": load_trial_records(annotations_path),
     }
 
@@ -251,11 +247,19 @@ def run_leakage_analysis(inputs: dict[str, Any]) -> dict[str, Any]:
 
     def recon_for(cond_trials: Sequence[CandidateTrial]) -> list[dict[str, Any]]:
         keys = {(t.condition_id, t.episode_id) for t in cond_trials if t.episode_id}
-        return [record for record, trial in recon_joined if (trial.condition_id, trial.episode_id) in keys]
+        return [
+            record
+            for record, trial in recon_joined
+            if (trial.condition_id, trial.episode_id) in keys
+        ]
 
     def recont_for(cond_trials: Sequence[CandidateTrial]) -> list[dict[str, Any]]:
         keys = {(t.condition_id, t.episode_id) for t in cond_trials if t.episode_id}
-        return [record for record, trial in recont_joined if (trial.condition_id, trial.episode_id) in keys]
+        return [
+            record
+            for record, trial in recont_joined
+            if (trial.condition_id, trial.episode_id) in keys
+        ]
 
     def table_for(
         key: Callable[[CandidateTrial], str],
@@ -278,9 +282,7 @@ def run_leakage_analysis(inputs: dict[str, Any]) -> dict[str, Any]:
         "by_condition_and_attack": table_for(lambda t: t.attack_type),
         "by_condition_and_scenario": table_for(lambda t: t.scenario_id),
         "by_condition_and_trust": table_for(lambda t: t.trust_level),
-        "by_condition_and_target_type": table_for(
-            lambda t: target_type_for(t.target_forget_ids)
-        ),
+        "by_condition_and_target_type": table_for(lambda t: target_type_for(t.target_forget_ids)),
         "global": _sum_cells(list(condition_cells.values())),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -301,8 +303,7 @@ def _check_benign_zero_exposure(analysis: dict[str, Any]) -> dict[str, Any]:
                 violations.append(f"{condition}/{attack}: pu_rer numerator != 0")
     if violations:
         raise ValueError(
-            "Benign controls must have zero exposure by construction: "
-            + "; ".join(violations)
+            "Benign controls must have zero exposure by construction: " + "; ".join(violations)
         )
     return {"check": "benign_controls_zero_exposure", "passed": True}
 
@@ -331,13 +332,12 @@ def _check_no_firewall_direct_high_exposure(analysis: dict[str, Any]) -> dict[st
 def _check_condition_sums(analysis: dict[str, Any]) -> dict[str, Any]:
     global_cell = analysis["global"]
     for metric in ("pu_rer", "crr", "rr", "fbr"):
-        cond_num = sum(
-            cell[metric]["numerator"] for cell in analysis["by_condition"].values()
-        )
-        cond_den = sum(
-            cell[metric]["denominator"] for cell in analysis["by_condition"].values()
-        )
-        if cond_num != global_cell[metric]["numerator"] or cond_den != global_cell[metric]["denominator"]:
+        cond_num = sum(cell[metric]["numerator"] for cell in analysis["by_condition"].values())
+        cond_den = sum(cell[metric]["denominator"] for cell in analysis["by_condition"].values())
+        if (
+            cond_num != global_cell[metric]["numerator"]
+            or cond_den != global_cell[metric]["denominator"]
+        ):
             raise ValueError(
                 f"Condition counts do not sum to global for {metric}: "
                 f"conditions=({cond_num}/{cond_den}) global="
@@ -370,8 +370,7 @@ def _check_annotation_coverage(
             )
     if mismatches:
         raise ValueError(
-            "Attack-type trial populations do not match annotation counts: "
-            + "; ".join(mismatches)
+            "Attack-type trial populations do not match annotation counts: " + "; ".join(mismatches)
         )
     return {
         "check": "attack_denominators_match_annotations",
@@ -388,13 +387,9 @@ def validate_leakage_analysis(
     """Run every FF92-016 required validation; any failure raises."""
     return {
         "benign_controls_zero_exposure": _check_benign_zero_exposure(analysis),
-        "no_firewall_direct_high_exposure": _check_no_firewall_direct_high_exposure(
-            analysis
-        ),
+        "no_firewall_direct_high_exposure": _check_no_firewall_direct_high_exposure(analysis),
         "condition_counts_sum_to_global": _check_condition_sums(analysis),
-        "attack_denominators_match_annotations": _check_annotation_coverage(
-            trials, annotations
-        ),
+        "attack_denominators_match_annotations": _check_annotation_coverage(trials, annotations),
     }
 
 

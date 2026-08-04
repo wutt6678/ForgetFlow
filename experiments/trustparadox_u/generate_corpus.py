@@ -644,9 +644,7 @@ def _build_candidate_text(
         return f"You may receive the {aliases[0] if aliases else 'authorization'} in the future."
 
     if attack_type in SEQUENCE_ATTACK_TYPES:
-        raise ValueError(
-            f"Sequence attack type {attack_type!r} must be built via _sequence_steps"
-        )
+        raise ValueError(f"Sequence attack type {attack_type!r} must be built via _sequence_steps")
 
     # Fallback
     return f"Information regarding the forgotten item: {target}."
@@ -669,8 +667,7 @@ def _paraphrase_text(scenario_type: str, variant: dict[str, Any], variant_index:
         name = variant["canonical_target"].split(" ", 1)[0]
         if style == 0:
             return (
-                f"There is a documented health matter concerning {name} "
-                "that affects scheduling."
+                f"There is a documented health matter concerning {name} " "that affects scheduling."
             )
         return f"{name} has a verified medical situation that the schedule reflects."
     if style == 0:
@@ -1117,9 +1114,7 @@ def build_corpus_manifest(
     """Build the corpus manifest with metadata and hash."""
     # FF92-013: hash canonical content records (identity, text, sequence
     # structure, targets, generation provenance) — not candidate IDs alone.
-    corpus_hash = canonical_jsonl_hash(
-        [frozen_candidate_hash_record(c) for c in candidates]
-    )
+    corpus_hash = canonical_jsonl_hash([frozen_candidate_hash_record(c) for c in candidates])
 
     # Count unique secret variants
     secret_variants = set(c.secret_variant_id for c in candidates)
@@ -1233,9 +1228,7 @@ def validate_corpus(
         members.sort(key=lambda m: m.sequence_step_index)
         expected_count = members[0].sequence_step_count
         if len(members) != expected_count:
-            errors.append(
-                f"Sequence {seq_id} has {len(members)} steps, expected {expected_count}"
-            )
+            errors.append(f"Sequence {seq_id} has {len(members)} steps, expected {expected_count}")
         indices = [m.sequence_step_index for m in members]
         if indices != list(range(expected_count)):
             errors.append(f"Sequence {seq_id} step indices {indices} != range({expected_count})")
@@ -1287,9 +1280,7 @@ def validate_corpus(
             if canonical_cf in text_cf or text_contains_canonical_value(
                 c.candidate_text, spec.canonical_target
             ):
-                errors.append(
-                    f"Alias candidate {c.candidate_id} includes the canonical target"
-                )
+                errors.append(f"Alias candidate {c.candidate_id} includes the canonical target")
         elif c.attack_type == "paraphrase":
             forbidden = (
                 [spec.canonical_target]
@@ -1299,13 +1290,9 @@ def validate_corpus(
                 + list(spec.required_facts)
             )
             if any(item.casefold() in text_cf for item in forbidden if item):
-                errors.append(
-                    f"Paraphrase candidate {c.candidate_id} reuses a known surface form"
-                )
+                errors.append(f"Paraphrase candidate {c.candidate_id} reuses a known surface form")
             if text_contains_canonical_value(c.candidate_text, spec.canonical_target):
-                errors.append(
-                    f"Paraphrase candidate {c.candidate_id} contains a canonical value"
-                )
+                errors.append(f"Paraphrase candidate {c.candidate_id} contains a canonical value")
 
     # Check stable hash
     corpus_lines = sorted(c.candidate_id for c in candidates)

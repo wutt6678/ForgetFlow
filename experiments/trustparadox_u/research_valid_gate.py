@@ -172,9 +172,7 @@ def check_parameter_sweep_complete() -> dict[str, Any]:
     if unselected:
         return {"passed": False, "reason": f"sweeps without selection: {unselected}"}
 
-    failed = [
-        name for name, check in data.get("validation", {}).items() if not check.get("passed")
-    ]
+    failed = [name for name, check in data.get("validation", {}).items() if not check.get("passed")]
     if failed:
         return {"passed": False, "reason": f"validation checks failed: {failed}"}
 
@@ -196,11 +194,7 @@ def check_deterministic_reproducibility_validation() -> dict[str, Any]:
     metric counts, hashes) to pass — aggregate equality alone is not
     sufficient.
     """
-    path = (
-        RESULTS_DIR
-        / "deterministic_reproducibility_validation"
-        / "validation_result.json"
-    )
+    path = RESULTS_DIR / "deterministic_reproducibility_validation" / "validation_result.json"
     if not path.exists():
         return {"passed": False, "reason": "validation_result.json not found"}
 
