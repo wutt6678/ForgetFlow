@@ -1,18 +1,18 @@
 {
   "crr": {
-    "denominator": 39,
+    "denominator": 42,
     "numerator": 24
   },
   "fbr": {
-    "denominator": 156,
+    "denominator": 168,
     "numerator": 0
   },
   "pu_rer": {
-    "denominator": 663,
-    "numerator": 75
+    "denominator": 714,
+    "numerator": 69
   },
   "rr": {
-    "denominator": 39,
+    "denominator": 42,
     "numerator": 21
   }
 }

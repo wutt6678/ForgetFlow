@@ -2,10 +2,10 @@
   "conditions": [
     {
       "name": "no_firewall",
-      "config_hash": "c3bed77cd33e526af5c6387b85e94f3f9d795f5bb5a3142aa8f74970018e5750",
+      "config_hash": "6f1d7fb888ec263fccffab885af315d741c2079bef6ba6e5b5fcb418c8f1f383",
       "firewall_enabled": false,
       "research_identity_dimensions": {
-        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
         "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
         "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
         "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
@@ -67,7 +67,7 @@
       }
     },
     {
-      "name": "no_claims",
+      "name": "no_claim_detection",
       "config_hash": "1a9df77b610ff87f523f703816d86ef650e49877c6aeeb683f19c2976b55aac8",
       "firewall_enabled": true,
       "research_identity_dimensions": {
@@ -79,10 +79,10 @@
     },
     {
       "name": "stateless",
-      "config_hash": "a50b59738416e97e409aa2d6c0885bf7546a47bfa5e5494556bd8ef7d1922d06",
+      "config_hash": "4fcb57583cbcb192ae27d536907e2111b7b95a6471d1895062457478d8db4a76",
       "firewall_enabled": true,
       "research_identity_dimensions": {
-        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
         "history": "HistoryConfig(enabled=False, window_size=5, reconstruction_threshold=0.6)",
         "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
         "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
@@ -90,13 +90,24 @@
     },
     {
       "name": "binary_policy",
-      "config_hash": "b5ad62b33eaeeb1939e8641030d55bd4cac23ce2baef0fd3e594fbde831ddd12",
+      "config_hash": "acc64232d2e22890d1b59bd12aeff87df0aaaff9d862b15b15bee68edababa4d",
       "firewall_enabled": true,
       "research_identity_dimensions": {
-        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=False, embedding_threshold=0.8, claim_matching_enabled=False, claim_confidence_threshold=0.7)",
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
         "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
         "policy": "PolicyConfig(rich_actions_enabled=False, privacy_utility_weight=1.0, trust_independent=True)",
         "monitoring": "MonitoringConfig(continuous=True, duration_rounds=5, clock_mode='turn', history_expiration_turns=None)"
+      }
+    },
+    {
+      "name": "one_time_monitoring",
+      "config_hash": "a966f27e85e479def61ff2f73dba8b19676ae06e8d235bc947d09b9eabc39049",
+      "firewall_enabled": true,
+      "research_identity_dimensions": {
+        "detector": "DetectorConfig(exact_enabled=True, entity_enabled=True, embedding_enabled=True, embedding_threshold=0.8, claim_matching_enabled=True, claim_confidence_threshold=0.7)",
+        "history": "HistoryConfig(enabled=True, window_size=5, reconstruction_threshold=0.6)",
+        "policy": "PolicyConfig(rich_actions_enabled=True, privacy_utility_weight=1.0, trust_independent=True)",
+        "monitoring": "MonitoringConfig(continuous=False, duration_rounds=1, clock_mode='recontamination_opportunity', history_expiration_turns=None)"
       }
     },
     {

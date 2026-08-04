@@ -329,7 +329,7 @@
     },
     "metadata": null
   },
-  "no_claims": {
+  "no_claim_detection": {
     "pu_rer": {
       "value": 0.0,
       "numerator": 0,
@@ -386,8 +386,8 @@
   },
   "stateless": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.0,
+      "numerator": 0,
       "denominator": 51,
       "reason": null,
       "evaluable": true
@@ -441,8 +441,63 @@
   },
   "binary_policy": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 51,
+      "reason": null,
+      "evaluable": true
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "evaluable": true
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "evaluable": true,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "reason": null,
+      "evaluable": true,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "evaluable": false,
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 12,
+      "reason": null,
+      "evaluable": true
+    },
+    "paired_policy_utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no_eligible_pairs",
+      "evaluable": false
+    },
+    "metadata": null
+  },
+  "one_time_monitoring": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
       "denominator": 51,
       "reason": null,
       "evaluable": true

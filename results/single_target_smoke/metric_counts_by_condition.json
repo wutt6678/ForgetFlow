@@ -107,7 +107,7 @@
       "denominator": 12
     }
   },
-  "no_claims": {
+  "no_claim_detection": {
     "pu_rer": {
       "numerator": 0,
       "denominator": 51
@@ -127,7 +127,7 @@
   },
   "stateless": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 0,
       "denominator": 51
     },
     "crr": {
@@ -145,7 +145,25 @@
   },
   "binary_policy": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 0,
+      "denominator": 51
+    },
+    "crr": {
+      "numerator": 0,
+      "denominator": 3
+    },
+    "rr": {
+      "numerator": 0,
+      "denominator": 3
+    },
+    "fbr": {
+      "numerator": 0,
+      "denominator": 12
+    }
+  },
+  "one_time_monitoring": {
+    "pu_rer": {
+      "numerator": 0,
       "denominator": 51
     },
     "crr": {

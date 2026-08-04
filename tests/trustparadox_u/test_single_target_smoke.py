@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from experiments.trustparadox_u.audit_results import audit_results
+from experiments.trustparadox_u.conditions import build_conditions
 from experiments.trustparadox_u.config import (
     DetectorConfig,
     ExperimentConfig,
@@ -35,21 +36,20 @@ FIXTURES = [
 
 SEEDS = [42, 123, 7]
 
-# Conditions aligned with scripts/run_single_target_smoke.py
+# Conditions aligned with scripts/run_single_target_smoke.py.
+# FF92-005: primary conditions come from the canonical condition module;
+# supplementary baselines (lexical_only, monitoring grid) are local.
+_CANONICAL_CONFIGS = build_conditions(seed=42, mode="test")
+
+
+def _canonical_entry(name: str) -> tuple[str, dict, bool]:
+    cfg = _CANONICAL_CONFIGS[name]
+    return (name, {"_config": cfg}, cfg.firewall_enabled)
+
+
 CONDITIONS: list[tuple[str, dict, bool]] = [
-    ("no_firewall", {}, False),
-    (
-        "exact_only",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=False,
-                embedding_enabled=False,
-                claim_matching_enabled=False,
-            )
-        },
-        True,
-    ),
+    _canonical_entry("no_firewall"),
+    _canonical_entry("exact_only"),
     (
         "lexical_only",
         {
@@ -62,44 +62,12 @@ CONDITIONS: list[tuple[str, dict, bool]] = [
         },
         True,
     ),
-    (
-        "full_mvp",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=True,
-                claim_matching_enabled=True,
-            )
-        },
-        True,
-    ),
-    (
-        "no_embedding",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=False,
-                claim_matching_enabled=True,
-            )
-        },
-        True,
-    ),
-    (
-        "no_claims",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=True,
-                claim_matching_enabled=False,
-            )
-        },
-        True,
-    ),
-    ("stateless", {"history": HistoryConfig(enabled=False)}, True),
-    ("binary_policy", {"policy": PolicyConfig(rich_actions_enabled=False)}, True),
+    _canonical_entry("full_mvp"),
+    _canonical_entry("no_embedding"),
+    _canonical_entry("no_claim_detection"),
+    _canonical_entry("stateless"),
+    _canonical_entry("binary_policy"),
+    _canonical_entry("one_time_monitoring"),
     ("monitoring_0", {"monitoring": MonitoringConfig(continuous=False, duration_rounds=0)}, True),
     ("monitoring_1", {"monitoring": MonitoringConfig(continuous=False, duration_rounds=1)}, True),
     ("continuous", {"monitoring": MonitoringConfig(continuous=True)}, True),
@@ -129,6 +97,7 @@ def _make_config(seed: int, overrides: dict) -> ExperimentConfig:
 def smoke_results() -> tuple[list[EpisodeResult], dict[str, list[EpisodeResult]]]:
     """Run the smoke study and return (all_results, condition_results)."""
     import hashlib
+    from dataclasses import replace
 
     from scripts.run_single_target_smoke import _build_smoke_responder
 
@@ -140,7 +109,10 @@ def smoke_results() -> tuple[list[EpisodeResult], dict[str, list[EpisodeResult]]
         responder = _build_smoke_responder(ep)
         for seed in SEEDS:
             for cond_name, cond_overrides, fw_enabled in CONDITIONS:
-                cfg = _make_config(seed, cond_overrides)
+                if "_config" in cond_overrides:
+                    cfg = replace(cond_overrides["_config"], seed=seed)
+                else:
+                    cfg = _make_config(seed, cond_overrides)
                 run_id = hashlib.sha256(
                     f"{ep.episode_id}|{cond_name}|{seed}|{fw_enabled}".encode()
                 ).hexdigest()[:20]
@@ -160,9 +132,9 @@ class TestSmokeStudyArtifacts:
     """Validate smoke study artifact production."""
 
     def test_total_run_count(self, smoke_results: tuple) -> None:
-        """3 fixtures x 3 seeds x 11 conditions = 99 runs."""
+        """3 fixtures x 3 seeds x 12 conditions = 108 runs."""
         all_results, _ = smoke_results
-        assert len(all_results) == 99
+        assert len(all_results) == 108
 
     def test_unique_run_ids(self, smoke_results: tuple) -> None:
         """All run IDs are unique."""
@@ -177,9 +149,9 @@ class TestSmokeStudyArtifacts:
         assert len(episode_ids) == 3
 
     def test_all_conditions_present(self, smoke_results: tuple) -> None:
-        """All 11 conditions are represented."""
+        """All 12 conditions are represented."""
         _, condition_results = smoke_results
-        assert len(condition_results) == 11
+        assert len(condition_results) == 12
         expected = {c[0] for c in CONDITIONS}
         assert set(condition_results.keys()) == expected
 
@@ -188,11 +160,21 @@ class TestSmokeStudyArtifacts:
 
         Conditions without active enforcement (no_firewall, monitoring_0,
         monitoring_1) are expected to leak for recontamination after
-        enforcement expires - they serve as baselines.
+        enforcement expires - they serve as baselines. one_time_monitoring
+        expires after a single recontamination opportunity (FF92-006), so
+        later probes are also expected to leak. exact_only (FF92-005) has
+        history/rich-policy/monitoring disabled, so scripted recontamination
+        after enforcement expiry leaks by design.
         """
         all_results, _ = smoke_results
         # Conditions without continuous enforcement (expected to leak)
-        non_enforcing = {"no_firewall", "monitoring_0", "monitoring_1"}
+        non_enforcing = {
+            "no_firewall",
+            "exact_only",
+            "monitoring_0",
+            "monitoring_1",
+            "one_time_monitoring",
+        }
         for result in all_results:
             condition = result.metadata.get("smoke_condition", "")
             if condition in non_enforcing:

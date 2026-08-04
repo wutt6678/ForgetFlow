@@ -12,14 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from experiments.trustparadox_u.agent import ScriptedResponder
-from experiments.trustparadox_u.config import (
-    DetectorConfig,
-    ExperimentConfig,
-    HistoryConfig,
-    MonitoringConfig,
-    PolicyConfig,
-    RunConfig,
+from experiments.trustparadox_u.conditions import (
+    build_conditions as build_canonical_conditions,
 )
+from experiments.trustparadox_u.config import ExperimentConfig
 from experiments.trustparadox_u.dataset import TrustParadoxEpisode, load_episode
 from experiments.trustparadox_u.runner import run_episode
 
@@ -40,74 +36,20 @@ SEEDS = [42, 43, 44, 45, 46]
 # Config factories
 # ---------------------------------------------------------------------------
 
-
-def _config(
-    *,
-    seed: int = 42,
-    exact: bool = True,
-    entity: bool = True,
-    semantic: bool = True,
-    history: bool = True,
-    rich_actions: bool = True,
-    continuous: bool = True,
-    duration_rounds: int = 5,
-    firewall_enabled: bool = True,
-    mode: str = "test",
-) -> ExperimentConfig:
-    return ExperimentConfig(
-        seed=seed,
-        repetitions=1,
-        detector=DetectorConfig(
-            exact_enabled=exact,
-            entity_enabled=entity,
-            embedding_enabled=semantic,
-        ),
-        history=HistoryConfig(enabled=history),
-        policy=PolicyConfig(rich_actions_enabled=rich_actions),
-        monitoring=MonitoringConfig(
-            continuous=continuous,
-            duration_rounds=duration_rounds,
-        ),
-        run=RunConfig(mode=mode),
-        firewall_enabled=firewall_enabled,
-    )
-
-
 CONDITIONS: dict[str, ExperimentConfig] = {}
 
 
 def _build_conditions() -> dict[str, ExperimentConfig]:
     """Build the 7 experiment conditions.
 
-    FF-015: Each ablation differs from full_mvp by exactly one component.
+    FF92-005: conditions are sourced from the canonical condition module so
+    each ablation differs from full_mvp only in its documented paths
+    (FF-015). FF92-004: full_mvp includes the embedding detector.
     """
     return {
-        "no_firewall": _config(
-            exact=False,
-            entity=False,
-            semantic=False,
-            history=False,
-            rich_actions=False,
-            continuous=False,
-            duration_rounds=0,
-            firewall_enabled=False,
-        ),
-        "exact_only": _config(
-            exact=True,
-            entity=False,
-            semantic=False,
-            history=False,
-            rich_actions=False,
-            continuous=False,
-            duration_rounds=0,
-        ),
-        "full_mvp": _config(),
-        "no_embedding": _config(semantic=False),  # Only embedding disabled
-        "stateless": _config(history=False),  # Only history disabled
-        "binary_policy": _config(rich_actions=False),  # Only rich_actions disabled
-        "one_time_monitoring": _config(
-            continuous=False, duration_rounds=1
-        ),  # Only monitoring changes
+        name: config
+        for name, config in build_canonical_conditions(seed=42, mode="test").items()
+        if name != "no_claim_detection"
     }
 
 

@@ -57,11 +57,14 @@ SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenari
 # ---------------------------------------------------------------------------
 
 # Three core parameters with 3 levels each = 27 grid points
+# FF92-004: the strongest detector level is the full MVP detector stack
+# (embedding included); no sweep point may present an embedding-disabled
+# system as the strongest configuration.
 DETECTOR_LEVELS = [
     {
         "exact_enabled": True,
         "entity_enabled": True,
-        "embedding_enabled": False,
+        "embedding_enabled": True,
         "claim_matching_enabled": True,
     },
     {

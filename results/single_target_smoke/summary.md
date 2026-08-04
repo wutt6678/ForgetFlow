@@ -1,13 +1,13 @@
 # Single-Target Smoke Study Summary
 
 - **Status**: DIAGNOSTIC ONLY
-- **Execution status**: RESEARCH_VALID
-- **Commit**: 0e59e087526d5ab95b8b3428ebd006d94f5ee1aa
+- **Execution status**: DIAGNOSTIC_VALID
+- **Commit**: 00d2f7111e061810bc95393897ead58ef1356b8b-dirty
 - **Mode**: diagnostic
 - **Fixtures**: 3
 - **Seeds**: 3
-- **Conditions**: 13
-- **Total runs**: 117
+- **Conditions**: 14
+- **Total runs**: 126
 - **Audit valid**: True
 - **Audit errors**: 0
 - **Duplicate identities**: 0
@@ -17,10 +17,10 @@
 
 | Metric | Value | Numerator | Denominator |
 |--------|------:|----------:|------------:|
-| PU-RER | 0.1131 | 75 | 663 |
-| CRR | 0.6154 | 24 | 39 |
-| RR | 0.5385 | 21 | 39 |
-| FBR | 0.0000 | 0 | 156 |
+| PU-RER | 0.0966 | 69 | 714 |
+| CRR | 0.5714 | 24 | 42 |
+| RR | 0.5000 | 21 | 42 |
+| FBR | 0.0000 | 0 | 168 |
 
 ## Directional Checks
 

@@ -24,6 +24,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from experiments.trustparadox_u.audit_results import audit_results  # noqa: E402
 from experiments.trustparadox_u.candidates import FrozenCandidateIndex  # noqa: E402
+from experiments.trustparadox_u.conditions import (  # noqa: E402
+    build_conditions as build_canonical_conditions,
+)
 from experiments.trustparadox_u.config import (  # noqa: E402
     DetectorConfig,
     ExperimentConfig,
@@ -96,31 +99,22 @@ SMOKE_REPORT_VERSION = "1.0.0"
 ARTIFACT_SCHEMA_VERSION = "1.0.0"
 
 # Condition definitions: (name, config_overrides, firewall_enabled)
-# Each condition must be scientifically distinct
-# Per spec: separate embedding and claim detection, redefine exact-only as true exact-only baseline
-# Phase 0.4: firewall_enabled is now stored in overrides and read from config
+# FF92-005: primary conditions are sourced from the canonical condition
+# module (experiments.trustparadox_u.conditions); supplementary smoke
+# baselines below are detector/monitoring grids, not ablations of full MVP.
+# Phase 0.4: firewall_enabled is stored in the config and read from it.
+_CANONICAL_CONDITIONS = build_canonical_conditions(seed=0, mode="test")
+
+
+def _canonical_entry(name: str) -> tuple[str, dict[str, Any], bool]:
+    """Wrap a canonical condition config for the smoke execution loop."""
+    cfg = _CANONICAL_CONDITIONS[name]
+    return (name, {"_loaded_config": cfg}, cfg.firewall_enabled)
+
+
 CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
-    (
-        "no_firewall",
-        {"firewall_enabled": False},
-        False,
-    ),
-    (
-        "exact_only",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=False,
-                embedding_enabled=False,
-                claim_matching_enabled=False,
-            ),
-            "history": HistoryConfig(enabled=False),
-            "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
-            "policy": PolicyConfig(rich_actions_enabled=False),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
+    _canonical_entry("no_firewall"),
+    _canonical_entry("exact_only"),
     (
         "lexical_only",
         {
@@ -155,61 +149,12 @@ CONDITIONS: list[tuple[str, dict[str, Any], bool]] = [
         },
         True,
     ),
-    (
-        "full_mvp",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=True,
-                claim_matching_enabled=True,
-            ),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
-    (
-        "no_embedding",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=False,
-                claim_matching_enabled=True,
-            ),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
-    (
-        "no_claims",
-        {
-            "detector": DetectorConfig(
-                exact_enabled=True,
-                entity_enabled=True,
-                embedding_enabled=True,
-                claim_matching_enabled=False,
-            ),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
-    (
-        "stateless",
-        {
-            "history": HistoryConfig(enabled=False),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
-    (
-        "binary_policy",
-        {
-            "policy": PolicyConfig(rich_actions_enabled=False),
-            "firewall_enabled": True,
-        },
-        True,
-    ),
+    _canonical_entry("full_mvp"),
+    _canonical_entry("no_embedding"),
+    _canonical_entry("no_claim_detection"),
+    _canonical_entry("stateless"),
+    _canonical_entry("binary_policy"),
+    _canonical_entry("one_time_monitoring"),
     (
         "monitoring_0",
         {

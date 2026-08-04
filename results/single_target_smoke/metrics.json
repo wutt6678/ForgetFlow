@@ -1,13 +1,13 @@
 {
   "crr": {
-    "denominator": 39,
+    "denominator": 42,
     "evaluable": true,
     "numerator": 24,
     "reason": null,
-    "value": 0.6153846153846154
+    "value": 0.5714285714285714
   },
   "fbr": {
-    "denominator": 156,
+    "denominator": 168,
     "evaluable": true,
     "numerator": 0,
     "reason": null,
@@ -22,19 +22,19 @@
     "value": 1.0
   },
   "pu_rer": {
-    "denominator": 663,
+    "denominator": 714,
     "evaluable": true,
-    "numerator": 75,
+    "numerator": 69,
     "reason": null,
-    "value": 0.11312217194570136
+    "value": 0.09663865546218488
   },
   "rr": {
-    "denominator": 39,
+    "denominator": 42,
     "evaluable": true,
     "numerator": 21,
     "population": "clean_or_verified",
     "reason": null,
-    "value": 0.5384615384615384
+    "value": 0.5
   },
   "rr_at_risk": {
     "denominator": 0,
@@ -45,11 +45,11 @@
     "value": null
   },
   "rr_clean": {
-    "denominator": 39,
+    "denominator": 42,
     "evaluable": true,
     "numerator": 21,
     "population": "clean_or_verified",
     "reason": null,
-    "value": 0.5384615384615384
+    "value": 0.5
   }
 }

@@ -41,6 +41,7 @@ from experiments.trustparadox_u.candidates import (  # noqa: E402
     load_frozen_corpus,
 )
 from experiments.trustparadox_u.chat_provider import trust_prompt_hash  # noqa: E402
+from experiments.trustparadox_u.conditions import CONDITION_OVERRIDES  # noqa: E402
 from experiments.trustparadox_u.config import (  # noqa: E402
     DetectorConfig,
     ExperimentConfig,
@@ -77,66 +78,30 @@ CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_cor
 RESULTS_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 
-# Condition definitions — maps condition name to config overrides
+# Condition definitions — FF92-005: primary conditions are sourced from the
+# canonical condition module; no_monitoring is a supplementary replay bundle.
 CONDITIONS: dict[str, dict[str, Any]] = {
     "full_mvp": {
         "firewall_enabled": True,
-        "monitoring": MonitoringConfig(continuous=True),
-        "detector": DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=True,
-        ),
+        **CONDITION_OVERRIDES["full_mvp"],
     },
     "no_monitoring": {
+        # Supplementary bundle: monitoring off plus claim detection off.
         "firewall_enabled": True,
         "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
-        "detector": DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=False,
-        ),
+        "detector": DetectorConfig(claim_matching_enabled=False),
     },
     "no_claim_detection": {
         "firewall_enabled": True,
-        "monitoring": MonitoringConfig(continuous=True),
-        "detector": DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=False,
-        ),
+        **CONDITION_OVERRIDES["no_claim_detection"],
     },
     "binary_policy": {
         "firewall_enabled": True,
-        "monitoring": MonitoringConfig(continuous=True),
-        "policy": PolicyConfig(rich_actions_enabled=False),
-        "detector": DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=True,
-        ),
+        **CONDITION_OVERRIDES["binary_policy"],
     },
     "one_time_monitoring": {
         "firewall_enabled": True,
-        # FF92-006: one-time monitoring must expire after the first
-        # recontamination opportunity. continuous=True made duration_rounds
-        # a no-op; the correct configuration is bounded monitoring clocked
-        # by recontamination opportunities.
-        "monitoring": MonitoringConfig(
-            continuous=False,
-            duration_rounds=1,
-            clock_mode="recontamination_opportunity",
-        ),
-        "detector": DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=True,
-        ),
+        **CONDITION_OVERRIDES["one_time_monitoring"],
     },
 }
 
@@ -177,11 +142,13 @@ def build_config_for_condition(
     kwargs: dict[str, Any] = dict(
         seed=seed,
         repetitions=1,
+        # FF92-004: base is the full MVP component stack (all detectors on);
+        # condition overrides then change only their documented components.
         detector=DetectorConfig(
             exact_enabled=True,
             entity_enabled=True,
-            embedding_enabled=False,
-            claim_matching_enabled=False,
+            embedding_enabled=True,
+            claim_matching_enabled=True,
         ),
         history=HistoryConfig(),
         policy=PolicyConfig(),

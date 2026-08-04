@@ -1,16 +1,16 @@
 {
   "credential_001": {
     "pu_rer": {
-      "value": 0.38461538461538464,
-      "numerator": 75,
-      "denominator": 195,
+      "value": 0.32857142857142857,
+      "numerator": 69,
+      "denominator": 210,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.6153846153846154,
+      "value": 0.5714285714285714,
       "numerator": 24,
-      "denominator": 39,
+      "denominator": 42,
       "reason": null,
       "evaluable": true
     },
@@ -41,7 +41,7 @@
     "fbr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 78,
+      "denominator": 84,
       "reason": null,
       "evaluable": true
     },
@@ -58,7 +58,7 @@
     "pu_rer": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 117,
+      "denominator": 126,
       "reason": null,
       "evaluable": true
     },
@@ -96,7 +96,7 @@
     "fbr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 39,
+      "denominator": 42,
       "reason": null,
       "evaluable": true
     },
@@ -113,7 +113,7 @@
     "pu_rer": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 351,
+      "denominator": 378,
       "reason": null,
       "evaluable": true
     },
@@ -125,17 +125,17 @@
       "evaluable": false
     },
     "rr": {
-      "value": 0.5384615384615384,
+      "value": 0.5,
       "numerator": 21,
-      "denominator": 39,
+      "denominator": 42,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
-      "value": 0.5384615384615384,
+      "value": 0.5,
       "numerator": 21,
-      "denominator": 39,
+      "denominator": 42,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
@@ -151,7 +151,7 @@
     "fbr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 39,
+      "denominator": 42,
       "reason": null,
       "evaluable": true
     },
