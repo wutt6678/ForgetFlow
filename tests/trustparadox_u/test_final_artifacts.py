@@ -27,12 +27,14 @@ class TestTable1MainResults:
     def test_has_rows(self) -> None:
         t1 = build_table1_main_results()
         assert "rows" in t1
-        assert len(t1["rows"]) == 5  # 5 conditions
+        # FF92-024: the no_firewall baseline joins the five firewall conditions.
+        assert len(t1["rows"]) == 6
 
     def test_all_conditions_present(self) -> None:
         t1 = build_table1_main_results()
         conditions = {r["condition"] for r in t1["rows"]}
         assert conditions == {
+            "no_firewall",
             "full_mvp",
             "no_monitoring",
             "no_claim_detection",

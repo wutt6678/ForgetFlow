@@ -2,11 +2,301 @@
   "table": "Table 4: Paired Statistical Comparisons",
   "rows": [
     {
-      "condition_a": "full_mvp",
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "exposure",
+      "rate_a": 0.5411764705882353,
+      "rate_b": 0.0,
+      "cohens_h": 1.6532426395836117,
+      "p_value": 1.6472184286297693e-83,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "reconstruction",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 1.1102230246251565e-16,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "recontamination",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 6.617444900424222e-24,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "utility",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "utility_false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
       "condition_b": "no_monitoring",
       "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
+      "rate_a": 0.5411764705882353,
+      "rate_b": 0.5411764705882353,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_monitoring",
+      "metric": "reconstruction",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_monitoring",
+      "metric": "recontamination",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_monitoring",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_monitoring",
+      "metric": "utility",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_monitoring",
+      "metric": "utility_false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "exposure",
+      "rate_a": 0.5411764705882353,
+      "rate_b": 0.0,
+      "cohens_h": 1.6532426395836117,
+      "p_value": 1.6472184286297693e-83,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "reconstruction",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 1.1102230246251565e-16,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "recontamination",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 6.617444900424222e-24,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "utility",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "no_claim_detection",
+      "metric": "utility_false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "exposure",
+      "rate_a": 0.5411764705882353,
+      "rate_b": 0.0,
+      "cohens_h": 1.6532426395836117,
+      "p_value": 1.6472184286297693e-83,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "reconstruction",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 1.1102230246251565e-16,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "recontamination",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 6.617444900424222e-24,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "utility",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "binary_policy",
+      "metric": "utility_false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "exposure",
+      "rate_a": 0.5411764705882353,
+      "rate_b": 0.0,
+      "cohens_h": 1.6532426395836117,
+      "p_value": 1.6472184286297693e-83,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "reconstruction",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 1.1102230246251565e-16,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "recontamination",
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "cohens_h": 3.141592653589793,
+      "p_value": 6.617444900424222e-24,
+      "significant": true
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "utility",
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "one_time_monitoring",
+      "metric": "utility_false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "cohens_h": 0.0,
       "p_value": 1.0,
       "significant": false
@@ -14,29 +304,59 @@
     {
       "condition_a": "full_mvp",
       "condition_b": "no_monitoring",
-      "metric": "recontamination",
+      "metric": "exposure",
       "rate_a": 0.0,
-      "rate_b": 0.4324,
-      "cohens_h": -1.4352,
-      "p_value": 0.0,
+      "rate_b": 0.5411764705882353,
+      "cohens_h": -1.6532426395836117,
+      "p_value": 1.6472184286297693e-83,
       "significant": true
     },
     {
       "condition_a": "full_mvp",
       "condition_b": "no_monitoring",
-      "metric": "task_success",
-      "rate_a": 0.3018,
-      "rate_b": 0.2342,
-      "cohens_h": 0.1528,
-      "p_value": 0.0,
+      "metric": "reconstruction",
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "cohens_h": -3.141592653589793,
+      "p_value": 1.1102230246251565e-16,
       "significant": true
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "recontamination",
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "cohens_h": -3.141592653589793,
+      "p_value": 6.617444900424222e-24,
+      "significant": true
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
     },
     {
       "condition_a": "full_mvp",
       "condition_b": "no_claim_detection",
       "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "reconstruction",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "cohens_h": 0.0,
       "p_value": 1.0,
       "significant": false
@@ -54,19 +374,29 @@
     {
       "condition_a": "full_mvp",
       "condition_b": "no_claim_detection",
-      "metric": "task_success",
-      "rate_a": 0.3018,
-      "rate_b": 0.2703,
-      "cohens_h": 0.0698,
-      "p_value": 2e-06,
-      "significant": true
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
     },
     {
       "condition_a": "full_mvp",
       "condition_b": "binary_policy",
       "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "reconstruction",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "cohens_h": 0.0,
       "p_value": 1.0,
       "significant": false
@@ -84,19 +414,29 @@
     {
       "condition_a": "full_mvp",
       "condition_b": "binary_policy",
-      "metric": "task_success",
-      "rate_a": 0.3018,
-      "rate_b": 0.2342,
-      "cohens_h": 0.1528,
-      "p_value": 0.0,
-      "significant": true
+      "metric": "false_block",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
     },
     {
       "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
       "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "cohens_h": 0.0,
+      "p_value": 1.0,
+      "significant": false
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "reconstruction",
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "cohens_h": 0.0,
       "p_value": 1.0,
       "significant": false
@@ -114,73 +454,13 @@
     {
       "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
-      "metric": "task_success",
-      "rate_a": 0.3018,
-      "rate_b": 0.3018,
-      "cohens_h": 0.0,
-      "p_value": 1.0,
-      "significant": false
-    },
-    {
-      "condition_a": "no_monitoring",
-      "condition_b": "no_claim_detection",
-      "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
-      "cohens_h": 0.0,
-      "p_value": 1.0,
-      "significant": false
-    },
-    {
-      "condition_a": "no_monitoring",
-      "condition_b": "no_claim_detection",
-      "metric": "recontamination",
-      "rate_a": 0.4324,
-      "rate_b": 0.0,
-      "cohens_h": 1.4352,
-      "p_value": 0.0,
-      "significant": true
-    },
-    {
-      "condition_a": "no_monitoring",
-      "condition_b": "no_claim_detection",
-      "metric": "task_success",
-      "rate_a": 0.2342,
-      "rate_b": 0.2703,
-      "cohens_h": -0.083,
-      "p_value": 0.0,
-      "significant": true
-    },
-    {
-      "condition_a": "binary_policy",
-      "condition_b": "one_time_monitoring",
-      "metric": "exposure",
-      "rate_a": 0.4324,
-      "rate_b": 0.4324,
-      "cohens_h": 0.0,
-      "p_value": 1.0,
-      "significant": false
-    },
-    {
-      "condition_a": "binary_policy",
-      "condition_b": "one_time_monitoring",
-      "metric": "recontamination",
+      "metric": "false_block",
       "rate_a": 0.0,
       "rate_b": 0.0,
       "cohens_h": 0.0,
       "p_value": 1.0,
       "significant": false
-    },
-    {
-      "condition_a": "binary_policy",
-      "condition_b": "one_time_monitoring",
-      "metric": "task_success",
-      "rate_a": 0.2342,
-      "rate_b": 0.3018,
-      "cohens_h": -0.1528,
-      "p_value": 0.0,
-      "significant": true
     }
   ],
-  "num_comparisons": 18
+  "num_comparisons": 46
 }

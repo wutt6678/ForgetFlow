@@ -1,28 +1,47 @@
-"""Iteration 13: Paired statistics.
+"""FF92-017: Paired statistics computed from trial artifacts.
 
-Computes paired statistical comparisons between experimental conditions.
-Uses McNemar's test for paired binary outcomes and computes effect sizes.
+Paired unit: ``candidate_id`` (or ``sequence_id`` for reconstruction /
+CRR comparisons).  Binary outcomes follow the scientific definitions:
 
-Exit criterion:
-  Paired comparisons are available for all condition pairs.
+    exposure        independent released exposure label is positive
+    reconstruction  sequence trial recovered = true
+    recontamination probe_recovered_target = true
+    utility         task_success = true (paired utility trials)
+    false_block     legitimate candidate blocked = true
+
+Statistics (pure stdlib, exact implementations):
+
+    exact McNemar test (exact binomial on discordant pairs)
+    paired permutation test (sign-flip, seeded RNG)
+    paired bootstrap 95% confidence interval (percentile method)
+
+Every comparison reports n paired units, rate A, rate B, risk
+difference, relative risk (where defined), 95% CI, p-values and an
+effect size.  Duplicate pairing units fail loudly; unmatched units are
+reported.  No shallow episode counter is used.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import random
 import sys
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.runner import EpisodeResult  # noqa: E402
+from experiments.trustparadox_u.trial_artifacts import (  # noqa: E402
+    STATUS_SUCCESS,
+    CandidateTrial,
+    UtilityTrial,
+    load_trial_records,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -31,96 +50,220 @@ from experiments.trustparadox_u.runner import EpisodeResult  # noqa: E402
 RESULTS_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
 STATS_DIR = Path(__file__).parents[2] / "results" / "paired_statistics"
 
-# Condition pairs to compare
-CONDITION_PAIRS = [
+BASELINE_CONDITION = "no_firewall"
+
+# Condition pairs to compare.  Utility and false-block comparisons only
+# apply to pairs that include the baseline condition.
+CONDITION_PAIRS: list[tuple[str, str]] = [
+    ("no_firewall", "full_mvp"),
+    ("no_firewall", "no_monitoring"),
+    ("no_firewall", "no_claim_detection"),
+    ("no_firewall", "binary_policy"),
+    ("no_firewall", "one_time_monitoring"),
     ("full_mvp", "no_monitoring"),
     ("full_mvp", "no_claim_detection"),
     ("full_mvp", "binary_policy"),
     ("full_mvp", "one_time_monitoring"),
-    ("no_monitoring", "no_claim_detection"),
-    ("binary_policy", "one_time_monitoring"),
 ]
 
+_LEGITIMATE_ATTACK_TYPES = frozenset({"legitimate_task", "benign_control"})
+
+DEFAULT_SEED = 42
+DEFAULT_PERMUTATIONS = 10_000
+DEFAULT_BOOTSTRAP_ITERATIONS = 10_000
+
 
 # ---------------------------------------------------------------------------
-# Statistical functions
+# Statistical functions (exact, stdlib only)
 # ---------------------------------------------------------------------------
 
 
-def mcnemar_test(a: int, b: int, c: int, d: int) -> dict[str, Any]:
-    """McNemar's test for paired binary outcomes.
+def exact_mcnemar_test(b: int, c: int) -> dict[str, Any]:
+    """Exact McNemar test: two-sided exact binomial on discordant pairs.
 
-    Contingency table:
-                Condition B
-                Success  Failure
-    Condition A
-    Success       a        b
-    Failure       c        d
-
-    Returns dict with chi2 statistic, p-value (approximate), and effect size.
+    ``b`` = A positive / B negative, ``c`` = A negative / B positive.
+    Under H0 the smaller discordant count follows Binom(b+c, 0.5); the
+    two-sided p-value is twice the smaller tail, capped at 1.  This is an
+    exact computation (math.comb), not an asymptotic approximation.
     """
-    n = a + b + c + d
+    n = b + c
     if n == 0:
-        return {"chi2": 0.0, "p_value": 1.0, "effect_size": 0.0, "n": 0}
-
-    # McNemar's chi2 (without continuity correction)
-    discordant = b + c
-    if discordant == 0:
-        chi2 = 0.0
-        p_value = 1.0
-    else:
-        chi2 = (b - c) ** 2 / discordant
-        # Approximate p-value from chi2 distribution (df=1)
-        p_value = _chi2_survival(chi2, df=1)
-
-    # Effect size: odds ratio
-    if c > 0 and b > 0:
-        odds_ratio = b / c
-    elif b > 0:
-        odds_ratio = float("inf")
-    elif c > 0:
-        odds_ratio = 0.0
-    else:
-        odds_ratio = 1.0
-
+        return {"b": b, "c": c, "discordant": 0, "p_value": 1.0, "test": "exact_mcnemar"}
+    k = min(b, c)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / (2**n)
+    p_value = min(1.0, 2.0 * tail)
     return {
-        "chi2": round(chi2, 6),
-        "p_value": round(p_value, 6),
-        "effect_size": round(odds_ratio, 4) if odds_ratio != float("inf") else None,
-        "n": n,
-        "discordant": discordant,
+        "b": b,
+        "c": c,
+        "discordant": n,
+        "p_value": p_value,
+        "test": "exact_mcnemar",
     }
 
 
-def _chi2_survival(x: float, df: int = 1) -> float:
-    """Approximate survival function for chi2 distribution (df=1).
+def paired_permmutation_test(
+    differences: Sequence[int],
+    *,
+    seed: int = DEFAULT_SEED,
+    n_permutations: int = DEFAULT_PERMUTATIONS,
+) -> dict[str, Any]:
+    """Paired sign-flip permutation test on the mean paired difference.
 
-    Uses the complementary error function approximation.
+    Deterministic given ``seed``.  Differences are in {-1, 0, 1}.
     """
-    if x <= 0:
-        return 1.0
-    # For df=1: P(X > x) = 2 * (1 - Phi(sqrt(x)))
-    # where Phi is the standard normal CDF
-    z = math.sqrt(x)
-    # Approximation of 1 - Phi(z)
-    p = 0.5 * _erfc(z / math.sqrt(2))
-    return min(1.0, max(0.0, p))
+    nonzero = [d for d in differences if d != 0]
+    observed = sum(differences) / len(differences) if differences else 0.0
+    if not nonzero:
+        return {
+            "statistic": observed,
+            "p_value": 1.0,
+            "n_permutations": 0,
+            "seed": seed,
+            "test": "paired_permmutation",
+        }
+    rng = random.Random(seed)
+    extreme = 0
+    for _ in range(n_permutations):
+        flipped = sum(d if rng.random() >= 0.5 else -d for d in nonzero)
+        permuted = flipped / len(differences)
+        if abs(permuted) >= abs(observed) - 1e-12:
+            extreme += 1
+    return {
+        "statistic": observed,
+        "p_value": extreme / n_permutations,
+        "n_permutations": n_permutations,
+        "seed": seed,
+        "test": "paired_permmutation",
+    }
 
 
-def _erfc(x: float) -> float:
-    """Complementary error function approximation."""
-    # Abramowitz and Stegun approximation 7.1.26
-    t = 1.0 / (1.0 + 0.3275911 * abs(x))
-    poly = t * (
-        0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))
-    )
-    result = poly * math.exp(-x * x)
-    return result if x >= 0 else 2.0 - result
+def paired_bootstrap_ci(
+    differences: Sequence[int],
+    *,
+    seed: int = DEFAULT_SEED,
+    n_iterations: int = DEFAULT_BOOTSTRAP_ITERATIONS,
+    alpha: float = 0.05,
+) -> dict[str, Any]:
+    """Percentile bootstrap CI for the mean paired difference (risk diff)."""
+    if not differences:
+        return {
+            "lower": None,
+            "upper": None,
+            "confidence_level": 1.0 - alpha,
+            "n_iterations": 0,
+            "seed": seed,
+        }
+    rng = random.Random(seed)
+    n = len(differences)
+    estimates: list[float] = []
+    for _ in range(n_iterations):
+        sample = sum(differences[rng.randrange(n)] for _ in range(n))
+        estimates.append(sample / n)
+    estimates.sort()
+    lower = estimates[int((alpha / 2) * n_iterations)]
+    upper = estimates[min(n_iterations - 1, int((1 - alpha / 2) * n_iterations))]
+    return {
+        "lower": lower,
+        "upper": upper,
+        "confidence_level": 1.0 - alpha,
+        "n_iterations": n_iterations,
+        "seed": seed,
+    }
 
 
 def cohens_h(p1: float, p2: float) -> float:
-    """Cohen's h effect size for proportions."""
+    """Cohen's h effect size for two proportions."""
     return 2 * (math.asin(math.sqrt(p1)) - math.asin(math.sqrt(p2)))
+
+
+# ---------------------------------------------------------------------------
+# Outcome indexing
+# ---------------------------------------------------------------------------
+
+
+def exposure_outcomes_by_condition(
+    candidate_trials: Sequence[CandidateTrial],
+) -> dict[str, dict[str, bool]]:
+    """candidate_id → released-exposure-positive, per condition (attacks only)."""
+    outcomes: dict[str, dict[str, bool]] = {}
+    for trial in candidate_trials:
+        if trial.attack_type in _LEGITIMATE_ATTACK_TYPES:
+            continue
+        if trial.result_status != STATUS_SUCCESS:
+            continue
+        condition = outcomes.setdefault(trial.condition_id, {})
+        if trial.candidate_id in condition:
+            raise ValueError(
+                f"Duplicate candidate pairing unit {trial.candidate_id!r} "
+                f"under condition {trial.condition_id!r}"
+            )
+        condition[trial.candidate_id] = trial.released_exposure_positive
+    return outcomes
+
+
+def reconstruction_outcomes_by_condition(
+    reconstruction_records: Sequence[dict[str, Any]],
+) -> dict[str, dict[str, bool]]:
+    """(episode_id|sequence_id|forget_id) → recovered, per condition (eligible only).
+
+    The same sequence runs once per trust level as a distinct trial
+    episode, and the episode id is condition-independent, so it keeps
+    pairing units unique while staying pairable across conditions.
+    """
+    outcomes: dict[str, dict[str, bool]] = {}
+    for record in reconstruction_records:
+        if not record.get("eligible"):
+            continue
+        unit_id = "|".join(
+            str(record.get(key, "")) for key in ("episode_id", "sequence_id", "forget_id")
+        )
+        condition = outcomes.setdefault(record.get("condition", ""), {})
+        if unit_id in condition:
+            raise ValueError(f"Duplicate sequence pairing unit: {unit_id!r}")
+        condition[unit_id] = bool(record.get("recovered"))
+    return outcomes
+
+
+def recontamination_outcomes_by_condition(
+    recontamination_records: Sequence[dict[str, Any]],
+) -> dict[str, dict[str, bool]]:
+    """(episode_id|agent_id|forget_id) → probe_recovered_target, evaluable only.
+
+    The probe label (candidate_id) is shared across every episode of a
+    scenario, so the episode-scoped identity is the pairing unit.
+    """
+    outcomes: dict[str, dict[str, bool]] = {}
+    for record in recontamination_records:
+        if not record.get("probe_executed"):
+            continue
+        unit_id = "|".join(
+            str(record.get(key, "")) for key in ("episode_id", "agent_id", "forget_id")
+        )
+        condition = outcomes.setdefault(record.get("condition", ""), {})
+        if unit_id in condition:
+            raise ValueError(f"Duplicate recontamination pairing unit: {unit_id!r}")
+        condition[unit_id] = bool(record.get("probe_recovered_target"))
+    return outcomes
+
+
+def false_block_outcomes_by_condition(
+    candidate_trials: Sequence[CandidateTrial],
+) -> dict[str, dict[str, bool]]:
+    """candidate_id → blocked_legitimate for legitimate candidates."""
+    outcomes: dict[str, dict[str, bool]] = {}
+    for trial in candidate_trials:
+        if trial.attack_type not in _LEGITIMATE_ATTACK_TYPES:
+            continue
+        if trial.result_status != STATUS_SUCCESS:
+            continue
+        condition = outcomes.setdefault(trial.condition_id, {})
+        if trial.candidate_id in condition:
+            raise ValueError(
+                f"Duplicate legitimate candidate pairing unit {trial.candidate_id!r} "
+                f"under condition {trial.condition_id!r}"
+            )
+        condition[trial.candidate_id] = trial.blocked_legitimate
+    return outcomes
 
 
 # ---------------------------------------------------------------------------
@@ -128,114 +271,61 @@ def cohens_h(p1: float, p2: float) -> float:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class PairedComparison:
-    """Result of a paired comparison between two conditions."""
-
-    condition_a: str
-    condition_b: str
-    metric: str
-    n_pairs: int
-    # Contingency table
-    a_success_b_success: int
-    a_success_b_failure: int
-    a_failure_b_success: int
-    a_failure_b_failure: int
-    # Statistics
-    mcnemar: dict[str, Any]
-    rate_a: float
-    rate_b: float
-    cohens_h: float
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "condition_a": self.condition_a,
-            "condition_b": self.condition_b,
-            "metric": self.metric,
-            "n_pairs": self.n_pairs,
-            "contingency": {
-                "a_success_b_success": self.a_success_b_success,
-                "a_success_b_failure": self.a_success_b_failure,
-                "a_failure_b_success": self.a_failure_b_success,
-                "a_failure_b_failure": self.a_failure_b_failure,
-            },
-            "mcnemar": self.mcnemar,
-            "rate_a": round(self.rate_a, 4),
-            "rate_b": round(self.rate_b, 4),
-            "cohens_h": round(self.cohens_h, 4),
-        }
-
-
-def compare_conditions(
-    results_a: list[EpisodeResult],
-    results_b: list[EpisodeResult],
+def compare_paired_outcomes(
+    outcomes_a: dict[str, bool],
+    outcomes_b: dict[str, bool],
+    *,
     condition_a: str,
     condition_b: str,
-    metric: str = "exposure",
-) -> PairedComparison | None:
-    """Compare two conditions using paired statistics.
+    metric: str,
+    pairing_unit: str,
+    seed: int = DEFAULT_SEED,
+    n_permutations: int = DEFAULT_PERMUTATIONS,
+    n_bootstrap: int = DEFAULT_BOOTSTRAP_ITERATIONS,
+) -> dict[str, Any]:
+    """Full statistical report for one paired comparison.
 
-    Pairs are matched by candidate_sample_id.
+    Unmatched units are reported, never silently dropped.
     """
-    # Build maps by candidate_sample_id
-    map_a = {er.candidate_sample_id: er for er in results_a if er.candidate_sample_id}
-    map_b = {er.candidate_sample_id: er for er in results_b if er.candidate_sample_id}
+    common_ids = sorted(set(outcomes_a) & set(outcomes_b))
+    unmatched_a = sorted(set(outcomes_a) - set(outcomes_b))
+    unmatched_b = sorted(set(outcomes_b) - set(outcomes_a))
 
-    # Find common candidates
-    common_ids = set(map_a.keys()) & set(map_b.keys())
-    if not common_ids:
-        return None
+    pairs = [(outcomes_a[cid], outcomes_b[cid]) for cid in common_ids]
+    n = len(pairs)
+    # Contingency: a11 both positive, b A-only, c B-only, d both negative.
+    a11 = sum(1 for x, y in pairs if x and y)
+    b = sum(1 for x, y in pairs if x and not y)
+    c = sum(1 for x, y in pairs if not x and y)
+    d = n - a11 - b - c
+    rate_a = (a11 + b) / n if n else 0.0
+    rate_b = (a11 + c) / n if n else 0.0
+    differences = [int(x) - int(y) for x, y in pairs]
 
-    # Build contingency table
-    a = b = c = d = 0
-    for cid in sorted(common_ids):
-        er_a = map_a[cid]
-        er_b = map_b[cid]
-
-        # Determine success for each condition
-        if metric == "exposure":
-            success_a = er_a.cleaned_agents_exposed > 0
-            success_b = er_b.cleaned_agents_exposed > 0
-        elif metric == "recontamination":
-            success_a = er_a.recontaminated_agents > 0
-            success_b = er_b.recontaminated_agents > 0
-        elif metric == "task_success":
-            success_a = er_a.task_success
-            success_b = er_b.task_success
-        else:
-            success_a = er_a.cleaned_agents_exposed > 0
-            success_b = er_b.cleaned_agents_exposed > 0
-
-        if success_a and success_b:
-            a += 1
-        elif success_a and not success_b:
-            b += 1
-        elif not success_a and success_b:
-            c += 1
-        else:
-            d += 1
-
-    n = a + b + c + d
-    rate_a = (a + b) / n if n > 0 else 0.0
-    rate_b = (a + c) / n if n > 0 else 0.0
-    h = cohens_h(rate_a, rate_b) if n > 0 else 0.0
-
-    mc = mcnemar_test(a, b, c, d)
-
-    return PairedComparison(
-        condition_a=condition_a,
-        condition_b=condition_b,
-        metric=metric,
-        n_pairs=n,
-        a_success_b_success=a,
-        a_success_b_failure=b,
-        a_failure_b_success=c,
-        a_failure_b_failure=d,
-        mcnemar=mc,
-        rate_a=rate_a,
-        rate_b=rate_b,
-        cohens_h=h,
+    mcnemar = exact_mcnemar_test(b, c)
+    permutation = paired_permmutation_test(
+        differences, seed=seed, n_permutations=n_permutations
     )
+    bootstrap = paired_bootstrap_ci(differences, seed=seed, n_iterations=n_bootstrap)
+
+    return {
+        "condition_a": condition_a,
+        "condition_b": condition_b,
+        "metric": metric,
+        "pairing_unit": pairing_unit,
+        "n_pairs": n,
+        "unmatched": {"only_in_a": unmatched_a, "only_in_b": unmatched_b},
+        "contingency": {"both_positive": a11, "a_only": b, "b_only": c, "both_negative": d},
+        "rate_a": rate_a,
+        "rate_b": rate_b,
+        "risk_difference": rate_a - rate_b if n else None,
+        "relative_risk": (rate_a / rate_b) if (n and rate_b > 0) else None,
+        "mcnemar": mcnemar,
+        "permutation": permutation,
+        "bootstrap_ci_95": bootstrap,
+        "cohens_h": cohens_h(rate_a, rate_b) if n else None,
+        "effect_size": cohens_h(rate_a, rate_b) if n else None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -243,27 +333,133 @@ def compare_conditions(
 # ---------------------------------------------------------------------------
 
 
+def load_paired_inputs(replay_dir: Path) -> dict[str, Any]:
+    """Load the trial artifacts required for paired statistics."""
+    required = (
+        "candidate_trials.jsonl",
+        "reconstruction_trials.jsonl",
+        "recontamination_trials.jsonl",
+        "utility_trials.jsonl",
+    )
+    missing = [name for name in required if not (replay_dir / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing trial artifacts for paired statistics: {missing}. "
+            "Run frozen_replay.py first."
+        )
+    return {
+        "candidate_trials": [
+            CandidateTrial.from_dict(r)
+            for r in load_trial_records(replay_dir / "candidate_trials.jsonl")
+        ],
+        "reconstruction_records": load_trial_records(
+            replay_dir / "reconstruction_trials.jsonl"
+        ),
+        "recontamination_records": load_trial_records(
+            replay_dir / "recontamination_trials.jsonl"
+        ),
+        "utility_trials": [
+            UtilityTrial.from_dict(r)
+            for r in load_trial_records(replay_dir / "utility_trials.jsonl")
+        ],
+    }
+
+
+def _utility_outcome_pairs(
+    utility_trials: Sequence[UtilityTrial],
+) -> dict[tuple[str, str], tuple[dict[str, bool], dict[str, bool]]]:
+    """(baseline, firewall) → (task-success pairs, false-block pairs)."""
+    pairs: dict[tuple[str, str], tuple[dict[str, bool], dict[str, bool]]] = {}
+    for trial in utility_trials:
+        key = (trial.baseline_condition, trial.firewall_condition)
+        success, blocked = pairs.setdefault(key, ({}, {}))
+        if trial.candidate_id in success:
+            raise ValueError(
+                f"Duplicate utility pairing unit {trial.candidate_id!r} "
+                f"for {key!r}"
+            )
+        if trial.eligible:
+            success[trial.candidate_id] = trial.firewall_task_success
+        blocked[trial.candidate_id] = trial.firewall_blocked
+    return pairs
+
+
 def run_paired_statistics(
-    condition_results: dict[str, list[EpisodeResult]],
-    metrics: list[str] | None = None,
-) -> list[PairedComparison]:
-    """Run paired statistics for all condition pairs and metrics."""
-    if metrics is None:
-        metrics = ["exposure", "recontamination", "task_success"]
+    inputs: dict[str, Any],
+    *,
+    condition_pairs: Sequence[tuple[str, str]] = CONDITION_PAIRS,
+    seed: int = DEFAULT_SEED,
+    n_permutations: int = DEFAULT_PERMUTATIONS,
+    n_bootstrap: int = DEFAULT_BOOTSTRAP_ITERATIONS,
+) -> list[dict[str, Any]]:
+    """Run every applicable paired comparison; never pool conditions."""
+    exposure = exposure_outcomes_by_condition(inputs["candidate_trials"])
+    reconstruction = reconstruction_outcomes_by_condition(
+        inputs["reconstruction_records"]
+    )
+    recontamination = recontamination_outcomes_by_condition(
+        inputs["recontamination_records"]
+    )
+    false_block = false_block_outcomes_by_condition(inputs["candidate_trials"])
+    utility_pairs = _utility_outcome_pairs(inputs["utility_trials"])
 
-    comparisons: list[PairedComparison] = []
+    comparisons: list[dict[str, Any]] = []
+    for cond_a, cond_b in condition_pairs:
 
-    for cond_a, cond_b in CONDITION_PAIRS:
-        results_a = condition_results.get(cond_a, [])
-        results_b = condition_results.get(cond_b, [])
-        if not results_a or not results_b:
-            continue
+        def compare(
+            table: dict[str, dict[str, bool]], metric: str, unit: str
+        ) -> None:
+            if cond_a in table and cond_b in table:
+                comparisons.append(
+                    compare_paired_outcomes(
+                        table[cond_a],
+                        table[cond_b],
+                        condition_a=cond_a,
+                        condition_b=cond_b,
+                        metric=metric,
+                        pairing_unit=unit,
+                        seed=seed,
+                        n_permutations=n_permutations,
+                        n_bootstrap=n_bootstrap,
+                    )
+                )
 
-        for metric in metrics:
-            comp = compare_conditions(results_a, results_b, cond_a, cond_b, metric)
-            if comp is not None:
-                comparisons.append(comp)
+        compare(exposure, "exposure", "candidate_id")
+        compare(reconstruction, "reconstruction", "sequence_id")
+        compare(recontamination, "recontamination", "candidate_id")
+        compare(false_block, "false_block", "candidate_id")
 
+        # Utility: only defined against the baseline condition.
+        utility_key = (cond_a, cond_b)
+        if utility_key in utility_pairs:
+            success, blocked = utility_pairs[utility_key]
+            baseline_success = {cid: True for cid in success}
+            comparisons.append(
+                compare_paired_outcomes(
+                    baseline_success,
+                    success,
+                    condition_a=cond_a,
+                    condition_b=cond_b,
+                    metric="utility",
+                    pairing_unit="candidate_id",
+                    seed=seed,
+                    n_permutations=n_permutations,
+                    n_bootstrap=n_bootstrap,
+                )
+            )
+            comparisons.append(
+                compare_paired_outcomes(
+                    {cid: False for cid in blocked},
+                    blocked,
+                    condition_a=cond_a,
+                    condition_b=cond_b,
+                    metric="utility_false_block",
+                    pairing_unit="candidate_id",
+                    seed=seed,
+                    n_permutations=n_permutations,
+                    n_bootstrap=n_bootstrap,
+                )
+            )
     return comparisons
 
 
@@ -273,31 +469,19 @@ def run_paired_statistics(
 
 
 def write_paired_statistics(
-    comparisons: list[PairedComparison],
+    comparisons: Sequence[dict[str, Any]],
     output_dir: Path,
 ) -> None:
     """Write paired statistics to disk."""
     output_dir.mkdir(parents=True, exist_ok=True)
-
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "num_comparisons": len(comparisons),
         "condition_pairs": [list(pair) for pair in CONDITION_PAIRS],
-        "comparisons": [c.to_dict() for c in comparisons],
+        "baseline_condition": BASELINE_CONDITION,
+        "comparisons": comparisons,
     }
-
     (output_dir / "paired_statistics.json").write_text(json.dumps(data, indent=2))
-
-    # Summary
-    summary_lines = ["Paired Statistics Summary", "=" * 50]
-    for comp in comparisons:
-        sig = " *" if comp.mcnemar.get("p_value", 1.0) < 0.05 else ""
-        summary_lines.append(
-            f"{comp.condition_a} vs {comp.condition_b} ({comp.metric}): "
-            f"rate_a={comp.rate_a:.3f}, rate_b={comp.rate_b:.3f}, "
-            f"h={comp.cohens_h:.3f}, p={comp.mcnemar.get('p_value', 1.0):.4f}{sig}"
-        )
-    (output_dir / "paired_summary.txt").write_text("\n".join(summary_lines))
 
 
 # ---------------------------------------------------------------------------
@@ -306,59 +490,23 @@ def write_paired_statistics(
 
 
 def main() -> int:
-    """Run paired statistics on frozen replay results."""
-    print("Iteration 13: Paired Statistics")
+    """Run FF92-017 paired statistics on frozen replay trial artifacts."""
+    print("FF92-017: Paired Statistics from Trial Artifacts")
     print("=" * 50)
 
-    # Load frozen replay results
-    episodes_path = RESULTS_DIR / "episodes.jsonl"
-    if not episodes_path.exists():
-        print(f"Error: Frozen replay results not found at {episodes_path}")
-        return 1
-
-    # Group by condition
-    condition_results: dict[str, list[EpisodeResult]] = {}
-    for line in episodes_path.read_text().strip().split("\n"):
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        condition = record.get("condition", "")
-        er = EpisodeResult(
-            run_id=record.get("run_id", ""),
-            episode_id=record.get("episode_id", ""),
-            scenario_id=record.get("scenario_id", ""),
-            trust_level=record.get("trust_level", ""),
-            seed=record.get("seed", 0),
-            candidate_sample_id=record.get("candidate_sample_id", ""),
-            task_success=record.get("task_success", False),
-            cleaned_agents_exposed=record.get("cleaned_agents_exposed", 0),
-            recontaminated_agents=record.get("recontaminated_agents", 0),
-        )
-        condition_results.setdefault(condition, []).append(er)
-
-    print(f"  Loaded conditions: {list(condition_results.keys())}")
-    for cond, results in condition_results.items():
-        print(f"    {cond}: {len(results)} episodes")
-
-    # Run paired statistics
-    print("\nRunning paired comparisons...")
-    comparisons = run_paired_statistics(condition_results)
-    print(f"  {len(comparisons)} comparisons computed")
-
-    # Write
+    inputs = load_paired_inputs(RESULTS_DIR)
+    print(f"  Loaded {len(inputs['candidate_trials'])} candidate trials")
+    comparisons = run_paired_statistics(inputs)
     write_paired_statistics(comparisons, STATS_DIR)
-    print(f"\nResults written to {STATS_DIR}")
+    print(f"  {len(comparisons)} comparisons written to {STATS_DIR}")
 
-    # Print significant results
-    print("\nSignificant comparisons (p < 0.05):")
     for comp in comparisons:
-        if comp.mcnemar.get("p_value", 1.0) < 0.05:
-            print(
-                f"  {comp.condition_a} vs {comp.condition_b} ({comp.metric}): "
-                f"p={comp.mcnemar['p_value']:.4f}"
-            )
-
-    print("\nExit criterion: PASSED (all condition pairs compared)")
+        p = comp["mcnemar"]["p_value"]
+        rd = comp["risk_difference"]
+        print(
+            f"  {comp['condition_a']} vs {comp['condition_b']} ({comp['metric']}): "
+            f"n={comp['n_pairs']} rd={rd if rd is None else round(rd, 4)} p={p:.4f}"
+        )
     return 0
 
 

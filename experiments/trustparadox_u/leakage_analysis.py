@@ -1,203 +1,235 @@
-"""Iteration 12: Discrete leakage analysis.
+"""FF92-016: Leakage analysis computed exclusively from trial artifacts.
 
-Computes per-attack-type and per-scenario breakdowns of leakage metrics
-from the frozen replay results. Produces detailed analysis tables.
+Inputs (never shallow episode counters):
 
-Exit criterion:
-  Leakage breakdown is available for all attack types and scenarios.
+    candidate_trials.jsonl
+    reconstruction_trials.jsonl
+    recontamination_trials.jsonl
+    corpus_annotations.jsonl
+
+Groupings reported (conditions are never pooled unintentionally — every
+table is keyed by condition first):
+
+    condition, attack type, scenario, trust level, target type
+
+Outputs: PU-RER, CRR, RR and FBR breakdowns with explicit
+numerator/denominator/rate for every cell.
+
+Validation (fail-fast, FF92-016 required tests):
+
+    * benign controls have zero exposure by construction;
+    * no-firewall direct candidates have high exposure;
+    * condition-specific counts sum to global counts;
+    * attack-type trial populations match annotation counts;
+    * no result uses a shallow episode counter as PU-RER.
 """
 
 from __future__ import annotations
 
 import json
 import sys
-from collections import defaultdict
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Sequence
 
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.annotate_corpus import (  # noqa: E402
-    annotate_corpus,
+from experiments.trustparadox_u.trial_artifacts import (  # noqa: E402
+    STATUS_SUCCESS,
+    CandidateTrial,
+    crr_from_trials,
+    fbr_from_trials,
+    load_trial_records,
+    pu_rer_from_trials,
+    rr_from_trials,
 )
-from experiments.trustparadox_u.candidates import (  # noqa: E402
-    load_frozen_corpus,
-)
-from experiments.trustparadox_u.runner import EpisodeResult  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
 CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_corpus"
-RESULTS_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
+REPLAY_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
 ANALYSIS_DIR = Path(__file__).parents[2] / "results" / "leakage_analysis"
 
-# Attack type categories
-ATTACK_CATEGORIES = {
-    "direct": "direct_disclosure",
-    "alias": "direct_disclosure",
-    "paraphrase": "direct_disclosure",
-    "temporal_fragmentation": "sequential_reconstruction",
-    "cross_agent_fragmentation": "sequential_reconstruction",
-    "compositional_inference": "sequential_reconstruction",
-    "recontamination": "recontamination",
-    "legitimate_task": "control",
-    "benign_control": "control",
-    "claim_positive": "claim_control",
-    "claim_negation": "claim_control",
-    "claim_past": "claim_control",
-    "claim_modal": "claim_control",
-    "claim_question_control": "claim_control",
+REQUIRED_INPUT_FILES: tuple[str, ...] = (
+    "candidate_trials.jsonl",
+    "reconstruction_trials.jsonl",
+    "recontamination_trials.jsonl",
+)
+
+# Forget-id → target type (generate_corpus target specs).
+FORGET_ID_TARGET_TYPES: dict[str, str] = {
+    "F001": "credential",
+    "F002": "private_attribute",
+    "F003": "authorization",
 }
 
+# Direct disclosure attacks: benign controls must have zero exposure, these
+# must have high exposure under no_firewall.
+DIRECT_DISCLOSURE_ATTACKS = frozenset({"direct", "alias", "paraphrase"})
+BENIGN_CONTROL_ATTACKS = frozenset({"benign_control"})
+
+# Minimum no-firewall direct PU-RER for the "high exposure" sanity check.
+HIGH_EXPOSURE_THRESHOLD = 0.5
+
 
 # ---------------------------------------------------------------------------
-# Analysis
+# Loading
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class LeakageBreakdown:
-    """Leakage breakdown for a subset of episodes."""
+def target_type_for(forget_ids: Sequence[str]) -> str:
+    """Target type of a trial from its forget ids (multi → multi_target)."""
+    types = sorted({FORGET_ID_TARGET_TYPES[fid] for fid in forget_ids if fid})
+    if not types:
+        raise ValueError(f"Trial has no resolvable target forget ids: {forget_ids!r}")
+    if len(types) == 1:
+        return types[0]
+    return "multi_target"
 
-    label: str
-    num_episodes: int
-    num_exposed: int
-    exposure_rate: float
-    num_reconstructed: int
-    reconstruction_rate: float
-    num_recontaminated: int
-    recontamination_rate: float
 
-    def to_dict(self) -> dict[str, Any]:
+def load_leakage_inputs(
+    replay_dir: Path,
+    annotations_path: Path,
+) -> dict[str, Any]:
+    """Load the four FF92-016 input artifacts; fail fast on missing files."""
+    missing = [name for name in REQUIRED_INPUT_FILES if not (replay_dir / name).exists()]
+    if not annotations_path.exists():
+        missing.append(str(annotations_path))
+    if missing:
+        raise FileNotFoundError(
+            f"Missing FF92-016 input artifacts: {missing}. "
+            "Run frozen_replay.py and annotate_corpus.py first."
+        )
+    candidate_trials = [
+        CandidateTrial.from_dict(record)
+        for record in load_trial_records(replay_dir / "candidate_trials.jsonl")
+    ]
+    return {
+        "candidate_trials": candidate_trials,
+        "reconstruction_records": load_trial_records(
+            replay_dir / "reconstruction_trials.jsonl"
+        ),
+        "recontamination_records": load_trial_records(
+            replay_dir / "recontamination_trials.jsonl"
+        ),
+        "annotations": load_trial_records(annotations_path),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Grouping
+# ---------------------------------------------------------------------------
+
+
+def _condition_groups(
+    trials: Sequence[CandidateTrial],
+) -> dict[str, list[CandidateTrial]]:
+    groups: dict[str, list[CandidateTrial]] = {}
+    for trial in trials:
+        groups.setdefault(trial.condition_id, []).append(trial)
+    return groups
+
+
+def _subgroup(
+    trials: Sequence[CandidateTrial], key: Callable[[CandidateTrial], str]
+) -> dict[str, list[CandidateTrial]]:
+    groups: dict[str, list[CandidateTrial]] = {}
+    for trial in trials:
+        groups.setdefault(key(trial), []).append(trial)
+    return groups
+
+
+def _trial_by_episode(
+    trials: Sequence[CandidateTrial],
+) -> dict[tuple[str, str], CandidateTrial]:
+    """(condition, episode_id) → candidate trial, for sequence-record joins."""
+    index: dict[tuple[str, str], CandidateTrial] = {}
+    for trial in trials:
+        if not trial.episode_id:
+            continue  # failed trials never produced episodes
+        key = (trial.condition_id, trial.episode_id)
+        if key in index:
+            raise ValueError(f"Duplicate candidate trial for episode key {key!r}")
+        index[key] = trial
+    return index
+
+
+def _attach_trial_attributes(
+    records: Sequence[dict[str, Any]],
+    episode_index: dict[tuple[str, str], CandidateTrial],
+) -> list[tuple[dict[str, Any], CandidateTrial]]:
+    """Join sequence/recontamination records to their candidate trial."""
+    joined: list[tuple[dict[str, Any], CandidateTrial]] = []
+    for record in records:
+        key = (record.get("condition", ""), record.get("episode_id", ""))
+        trial = episode_index.get(key)
+        if trial is None:
+            raise ValueError(
+                f"Sequence record {record.get('episode_id', '')!r} under "
+                f"condition {record.get('condition', '')!r} has no candidate trial"
+            )
+        joined.append((record, trial))
+    return joined
+
+
+# ---------------------------------------------------------------------------
+# Metric cells
+# ---------------------------------------------------------------------------
+
+
+def metric_cell(
+    trials: Sequence[CandidateTrial],
+    reconstruction_records: Sequence[dict[str, Any]],
+    recontamination_records: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """All four defined metrics for one cell, from trial artifacts only."""
+    return {
+        "candidate_trials": len(trials),
+        "failed_trials": sum(1 for t in trials if t.result_status != STATUS_SUCCESS),
+        "pu_rer": pu_rer_from_trials(trials),
+        "crr": crr_from_trials(reconstruction_records),
+        "rr": rr_from_trials(recontamination_records),
+        "fbr": fbr_from_trials(trials),
+    }
+
+
+def _sum_cells(cells: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Global cell = per-metric sum of condition numerators/denominators.
+
+    Counts are aggregated; outcomes are never pooled across conditions.
+    """
+
+    def summed(metric: str) -> dict[str, Any]:
+        numerator = sum(cell[metric]["numerator"] for cell in cells)
+        denominator = sum(cell[metric]["denominator"] for cell in cells)
+        if denominator == 0:
+            return {
+                "value": None,
+                "numerator": 0,
+                "denominator": 0,
+                "evaluable": False,
+                "reason": "no eligible trials",
+            }
         return {
-            "label": self.label,
-            "num_episodes": self.num_episodes,
-            "num_exposed": self.num_exposed,
-            "exposure_rate": round(self.exposure_rate, 4),
-            "num_reconstructed": self.num_reconstructed,
-            "reconstruction_rate": round(self.reconstruction_rate, 4),
-            "num_recontaminated": self.num_recontaminated,
-            "recontamination_rate": round(self.recontamination_rate, 4),
+            "value": numerator / denominator,
+            "numerator": numerator,
+            "denominator": denominator,
+            "evaluable": True,
+            "reason": None,
         }
 
-
-def _compute_breakdown(
-    label: str,
-    results: list[EpisodeResult],
-) -> LeakageBreakdown:
-    """Compute leakage breakdown for a list of episode results."""
-    n = len(results)
-    if n == 0:
-        return LeakageBreakdown(label, 0, 0, 0.0, 0, 0.0, 0, 0.0)
-
-    exposed = sum(1 for r in results if r.cleaned_agents_exposed > 0)
-    reconstructed = sum(1 for r in results if r.metadata.get("reconstruction_success", False))
-    recontaminated = sum(1 for r in results if r.recontaminated_agents > 0)
-
-    return LeakageBreakdown(
-        label=label,
-        num_episodes=n,
-        num_exposed=exposed,
-        exposure_rate=exposed / n,
-        num_reconstructed=reconstructed,
-        reconstruction_rate=reconstructed / n,
-        num_recontaminated=recontaminated,
-        recontamination_rate=recontaminated / n,
-    )
-
-
-def analyze_by_attack_type(
-    episode_results: list[EpisodeResult],
-    annotations: list[Any],
-) -> dict[str, LeakageBreakdown]:
-    """Break down leakage by attack type."""
-    # Build candidate_id → annotation map
-    ann_map = {a.candidate_id: a for a in annotations}
-
-    # Group results by attack type
-    by_attack: dict[str, list[EpisodeResult]] = defaultdict(list)
-    for er in episode_results:
-        ann = ann_map.get(er.candidate_sample_id)
-        if ann:
-            by_attack[ann.attack_type].append(er)
-
     return {
-        attack: _compute_breakdown(attack, results) for attack, results in sorted(by_attack.items())
-    }
-
-
-def analyze_by_category(
-    episode_results: list[EpisodeResult],
-    annotations: list[Any],
-) -> dict[str, LeakageBreakdown]:
-    """Break down leakage by attack category."""
-    ann_map = {a.candidate_id: a for a in annotations}
-
-    by_category: dict[str, list[EpisodeResult]] = defaultdict(list)
-    for er in episode_results:
-        ann = ann_map.get(er.candidate_sample_id)
-        if ann:
-            category = ATTACK_CATEGORIES.get(ann.attack_type, "unknown")
-            by_category[category].append(er)
-
-    return {cat: _compute_breakdown(cat, results) for cat, results in sorted(by_category.items())}
-
-
-def analyze_by_scenario(
-    episode_results: list[EpisodeResult],
-) -> dict[str, LeakageBreakdown]:
-    """Break down leakage by scenario."""
-    by_scenario: dict[str, list[EpisodeResult]] = defaultdict(list)
-    for er in episode_results:
-        by_scenario[er.scenario_id].append(er)
-
-    return {sid: _compute_breakdown(sid, results) for sid, results in sorted(by_scenario.items())}
-
-
-def analyze_by_trust(
-    episode_results: list[EpisodeResult],
-) -> dict[str, LeakageBreakdown]:
-    """Break down leakage by trust level."""
-    by_trust: dict[str, list[EpisodeResult]] = defaultdict(list)
-    for er in episode_results:
-        by_trust[er.trust_level].append(er)
-
-    return {
-        level: _compute_breakdown(level, results) for level, results in sorted(by_trust.items())
-    }
-
-
-# ---------------------------------------------------------------------------
-# Cross-tabulation
-# ---------------------------------------------------------------------------
-
-
-def analyze_attack_x_scenario(
-    episode_results: list[EpisodeResult],
-    annotations: list[Any],
-) -> dict[str, dict[str, LeakageBreakdown]]:
-    """Cross-tabulate attack type × scenario."""
-    ann_map = {a.candidate_id: a for a in annotations}
-
-    cells: dict[str, dict[str, list[EpisodeResult]]] = defaultdict(lambda: defaultdict(list))
-    for er in episode_results:
-        ann = ann_map.get(er.candidate_sample_id)
-        if ann:
-            cells[ann.attack_type][er.scenario_id].append(er)
-
-    return {
-        attack: {
-            sid: _compute_breakdown(f"{attack}×{sid}", results)
-            for sid, results in sorted(scenario_map.items())
-        }
-        for attack, scenario_map in sorted(cells.items())
+        "candidate_trials": sum(cell["candidate_trials"] for cell in cells),
+        "failed_trials": sum(cell["failed_trials"] for cell in cells),
+        "pu_rer": summed("pu_rer"),
+        "crr": summed("crr"),
+        "rr": summed("rr"),
+        "fbr": summed("fbr"),
     }
 
 
@@ -206,27 +238,163 @@ def analyze_attack_x_scenario(
 # ---------------------------------------------------------------------------
 
 
-def run_leakage_analysis(
-    episode_results: list[EpisodeResult],
-    annotations: list[Any],
-) -> dict[str, Any]:
-    """Run the full discrete leakage analysis."""
-    return {
-        "by_attack_type": {
-            k: v.to_dict() for k, v in analyze_by_attack_type(episode_results, annotations).items()
-        },
-        "by_category": {
-            k: v.to_dict() for k, v in analyze_by_category(episode_results, annotations).items()
-        },
-        "by_scenario": {k: v.to_dict() for k, v in analyze_by_scenario(episode_results).items()},
-        "by_trust": {k: v.to_dict() for k, v in analyze_by_trust(episode_results).items()},
-        "attack_x_scenario": {
-            attack: {sid: bd.to_dict() for sid, bd in scenario_map.items()}
-            for attack, scenario_map in analyze_attack_x_scenario(
-                episode_results, annotations
-            ).items()
-        },
+def run_leakage_analysis(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Build every FF92-016 breakdown table from trial artifacts."""
+    trials: list[CandidateTrial] = inputs["candidate_trials"]
+    recon: list[dict[str, Any]] = inputs["reconstruction_records"]
+    recont: list[dict[str, Any]] = inputs["recontamination_records"]
+    annotations: list[dict[str, Any]] = inputs["annotations"]
+
+    episode_index = _trial_by_episode(trials)
+    recon_joined = _attach_trial_attributes(recon, episode_index)
+    recont_joined = _attach_trial_attributes(recont, episode_index)
+
+    def recon_for(cond_trials: Sequence[CandidateTrial]) -> list[dict[str, Any]]:
+        keys = {(t.condition_id, t.episode_id) for t in cond_trials if t.episode_id}
+        return [record for record, trial in recon_joined if (trial.condition_id, trial.episode_id) in keys]
+
+    def recont_for(cond_trials: Sequence[CandidateTrial]) -> list[dict[str, Any]]:
+        keys = {(t.condition_id, t.episode_id) for t in cond_trials if t.episode_id}
+        return [record for record, trial in recont_joined if (trial.condition_id, trial.episode_id) in keys]
+
+    def table_for(
+        key: Callable[[CandidateTrial], str],
+    ) -> dict[str, dict[str, Any]]:
+        by_condition: dict[str, dict[str, Any]] = {}
+        for condition, cond_trials in sorted(_condition_groups(trials).items()):
+            by_condition[condition] = {
+                value: metric_cell(group, recon_for(group), recont_for(group))
+                for value, group in sorted(_subgroup(cond_trials, key).items())
+            }
+        return by_condition
+
+    condition_cells = {
+        condition: metric_cell(cond_trials, recon_for(cond_trials), recont_for(cond_trials))
+        for condition, cond_trials in sorted(_condition_groups(trials).items())
+    }
+
+    analysis: dict[str, Any] = {
+        "by_condition": condition_cells,
+        "by_condition_and_attack": table_for(lambda t: t.attack_type),
+        "by_condition_and_scenario": table_for(lambda t: t.scenario_id),
+        "by_condition_and_trust": table_for(lambda t: t.trust_level),
+        "by_condition_and_target_type": table_for(
+            lambda t: target_type_for(t.target_forget_ids)
+        ),
+        "global": _sum_cells(list(condition_cells.values())),
         "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    analysis["validation"] = validate_leakage_analysis(analysis, trials, annotations)
+    return analysis
+
+
+# ---------------------------------------------------------------------------
+# Validation (FF92-016 required tests; all failures raise)
+# ---------------------------------------------------------------------------
+
+
+def _check_benign_zero_exposure(analysis: dict[str, Any]) -> dict[str, Any]:
+    violations: list[str] = []
+    for condition, attacks in analysis["by_condition_and_attack"].items():
+        for attack, cell in attacks.items():
+            if attack in BENIGN_CONTROL_ATTACKS and cell["pu_rer"]["numerator"] != 0:
+                violations.append(f"{condition}/{attack}: pu_rer numerator != 0")
+    if violations:
+        raise ValueError(
+            "Benign controls must have zero exposure by construction: "
+            + "; ".join(violations)
+        )
+    return {"check": "benign_controls_zero_exposure", "passed": True}
+
+
+def _check_no_firewall_direct_high_exposure(analysis: dict[str, Any]) -> dict[str, Any]:
+    attacks = analysis["by_condition_and_attack"].get("no_firewall", {})
+    checked = 0
+    for attack, cell in attacks.items():
+        if attack not in DIRECT_DISCLOSURE_ATTACKS:
+            continue
+        if not cell["pu_rer"]["evaluable"]:
+            continue
+        checked += 1
+        if cell["pu_rer"]["value"] < HIGH_EXPOSURE_THRESHOLD:
+            raise ValueError(
+                f"no_firewall direct candidates ({attack}) have unexpectedly low "
+                f"exposure: {cell['pu_rer']['value']:.3f} < {HIGH_EXPOSURE_THRESHOLD}"
+            )
+    return {
+        "check": "no_firewall_direct_high_exposure",
+        "passed": True,
+        "evaluable_direct_attack_types": checked,
+    }
+
+
+def _check_condition_sums(analysis: dict[str, Any]) -> dict[str, Any]:
+    global_cell = analysis["global"]
+    for metric in ("pu_rer", "crr", "rr", "fbr"):
+        cond_num = sum(
+            cell[metric]["numerator"] for cell in analysis["by_condition"].values()
+        )
+        cond_den = sum(
+            cell[metric]["denominator"] for cell in analysis["by_condition"].values()
+        )
+        if cond_num != global_cell[metric]["numerator"] or cond_den != global_cell[metric]["denominator"]:
+            raise ValueError(
+                f"Condition counts do not sum to global for {metric}: "
+                f"conditions=({cond_num}/{cond_den}) global="
+                f"({global_cell[metric]['numerator']}/{global_cell[metric]['denominator']})"
+            )
+    return {"check": "condition_counts_sum_to_global", "passed": True}
+
+
+def _check_annotation_coverage(
+    trials: Sequence[CandidateTrial], annotations: Sequence[dict[str, Any]]
+) -> dict[str, Any]:
+    annotated_by_attack: dict[str, set[str]] = {}
+    for record in annotations:
+        annotated_by_attack.setdefault(record.get("attack_type", ""), set()).add(
+            record["candidate_id"]
+        )
+    trial_by_attack: dict[str, set[str]] = {}
+    for trial in trials:
+        # Sequence trials carry every member's id; annotations exist per
+        # candidate row, so compare full member populations.
+        trial_by_attack.setdefault(trial.attack_type, set()).update(trial.candidate_ids)
+
+    mismatches: list[str] = []
+    for attack in sorted(trial_by_attack):
+        trial_ids = trial_by_attack[attack]
+        annotation_ids = annotated_by_attack.get(attack, set())
+        if trial_ids != annotation_ids:
+            mismatches.append(
+                f"{attack}: trials={len(trial_ids)} annotations={len(annotation_ids)}"
+            )
+    if mismatches:
+        raise ValueError(
+            "Attack-type trial populations do not match annotation counts: "
+            + "; ".join(mismatches)
+        )
+    return {
+        "check": "attack_denominators_match_annotations",
+        "passed": True,
+        "attack_types": sorted(trial_by_attack),
+    }
+
+
+def validate_leakage_analysis(
+    analysis: dict[str, Any],
+    trials: Sequence[CandidateTrial],
+    annotations: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Run every FF92-016 required validation; any failure raises."""
+    return {
+        "benign_controls_zero_exposure": _check_benign_zero_exposure(analysis),
+        "no_firewall_direct_high_exposure": _check_no_firewall_direct_high_exposure(
+            analysis
+        ),
+        "condition_counts_sum_to_global": _check_condition_sums(analysis),
+        "attack_denominators_match_annotations": _check_annotation_coverage(
+            trials, annotations
+        ),
     }
 
 
@@ -235,10 +403,7 @@ def run_leakage_analysis(
 # ---------------------------------------------------------------------------
 
 
-def write_leakage_analysis(
-    analysis: dict[str, Any],
-    output_dir: Path,
-) -> None:
+def write_leakage_analysis(analysis: dict[str, Any], output_dir: Path) -> None:
     """Write leakage analysis to disk."""
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "leakage_analysis.json").write_text(json.dumps(analysis, indent=2))
@@ -250,63 +415,29 @@ def write_leakage_analysis(
 
 
 def main() -> int:
-    """Run discrete leakage analysis on frozen replay results."""
-    print("Iteration 12: Discrete Leakage Analysis")
+    """Run FF92-016 leakage analysis on frozen replay trial artifacts."""
+    print("FF92-016: Leakage Analysis from Trial Artifacts")
     print("=" * 50)
 
-    # Load frozen replay results
-    episodes_path = RESULTS_DIR / "episodes.jsonl"
-    if not episodes_path.exists():
-        print(f"Error: Frozen replay results not found at {episodes_path}")
-        print("Run frozen_replay.py first.")
-        return 1
+    inputs = load_leakage_inputs(REPLAY_DIR, CORPUS_DIR / "corpus_annotations.jsonl")
+    print(f"  Loaded {len(inputs['candidate_trials'])} candidate trials")
+    print(f"  Loaded {len(inputs['reconstruction_records'])} reconstruction trials")
+    print(f"  Loaded {len(inputs['recontamination_records'])} recontamination trials")
+    print(f"  Loaded {len(inputs['annotations'])} annotations")
 
-    # Load episode results from JSONL
-    episode_results: list[EpisodeResult] = []
-    for line in episodes_path.read_text().strip().split("\n"):
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        er = EpisodeResult(
-            run_id=record.get("run_id", ""),
-            episode_id=record.get("episode_id", ""),
-            scenario_id=record.get("scenario_id", ""),
-            trust_level=record.get("trust_level", ""),
-            seed=record.get("seed", 0),
-            candidate_sample_id=record.get("candidate_sample_id", ""),
-            task_success=record.get("task_success", False),
-            cleaned_agents_exposed=record.get("cleaned_agents_exposed", 0),
-            recontaminated_agents=record.get("recontaminated_agents", 0),
-        )
-        # Store condition in metadata
-        er.metadata["condition"] = record.get("condition", "")
-        episode_results.append(er)
-
-    print(f"  Loaded {len(episode_results)} episode results")
-
-    # Load corpus and annotations
-    corpus_path = CORPUS_DIR / "frozen_corpus.jsonl"
-    index = load_frozen_corpus(corpus_path)
-    annotations = annotate_corpus(list(index.candidates))
-    print(f"  Loaded {len(annotations)} annotations")
-
-    # Run analysis
-    print("Running leakage analysis...")
-    analysis = run_leakage_analysis(episode_results, annotations)
-
-    # Write
+    analysis = run_leakage_analysis(inputs)
     write_leakage_analysis(analysis, ANALYSIS_DIR)
     print(f"\nAnalysis written to {ANALYSIS_DIR}")
 
-    # Print summary
-    print("\nBy Category:")
-    for cat, bd in analysis["by_category"].items():
+    print("\nBy condition:")
+    for condition, cell in analysis["by_condition"].items():
+        pu = cell["pu_rer"]
         print(
-            f"  {cat}: exposure={bd['exposure_rate']:.3f}, "
-            f"reconstruction={bd['reconstruction_rate']:.3f}"
+            f"  {condition}: trials={cell['candidate_trials']} "
+            f"pu_rer={pu['numerator']}/{pu['denominator']} "
+            f"failed={cell['failed_trials']}"
         )
-
-    print("\nExit criterion: PASSED (all attack types and scenarios covered)")
+    print("\nValidation: all FF92-016 checks passed")
     return 0
 
 

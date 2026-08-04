@@ -1,0 +1,72 @@
+{
+  "run_id": "frozen_replay_5c6342b",
+  "generated_at": "2026-08-04T06:52:17.014667+00:00",
+  "mode": "research",
+  "seed": 42,
+  "git_commit": "5c6342b",
+  "conditions": [
+    "no_firewall",
+    "full_mvp",
+    "no_monitoring",
+    "no_claim_detection",
+    "binary_policy",
+    "one_time_monitoring"
+  ],
+  "baseline_condition": "no_firewall",
+  "candidate_count": 4608,
+  "failed_candidate_count": 0,
+  "failed_candidates": {
+    "no_firewall": [],
+    "full_mvp": [],
+    "no_monitoring": [],
+    "no_claim_detection": [],
+    "binary_policy": [],
+    "one_time_monitoring": []
+  },
+  "artifact_files": {
+    "episodes.jsonl": {
+      "sha256": "190029b22207e2980f03ca6a7a75d9e3039c4701eea4efbf700d464c98d0f9f6",
+      "bytes": 3164268
+    },
+    "turns.jsonl": {
+      "sha256": "bdc619f1b87cf108eb312ce6e737e0aeb8c9734fdead3ca73abfcad68344e35e",
+      "bytes": 27274524
+    },
+    "message_audit.jsonl": {
+      "sha256": "fc2442455e3ff4fc8b73f34c52e654a902fddb6d6329a8f42fb3b9d8185e834e",
+      "bytes": 13071609
+    },
+    "candidate_trials.jsonl": {
+      "sha256": "c387d497272140215cf04c502ed2ccfdea5437d1d8263947925f8d5dbc3d8582",
+      "bytes": 2997192
+    },
+    "reconstruction_trials.jsonl": {
+      "sha256": "1a3dd821e17e9b4187dba245b2575a6e4146052dacafd59a52e6cb3dfc9a4e15",
+      "bytes": 646284
+    },
+    "recontamination_trials.jsonl": {
+      "sha256": "4b7824f4bb7b3cfcc890ad58ab1d02a4bf5f33a626859ab1f07fdf17a16d9210",
+      "bytes": 345390
+    },
+    "utility_trials.jsonl": {
+      "sha256": "4e86c2e45884cea683f6d3c397c79bfce91262faebab6f962a33bf11126efeef",
+      "bytes": 279236
+    },
+    "metrics_by_condition.json": {
+      "sha256": "17703e5573a9aa507164157fb8e14a90dc4cdd4eba4481335870c7c7e3c319c6",
+      "bytes": 4398
+    },
+    "metrics_by_condition_and_attack.json": {
+      "sha256": "36e17d6f6d5878ce41ec4ec4702cc8a5ef839dbef5e5bf134e9de92fe4ab8710",
+      "bytes": 21536
+    },
+    "pairing_report.json": {
+      "sha256": "b256040e16670cbf2660c012901f65e5d88d43fd98c397d3ba6ebc13efdcf050",
+      "bytes": 2009
+    },
+    "resolved_conditions.json": {
+      "sha256": "23460a76738c1f287bafb345db3e6a35a50508d3066c48c8a66f94ffdb85f252",
+      "bytes": 9125
+    }
+  }
+}

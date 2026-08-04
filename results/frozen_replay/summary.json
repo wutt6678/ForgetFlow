@@ -1,6 +1,67 @@
 {
-  "run_id": "frozen_replay_0c8d516",
+  "run_id": "frozen_replay_5c6342b",
   "conditions": {
+    "no_firewall": {
+      "condition_name": "no_firewall",
+      "num_episodes": 666,
+      "metrics": {
+        "pu_rer": {
+          "value": 0.45098039215686275,
+          "numerator": 276,
+          "denominator": 612,
+          "reason": null,
+          "evaluable": true
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 54,
+          "denominator": 54,
+          "reason": null,
+          "evaluable": true
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_clean": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_at_risk": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
+          "population": "already_at_risk"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
+          "reason": null,
+          "evaluable": true
+        },
+        "paired_policy_utility_retention": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no_eligible_pairs",
+          "evaluable": false
+        }
+      },
+      "elapsed_seconds": 0.39030265100154793,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
+    },
     "full_mvp": {
       "condition_name": "full_mvp",
       "num_episodes": 666,
@@ -8,21 +69,21 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 4146,
+          "denominator": 612,
           "reason": null,
           "evaluable": true
         },
         "crr": {
-          "value": 0.3333333333333333,
-          "numerator": 1,
-          "denominator": 3,
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
           "reason": null,
           "evaluable": true
         },
         "rr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
@@ -30,23 +91,23 @@
         "rr_clean": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_at_risk": {
-          "value": 0.0,
+          "value": null,
           "numerator": 0,
-          "denominator": 27,
-          "reason": null,
-          "evaluable": true,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
           "population": "already_at_risk"
         },
         "fbr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 876,
+          "denominator": 822,
           "reason": null,
           "evaluable": true
         },
@@ -58,54 +119,56 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 2.2242362039978616
+      "elapsed_seconds": 0.6452997940032219,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
     },
     "no_monitoring": {
       "condition_name": "no_monitoring",
       "num_episodes": 666,
       "metrics": {
         "pu_rer": {
-          "value": 0.06874095513748191,
-          "numerator": 285,
-          "denominator": 4146,
+          "value": 0.45098039215686275,
+          "numerator": 276,
+          "denominator": 612,
           "reason": null,
           "evaluable": true
         },
         "crr": {
           "value": 1.0,
-          "numerator": 3,
-          "denominator": 3,
+          "numerator": 54,
+          "denominator": 54,
           "reason": null,
           "evaluable": true
         },
         "rr": {
           "value": 1.0,
-          "numerator": 261,
-          "denominator": 261,
+          "numerator": 9,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_clean": {
           "value": 1.0,
-          "numerator": 261,
-          "denominator": 261,
+          "numerator": 9,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_at_risk": {
-          "value": 1.0,
-          "numerator": 27,
-          "denominator": 27,
-          "reason": null,
-          "evaluable": true,
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
           "population": "already_at_risk"
         },
         "fbr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 876,
+          "denominator": 822,
           "reason": null,
           "evaluable": true
         },
@@ -117,7 +180,9 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6663982140016742
+      "elapsed_seconds": 0.3157119050010806,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
     },
     "no_claim_detection": {
       "condition_name": "no_claim_detection",
@@ -126,21 +191,21 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 4146,
+          "denominator": 612,
           "reason": null,
           "evaluable": true
         },
         "crr": {
-          "value": 0.3333333333333333,
-          "numerator": 1,
-          "denominator": 3,
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
           "reason": null,
           "evaluable": true
         },
         "rr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
@@ -148,23 +213,23 @@
         "rr_clean": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_at_risk": {
-          "value": 0.0,
+          "value": null,
           "numerator": 0,
-          "denominator": 27,
-          "reason": null,
-          "evaluable": true,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
           "population": "already_at_risk"
         },
         "fbr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 876,
+          "denominator": 822,
           "reason": null,
           "evaluable": true
         },
@@ -176,7 +241,9 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 1.2875209350022487
+      "elapsed_seconds": 0.46885736900003394,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
     },
     "binary_policy": {
       "condition_name": "binary_policy",
@@ -185,21 +252,21 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 4146,
+          "denominator": 612,
           "reason": null,
           "evaluable": true
         },
         "crr": {
-          "value": 0.3333333333333333,
-          "numerator": 1,
-          "denominator": 3,
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
           "reason": null,
           "evaluable": true
         },
         "rr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
@@ -207,23 +274,23 @@
         "rr_clean": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_at_risk": {
-          "value": 0.0,
+          "value": null,
           "numerator": 0,
-          "denominator": 27,
-          "reason": null,
-          "evaluable": true,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
           "population": "already_at_risk"
         },
         "fbr": {
-          "value": 0.0136986301369863,
-          "numerator": 12,
-          "denominator": 876,
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
           "reason": null,
           "evaluable": true
         },
@@ -235,7 +302,9 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 2.0228322799957823
+      "elapsed_seconds": 0.48338842100201873,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
     },
     "one_time_monitoring": {
       "condition_name": "one_time_monitoring",
@@ -244,21 +313,21 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 4146,
+          "denominator": 612,
           "reason": null,
           "evaluable": true
         },
         "crr": {
-          "value": 0.3333333333333333,
-          "numerator": 1,
-          "denominator": 3,
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
           "reason": null,
           "evaluable": true
         },
         "rr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
@@ -266,23 +335,23 @@
         "rr_clean": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 261,
+          "denominator": 9,
           "reason": null,
           "evaluable": true,
           "population": "clean_or_verified"
         },
         "rr_at_risk": {
-          "value": 0.0,
+          "value": null,
           "numerator": 0,
-          "denominator": 27,
-          "reason": null,
-          "evaluable": true,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
           "population": "already_at_risk"
         },
         "fbr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 876,
+          "denominator": 822,
           "reason": null,
           "evaluable": true
         },
@@ -294,8 +363,11 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 2.289615410991246
+      "elapsed_seconds": 0.6321188540023286,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
     }
   },
-  "generated_at": "2026-08-03T09:02:12.747543+00:00"
+  "baseline_condition": "no_firewall",
+  "generated_at": "2026-08-04T06:52:17.059495+00:00"
 }

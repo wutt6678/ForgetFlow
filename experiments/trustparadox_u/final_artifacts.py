@@ -36,6 +36,8 @@ STATS_DIR = Path(__file__).parents[2] / "results" / "paired_statistics"
 CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_corpus"
 FINAL_DIR = Path(__file__).parents[2] / "results" / "final_artifacts"
 
+BASELINE_CONDITION = "no_firewall"
+
 
 # ---------------------------------------------------------------------------
 # Table builders
@@ -65,23 +67,33 @@ def build_table1_main_results() -> dict[str, Any]:
 
 
 def build_table2_leakage_breakdown() -> dict[str, Any]:
-    """Table 2: Leakage breakdown by attack category."""
+    """Table 2: Leakage breakdown by attack type under the no-firewall baseline.
+
+    Reads the FF92-016 leakage analysis: one row per attack type with the
+    evaluable exposure (pu_rer), reconstruction (crr), and recontamination
+    (rr) rates, so the baseline surface forms and multi-step channels are
+    each visible.
+    """
     analysis_path = LEAKAGE_DIR / "leakage_analysis.json"
     if not analysis_path.exists():
         return {"error": "leakage_analysis.json not found"}
 
     data = json.loads(analysis_path.read_text())
-    by_cat = data.get("by_category", {})
+    baseline = data.get("by_condition_and_attack", {}).get(BASELINE_CONDITION, {})
+
+    def _rate(breakdown: dict[str, Any], metric: str) -> float:
+        value = breakdown.get(metric, {}).get("value")
+        return round(value, 4) if value is not None else 0.0
 
     rows = []
-    for category, bd in sorted(by_cat.items()):
+    for attack_type, breakdown in sorted(baseline.items()):
         rows.append(
             {
-                "category": category,
-                "n_episodes": bd.get("num_episodes", 0),
-                "exposure_rate": bd.get("exposure_rate", 0.0),
-                "reconstruction_rate": bd.get("reconstruction_rate", 0.0),
-                "recontamination_rate": bd.get("recontamination_rate", 0.0),
+                "category": attack_type,
+                "n_episodes": breakdown.get("candidate_trials", 0),
+                "exposure_rate": _rate(breakdown, "pu_rer"),
+                "reconstruction_rate": _rate(breakdown, "crr"),
+                "recontamination_rate": _rate(breakdown, "rr"),
             }
         )
 

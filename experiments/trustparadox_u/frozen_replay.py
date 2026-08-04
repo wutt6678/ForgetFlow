@@ -70,6 +70,9 @@ from experiments.trustparadox_u.runner import (  # noqa: E402
     _select_fragment_for_instruction,
     run_episode,
 )
+from experiments.trustparadox_u.trial_artifacts import (  # noqa: E402
+    write_trial_artifacts,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -79,9 +82,17 @@ CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_cor
 RESULTS_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
 SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenarios"
 
+# FF92-024: the no-firewall baseline anchors paired utility — legitimate
+# candidates must succeed without a firewall before a firewall condition
+# can be scored against them.
+BASELINE_CONDITION = "no_firewall"
+
 # Condition definitions — FF92-005: primary conditions are sourced from the
 # canonical condition module; no_monitoring is a supplementary replay bundle.
 CONDITIONS: dict[str, dict[str, Any]] = {
+    "no_firewall": {
+        "firewall_enabled": False,
+    },
     "full_mvp": {
         "firewall_enabled": True,
         **CONDITION_OVERRIDES["full_mvp"],
@@ -669,6 +680,22 @@ def build_trial_responder(
         scripts[f"{eid}:{entry.target_agent}:{entry.instruction}"] = candidate.candidate_text
         return ScriptedResponder(scripts=scripts)
 
+    if attack_type == "paraphrase":
+        # FF92-008: the paraphrase request deliberately avoids every frozen
+        # surface form, so the candidate text itself cannot be the answer.
+        # The cleaned custodian complies by echoing the variant the seeker
+        # described — a disclosure the independent oracle can score, and the
+        # sentence-final form the runner registers for embedding detection.
+        item = trial_episode.sensitive_items[0]
+        if not item.semantic_variants:
+            raise ValueError(
+                f"Paraphrase trial {eid!r} has no semantic variant to disclose"
+            )
+        disclosure = f"{item.semantic_variants[0]}."
+        scripts[f"{eid}:{entry.attacker}:{entry.instruction}"] = entry.instruction
+        scripts[f"{eid}:{entry.target_agent}:{entry.instruction}"] = disclosure
+        return ScriptedResponder(scripts=scripts)
+
     # Single-message attacks: request is the literal instruction, the cleaned
     # custodian's response carries the candidate text.
     scripts[f"{eid}:{entry.attacker}:{entry.instruction}"] = entry.instruction
@@ -689,6 +716,10 @@ class ConditionResult:
     episode_results: list[EpisodeResult] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=dict)
     elapsed_seconds: float = 0.0
+    # FF92-015/FF92-025: the executed trial units and explicit failure
+    # records — every condition/candidate pair must be accountable.
+    trial_units: tuple[Any, ...] = ()
+    failed_candidates: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -696,7 +727,25 @@ class ConditionResult:
             "num_episodes": len(self.episode_results),
             "metrics": self.metrics,
             "elapsed_seconds": self.elapsed_seconds,
+            "failed_candidate_count": len(self.failed_candidates),
+            "failed_candidate_ids": [f["candidate_id"] for f in self.failed_candidates],
         }
+
+
+def _failure_record(unit: TrialUnit, reason: str) -> dict[str, Any]:
+    """FF92-025 diagnostic-mode failure record for one trial unit."""
+    rep = unit.representative
+    return {
+        "candidate_id": rep.candidate_id,
+        "candidate_ids": [m.candidate_id for m in unit.members],
+        "scenario_id": rep.scenario_id,
+        "trust_level": rep.trust_level,
+        "secret_variant_id": rep.secret_variant_id,
+        "attack_type": rep.attack_type,
+        "target_forget_ids": list(rep.target_forget_ids),
+        "sequence_id": rep.sequence_id,
+        "reason": reason,
+    }
 
 
 def run_condition(
@@ -705,58 +754,76 @@ def run_condition(
     scenario_episodes: dict[str, TrustParadoxEpisode],
     seed: int = 42,
     run_id: str = "",
+    diagnostic: bool = False,
 ) -> ConditionResult:
     """Run one controlled attack trial per candidate unit under a condition.
 
     FF92-001: Each single-message candidate produces exactly one trial
     episode; each reconstruction sequence produces exactly one trial.
     Missing scenarios and failed episodes raise instead of being skipped.
+
+    FF92-025: research mode (default) fails the run on any candidate
+    execution failure; diagnostic mode records the failed candidate with
+    its reason and continues, so a partial corpus can still be inspected.
     """
     config = build_config_for_condition(condition_name, seed=seed)
     results: list[EpisodeResult] = []
+    failed: list[dict[str, Any]] = []
+    units = partition_trial_units(candidates)
 
     start = time.monotonic()
-    for unit in partition_trial_units(candidates):
+    for unit in units:
         candidate = unit.representative
-        base_ep = scenario_episodes.get(candidate.scenario_id)
-        if base_ep is None:
-            raise ValueError(
-                f"No base scenario episode loaded for {candidate.scenario_id!r} "
-                f"(candidate {candidate.candidate_id!r})"
+        try:
+            base_ep = scenario_episodes.get(candidate.scenario_id)
+            if base_ep is None:
+                raise ValueError(
+                    f"No base scenario episode loaded for {candidate.scenario_id!r} "
+                    f"(candidate {candidate.candidate_id!r})"
+                )
+            spec = target_spec_from_episode(base_ep, candidate)
+            trial_ep = build_trial_episode(
+                base_ep, candidate, spec, sequence_members=unit.members
             )
-        spec = target_spec_from_episode(base_ep, candidate)
-        trial_ep = build_trial_episode(base_ep, candidate, spec, sequence_members=unit.members)
-        responder = build_trial_responder(trial_ep, candidate, sequence_members=unit.members)
-        result = run_episode(
-            episode=trial_ep,
-            config=config,
-            responder=responder,
-            run_id=run_id,
-        )
-        result.candidate_sample_id = candidate.candidate_id
-        # FF92-002: record the trust-level lineage for this trial. The
-        # candidate trust level must drive the runtime episode trust
-        # level; any disagreement is a construction defect, not data.
-        if result.trust_level != candidate.trust_level:
-            raise ValueError(
-                f"Trust level mismatch for {candidate.candidate_id!r}: "
-                f"episode={result.trust_level!r} candidate={candidate.trust_level!r}"
+            responder = build_trial_responder(
+                trial_ep, candidate, sequence_members=unit.members
             )
-        result.metadata["candidate_trust_level"] = candidate.trust_level
-        result.metadata["episode_trust_level"] = result.trust_level
-        result.metadata["trust_prompt_hash"] = trust_prompt_hash(result.trust_level)
-        # FF92-003: record secret-variant lineage for this trial. The
-        # runtime must protect the candidate's own variant; any
-        # disagreement is a construction defect, not data.
-        episode_variant = result.metadata.get("secret_variant_id", "")
-        if episode_variant and episode_variant != candidate.secret_variant_id:
-            raise ValueError(
-                f"Secret variant mismatch for {candidate.candidate_id!r}: "
-                f"episode={episode_variant!r} candidate={candidate.secret_variant_id!r}"
+            result = run_episode(
+                episode=trial_ep,
+                config=config,
+                responder=responder,
+                run_id=run_id,
             )
-        result.metadata["secret_variant_id"] = candidate.secret_variant_id
-        result.metadata["canonical_target"] = spec.canonical_target
-        results.append(result)
+            result.candidate_sample_id = candidate.candidate_id
+            # FF92-002: record the trust-level lineage for this trial. The
+            # candidate trust level must drive the runtime episode trust
+            # level; any disagreement is a construction defect, not data.
+            if result.trust_level != candidate.trust_level:
+                raise ValueError(
+                    f"Trust level mismatch for {candidate.candidate_id!r}: "
+                    f"episode={result.trust_level!r} candidate={candidate.trust_level!r}"
+                )
+            result.metadata["candidate_trust_level"] = candidate.trust_level
+            result.metadata["episode_trust_level"] = result.trust_level
+            result.metadata["trust_prompt_hash"] = trust_prompt_hash(result.trust_level)
+            # FF92-003: record secret-variant lineage for this trial. The
+            # runtime must protect the candidate's own variant; any
+            # disagreement is a construction defect, not data.
+            episode_variant = result.metadata.get("secret_variant_id", "")
+            if episode_variant and episode_variant != candidate.secret_variant_id:
+                raise ValueError(
+                    f"Secret variant mismatch for {candidate.candidate_id!r}: "
+                    f"episode={episode_variant!r} candidate={candidate.secret_variant_id!r}"
+                )
+            result.metadata["secret_variant_id"] = candidate.secret_variant_id
+            result.metadata["canonical_target"] = spec.canonical_target
+            # FF92-015: trial artifacts attribute every turn to its condition.
+            result.metadata["condition_id"] = condition_name
+            results.append(result)
+        except Exception as exc:
+            if not diagnostic:
+                raise
+            failed.append(_failure_record(unit, str(exc)))
 
     elapsed = time.monotonic() - start
 
@@ -777,6 +844,8 @@ def run_condition(
         episode_results=results,
         metrics=metrics_dict,
         elapsed_seconds=elapsed,
+        trial_units=units,
+        failed_candidates=failed,
     )
 
 
@@ -785,6 +854,7 @@ def run_frozen_replay(
     seed: int = 42,
     run_id: str = "",
     max_candidates_per_condition: int | None = None,
+    diagnostic: bool = False,
 ) -> dict[str, ConditionResult]:
     """Run the full frozen replay across all conditions.
 
@@ -793,6 +863,7 @@ def run_frozen_replay(
         seed: Random seed for reproducibility
         run_id: Identifier for this run
         max_candidates_per_condition: Optional limit for testing
+        diagnostic: FF92-025 — record failures instead of failing the run
     """
     if corpus_path is None:
         corpus_path = CORPUS_DIR / "frozen_corpus.jsonl"
@@ -821,10 +892,15 @@ def run_frozen_replay(
             scenario_episodes=scenario_episodes,
             seed=seed,
             run_id=run_id,
+            diagnostic=diagnostic,
         )
         all_results[condition_name] = result
+        failed_note = (
+            f", Failed: {len(result.failed_candidates)}" if result.failed_candidates else ""
+        )
         print(
-            f"  Episodes: {len(result.episode_results)}, " f"Elapsed: {result.elapsed_seconds:.1f}s"
+            f"  Episodes: {len(result.episode_results)}, "
+            f"Elapsed: {result.elapsed_seconds:.1f}s{failed_note}"
         )
 
     return all_results
@@ -839,54 +915,51 @@ def write_results(
     results: dict[str, ConditionResult],
     output_dir: Path,
     run_id: str = "",
+    seed: int = 42,
+    candidate_count: int | None = None,
+    diagnostic: bool = False,
+    git_commit: str = "",
 ) -> None:
-    """Write frozen replay results to disk."""
+    """Write frozen replay results to disk.
+
+    FF92-015: the authoritative dataset is the full trial-artifact set;
+    metrics are recomputed from the written trial records. summary.json
+    stays as a shallow convenience index only.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
+    conditions = list(results.keys())
+    configs = {name: build_config_for_condition(name, seed=seed) for name in conditions}
+    failed_by_condition = {
+        name: list(cr.failed_candidates) for name, cr in results.items()
+    }
+    if candidate_count is None:
+        candidate_count = sum(
+            len(unit.members) for cr in results.values() for unit in cr.trial_units
+        )
 
-    # Per-condition metrics
-    metrics_by_condition: dict[str, Any] = {}
-    for name, cr in results.items():
-        metrics_by_condition[name] = cr.metrics
-
-    (output_dir / "metrics_by_condition.json").write_text(
-        json.dumps(metrics_by_condition, indent=2)
+    write_trial_artifacts(
+        output_dir,
+        condition_results=results,
+        trial_units_by_condition={name: cr.trial_units for name, cr in results.items()},
+        failed_candidates=failed_by_condition,
+        configs=configs,
+        conditions=conditions,
+        baseline_condition=BASELINE_CONDITION,
+        run_id=run_id,
+        seed=seed,
+        mode="diagnostic" if diagnostic else "research",
+        candidate_count=candidate_count,
+        git_commit=git_commit,
     )
 
-    # Summary
+    # Shallow summary index (never the authoritative dataset).
     summary = {
         "run_id": run_id,
         "conditions": {name: cr.to_dict() for name, cr in results.items()},
+        "baseline_condition": BASELINE_CONDITION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2))
-
-    # Episodes
-    episodes_path = output_dir / "episodes.jsonl"
-    with open(episodes_path, "w") as f:
-        for name, cr in sorted(results.items()):
-            for er in cr.episode_results:
-                record = {
-                    "condition": name,
-                    "run_id": er.run_id,
-                    "episode_id": er.episode_id,
-                    "scenario_id": er.scenario_id,
-                    "trust_level": er.trust_level,
-                    # FF92-002: trust-level lineage recorded at trial time
-                    "candidate_trust_level": er.metadata.get("candidate_trust_level", ""),
-                    "episode_trust_level": er.metadata.get("episode_trust_level", ""),
-                    "trust_prompt_hash": er.metadata.get("trust_prompt_hash", ""),
-                    # FF92-003: secret-variant lineage recorded at trial time
-                    "secret_variant_id": er.metadata.get("secret_variant_id", ""),
-                    "canonical_target": er.metadata.get("canonical_target", ""),
-                    "seed": er.seed,
-                    "candidate_sample_id": er.candidate_sample_id,
-                    "task_success": er.task_success,
-                    "task_label": er.task_label,
-                    "num_turns": len(er.turns),
-                    "cleaned_agents_exposed": er.cleaned_agents_exposed,
-                    "recontaminated_agents": er.recontaminated_agents,
-                }
-                f.write(json.dumps(record) + "\n")
 
     print(f"\nResults written to {output_dir}")
 
@@ -898,12 +971,28 @@ def write_results(
 
 def main() -> int:
     """Run the frozen replay experiment."""
+    import argparse
     import subprocess
+
+    parser = argparse.ArgumentParser(description="Frozen replay runner")
+    parser.add_argument(
+        "--diagnostic",
+        action="store_true",
+        help="FF92-025: record candidate failures instead of failing the run",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=RESULTS_DIR,
+        help="Directory for the trial-artifact dataset",
+    )
+    args = parser.parse_args()
 
     print("Iteration 9: Frozen Replay Runner")
     print("=" * 50)
 
     # Get run ID from git
+    git_commit = ""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -911,12 +1000,24 @@ def main() -> int:
             text=True,
             cwd=_PROJECT_ROOT,
         )
-        run_id = f"frozen_replay_{result.stdout.strip()}"
+        git_commit = result.stdout.strip()
+        run_id = f"frozen_replay_{git_commit}"
     except Exception:
         run_id = "frozen_replay_manual"
 
-    results = run_frozen_replay(run_id=run_id)
-    write_results(results, RESULTS_DIR, run_id=run_id)
+    results = run_frozen_replay(run_id=run_id, diagnostic=args.diagnostic)
+    write_results(
+        results,
+        args.output_dir,
+        run_id=run_id,
+        diagnostic=args.diagnostic,
+        git_commit=git_commit,
+    )
+
+    # Fail loudly if a diagnostic run recorded candidate failures.
+    total_failed = sum(len(cr.failed_candidates) for cr in results.values())
+    if total_failed:
+        print(f"\nWARNING: {total_failed} candidate trials failed")
 
     # Print summary
     print("\n" + "=" * 50)

@@ -24,6 +24,7 @@ from experiments.trustparadox_u.chat_provider import (  # noqa: E402
 from experiments.trustparadox_u.dataset import load_episode  # noqa: E402
 from experiments.trustparadox_u.evaluator import extract_sequence_trials  # noqa: E402
 from experiments.trustparadox_u.frozen_replay import (  # noqa: E402
+    BASELINE_CONDITION,
     CONDITIONS,
     ConditionResult,
     build_config_for_condition,
@@ -71,8 +72,16 @@ class TestConditions:
         assert "binary_policy" in CONDITIONS
         assert "one_time_monitoring" in CONDITIONS
 
+    def test_baseline_condition_defined(self) -> None:
+        # FF92-024: paired utility needs a no-firewall baseline condition.
+        assert BASELINE_CONDITION == "no_firewall"
+        assert BASELINE_CONDITION in CONDITIONS
+        assert CONDITIONS[BASELINE_CONDITION]["firewall_enabled"] is False
+
     def test_all_conditions_have_firewall(self) -> None:
         for name, params in CONDITIONS.items():
+            if name == BASELINE_CONDITION:
+                continue
             assert params["firewall_enabled"] is True, f"{name} missing firewall"
 
 
@@ -82,7 +91,10 @@ class TestBuildConfig:
     def test_build_all_conditions(self) -> None:
         for name in CONDITIONS:
             config = build_config_for_condition(name)
-            assert config.firewall_enabled is True
+            if name == BASELINE_CONDITION:
+                assert config.firewall_enabled is False
+            else:
+                assert config.firewall_enabled is True
 
     def test_unknown_condition_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown condition"):
@@ -267,6 +279,71 @@ class TestTrialConstructionFF92001:
         assert units[0].members == tuple(
             sorted(one_sequence, key=lambda c: (c.sequence_step_index, c.candidate_id))
         )
+
+
+class TestParaphraseFidelityFF92016:
+    """FF92-016: paraphrase trials must actually expose without the firewall.
+
+    FF92-008 paraphrase candidates avoid every frozen surface form, so the
+    scored disclosure is a compliant variant-bearing confirmation from the
+    cleaned custodian — not the candidate text itself.
+    """
+
+    @staticmethod
+    def _pick(candidates, **fields) -> FrozenCandidate:
+        for c in candidates:
+            if all(getattr(c, k) == v for k, v in fields.items()):
+                return c
+        raise AssertionError(f"No candidate matching {fields}")
+
+    def test_no_firewall_paraphrase_discloses_variant(
+        self, scenario_episodes, corpus_candidates
+    ) -> None:
+        candidate = self._pick(
+            corpus_candidates,
+            scenario_id="credential_001",
+            attack_type="paraphrase",
+            trust_level="default",
+            sample_index=0,
+        )
+        result = run_condition("no_firewall", [candidate], scenario_episodes, seed=42)
+        er = result.episode_results[0]
+        responses = [
+            t for t in er.turns if t.is_attack_response and t.attack_type == "paraphrase"
+        ]
+        assert len(responses) == 1
+        response = responses[0]
+        # The custodian's reply confirms the semantic variant, not the
+        # surface-avoiding candidate text.
+        variant = scenario_episodes["credential_001"].sensitive_items[0].semantic_variants[0]
+        assert response.released_text is not None
+        assert variant in response.released_text
+        assert response.released_target_exposure == "semantic_disclosure"
+
+    def test_full_mvp_paraphrase_stays_blocked(
+        self, scenario_episodes, corpus_candidates
+    ) -> None:
+        candidate = self._pick(
+            corpus_candidates,
+            scenario_id="credential_001",
+            attack_type="paraphrase",
+            trust_level="default",
+            sample_index=0,
+        )
+        result = run_condition("full_mvp", [candidate], scenario_episodes, seed=42)
+        er = result.episode_results[0]
+        positive = {
+            "positive_entailment",
+            "exact_value_disclosure",
+            "alias_disclosure",
+            "semantic_disclosure",
+        }
+        labels = [
+            t.released_target_exposure
+            for t in er.turns
+            if t.is_attack_response and t.attack_type == "paraphrase"
+        ]
+        assert not any(label in positive for label in labels)
 
 
 class TestTrustLevelFF92002:
@@ -554,3 +631,176 @@ class TestWriteResults:
         assert "conditions" in summary
         for name in CONDITIONS:
             assert name in summary["conditions"]
+
+
+class TestTrialArtifactsFF92015:
+    """FF92-015: the authoritative dataset is the full trial-artifact set."""
+
+    def test_all_required_artifact_files_written(self, tmp_path: Path) -> None:
+        from experiments.trustparadox_u.trial_artifacts import REQUIRED_ARTIFACT_FILES
+
+        results = run_frozen_replay(max_candidates_per_condition=3)
+        write_results(results, tmp_path, run_id="test")
+        for name in REQUIRED_ARTIFACT_FILES:
+            assert (tmp_path / name).exists(), f"missing artifact {name}"
+
+    def test_candidate_trial_records_carry_required_fields(self, tmp_path: Path) -> None:
+        results = run_frozen_replay(max_candidates_per_condition=3)
+        write_results(results, tmp_path, run_id="test")
+        records = [
+            json.loads(line)
+            for line in (tmp_path / "candidate_trials.jsonl").read_text().splitlines()
+        ]
+        assert records
+        required = {
+            "candidate_id",
+            "condition_id",
+            "scenario_id",
+            "trust_level",
+            "secret_variant_id",
+            "attack_type",
+            "target_forget_ids",
+            "released_exposure_labels",
+            "task_label",
+            "result_status",
+            "failure_reason",
+        }
+        for record in records:
+            assert required <= set(record)
+            assert record["result_status"] == "success"
+
+    def test_every_condition_candidate_pair_present(self, tmp_path: Path) -> None:
+        index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
+        candidates = list(index.candidates)[:3]
+        expected_units = len(partition_trial_units(candidates))
+        results = run_frozen_replay(max_candidates_per_condition=3)
+        write_results(results, tmp_path, run_id="test")
+        records = [
+            json.loads(line)
+            for line in (tmp_path / "candidate_trials.jsonl").read_text().splitlines()
+        ]
+        per_condition: dict[str, int] = {}
+        for record in records:
+            per_condition[record["condition_id"]] = (
+                per_condition.get(record["condition_id"], 0) + 1
+            )
+        for name in CONDITIONS:
+            assert per_condition.get(name, 0) == expected_units
+
+    def test_metrics_recomputed_from_written_artifacts(self, tmp_path: Path) -> None:
+        from experiments.trustparadox_u.trial_artifacts import (
+            CandidateTrial,
+            load_trial_records,
+            metrics_from_artifacts,
+        )
+
+        results = run_frozen_replay(max_candidates_per_condition=3)
+        write_results(results, tmp_path, run_id="test")
+        written = json.loads((tmp_path / "metrics_by_condition.json").read_text())
+        recomputed = metrics_from_artifacts(
+            [
+                CandidateTrial.from_dict(r)
+                for r in load_trial_records(tmp_path / "candidate_trials.jsonl")
+            ],
+            load_trial_records(tmp_path / "reconstruction_trials.jsonl"),
+            load_trial_records(tmp_path / "recontamination_trials.jsonl"),
+            load_trial_records(tmp_path / "utility_trials.jsonl"),
+            list(CONDITIONS),
+            BASELINE_CONDITION,
+        )
+        assert written == recomputed
+
+    def test_run_manifest_hashes_every_artifact(self, tmp_path: Path) -> None:
+        from experiments.trustparadox_u.trial_artifacts import REQUIRED_ARTIFACT_FILES
+
+        results = run_frozen_replay(max_candidates_per_condition=3)
+        write_results(results, tmp_path, run_id="test")
+        manifest = json.loads((tmp_path / "run_manifest.json").read_text())
+        assert manifest["mode"] == "research"
+        assert manifest["baseline_condition"] == BASELINE_CONDITION
+        hashed = set(manifest["artifact_files"])
+        assert hashed == {n for n in REQUIRED_ARTIFACT_FILES if n != "run_manifest.json"}
+
+
+class TestFailFastFF92025:
+    """FF92-025: research mode fails fast; diagnostic mode records failures."""
+
+    @pytest.fixture
+    def small_candidates(self):
+        index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
+        return list(index.candidates)[:3]
+
+    def test_research_mode_raises_on_failure(self, small_candidates) -> None:
+        with pytest.raises(ValueError, match="No base scenario episode loaded"):
+            run_condition("full_mvp", small_candidates, {}, seed=42)
+
+    def test_diagnostic_mode_records_failures(
+        self, scenario_episodes, small_candidates
+    ) -> None:
+        # Missing base scenarios are recorded, not raised.
+        result = run_condition("full_mvp", small_candidates, {}, seed=42, diagnostic=True)
+        assert result.episode_results == []
+        assert len(result.failed_candidates) == len(partition_trial_units(small_candidates))
+        record = result.failed_candidates[0]
+        assert record["reason"]
+        assert record["candidate_id"]
+
+    def test_diagnostic_failures_appear_in_candidate_trials(
+        self, tmp_path: Path, scenario_episodes, small_candidates
+    ) -> None:
+        good = run_condition("full_mvp", small_candidates, scenario_episodes, seed=42)
+        bad = run_condition("full_mvp", small_candidates, {}, seed=42, diagnostic=True)
+        write_results(
+            {"full_mvp": good, "no_monitoring": bad},
+            tmp_path,
+            run_id="test",
+            diagnostic=True,
+        )
+        records = [
+            json.loads(line)
+            for line in (tmp_path / "candidate_trials.jsonl").read_text().splitlines()
+        ]
+        failed = [r for r in records if r["result_status"] == "failed"]
+        assert failed and all(r["condition_id"] == "no_monitoring" for r in failed)
+        assert all(r["failure_reason"] for r in failed)
+        manifest = json.loads((tmp_path / "run_manifest.json").read_text())
+        assert manifest["mode"] == "diagnostic"
+        assert manifest["failed_candidate_count"] == len(failed)
+
+
+class TestUtilityPairingFF92024:
+    """FF92-024: legitimate candidates pair against the no-firewall baseline."""
+
+    def test_utility_trials_pair_against_baseline(self, tmp_path, scenario_episodes) -> None:
+        index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
+        legitimate = [
+            c
+            for c in index.candidates
+            if c.attack_type in ("legitimate_task", "benign_control")
+        ][:2]
+        assert legitimate
+        baseline = run_condition(
+            BASELINE_CONDITION, legitimate, scenario_episodes, seed=42
+        )
+        firewall = run_condition("full_mvp", legitimate, scenario_episodes, seed=42)
+        write_results(
+            {BASELINE_CONDITION: baseline, "full_mvp": firewall},
+            tmp_path,
+            run_id="test",
+        )
+        utility = [
+            json.loads(line)
+            for line in (tmp_path / "utility_trials.jsonl").read_text().splitlines()
+        ]
+        assert len(utility) == len(legitimate)
+        for record in utility:
+            assert record["baseline_condition"] == BASELINE_CONDITION
+            assert record["firewall_condition"] == "full_mvp"
+        pairing = json.loads((tmp_path / "pairing_report.json").read_text())
+        pair = pairing["pairs"][f"{BASELINE_CONDITION}_vs_full_mvp"]
+        assert pair["matched_pairs"] == len(legitimate)
+        metrics = json.loads((tmp_path / "metrics_by_condition.json").read_text())
+        assert metrics[BASELINE_CONDITION]["paired_policy_utility_retention"][
+            "evaluable"
+        ] is False
+

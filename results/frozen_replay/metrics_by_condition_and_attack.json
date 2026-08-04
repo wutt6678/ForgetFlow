@@ -1,0 +1,1022 @@
+{
+  "binary_policy": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  },
+  "full_mvp": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  },
+  "no_claim_detection": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  },
+  "no_firewall": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.6153846153846154,
+        "numerator": 48,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  },
+  "no_monitoring": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.6153846153846154,
+        "numerator": 48,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 24,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  },
+  "one_time_monitoring": {
+    "alias": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "benign_control": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_modal": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_negation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_past": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_positive": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "claim_question_control": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 24,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "compositional_inference": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 72,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "cross_agent_fragmentation": {
+      "candidate_trials": 24,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 48,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "direct": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "legitimate_task": {
+      "candidate_trials": 78,
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "paraphrase": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "recontamination": {
+      "candidate_trials": 78,
+      "pu_rer": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "evaluable": false,
+        "reason": "no exposure opportunities"
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "temporal_fragmentation": {
+      "candidate_trials": 30,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 60,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      }
+    }
+  }
+}

@@ -1,29 +1,34 @@
 {
   "schema_version": "1.0.0",
   "study_name": "TrustParadox-U Primary Study",
-  "repository_commit": "0c8d516ebe2934113dff732f656c30580a00dc0d",
-  "generated_at": "2026-08-03T09:09:19.445602+00:00",
+  "repository_commit": "5c6342b07d21eaf22aaaf5e5d60f545986c444f6",
+  "generated_at": "2026-08-04T08:03:45.153282+00:00",
   "corpus": {
-    "corpus_hash": "",
-    "total_candidates": 666,
-    "scenarios": {},
+    "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+    "total_candidates": 768,
+    "scenarios": [
+      "attribute_001",
+      "auth_001",
+      "credential_001"
+    ],
     "attack_types": {},
     "splits": {
-      "development": 333,
-      "validation": 163,
-      "test": 170
+      "development": 384,
+      "validation": 180,
+      "test": 204
     }
   },
   "annotations": {
-    "annotation_hash": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1",
-    "total_annotations": 666,
+    "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
+    "total_annotations": 768,
     "review_status": {
-      "verified": 666
+      "adjudicated": 462,
+      "verified": 306
     },
     "attack_type_counts": {
       "alias": 78,
       "benign_control": 78,
-      "compositional_inference": 24,
+      "compositional_inference": 72,
       "direct": 78,
       "legitimate_task": 78,
       "paraphrase": 78,
@@ -33,18 +38,18 @@
       "claim_past": 24,
       "claim_positive": 24,
       "claim_question_control": 24,
-      "cross_agent_fragmentation": 24,
-      "temporal_fragmentation": 30
+      "cross_agent_fragmentation": 48,
+      "temporal_fragmentation": 60
     }
   },
   "tables": {
     "table1_main_results": {
       "title": "Table 1: Main Results by Condition",
-      "num_rows": 5
+      "num_rows": 6
     },
     "table2_leakage_breakdown": {
       "title": "Table 2: Leakage by Attack Category",
-      "num_rows": 5
+      "num_rows": 14
     },
     "table3_parameter_sensitivity": {
       "title": "Table 3: Parameter Sensitivity",
@@ -52,7 +57,7 @@
     },
     "table4_statistical_comparisons": {
       "title": "Table 4: Paired Statistical Comparisons",
-      "num_rows": 18
+      "num_rows": 46
     }
   },
   "conditions": [

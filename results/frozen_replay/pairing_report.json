@@ -1,0 +1,64 @@
+{
+  "pairing_key": "candidate_id",
+  "baseline_condition": "no_firewall",
+  "legitimate_candidates_by_condition": {
+    "no_firewall": 156,
+    "full_mvp": 156,
+    "no_monitoring": 156,
+    "no_claim_detection": 156,
+    "binary_policy": 156,
+    "one_time_monitoring": 156
+  },
+  "pairs": {
+    "no_firewall_vs_binary_policy": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "binary_policy",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_full_mvp": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "full_mvp",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_no_claim_detection": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "no_claim_detection",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_no_monitoring": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "no_monitoring",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_one_time_monitoring": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "one_time_monitoring",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    }
+  }
+}

@@ -107,16 +107,24 @@ def check_annotations_valid() -> dict[str, Any]:
 
 
 def check_leakage_analysis_available() -> dict[str, Any]:
-    """Check that leakage analysis exists."""
+    """Check that the FF92-016 leakage analysis exists and validates."""
     path = RESULTS_DIR / "leakage_analysis" / "leakage_analysis.json"
     if not path.exists():
         return {"passed": False, "reason": "leakage_analysis.json not found"}
 
     data = json.loads(path.read_text())
+    required = ("by_condition_and_attack", "global", "validation")
+    missing = [key for key in required if key not in data]
+    if missing:
+        return {"passed": False, "reason": f"missing keys: {missing}"}
+
+    validation = data.get("validation", {})
+    failed = [c["check"] for c in validation.values() if not c.get("passed")]
     return {
-        "passed": "by_category" in data and "by_attack_type" in data,
-        "categories": len(data.get("by_category", {})),
-        "attack_types": len(data.get("by_attack_type", {})),
+        "passed": bool(validation) and not failed,
+        "conditions": len(data.get("by_condition_and_attack", {})),
+        "validations_passed": len(validation) - len(failed),
+        "validations_failed": failed,
     }
 
 
