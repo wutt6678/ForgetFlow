@@ -110,6 +110,8 @@ def build_table3_parameter_sensitivity() -> dict[str, Any]:
 
     One row per swept value of each hyperparameter, showing the metrics
     belonging to that parameter's function plus the frozen selection.
+    Remediation §30: every row carries the sweep purpose label
+    (selection vs sensitivity) and the evaluation split it used.
     """
     summary_path = SWEEP_DIR / "sweep_summary.json"
     if not summary_path.exists():
@@ -130,6 +132,7 @@ def build_table3_parameter_sensitivity() -> dict[str, Any]:
             row: dict[str, Any] = {
                 "parameter": parameter,
                 "value": point.get("value"),
+                "sweep_purpose": sweep.get("sweep_purpose", "selection"),
                 "split": sweep.get("split", ""),
                 "selected": point.get("value") == selected,
             }

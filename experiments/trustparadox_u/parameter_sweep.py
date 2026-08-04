@@ -19,6 +19,12 @@ Protocol:
 - failures raise (FF92-025 fail-fast); unevaluable metrics keep their
   None value and reason, never coerced to zero.
 
+Sweep purpose (remediation §30): every sweep is labelled either
+``selection`` — it chooses the frozen value using development/validation
+only — or ``sensitivity`` — a post hoc exploratory analysis that must
+never pick the main reported result.  This module runs the selection
+sweeps; the label travels with every sweep record.
+
 Split note: the FF92-010 template-family split places reconstruction
 sequences and recontamination probes only in the development split, so
 window_size and duration_rounds are swept there. Validation and test are
@@ -85,7 +91,13 @@ _NO_RECONSTRUCTION_IN_VALIDATION = (
 
 @dataclass(frozen=True)
 class SweepSpec:
-    """One swept hyperparameter and its measurement protocol."""
+    """One swept hyperparameter and its measurement protocol.
+
+    ``purpose`` (remediation §30) is ``selection`` when the sweep picks
+    the frozen value (development/validation splits only) or
+    ``sensitivity`` for post hoc exploratory sweeps that must never
+    choose the main reported result.
+    """
 
     name: str
     config_path: str
@@ -100,6 +112,8 @@ class SweepSpec:
     secondary_population: str | None
     selection_rule: str
     cost_proxy: str
+    purpose: str = "selection"
+    sensitivity_note: str = ""
 
 
 SWEEP_SPECS: tuple[SweepSpec, ...] = (
@@ -420,6 +434,8 @@ def run_sweep(
         selected[spec.config_path] = selected_value
         sweeps[spec.name] = {
             "config_path": spec.config_path,
+            "sweep_purpose": spec.purpose,
+            "sensitivity_note": spec.sensitivity_note,
             "split": spec.split,
             "split_rationale": spec.split_rationale,
             "metric_function": spec.metric_function,
@@ -491,7 +507,10 @@ def build_sweep_validation(sweeps: dict[str, Any]) -> dict[str, dict[str, Any]]:
     distinct_condition_hashes: every swept value produces a distinct
     condition hash, i.e. the value reaches active runtime logic (no inert
     parameters). split_discipline: no sweep touches the test split and the
-    final evaluation runs on test exactly once.
+    final evaluation runs on test exactly once. sweep_purpose_labels
+    (remediation §30): every sweep is labelled selection or sensitivity;
+    a selection sweep never runs on the test split and a sensitivity
+    sweep carries an exploratory note.
     """
     checks: dict[str, dict[str, Any]] = {}
 
@@ -510,6 +529,25 @@ def build_sweep_validation(sweeps: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "passed": "test" not in splits_used,
         "sweep_splits": splits_used,
         "final_evaluation_split": "test",
+    }
+
+    unlabeled: list[str] = []
+    selection_on_test: list[str] = []
+    sensitivity_without_note: list[str] = []
+    for name, sweep in sweeps.items():
+        purpose = sweep.get("sweep_purpose")
+        if purpose not in ("selection", "sensitivity"):
+            unlabeled.append(name)
+            continue
+        if purpose == "selection" and sweep.get("split") == "test":
+            selection_on_test.append(name)
+        if purpose == "sensitivity" and not str(sweep.get("sensitivity_note", "")).strip():
+            sensitivity_without_note.append(name)
+    checks["sweep_purpose_labels"] = {
+        "passed": not (unlabeled or selection_on_test or sensitivity_without_note),
+        "unlabeled_sweeps": unlabeled,
+        "selection_sweeps_on_test": selection_on_test,
+        "sensitivity_sweeps_without_note": sensitivity_without_note,
     }
     return checks
 

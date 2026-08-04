@@ -23,8 +23,10 @@ from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
     check_conditions_valid,
     check_corpus_valid,
     check_empirical_study_design,
+    check_frozen_threshold_manifest,
     check_metrics_recompute,
     check_no_invalidated_artifacts,
+    check_parameter_sweep_complete,
     check_replay_complete,
     check_repository_provenance,
     check_research_protocol,
@@ -102,6 +104,15 @@ class TestRealArtifactGates:
         result = check_statistical_analysis_valid()
         assert result["passed"] is True, result
         assert result["num_comparisons"] > 0
+
+    def test_parameter_sweep_purposes_labeled(self) -> None:
+        result = check_parameter_sweep_complete()
+        assert result["passed"] is True, result
+
+    def test_frozen_threshold_manifest_valid(self) -> None:
+        result = check_frozen_threshold_manifest()
+        assert result["passed"] is True, result
+        assert result["findings"] == []
 
 
 class TestFileExistenceIsNotCertification:

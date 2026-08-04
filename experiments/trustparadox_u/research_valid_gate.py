@@ -56,6 +56,9 @@ SCHEMA_VERSION = "3.0.0"
 PROVENANCE_ARTIFACTS: tuple[Path, ...] = (
     REPLAY_DIR / "run_manifest.json",
     RESULTS_DIR / "parameter_sweep" / "sweep_summary.json",
+    # Remediation §29: the frozen configuration manifest is committed
+    # before the test results it governs.
+    RESULTS_DIR / "frozen_config" / "frozen_threshold_manifest.json",
     FINAL_DIR / "study_manifest.json",
 )
 
@@ -555,6 +558,26 @@ def check_parameter_sweep_complete() -> dict[str, Any]:
     if unselected:
         return {"passed": False, "reason": f"sweeps without selection: {unselected}"}
 
+    # Remediation §30: every sweep must be labelled selection or
+    # sensitivity, and a selection sweep may never use the test split.
+    unlabeled = [
+        name
+        for name, s in sweeps.items()
+        if s.get("sweep_purpose") not in ("selection", "sensitivity")
+    ]
+    if unlabeled:
+        return {"passed": False, "reason": f"sweeps without purpose label: {unlabeled}"}
+    selection_on_test = [
+        name
+        for name, s in sweeps.items()
+        if s.get("sweep_purpose") == "selection" and s.get("split") == "test"
+    ]
+    if selection_on_test:
+        return {
+            "passed": False,
+            "reason": f"selection sweeps using the test split: {selection_on_test}",
+        }
+
     failed = [name for name, check in data.get("validation", {}).items() if not check.get("passed")]
     if failed:
         return {"passed": False, "reason": f"validation checks failed: {failed}"}
@@ -567,6 +590,36 @@ def check_parameter_sweep_complete() -> dict[str, Any]:
         "passed": True,
         "num_sweeps": len(sweeps),
         "final_test_split": final["split"],
+    }
+
+
+def check_frozen_threshold_manifest() -> dict[str, Any]:
+    """Remediation §29/§30: thresholds are frozen before test evaluation.
+
+    Requires the committed frozen configuration manifest: every swept
+    threshold carries its selection-sweep provenance (split, selection
+    and tie-breaking rule), unswept behavioral parameters are recorded
+    as fixed defaults, scenario/prompt/annotation/protocol anchors are
+    present, and the freeze discipline policies (test evaluated once,
+    rerun versioning, post-test invalidation) are declared.  The frozen
+    values and config hashes must match the sweep summary.
+    """
+    from experiments.trustparadox_u.frozen_thresholds import validate_frozen_manifest
+
+    path = RESULTS_DIR / "frozen_config" / "frozen_threshold_manifest.json"
+    if not path.exists():
+        return {"passed": False, "reason": "frozen_threshold_manifest.json not found"}
+
+    manifest = _load_json(path)
+    sweep_path = RESULTS_DIR / "parameter_sweep" / "sweep_summary.json"
+    sweep_summary = _load_json(sweep_path) if sweep_path.exists() else {}
+
+    findings = validate_frozen_manifest(manifest, sweep_summary)
+    return {
+        "passed": not findings,
+        "study_version": manifest.get("study_version"),
+        "num_parameters": len(manifest.get("parameters", {})),
+        "findings": findings[:20],
     }
 
 
@@ -794,6 +847,7 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
     "leakage_analysis_valid",
     "statistical_analysis_valid",
     "parameter_sweep_complete",
+    "frozen_threshold_manifest",
     "deterministic_reproducibility_validation",
     "final_artifacts",
 )
@@ -852,6 +906,7 @@ def run_research_valid_gate() -> dict[str, Any]:
         "leakage_analysis_valid": check_leakage_analysis_valid(),
         "statistical_analysis_valid": check_statistical_analysis_valid(),
         "parameter_sweep_complete": check_parameter_sweep_complete(),
+        "frozen_threshold_manifest": check_frozen_threshold_manifest(),
         "deterministic_reproducibility_validation": (
             check_deterministic_reproducibility_validation()
         ),

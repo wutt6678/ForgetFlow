@@ -109,6 +109,60 @@ Every episode result records:
 
 ---
 
+## Frozen Configuration Manifest (remediation §29/§30)
+
+Every model, threshold, prompt, annotation, and policy decision that feeds
+the primary analysis is frozen **before** the final test evaluation and
+recorded in one committed manifest:
+
+```
+results/frozen_config/frozen_threshold_manifest.json
+```
+
+Generate and validate it with:
+
+```bash
+python -m experiments.trustparadox_u.frozen_thresholds
+```
+
+The manifest anchors:
+
+- **Swept thresholds** with their selection sweep (split, selection rule,
+  tie-breaking rule, selected value) — sourced from
+  `results/parameter_sweep/sweep_summary.json`.
+- **Unswept behavioral parameters** as fixed defaults with a rationale.
+- **Scenario definitions** (SHA-256 per committed scenario YAML).
+- **Candidate-generation prompts** (corpus manifest prompt template hashes)
+  and **annotation instructions** (annotation manifest hash).
+- **The primary hypotheses** via the versioned research protocol
+  (`PROTOCOL_VERSION`) and the frozen config/condition hashes.
+
+### Freeze discipline (§29)
+
+- The manifest is committed **before** the test results it governs.
+- The final test split is evaluated exactly once for the primary analysis
+  (the frozen-config evaluation at the end of the parameter sweep).
+- Any rerun after code or protocol changes bumps `STUDY_VERSION` and keeps
+  the previous manifest committed alongside the results it governed.
+- Post-test fixes invalidate or version the previous result rather than
+  silently replacing it.
+
+### Sweep purpose labels (§30)
+
+Every parameter sweep is labelled:
+
+- `selection` — chooses the frozen value, using development/validation
+  splits only; a selection sweep never touches the test split.
+- `sensitivity` — post hoc exploratory analysis that must never choose the
+  main reported result; carries an explanatory note and states the
+  evaluation split it used.
+
+The label travels in `sweep_summary.json` (`sweep_purpose`), in Table 3 of
+the final artifacts, and is enforced by `build_sweep_validation` and the
+`frozen_threshold_manifest` gate.
+
+---
+
 ## Important Notes
 
 - **Fixed embeddings are only for deterministic tests.** Real semantic claims require experiment mode.
