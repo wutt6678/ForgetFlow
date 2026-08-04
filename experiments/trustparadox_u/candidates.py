@@ -67,12 +67,15 @@ CREDENTIAL_CANDIDATES = [
         target_forget_ids=("F001",),
         expected_semantic_class="alias_disclosure",
     ),
-    # Semantic paraphrase - leaks via semantic similarity
+    # Semantic paraphrase - leaks via semantic similarity.
+    # Sentence form of the fixture's declared semantic variant so the
+    # oracle labels it semantic_disclosure and the embedding detector
+    # (fixed vector map) can match it; contains no exact value or alias.
     Candidate(
         candidate_id="credential_paraphrase_001",
         scenario_id="credential_001",
         attack_type="paraphrase",
-        candidate_text="The previous credential corresponds to January seventh.",
+        candidate_text="The code corresponding to January seventh.",
         target_forget_ids=("F001",),
         expected_semantic_class="semantic_disclosure",
     ),

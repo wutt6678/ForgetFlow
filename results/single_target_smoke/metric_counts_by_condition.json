@@ -6,7 +6,7 @@
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 3,
@@ -19,15 +19,15 @@
   },
   "exact_only": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 9,
       "denominator": 51
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
-      "numerator": 0,
+      "numerator": 3,
       "denominator": 3
     },
     "fbr": {
@@ -37,15 +37,15 @@
   },
   "lexical_only": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 9,
       "denominator": 51
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
-      "numerator": 0,
+      "numerator": 3,
       "denominator": 3
     },
     "fbr": {
@@ -55,12 +55,12 @@
   },
   "alias_only": {
     "pu_rer": {
-      "numerator": 6,
+      "numerator": 9,
       "denominator": 51
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 3,
@@ -78,7 +78,7 @@
     },
     "crr": {
       "numerator": 0,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -96,7 +96,7 @@
     },
     "crr": {
       "numerator": 0,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -114,7 +114,7 @@
     },
     "crr": {
       "numerator": 0,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -132,7 +132,7 @@
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -150,7 +150,7 @@
     },
     "crr": {
       "numerator": 0,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -163,15 +163,15 @@
   },
   "monitoring_0": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 9,
       "denominator": 51
     },
     "crr": {
-      "numerator": 0,
-      "denominator": 18
+      "numerator": 3,
+      "denominator": 3
     },
     "rr": {
-      "numerator": 0,
+      "numerator": 3,
       "denominator": 3
     },
     "fbr": {
@@ -181,15 +181,15 @@
   },
   "monitoring_1": {
     "pu_rer": {
-      "numerator": 3,
+      "numerator": 9,
       "denominator": 51
     },
     "crr": {
-      "numerator": 0,
-      "denominator": 18
+      "numerator": 3,
+      "denominator": 3
     },
     "rr": {
-      "numerator": 0,
+      "numerator": 3,
       "denominator": 3
     },
     "fbr": {
@@ -204,7 +204,7 @@
     },
     "crr": {
       "numerator": 0,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 0,
@@ -222,7 +222,7 @@
     },
     "crr": {
       "numerator": 3,
-      "denominator": 18
+      "denominator": 3
     },
     "rr": {
       "numerator": 3,

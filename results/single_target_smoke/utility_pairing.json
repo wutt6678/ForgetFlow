@@ -29,42 +29,42 @@
       "auth_001",
       "a717a3e722b8fc9d",
       "high",
-      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
+      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
       7
     ],
     [
       "auth_001",
       "a717a3e722b8fc9d",
       "high",
-      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
+      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
       42
     ],
     [
       "auth_001",
       "a717a3e722b8fc9d",
       "high",
-      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
+      "[\"claim_modal\",\"claim_negation\",\"claim_past\",\"claim_positive\",\"claim_question_control\",\"cross_agent_fragmentation\",\"direct\",\"recontamination\"]",
       123
     ],
     [
       "credential_001",
       "84abab3650721c85",
       "high",
-      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\",\"temporal_fragmentation\"]",
+      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\"]",
       7
     ],
     [
       "credential_001",
       "84abab3650721c85",
       "high",
-      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\",\"temporal_fragmentation\"]",
+      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\"]",
       42
     ],
     [
       "credential_001",
       "84abab3650721c85",
       "high",
-      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\",\"temporal_fragmentation\"]",
+      "[\"alias\",\"direct\",\"legitimate_task\",\"paraphrase\",\"temporal_fragmentation\"]",
       123
     ]
   ],

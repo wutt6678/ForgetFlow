@@ -8,9 +8,9 @@
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -56,30 +56,30 @@
   },
   "exact_only": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.17647058823529413,
+      "numerator": 9,
       "denominator": 51,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
     "rr": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
@@ -111,30 +111,30 @@
   },
   "lexical_only": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.17647058823529413,
+      "numerator": 9,
       "denominator": 51,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
     "rr": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
@@ -166,16 +166,16 @@
   },
   "alias_only": {
     "pu_rer": {
-      "value": 0.11764705882352941,
-      "numerator": 6,
+      "value": 0.17647058823529413,
+      "numerator": 9,
       "denominator": 51,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -230,7 +230,7 @@
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -285,7 +285,7 @@
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -340,7 +340,7 @@
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -393,9 +393,9 @@
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -450,7 +450,7 @@
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -496,30 +496,30 @@
   },
   "monitoring_0": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.17647058823529413,
+      "numerator": 9,
       "denominator": 51,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.0,
-      "numerator": 0,
-      "denominator": 18,
+      "value": 1.0,
+      "numerator": 3,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
     "rr": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
@@ -551,30 +551,30 @@
   },
   "monitoring_1": {
     "pu_rer": {
-      "value": 0.058823529411764705,
-      "numerator": 3,
+      "value": 0.17647058823529413,
+      "numerator": 9,
       "denominator": 51,
       "reason": null,
       "evaluable": true
     },
     "crr": {
-      "value": 0.0,
-      "numerator": 0,
-      "denominator": 18,
+      "value": 1.0,
+      "numerator": 3,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
     "rr": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
       "population": "clean_or_verified"
     },
     "rr_clean": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 3,
       "denominator": 3,
       "reason": null,
       "evaluable": true,
@@ -615,7 +615,7 @@
     "crr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },
@@ -668,9 +668,9 @@
       "evaluable": true
     },
     "crr": {
-      "value": 0.16666666666666666,
+      "value": 1.0,
       "numerator": 3,
-      "denominator": 18,
+      "denominator": 3,
       "reason": null,
       "evaluable": true
     },

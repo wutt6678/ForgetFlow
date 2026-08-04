@@ -1677,6 +1677,9 @@ def run_episode(
                     # so that minor formatting differences still match
                     stripped = variant.rstrip(".")
                     vector_map[stripped] = vec
+                    # Register the sentence-final form so released messages
+                    # ending in a period still match the variant vector
+                    vector_map[stripped + "."] = vec
 
             # Also register the actual message text for paraphrase attacks
             # so the semantic detector can match them

@@ -4,14 +4,16 @@
   "directional_checks_pass": true,
   "no_unmatched_pairs": true,
   "utility_defined": true,
-  "repository_clean": true,
+  "repository_clean": false,
   "artifacts_complete": true,
   "no_duplicate_identities": true,
-  "all_passed": true,
+  "all_passed": false,
   "top_line_status": "DIAGNOSTIC ONLY",
-  "failure_reasons": [],
-  "repository_commit": "fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc",
-  "generated_at": "2026-08-02T23:23:15.354575+00:00",
+  "failure_reasons": [
+    "Repository dirty: 872a752a79c82c7795085dc72a8888f8d745e74c-dirty"
+  ],
+  "repository_commit": "872a752a79c82c7795085dc72a8888f8d745e74c-dirty",
+  "generated_at": "2026-08-04T00:53:47.276637+00:00",
   "mode": "diagnostic",
   "total_runs": 117,
   "fixture_count": 3,
@@ -21,18 +23,18 @@
   "duplicate_identity_count": 0,
   "aggregate_metrics": {
     "pu_rer": {
-      "value": 0.07239819004524888,
-      "numerator": 48,
+      "value": 0.11312217194570136,
+      "numerator": 75,
       "denominator": 663
     },
     "crr": {
-      "value": 0.07692307692307693,
-      "numerator": 18,
-      "denominator": 234
+      "value": 0.6153846153846154,
+      "numerator": 24,
+      "denominator": 39
     },
     "rr": {
-      "value": 0.23076923076923078,
-      "numerator": 9,
+      "value": 0.5384615384615384,
+      "numerator": 21,
       "denominator": 39
     },
     "fbr": {
@@ -60,7 +62,7 @@
       "claim_type": "strict_improvement",
       "check": "stateful CRR < stateless CRR",
       "lhs": 0.0,
-      "rhs": 0.16666666666666666,
+      "rhs": 1.0,
       "passed": true
     },
     "rich_utility_ge_binary": {
@@ -74,6 +76,20 @@
       "claim_type": "strict_improvement",
       "check": "no_firewall RR > full_mvp RR",
       "lhs": 1.0,
+      "rhs": 0.0,
+      "passed": true
+    },
+    "binary_policy_reconstruction_increases": {
+      "claim_type": "non_inferiority",
+      "check": "binary_policy CRR >= full_mvp CRR",
+      "lhs": 0.0,
+      "rhs": 0.0,
+      "passed": true
+    },
+    "one_time_monitoring_recontamination_increases": {
+      "claim_type": "non_inferiority",
+      "check": "one_time_monitoring RR >= full_mvp RR",
+      "lhs": 0.0,
       "rhs": 0.0,
       "passed": true
     }
@@ -92,18 +108,18 @@
   "smoke_report_version": "1.0.0",
   "artifact_schema_version": "1.0.0",
   "artifact_provenance": {
-    "tested_code_commit": "fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc",
-    "results_commit": "fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc",
-    "repository_commit": "fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc",
-    "repository_clean": true,
-    "artifact_dirty": false,
+    "tested_code_commit": "872a752a79c82c7795085dc72a8888f8d745e74c",
+    "results_commit": "872a752a79c82c7795085dc72a8888f8d745e74c",
+    "repository_commit": "872a752a79c82c7795085dc72a8888f8d745e74c-dirty",
+    "repository_clean": false,
+    "artifact_dirty": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
     "certification_mode": "diagnostic",
     "run_mode": "diagnostic",
     "schema_version": "1.1",
-    "generated_at": "2026-08-02T23:23:15.354575+00:00",
+    "generated_at": "2026-08-04T00:53:47.276637+00:00",
     "is_certifying": false
   },
-  "execution_status": "RESEARCH_VALID"
+  "execution_status": "DIAGNOSTIC_VALID"
 }

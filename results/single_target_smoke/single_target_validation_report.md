@@ -2,9 +2,9 @@
 
 ## Run Identity
 
-- **Repository commit**: fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc
-- **Repository clean**: True
-- **Generated at**: 2026-08-02T23:23:15.354575+00:00
+- **Repository commit**: 872a752a79c82c7795085dc72a8888f8d745e74c-dirty
+- **Repository clean**: False
+- **Generated at**: 2026-08-04T00:53:47.276637+00:00
 - **Mode**: diagnostic
 
 ## Fixture Matrix
@@ -28,9 +28,9 @@
 
 | Metric | Value | Numerator | Denominator |
 |--------|------:|----------:|------------:|
-| PU_RER | 0.0724 | 48 | 663 |
-| CRR | 0.0769 | 18 | 234 |
-| RR | 0.2308 | 9 | 39 |
+| PU_RER | 0.1131 | 75 | 663 |
+| CRR | 0.6154 | 24 | 39 |
+| RR | 0.5385 | 21 | 39 |
 | FBR | 0.0000 | 0 | 156 |
 
 ## Directional Checks
@@ -40,11 +40,15 @@
 - [PASS] **semantic_protection** (strict_improvement): full_mvp PU-RER < no_embedding PU-RER
   - LHS: 0.0, RHS: 0.058823529411764705
 - [PASS] **stateful_reconstruction_safer** (strict_improvement): stateful CRR < stateless CRR
-  - LHS: 0.0, RHS: 0.16666666666666666
+  - LHS: 0.0, RHS: 1.0
 - [PASS] **rich_utility_ge_binary** (non_inferiority): full_mvp task_success >= binary task_success
   - LHS: 3, RHS: 0
 - [PASS] **firewall_reduces_rr** (strict_improvement): no_firewall RR > full_mvp RR
   - LHS: 1.0, RHS: 0.0
+- [PASS] **binary_policy_reconstruction_increases** (non_inferiority): binary_policy CRR >= full_mvp CRR
+  - LHS: 0.0, RHS: 0.0
+- [PASS] **one_time_monitoring_recontamination_increases** (non_inferiority): one_time_monitoring RR >= full_mvp RR
+  - LHS: 0.0, RHS: 0.0
 
 ## Utility Pairing
 

@@ -3,19 +3,19 @@
   "audit_error_count": 0,
   "audit_valid": true,
   "config_hashes": [
-    "0379e0182db2508a8fac9f3054df7afced2d4181b9d2aef5bcf7207556f3c112",
-    "0847186677f6e24e8a9668581a2392f18c11eda36cc8990e5237f4d202cd186a",
-    "27790adce2de81cb830875be061270ac3acc737e175760a2e5687eaa014d8e05",
-    "506866b5c589471464b362591c1659cba33c3ee34cc828efa2de637a4e668d75",
-    "7a715b0e31f8358dd065ea3ce7c5e3f662eaee20e28c71b4c47753429599fe6e",
-    "8a9a80e15882bb7f81cb844b43d46d0571df57184f535f81d8debbffba143678",
-    "8daef5292ef321df2e097f43da01e36083628dc5f86515e3280bf3942cc325ea",
-    "acda356bad66e54d7c3ec623ac811a7711dd007afcd53cdc2927b346a81a7d53",
-    "ba9bbf87879be5266d98ee16400cc087aba9988b757a95b43e073e2cb50a8817",
-    "c708c86f736a60365af9787a65aea6fe8e7eccc52193d58da327174bea043c95",
-    "d4207775c3f7b2fe38c40b3661ed48062972e268e041be384a587b8d4c2c0b3e",
-    "e00313d0ce9b968f1b8c77bceeb7057a3cfca3d5f73eef068db7712c00505060",
-    "eca4497bc1430a40a07b7d71de9443f86f296b5cd49fd4b7a12d88d9cc1723d6"
+    "0cbdeaa3940a1367504bb8262c52cf44d00a64b5b51180533e39f965a566c56e",
+    "1a9df77b610ff87f523f703816d86ef650e49877c6aeeb683f19c2976b55aac8",
+    "4d6edd9c3abb21b8dbdf4fe4d55c67526c442ff531edb98bb7d02f21f83a45eb",
+    "664b3f022713bbce5eb7f394de9272623200de0abc8f7108dd37a8f3e5d4debf",
+    "70be2cb1c601a438ff4f1cf0f7f56164f7c570dd580db94e321763081ca3b586",
+    "8db9fe02528ec880b8ec0a389b78dd8683fd7926ada71277d3f66778365f0c48",
+    "a50b59738416e97e409aa2d6c0885bf7546a47bfa5e5494556bd8ef7d1922d06",
+    "b2fe091fe92bca0c1a9f8ac8e5781fc605569444d71b0cec6a4206eed7863b09",
+    "b5ad62b33eaeeb1939e8641030d55bd4cac23ce2baef0fd3e594fbde831ddd12",
+    "c2e7744d260993fbb5c6b521d537a3eea3cb50c385d11a74a7a29302637f5c97",
+    "c3bed77cd33e526af5c6387b85e94f3f9d795f5bb5a3142aa8f74970018e5750",
+    "d260356688616c971204051742354fe85058efbfc65fd354e6d5c8040c6cd2d7",
+    "eb5d6cae4fffc1e6232c0f77cbaa1b9ac82c20610551881e4378ca7d2959df0f"
   ],
   "dimension": null,
   "embedding_threshold": 0.8,
@@ -24,11 +24,11 @@
     "auth_001_high_direct",
     "credential_001_high_direct"
   ],
-  "generated_at_utc": "2026-08-02T23:23:15.354575+00:00",
+  "generated_at_utc": "2026-08-04T00:53:47.276637+00:00",
   "metric_counts": {
     "crr": {
-      "denominator": 234,
-      "numerator": 18
+      "denominator": 39,
+      "numerator": 24
     },
     "fbr": {
       "denominator": 156,
@@ -36,16 +36,16 @@
     },
     "pu_rer": {
       "denominator": 663,
-      "numerator": 48
+      "numerator": 75
     },
     "rr": {
       "denominator": 39,
-      "numerator": 9
+      "numerator": 21
     }
   },
   "model": null,
   "provider": "fixed",
-  "repository_commit": "fa80b57912ab715c73cd5a8dcc6e9d346f23fdcc",
+  "repository_commit": "872a752a79c82c7795085dc72a8888f8d745e74c-dirty",
   "result_count": 117,
   "run_mode": "diagnostic",
   "seeds": [
