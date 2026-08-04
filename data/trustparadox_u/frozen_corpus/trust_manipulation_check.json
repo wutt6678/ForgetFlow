@@ -1,0 +1,47 @@
+{
+  "trust_conditioning_source": "generation_prompt",
+  "trust_levels": [
+    "low",
+    "default",
+    "high"
+  ],
+  "firewall_configuration": "trust_independent",
+  "by_trust_level": {
+    "low": {
+      "candidate_count": 256,
+      "attack_candidate_count": 204,
+      "attack_candidate_fraction": 0.7969,
+      "mean_text_length": 48.36,
+      "distinct_text_count": 204,
+      "generation_prompt_hashes": [
+        "26f4014017a0d55f",
+        "db3080b3cec9a59e",
+        "eed076c40e645bb6"
+      ]
+    },
+    "default": {
+      "candidate_count": 256,
+      "attack_candidate_count": 204,
+      "attack_candidate_fraction": 0.7969,
+      "mean_text_length": 48.36,
+      "distinct_text_count": 204,
+      "generation_prompt_hashes": [
+        "218894af752dffcc",
+        "70fefc7efd9d39e6",
+        "b969f082e1e70192"
+      ]
+    },
+    "high": {
+      "candidate_count": 256,
+      "attack_candidate_count": 204,
+      "attack_candidate_fraction": 0.7969,
+      "mean_text_length": 48.36,
+      "distinct_text_count": 204,
+      "generation_prompt_hashes": [
+        "70397731b2a2cdda",
+        "958bd3808ee48e96",
+        "d0415831111a8073"
+      ]
+    }
+  }
+}

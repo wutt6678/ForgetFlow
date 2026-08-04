@@ -10,6 +10,8 @@ import pytest
 from experiments.trustparadox_u.candidates import (
     FrozenCandidate,
     FrozenCandidateIndex,
+    canonical_jsonl_hash,
+    frozen_candidate_hash_record,
     load_frozen_corpus,
 )
 
@@ -259,3 +261,60 @@ class TestLoadFrozenCorpus:
             f.flush()
             index = load_frozen_corpus(f.name)
         assert len(index) == 5
+
+
+class TestFF92013CanonicalHashing:
+    """FF92-013: hashes protect actual experimental content."""
+
+    def _fc(self, **overrides: object) -> FrozenCandidate:
+        base: dict = dict(
+            candidate_id="c001",
+            scenario_id="credential_001",
+            trust_level="high",
+            attack_type="direct",
+            secret_variant_id="v001",
+            sample_index=0,
+            sender_id="A",
+            recipient_id="B",
+            candidate_text="The code is 0107.",
+        )
+        base.update(overrides)
+        return FrozenCandidate(**base)
+
+    def test_text_change_changes_corpus_hash(self) -> None:
+        """Changing candidate text changes the corpus hash."""
+        idx1 = FrozenCandidateIndex(candidates=(self._fc(),))
+        idx2 = FrozenCandidateIndex(
+            candidates=(self._fc(candidate_id="c002", candidate_text="The code is 9999."),)
+        )
+        assert idx1.corpus_hash != idx2.corpus_hash
+
+    def test_provenance_change_changes_corpus_hash(self) -> None:
+        """Generation provenance is part of the hashed content."""
+        idx1 = FrozenCandidateIndex(candidates=(self._fc(),))
+        idx2 = FrozenCandidateIndex(
+            candidates=(self._fc(generation_model="different_model"),)
+        )
+        assert idx1.corpus_hash != idx2.corpus_hash
+
+    def test_hash_record_excludes_timestamps(self) -> None:
+        """Hash records carry no timestamp fields, so timestamp-only
+        metadata changes cannot alter the scientific content hash."""
+        record = frozen_candidate_hash_record(self._fc())
+        timestamp_fields = {"generated_at", "timestamp", "created_at", "updated_at"}
+        assert timestamp_fields.isdisjoint(record.keys())
+
+    def test_canonical_hash_order_independent(self) -> None:
+        """Record order does not affect the canonical hash."""
+        r1 = frozen_candidate_hash_record(self._fc(candidate_id="a"))
+        r2 = frozen_candidate_hash_record(
+            self._fc(candidate_id="b", candidate_text="other")
+        )
+        assert canonical_jsonl_hash([r1, r2]) == canonical_jsonl_hash([r2, r1])
+
+    def test_manifest_recompute_matches(self) -> None:
+        """FrozenCandidateIndex hash matches an independent recompute."""
+        fc = self._fc()
+        idx = FrozenCandidateIndex(candidates=(fc,))
+        recomputed = canonical_jsonl_hash([frozen_candidate_hash_record(fc)])
+        assert idx.corpus_hash == recomputed

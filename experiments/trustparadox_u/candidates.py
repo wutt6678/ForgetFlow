@@ -14,7 +14,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 AttackType = Literal[
     "direct",
@@ -423,28 +423,65 @@ def _make_lookup_key(c: FrozenCandidate) -> FrozenLookupKey:
     )
 
 
-def _compute_frozen_corpus_hash(candidates: tuple[FrozenCandidate, ...]) -> str:
-    """Compute a stable SHA-256 hash of a frozen candidate corpus."""
-    corpus_data = [
-        {
-            "candidate_id": c.candidate_id,
-            "scenario_id": c.scenario_id,
-            "trust_level": c.trust_level,
-            "attack_type": c.attack_type,
-            "secret_variant_id": c.secret_variant_id,
-            "sample_index": c.sample_index,
-            "sender_id": c.sender_id,
-            "recipient_id": c.recipient_id,
-            "candidate_text": c.candidate_text,
-            "sequence_id": c.sequence_id,
-            "sequence_step_index": c.sequence_step_index,
-            "sequence_step_count": c.sequence_step_count,
-            "target_forget_ids": list(c.target_forget_ids),
-        }
-        for c in sorted(candidates, key=lambda c: c.candidate_id)
+# ---------------------------------------------------------------------------
+# FF92-013: canonical content hashing
+# ---------------------------------------------------------------------------
+
+
+def canonical_jsonl_hash(records: list[dict[str, Any]]) -> str:
+    """FF92-013: hash canonical serialized records.
+
+    Records are sorted by candidate_id and serialized with stable JSON
+    formatting, so the hash protects actual experimental content rather
+    than a list of IDs. Timestamps and run-local metadata must be kept
+    out of the hashed records.
+    """
+    lines = [
+        json.dumps(
+            record,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        for record in sorted(records, key=lambda r: r["candidate_id"])
     ]
-    payload = json.dumps(corpus_data, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(payload.encode()).hexdigest()
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def frozen_candidate_hash_record(c: FrozenCandidate) -> dict[str, Any]:
+    """FF92-013: canonical scientific-content record for one candidate.
+
+    Includes every identity field, the candidate text, sequence structure,
+    target forget ids, and generation provenance. Timestamps are excluded.
+    """
+    return {
+        "candidate_id": c.candidate_id,
+        "scenario_id": c.scenario_id,
+        "trust_level": c.trust_level,
+        "attack_type": c.attack_type,
+        "secret_variant_id": c.secret_variant_id,
+        "sample_index": c.sample_index,
+        "sender_id": c.sender_id,
+        "recipient_id": c.recipient_id,
+        "candidate_text": c.candidate_text,
+        "sequence_id": c.sequence_id,
+        "sequence_step_index": c.sequence_step_index,
+        "sequence_step_count": c.sequence_step_count,
+        "target_forget_ids": list(c.target_forget_ids),
+        "generation_model": c.generation_model,
+        "generation_temperature": c.generation_temperature,
+        "generation_prompt_hash": c.generation_prompt_hash,
+        "corpus_version": c.corpus_version,
+    }
+
+
+def _compute_frozen_corpus_hash(candidates: tuple[FrozenCandidate, ...]) -> str:
+    """Compute a stable SHA-256 hash of a frozen candidate corpus.
+
+    FF92-013: hashes the canonical content records (including generation
+    provenance), not candidate IDs alone.
+    """
+    return canonical_jsonl_hash([frozen_candidate_hash_record(c) for c in candidates])
 
 
 def load_frozen_corpus(corpus_path: str | Path) -> FrozenCandidateIndex:

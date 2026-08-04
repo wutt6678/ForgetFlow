@@ -19,7 +19,11 @@ from experiments.trustparadox_u.assertion_contracts import (
     classify_candidate_exposure,
     classify_released_exposure,
 )
-from experiments.trustparadox_u.attacks import FRAGMENTATION_ATTACKS, build_attack
+from experiments.trustparadox_u.attacks import (
+    FRAGMENTATION_ATTACKS,
+    SEQUENCE_RECONSTRUCTION_ATTACKS,
+    build_attack,
+)
 from experiments.trustparadox_u.config import (
     ExperimentConfig,
     MonitoringClockMode,
@@ -2009,9 +2013,11 @@ def run_episode(
         seen_types.add(atk_spec.attack_type)
         attack_plan = build_attack(episode, atk_spec.attack_type, config.seed)
 
-        # Section 2.3: Assign shared sequence_id for fragmentation attacks
-        is_fragmentation = atk_spec.attack_type in FRAGMENTATION_ATTACKS
-        if is_fragmentation:
+        # Section 2.3: Assign shared sequence_id for reconstruction sequences.
+        # FF92-009: compositional inference is a multi-step reconstruction
+        # too, so its steps carry sequence identity for CRR counting.
+        is_sequence = atk_spec.attack_type in SEQUENCE_RECONSTRUCTION_ATTACKS
+        if is_sequence:
             seq_id = f"{atk_spec.attack_type}_seq_{sequence_counter:03d}"
             sequence_counter += 1
             seq_type = atk_spec.attack_type
@@ -2035,7 +2041,7 @@ def run_episode(
             attack_inst_id = f"{atk_spec.attack_type}_{step.step_index}"
 
             # Section 2.3: Fragment index for this step
-            frag_index = step.step_index if is_fragmentation else None
+            frag_index = step.step_index if is_sequence else None
 
             # Track recontamination attempts on cleaned agent-record pairs (denominator for RR)
             # FF92-014: record the pre-attempt contamination status for every

@@ -191,6 +191,29 @@ class TestAnnotationManifest:
         m2 = build_annotation_manifest(annotations, "abc123", "h")
         assert m1["annotation_hash"] == m2["annotation_hash"]
 
+    def test_ff92_013_label_change_changes_annotation_hash(self) -> None:
+        """FF92-013: changing one annotation label changes the hash."""
+        from dataclasses import replace
+
+        candidates = generate_candidates()
+        annotations = annotate_corpus(candidates)
+        m1 = build_annotation_manifest(annotations, "abc123", "h")
+
+        altered = list(annotations)
+        altered[0] = replace(altered[0], unauthorized_disclosure=not altered[0].unauthorized_disclosure)
+        m2 = build_annotation_manifest(altered, "abc123", "h")
+        assert m1["annotation_hash"] != m2["annotation_hash"]
+
+    def test_ff92_013_annotation_hash_independent_recompute(self) -> None:
+        """FF92-013: manifest hash matches recompute from serialized dicts."""
+        from experiments.trustparadox_u.candidates import canonical_jsonl_hash
+
+        candidates = generate_candidates()
+        annotations = annotate_corpus(candidates)
+        manifest = build_annotation_manifest(annotations, "abc123", "h")
+        recomputed = canonical_jsonl_hash([a.to_dict() for a in annotations])
+        assert manifest["annotation_hash"] == recomputed
+
 
 class TestWriteAnnotations:
     """Tests for annotation serialization."""

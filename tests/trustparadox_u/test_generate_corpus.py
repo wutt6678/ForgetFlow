@@ -13,12 +13,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.candidates import FrozenCandidate  # noqa: E402
 from experiments.trustparadox_u.generate_corpus import (  # noqa: E402
     SCENARIO_DEFINITIONS,
+    SEQUENCE_ATTACK_TYPES,
     TRUST_LEVELS,
     assign_splits,
     build_corpus_manifest,
     build_target_specs,
+    build_trust_manipulation_report,
     generate_candidates,
     get_variant_definition,
     target_spec_for_variant,
@@ -256,6 +259,88 @@ class TestCorpusManifest:
         m2 = build_corpus_manifest(candidates, splits, "abc123")
         assert m1["corpus_sha256"] == m2["corpus_sha256"]
 
+    def test_ff92_013_text_change_changes_manifest_hash(self) -> None:
+        """FF92-013: changing candidate text changes corpus_sha256."""
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        m1 = build_corpus_manifest(candidates, splits, "abc123")
+
+        altered = []
+        for c in candidates:
+            if c.candidate_id == candidates[0].candidate_id:
+                altered.append(
+                    FrozenCandidate(
+                        candidate_id=c.candidate_id,
+                        scenario_id=c.scenario_id,
+                        trust_level=c.trust_level,
+                        attack_type=c.attack_type,
+                        secret_variant_id=c.secret_variant_id,
+                        sample_index=c.sample_index,
+                        sender_id=c.sender_id,
+                        recipient_id=c.recipient_id,
+                        candidate_text=c.candidate_text + " TAMPERED",
+                        sequence_id=c.sequence_id,
+                        sequence_step_index=c.sequence_step_index,
+                        sequence_step_count=c.sequence_step_count,
+                        generation_model=c.generation_model,
+                        generation_temperature=c.generation_temperature,
+                        generation_prompt_hash=c.generation_prompt_hash,
+                        corpus_version=c.corpus_version,
+                        target_forget_ids=c.target_forget_ids,
+                    )
+                )
+            else:
+                altered.append(c)
+        m2 = build_corpus_manifest(altered, splits, "abc123")
+        assert m1["corpus_sha256"] != m2["corpus_sha256"]
+
+    def test_ff92_013_timestamp_only_change_keeps_hash(self) -> None:
+        """FF92-013: the generated_at timestamp is excluded from the hash."""
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        m1 = build_corpus_manifest(candidates, splits, "abc123")
+        m2 = build_corpus_manifest(candidates, splits, "abc123")
+        # Timestamps may legitimately differ between builds...
+        # ...but the scientific content hash must not.
+        assert m1["corpus_sha256"] == m2["corpus_sha256"]
+
+    def test_ff92_013_manifest_hash_matches_independent_recompute(self, tmp_path: Path) -> None:
+        """FF92-013: written corpus allows independent hash recomputation."""
+        from experiments.trustparadox_u.candidates import canonical_jsonl_hash
+
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        manifest = build_corpus_manifest(candidates, splits, "abc123")
+        write_corpus(candidates, splits, manifest, tmp_path)
+
+        # Independently recompute from the serialized JSONL
+        records = []
+        for line in (tmp_path / "frozen_corpus.jsonl").read_text().splitlines():
+            if line.strip():
+                rec = json.loads(line)
+                records.append(
+                    {
+                        "candidate_id": rec["candidate_id"],
+                        "scenario_id": rec["scenario_id"],
+                        "trust_level": rec["trust_level"],
+                        "attack_type": rec["attack_type"],
+                        "secret_variant_id": rec["secret_variant_id"],
+                        "sample_index": rec["sample_index"],
+                        "sender_id": rec["sender_id"],
+                        "recipient_id": rec["recipient_id"],
+                        "candidate_text": rec["candidate_text"],
+                        "sequence_id": rec.get("sequence_id", ""),
+                        "sequence_step_index": int(rec.get("sequence_step_index", 0)),
+                        "sequence_step_count": int(rec.get("sequence_step_count", 0)),
+                        "target_forget_ids": list(rec.get("target_forget_ids", [])),
+                        "generation_model": rec.get("generation_model", ""),
+                        "generation_temperature": float(rec.get("generation_temperature", 0.0)),
+                        "generation_prompt_hash": rec.get("generation_prompt_hash", ""),
+                        "corpus_version": rec.get("corpus_version", "1.0"),
+                    }
+                )
+        assert canonical_jsonl_hash(records) == manifest["corpus_sha256"]
+
 
 class TestWriteCorpus:
     """Tests for corpus serialization."""
@@ -381,3 +466,199 @@ class TestTargetSpecsFF92003:
         assert record["canonical_target"] == spec.canonical_target
         assert record["fragments"] == list(spec.fragments)
         assert record["forget_id"] == spec.forget_id
+
+
+class TestAliasOnlyChallengesFF92007:
+    """FF92-007: alias challenges name the target via alias only."""
+
+    def test_alias_candidates_contain_registered_alias(self) -> None:
+        candidates = generate_candidates()
+        alias_candidates = [c for c in candidates if c.attack_type == "alias"]
+        assert len(alias_candidates) > 0
+        for c in alias_candidates:
+            spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
+            text_cf = c.candidate_text.casefold()
+            assert any(
+                alias.casefold() in text_cf for alias in spec.aliases
+            ), f"{c.candidate_id} contains no registered alias"
+
+    def test_alias_candidates_exclude_canonical_target(self) -> None:
+        candidates = generate_candidates()
+        alias_candidates = [c for c in candidates if c.attack_type == "alias"]
+        assert len(alias_candidates) > 0
+        for c in alias_candidates:
+            spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
+            assert spec.canonical_target.casefold() not in c.candidate_text.casefold(), (
+                f"{c.candidate_id} leaks the canonical target"
+            )
+
+
+class TestSemanticOnlyChallengesFF92008:
+    """FF92-008: paraphrase challenges avoid every known surface form."""
+
+    def test_paraphrase_candidates_exist_for_every_scenario(self) -> None:
+        candidates = generate_candidates()
+        scenarios = set(
+            c.scenario_id for c in candidates if c.attack_type == "paraphrase"
+        )
+        assert scenarios == set(SCENARIO_DEFINITIONS)
+
+    def test_paraphrase_candidates_avoid_all_surface_forms(self) -> None:
+        candidates = generate_candidates()
+        para_candidates = [c for c in candidates if c.attack_type == "paraphrase"]
+        assert len(para_candidates) > 0
+        for c in para_candidates:
+            spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
+            forbidden = (
+                [spec.canonical_target]
+                + list(spec.aliases)
+                + list(spec.semantic_variants)
+                + list(spec.fragments)
+                + list(spec.required_facts)
+            )
+            text_cf = c.candidate_text.casefold()
+            for item in forbidden:
+                if item:
+                    assert item.casefold() not in text_cf, (
+                        f"{c.candidate_id} reuses surface form {item!r}"
+                    )
+
+    def test_paraphrase_family_is_not_degenerate(self) -> None:
+        """Each scenario's paraphrase family has at least two distinct texts."""
+        candidates = generate_candidates()
+        for scenario_id in SCENARIO_DEFINITIONS:
+            texts = {
+                c.candidate_text
+                for c in candidates
+                if c.attack_type == "paraphrase" and c.scenario_id == scenario_id
+            }
+            assert len(texts) >= 2, f"{scenario_id} paraphrase family has one surface form"
+
+
+class TestReconstructionSequencesFF92009:
+    """FF92-009: real multi-step reconstruction sequences."""
+
+    def test_all_sequence_attack_types_emit_multistep_sequences(self) -> None:
+        candidates = generate_candidates()
+        for attack_type in SEQUENCE_ATTACK_TYPES:
+            members = [c for c in candidates if c.attack_type == attack_type]
+            assert members, f"No candidates for sequence attack {attack_type!r}"
+            sequences: dict[str, list[FrozenCandidate]] = {}
+            for c in members:
+                assert c.sequence_id, f"{c.candidate_id} lacks sequence_id"
+                sequences.setdefault(c.sequence_id, []).append(c)
+            for seq_id, steps in sequences.items():
+                assert len(steps) >= 2, f"Sequence {seq_id} is single-step"
+                indices = sorted(s.sequence_step_index for s in steps)
+                assert indices == list(range(len(steps))), f"Sequence {seq_id} gaps"
+                counts = {s.sequence_step_count for s in steps}
+                assert counts == {len(steps)}, f"Sequence {seq_id} inconsistent count"
+
+    def test_one_sequence_per_cell(self) -> None:
+        """Exactly one sequence_id per (scenario, variant, trust, attack) cell."""
+        candidates = generate_candidates()
+        by_key: dict[tuple, set[str]] = {}
+        for c in candidates:
+            if c.sequence_id:
+                key = (c.scenario_id, c.secret_variant_id, c.trust_level, c.attack_type)
+                by_key.setdefault(key, set()).add(c.sequence_id)
+        assert by_key, "No sequence cells found"
+        for key, ids in by_key.items():
+            assert len(ids) == 1, f"Cell {key} spans sequences {ids}"
+
+    def test_sequence_steps_are_one_record_each(self) -> None:
+        """Every sequence step is its own candidate record with distinct ID."""
+        candidates = generate_candidates()
+        steps = [c for c in candidates if c.sequence_id]
+        ids = [c.candidate_id for c in steps]
+        assert len(ids) == len(set(ids))
+        for c in steps:
+            assert c.sequence_step_index < c.sequence_step_count
+
+
+class TestTemplateFamilySplitsFF92010:
+    """FF92-010: template-family split strategy without leakage."""
+
+    def test_every_template_family_lives_in_one_split(self) -> None:
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        family_splits: dict[tuple[str, str], set[str]] = {}
+        for split_name, split_candidates in splits.items():
+            for c in split_candidates:
+                family_splits.setdefault((c.scenario_id, c.attack_type), set()).add(
+                    split_name
+                )
+        for family, split_names in family_splits.items():
+            assert len(split_names) == 1, f"Family {family} spans {sorted(split_names)}"
+
+    def test_sequences_do_not_straddle_splits(self) -> None:
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        split_of = {
+            c.candidate_id: name for name, members in splits.items() for c in members
+        }
+        seq_splits: dict[str, set[str]] = {}
+        for c in candidates:
+            if c.sequence_id:
+                seq_splits.setdefault(c.sequence_id, set()).add(split_of[c.candidate_id])
+        for seq_id, names in seq_splits.items():
+            assert len(names) == 1, f"Sequence {seq_id} spans {sorted(names)}"
+
+    def test_no_identical_text_across_splits(self) -> None:
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        text_splits: dict[str, set[str]] = {}
+        for split_name, split_candidates in splits.items():
+            for c in split_candidates:
+                text_splits.setdefault(c.candidate_text, set()).add(split_name)
+        for text, names in text_splits.items():
+            assert len(names) == 1, f"Text {text!r} appears in {sorted(names)}"
+
+    def test_all_three_splits_nonempty_with_diverse_families(self) -> None:
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        for split_name, split_candidates in splits.items():
+            assert split_candidates, f"Split {split_name} is empty"
+            families = {(c.scenario_id, c.attack_type) for c in split_candidates}
+            assert len(families) >= 2, f"Split {split_name} has one template family"
+
+
+class TestTrustConditioningFF92011:
+    """FF92-011: trust-conditioned candidates with a manipulation check."""
+
+    def test_trust_enters_only_via_generation_prompt_hash(self) -> None:
+        candidates = generate_candidates()
+        base = next(
+            c
+            for c in candidates
+            if c.scenario_id == "attribute_001"
+            and c.secret_variant_id == "sv_attr_alice_X"
+            and c.attack_type == "direct"
+        )
+        others = [
+            c
+            for c in candidates
+            if c.scenario_id == base.scenario_id
+            and c.secret_variant_id == base.secret_variant_id
+            and c.attack_type == base.attack_type
+            and c.trust_level != base.trust_level
+        ]
+        assert others
+        for c in others:
+            assert c.generation_prompt_hash != base.generation_prompt_hash
+            assert c.candidate_id != base.candidate_id
+
+    def test_manipulation_report_structure(self) -> None:
+        candidates = generate_candidates()
+        report = build_trust_manipulation_report(candidates)
+        assert report["trust_conditioning_source"] == "generation_prompt"
+        assert report["firewall_configuration"] == "trust_independent"
+        assert set(report["by_trust_level"]) == set(TRUST_LEVELS)
+        hashes_per_level = {
+            level: tuple(info["generation_prompt_hashes"])
+            for level, info in report["by_trust_level"].items()
+        }
+        distinct = set(hashes_per_level.values())
+        assert len(distinct) == len(TRUST_LEVELS), "Trust levels share prompt hashes"
+        total = sum(info["candidate_count"] for info in report["by_trust_level"].values())
+        assert total == len(candidates)

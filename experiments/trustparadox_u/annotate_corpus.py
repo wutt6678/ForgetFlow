@@ -15,7 +15,6 @@ Exit criterion:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from dataclasses import asdict, dataclass
@@ -28,7 +27,11 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.candidates import FrozenCandidate, load_frozen_corpus  # noqa: E402
+from experiments.trustparadox_u.candidates import (  # noqa: E402
+    FrozenCandidate,
+    canonical_jsonl_hash,
+    load_frozen_corpus,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -294,9 +297,10 @@ def build_annotation_manifest(
     corpus_hash: str,
 ) -> dict[str, Any]:
     """Build the annotation manifest with metadata."""
-    # Compute annotation hash
-    ann_lines = sorted(a.candidate_id for a in annotations)
-    annotation_hash = hashlib.sha256("\n".join(ann_lines).encode()).hexdigest()
+    # FF92-013: hash every scientific label and provenance field via the
+    # canonical content hash — not candidate IDs alone. The generated_at
+    # timestamp lives in the manifest only, so the hash stays stable.
+    annotation_hash = canonical_jsonl_hash([a.to_dict() for a in annotations])
 
     # Count by review status
     status_counts: dict[str, int] = {}
