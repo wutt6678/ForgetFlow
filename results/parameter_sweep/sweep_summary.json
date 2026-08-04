@@ -34,7 +34,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.17
         },
         {
           "value": 0.6,
@@ -126,7 +126,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.16
         },
         {
           "value": 0.95,
@@ -183,7 +183,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.2
+          "elapsed_seconds": 0.15
         },
         {
           "value": 0.5,
@@ -206,7 +206,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.19
+          "elapsed_seconds": 0.23
         },
         {
           "value": 0.7,
@@ -229,7 +229,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.16
         },
         {
           "value": 0.85,
@@ -295,7 +295,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.31
         },
         {
           "value": 3.0,
@@ -405,7 +405,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.29
         },
         {
           "value": 5.0,
@@ -422,7 +422,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.3
+          "elapsed_seconds": 0.31
         }
       ],
       "selected_value": 5.0
@@ -513,13 +513,13 @@
       "final_evaluation_split": "test"
     }
   },
-  "generated_at": "2026-08-04T22:27:28.644863+00:00",
+  "generated_at": "2026-08-04T22:36:37.431685+00:00",
   "provenance": {
-    "tested_code_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
-    "artifact_generation_commit": "c97a5667d13ce3a3a9c8d125daab6142ca7f7dc8",
+    "tested_code_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
+    "artifact_generation_commit": "6fa3d8f2314c834c01f32b0aa2ba3588d27b1bd6",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:27:24.239519+00:00"
+    "generated_at": "2026-08-04T22:36:32.989410+00:00"
   }
 }
