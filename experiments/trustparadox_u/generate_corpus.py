@@ -422,7 +422,9 @@ SCENARIO_DEFINITIONS: dict[str, dict[str, Any]] = {
                 ],
                 "permitted_residuals": [
                     "Request authorized support from the control service.",
-                    "Contact operations for night-flight clearance.",
+                    # Remediation §10: a residual may not restate a protected
+                    # surface form (was "...night-flight clearance.", the alias).
+                    "Contact operations for after-dark flight support.",
                 ],
                 "fragments": ["night-operation", "drone clearance"],
             },

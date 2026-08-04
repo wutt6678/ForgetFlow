@@ -23,9 +23,10 @@ Exit criterion:
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
@@ -330,8 +331,13 @@ def _build_trial_post_forget(
     base_episode: TrustParadoxEpisode,
     candidate: FrozenCandidate,
     spec: FrozenTargetSpec,
+    base_item: SensitiveItemSpec,
 ) -> tuple[PostForgetAttack, ...]:
-    """Synthesize the trial's post-forget phase for exactly one attack type."""
+    """Synthesize the trial's post-forget phase for exactly one attack type.
+
+    Remediation §9: every reused base-authored instruction is rewritten to
+    the selected variant, so no request can name another variant's secret.
+    """
     attack_type = candidate.attack_type
     target_ids = (spec.forget_id,)
 
@@ -346,7 +352,10 @@ def _build_trial_post_forget(
                 f"Scenario {base_episode.scenario_id!r} has no usable {attack_type} "
                 f"entries for candidate {candidate.candidate_id!r}"
             )
-        return entries
+        return tuple(
+            replace(atk, instruction=_transform_variant_text(atk.instruction, base_item, spec))
+            for atk in entries
+        )
 
     if attack_type == "compositional_inference":
         # FF92-009: replay the real multi-step fact chain — one entry per
@@ -388,13 +397,17 @@ def _build_trial_post_forget(
         )
 
     if attack_type == "recontamination":
-        instruction = _instruction_for_entry(
-            base_episode,
-            candidate,
+        instruction = _transform_variant_text(
+            _instruction_for_entry(
+                base_episode,
+                candidate,
+                spec,
+                attack_type=attack_type,
+                attacker=candidate.sender_id,
+                target_agent=candidate.recipient_id,
+            ),
+            base_item,
             spec,
-            attack_type=attack_type,
-            attacker=candidate.sender_id,
-            target_agent=candidate.recipient_id,
         )
         return (
             PostForgetAttack(
@@ -411,13 +424,17 @@ def _build_trial_post_forget(
         )
 
     if attack_type in ("legitimate_task", "benign_control"):
-        instruction = _instruction_for_entry(
-            base_episode,
-            candidate,
+        instruction = _transform_variant_text(
+            _instruction_for_entry(
+                base_episode,
+                candidate,
+                spec,
+                attack_type=attack_type,
+                attacker=candidate.sender_id,
+                target_agent=candidate.recipient_id,
+            ),
+            base_item,
             spec,
-            attack_type=attack_type,
-            attacker=candidate.sender_id,
-            target_agent=candidate.recipient_id,
         )
         return (
             PostForgetAttack(
@@ -446,13 +463,17 @@ def _build_trial_post_forget(
         )
 
     # Single-message attack: corpus direction is authoritative.
-    instruction = _instruction_for_entry(
-        base_episode,
-        candidate,
+    instruction = _transform_variant_text(
+        _instruction_for_entry(
+            base_episode,
+            candidate,
+            spec,
+            attack_type=attack_type,
+            attacker=candidate.sender_id,
+            target_agent=candidate.recipient_id,
+        ),
+        base_item,
         spec,
-        attack_type=attack_type,
-        attacker=candidate.sender_id,
-        target_agent=candidate.recipient_id,
     )
     return (
         PostForgetAttack(
@@ -513,6 +534,158 @@ def _forbidden_strings_for_spec(spec: FrozenTargetSpec) -> tuple[str, ...]:
     return tuple(dict.fromkeys(strings))
 
 
+def _validate_residuals_for_spec(spec: FrozenTargetSpec) -> None:
+    """Remediation §10: permitted residuals must never disclose the target.
+
+    A residual that contains the canonical target, an alias, or a semantic
+    variant would let the "safe" channel reintroduce the forgotten secret.
+    """
+    disclosures = (spec.canonical_target, *spec.aliases, *spec.semantic_variants)
+    for residual in spec.permitted_residuals:
+        residual_cf = residual.casefold()
+        for secret in disclosures:
+            if secret.casefold() in residual_cf:
+                raise ValueError(
+                    f"Permitted residual {residual!r} of variant "
+                    f"{spec.secret_variant_id!r} discloses secret text {secret!r}"
+                )
+
+
+def _canonical_component_pairs(
+    base_canonical: str,
+    selected_canonical: str,
+) -> list[tuple[str, str]]:
+    """Remediation §9: surface-form pairs parsed out of canonical targets.
+
+    Proposition-style canonicals (``<subject> has <attribute>``) leak the
+    base variant through their parts — an instruction such as "What medical
+    condition does Alice have?" or "Remind me about my emergency privileges."
+    names the subject or the attribute descriptor without containing the
+    full canonical string. Derived pairs: subject, full attribute phrase,
+    and the attribute's leading descriptor token.
+    """
+    pairs: list[tuple[str, str]] = []
+    if " has " not in base_canonical or " has " not in selected_canonical:
+        return pairs
+    base_subject, base_attr = base_canonical.split(" has ", 1)
+    selected_subject, selected_attr = selected_canonical.split(" has ", 1)
+    pairs.append((base_subject, selected_subject))
+    pairs.append((base_attr, selected_attr))
+    pairs.append((base_attr.split(" ", 1)[0], selected_attr.split(" ", 1)[0]))
+    return [(base, selected) for base, selected in pairs if base and selected and base != selected]
+
+
+def _variant_substitutions(
+    base_item: SensitiveItemSpec,
+    spec: FrozenTargetSpec,
+) -> tuple[tuple[str, str], ...]:
+    """Remediation §9: (base text -> selected text) pairs, longest first."""
+    subs = [(base_item.canonical_target, spec.canonical_target)]
+    for index, base_alias in enumerate(base_item.aliases):
+        if spec.aliases:
+            selected = spec.aliases[min(index, len(spec.aliases) - 1)]
+        else:
+            selected = spec.canonical_target
+        subs.append((base_alias, selected))
+    subs.extend(_canonical_component_pairs(base_item.canonical_target, spec.canonical_target))
+    deduped: dict[str, str] = {}
+    for base, selected in subs:
+        if base and base not in deduped:
+            deduped[base] = selected
+    return tuple(sorted(deduped.items(), key=lambda pair: (-len(pair[0]), pair[0].casefold())))
+
+
+def _transform_variant_text(
+    text: str,
+    base_item: SensitiveItemSpec,
+    spec: FrozenTargetSpec,
+) -> str:
+    """Rewrite base-variant surface forms into the selected variant's."""
+    for base_text, selected_text in _variant_substitutions(base_item, spec):
+        if base_text:
+            text = re.sub(re.escape(base_text), selected_text, text, flags=re.IGNORECASE)
+    return text
+
+
+def _agents_for_spec(
+    base_episode: TrustParadoxEpisode,
+    base_item: SensitiveItemSpec,
+    spec: FrozenTargetSpec,
+) -> tuple[Any, ...]:
+    """Remediation §9: agent-visible private context names the selected secret.
+
+    An agent can only disclose information it actually received, so every
+    private-context line referencing the base variant is rewritten to the
+    selected variant before the trial runs.
+    """
+    agents = []
+    for agent in base_episode.agents:
+        context = tuple(
+            _transform_variant_text(line, base_item, spec) for line in agent.private_context
+        )
+        agents.append(replace(agent, private_context=context))
+    return tuple(agents)
+
+
+def _task_for_spec(
+    base_episode: TrustParadoxEpisode,
+    base_item: SensitiveItemSpec,
+    spec: FrozenTargetSpec,
+) -> Any:
+    """Remediation §9/§10: task success must be reachable via allowed residuals."""
+    task = base_episode.task
+    residuals = spec.permitted_residuals
+    if task.success_value and residuals:
+        success_value = task.success_value if task.success_value in residuals else residuals[0]
+    else:
+        success_value = _transform_variant_text(task.success_value, base_item, spec)
+    return replace(
+        task,
+        description=_transform_variant_text(task.description, base_item, spec),
+        success_value=success_value,
+    )
+
+
+def _permitted_strings_for_spec(
+    base_episode: TrustParadoxEpisode,
+    spec: FrozenTargetSpec,
+) -> tuple[str, ...]:
+    """Remediation §10: allowed content comes from the selected variant.
+
+    Permitted strings are the selected variant's permitted residuals plus
+    the scenario-level public (task-safe) strings — never another variant's
+    target-specific residuals inherited from the base scenario.
+    """
+    permitted = list(spec.permitted_residuals)
+    for public in base_episode.expected.permitted_strings:
+        if public not in permitted:
+            permitted.append(public)
+    return tuple(permitted)
+
+
+def assert_no_cross_variant_contamination(
+    episode: TrustParadoxEpisode,
+    spec: FrozenTargetSpec,
+) -> None:
+    """Remediation §9 invariant: no other variant's secret in the episode.
+
+    Scans the full serialized trial episode for the canonical targets,
+    aliases, and semantic variants of every other secret variant in the
+    same scenario. Any hit is a construction defect, not data.
+    """
+    serialized = json.dumps(asdict(episode), sort_keys=True, default=str).casefold()
+    for other in target_specs_for_scenario(episode.scenario_id):
+        if other.secret_variant_id == spec.secret_variant_id:
+            continue
+        for secret in (other.canonical_target, *other.aliases, *other.semantic_variants):
+            if secret.casefold() in serialized:
+                raise ValueError(
+                    f"Cross-variant contamination in trial {episode.episode_id!r}: "
+                    f"variant {spec.secret_variant_id!r} episode contains "
+                    f"{secret!r} from variant {other.secret_variant_id!r}"
+                )
+
+
 def build_trial_episode(
     base_episode: TrustParadoxEpisode,
     candidate: FrozenCandidate,
@@ -570,6 +743,10 @@ def build_trial_episode(
         secret_variant_id=target_spec.secret_variant_id,
     )
 
+    # Remediation §10: the allowed residual set is validated for accidental
+    # target disclosure and recorded verbatim on the trial.
+    _validate_residuals_for_spec(target_spec)
+
     fragment_map: dict[str, dict[str, Any]] = {}
     if target_spec.fragments:
         fragment_map[target_spec.forget_id] = {
@@ -585,25 +762,58 @@ def build_trial_episode(
         fact_chains = (chain,)
         fact_chain_map[target_spec.forget_id] = [list(chain)]
 
-    # FF92-003: annotation expectations name the selected variant's secret.
+    # FF92-003/§10: annotation expectations name the selected variant's
+    # secret and its own permitted residuals.
     expected = ExpectedSpec(
         forbidden_strings=_forbidden_strings_for_spec(target_spec),
-        permitted_strings=base_episode.expected.permitted_strings,
+        permitted_strings=_permitted_strings_for_spec(base_episode, target_spec),
     )
 
-    post_forget = _build_trial_post_forget(base_episode, candidate, target_spec)
+    # Remediation §9: every agent-visible surface — private context, task
+    # context, pre-forget instructions — is rewritten from the base variant
+    # to the selected secret variant.
+    agents = _agents_for_spec(base_episode, base_item, target_spec)
+    task = _task_for_spec(base_episode, base_item, target_spec)
+    pre_forget = tuple(
+        replace(
+            pf,
+            instruction=_transform_variant_text(pf.instruction, base_item, target_spec),
+        )
+        for pf in base_episode.phases.pre_forget
+    )
 
-    return TrustParadoxEpisode(
+    # Remediation §9: the selected secret must actually be present in the
+    # intended pre-forget source state of every agent cleaned at forget time.
+    cleaned = set(base_episode.phases.forget.clean_agents)
+    for agent in agents:
+        if agent.agent_id not in cleaned:
+            continue
+        context_text = " ".join(agent.private_context).casefold()
+        if target_spec.canonical_target.casefold() not in context_text:
+            raise ValueError(
+                f"Selected secret {target_spec.canonical_target!r} is absent from "
+                f"the pre-forget state of cleaned agent {agent.agent_id!r}"
+            )
+
+    post_forget = _build_trial_post_forget(base_episode, candidate, target_spec, base_item)
+
+    # Remediation §10: each trial records its exact allowed residual set.
+    metadata = dict(base_episode.metadata)
+    metadata["secret_variant_id"] = target_spec.secret_variant_id
+    metadata["permitted_residual_set"] = list(target_spec.permitted_residuals)
+    metadata["scenario_public_strings"] = list(base_episode.expected.permitted_strings)
+
+    trial_episode = TrustParadoxEpisode(
         episode_id=f"{base_episode.scenario_id}::trial::{candidate.candidate_id}",
         scenario_id=base_episode.scenario_id,
         macro_scene=base_episode.macro_scene,
         trust_level=candidate.trust_level,
-        agents=base_episode.agents,
+        agents=agents,
         relationships=base_episode.relationships,
-        task=base_episode.task,
+        task=task,
         sensitive_items=(sensitive_item,),
         phases=PhasesSpec(
-            pre_forget=base_episode.phases.pre_forget,
+            pre_forget=pre_forget,
             forget=base_episode.phases.forget,
             post_forget=post_forget,
         ),
@@ -611,8 +821,12 @@ def build_trial_episode(
         fragment_map=fragment_map,
         fact_chains=fact_chains,
         fact_chain_map=fact_chain_map,
-        metadata=dict(base_episode.metadata),
+        metadata=metadata,
     )
+    # Remediation §9 invariant: the full serialized episode must contain no
+    # other variant of the same scenario.
+    assert_no_cross_variant_contamination(trial_episode, target_spec)
+    return trial_episode
 
 
 def build_trial_responder(
