@@ -1,17 +1,22 @@
 {
-  "schema_version": "1.0.0",
-  "annotation_version": "1.0",
-  "repository_commit": "0c8d516ebe29",
-  "corpus_hash": "b294d7be875c011c6f3d81e4a6d83a1a27f7a5a470687b00f0092fcd838dabc8",
-  "annotation_hash": "cc4794370bf7034e30b480e7df42d22bbe0d84f87e578b2508bd48749875c3b1",
-  "annotation_count": 666,
+  "schema_version": "2.0.0",
+  "annotation_version": "2.0",
+  "repository_commit": "3a9386ae8328",
+  "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+  "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
+  "annotation_count": 768,
   "review_status_counts": {
-    "verified": 666
+    "adjudicated": 462,
+    "verified": 306
+  },
+  "label_source_counts": {
+    "layer3_adjudication": 462,
+    "layer1_rule": 306
   },
   "attack_type_counts": {
     "alias": 78,
     "benign_control": 78,
-    "compositional_inference": 24,
+    "compositional_inference": 72,
     "direct": 78,
     "legitimate_task": 78,
     "paraphrase": 78,
@@ -21,9 +26,10 @@
     "claim_past": 24,
     "claim_positive": 24,
     "claim_question_control": 24,
-    "cross_agent_fragmentation": 24,
-    "temporal_fragmentation": 30
+    "cross_agent_fragmentation": 48,
+    "temporal_fragmentation": 60
   },
-  "annotation_source": "deterministic_rules",
-  "generated_at": "2026-08-03T08:56:15.100310+00:00"
+  "annotator_prompt_hash": "086574aa2d8cf56e",
+  "frozen_before_test_execution": true,
+  "generated_at": "2026-08-04T04:49:16.123541+00:00"
 }
