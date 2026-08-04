@@ -14,11 +14,24 @@ Statistics (pure stdlib, exact implementations):
     exact McNemar test (exact binomial on discordant pairs)
     paired permutation test (sign-flip, seeded RNG)
     paired bootstrap 95% confidence interval (percentile method)
+    Remediation §25: scenario-cluster bootstrap 95% CI — clusters
+    (scenario_id) are resampled whole so within-scenario dependence is
+    preserved; candidate/sequence units are never pooled as independent rows
+    Remediation §26: Wilson score 95% CI per condition rate (non-degenerate
+    at perfect observed rates), explicit numerator/denominator per arm,
+    design summary (cluster/scenario/secret-variant counts) and per-scenario
+    sensitivity breakdown
 
 Every comparison reports n paired units, rate A, rate B, risk
 difference, relative risk (where defined), 95% CI, p-values and an
 effect size.  Duplicate pairing units fail loudly; unmatched units are
 reported.  No shallow episode counter is used.
+
+Remediation §25 pairing units are metric-specific: ``candidate_id`` for
+single-message outcomes (exposure, recontamination, false-block, utility)
+and the sequence identity for reconstruction.  The primary CI is the
+scenario-cluster bootstrap; the unit-level bootstrap is kept alongside as
+a sensitivity reference.
 """
 
 from __future__ import annotations
@@ -29,7 +42,7 @@ import random
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -184,6 +197,101 @@ def cohens_h(p1: float, p2: float) -> float:
     return 2 * (math.asin(math.sqrt(p1)) - math.asin(math.sqrt(p2)))
 
 
+# Remediation §26: two-sided 95% normal quantile for Wilson intervals.
+Z_95 = 1.959964
+# Remediation §26: scenario cells with fewer paired units than this are
+# flagged as small cells and reported, never silently averaged away.
+SMALL_CELL_MINIMUM = 5
+
+
+def wilson_score_ci(successes: int, n: int, *, z: float = Z_95) -> dict[str, Any] | None:
+    """Remediation §26: Wilson score 95% CI for a binomial rate.
+
+    Unlike the Wald interval this stays non-degenerate at perfect observed
+    rates (0/1), so a deterministic 1.0 is never reported as certainty.
+    """
+    if n <= 0:
+        return None
+    rate = successes / n
+    denom = 1.0 + (z * z) / n
+    center = (rate + (z * z) / (2.0 * n)) / denom
+    half = (z * math.sqrt(rate * (1.0 - rate) / n + (z * z) / (4.0 * n * n))) / denom
+    lower = max(0.0, center - half)
+    upper = min(1.0, center + half)
+    # Boundary rates clamp exactly onto the reachable edge (the opposite
+    # edge stays non-degenerate).
+    if successes == n:
+        upper = 1.0
+    if successes == 0:
+        lower = 0.0
+    return {
+        "rate": rate,
+        "lower": lower,
+        "upper": upper,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": successes,
+        "n": n,
+    }
+
+
+def cluster_bootstrap_ci(
+    differences: Sequence[int],
+    cluster_ids: Sequence[str],
+    *,
+    seed: int = DEFAULT_SEED,
+    n_iterations: int = DEFAULT_BOOTSTRAP_ITERATIONS,
+    alpha: float = 0.05,
+    cluster_unit: str = "scenario_id",
+) -> dict[str, Any]:
+    """Remediation §25: percentile bootstrap that resamples whole clusters.
+
+    Each iteration draws ``n_clusters`` clusters with replacement and
+    evaluates the mean paired difference over every unit inside the drawn
+    clusters, so the within-cluster dependence structure is preserved.
+    """
+    if not differences:
+        return {
+            "lower": None,
+            "upper": None,
+            "confidence_level": 1.0 - alpha,
+            "n_iterations": 0,
+            "seed": seed,
+            "method": "cluster_bootstrap",
+            "cluster_unit": cluster_unit,
+            "n_clusters": 0,
+        }
+    if len(differences) != len(cluster_ids):
+        raise ValueError("cluster_bootstrap_ci: differences/cluster_ids length mismatch")
+    clusters: dict[str, list[int]] = {}
+    for diff, cluster in zip(differences, cluster_ids):
+        clusters.setdefault(cluster, []).append(diff)
+    keys = sorted(clusters)
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    for _ in range(n_iterations):
+        total = 0
+        count = 0
+        for _ in keys:
+            picked = clusters[rng.choice(keys)]
+            total += sum(picked)
+            count += len(picked)
+        estimates.append(total / count)
+    estimates.sort()
+    lower = estimates[int((alpha / 2) * n_iterations)]
+    upper = estimates[min(n_iterations - 1, int((1 - alpha / 2) * n_iterations))]
+    return {
+        "lower": lower,
+        "upper": upper,
+        "confidence_level": 1.0 - alpha,
+        "n_iterations": n_iterations,
+        "seed": seed,
+        "method": "cluster_bootstrap",
+        "cluster_unit": cluster_unit,
+        "n_clusters": len(keys),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Outcome indexing
 # ---------------------------------------------------------------------------
@@ -275,6 +383,67 @@ def false_block_outcomes_by_condition(
 
 
 # ---------------------------------------------------------------------------
+# Remediation §25: cluster identities per pairing unit
+# ---------------------------------------------------------------------------
+
+
+def candidate_unit_clusters(
+    candidate_trials: Sequence[CandidateTrial],
+    *,
+    legitimate: bool,
+) -> dict[str, dict[str, tuple[str, str]]]:
+    """condition → candidate_id → (scenario_id, secret_variant_id).
+
+    Applies the same eligibility filter as the matching outcome index
+    (attacks for exposure, legitimate candidates for false-block/utility).
+    """
+    clusters: dict[str, dict[str, tuple[str, str]]] = {}
+    for trial in candidate_trials:
+        is_legitimate = trial.attack_type in _LEGITIMATE_ATTACK_TYPES
+        if is_legitimate != legitimate:
+            continue
+        if trial.result_status != STATUS_SUCCESS:
+            continue
+        condition = clusters.setdefault(trial.condition_id, {})
+        condition[trial.candidate_id] = (trial.scenario_id, trial.secret_variant_id)
+    return clusters
+
+
+def reconstruction_unit_clusters(
+    reconstruction_records: Sequence[dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    """condition → sequence pairing unit → scenario_id (eligible only)."""
+    clusters: dict[str, dict[str, str]] = {}
+    for record in reconstruction_records:
+        if not record.get("eligible"):
+            continue
+        unit_id = "|".join(
+            str(record.get(key, "")) for key in ("episode_id", "sequence_id", "forget_id")
+        )
+        clusters.setdefault(str(record.get("condition", "")), {})[unit_id] = str(
+            record.get("scenario_id", "")
+        )
+    return clusters
+
+
+def recontamination_unit_clusters(
+    recontamination_records: Sequence[dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    """condition → recontamination pairing unit → scenario_id (executed only)."""
+    clusters: dict[str, dict[str, str]] = {}
+    for record in recontamination_records:
+        if not record.get("probe_executed"):
+            continue
+        unit_id = "|".join(
+            str(record.get(key, "")) for key in ("episode_id", "agent_id", "forget_id")
+        )
+        clusters.setdefault(str(record.get("condition", "")), {})[unit_id] = str(
+            record.get("scenario_id", "")
+        )
+    return clusters
+
+
+# ---------------------------------------------------------------------------
 # Paired comparison
 # ---------------------------------------------------------------------------
 
@@ -290,10 +459,20 @@ def compare_paired_outcomes(
     seed: int = DEFAULT_SEED,
     n_permutations: int = DEFAULT_PERMUTATIONS,
     n_bootstrap: int = DEFAULT_BOOTSTRAP_ITERATIONS,
+    unit_scenarios: Mapping[str, str] | None = None,
+    unit_secret_variants_a: Mapping[str, str] | None = None,
+    unit_secret_variants_b: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full statistical report for one paired comparison.
 
     Unmatched units are reported, never silently dropped.
+
+    Remediation §25/§26: when ``unit_scenarios`` maps each pairing unit to
+    its scenario, the comparison additionally carries the scenario-cluster
+    bootstrap CI (primary hierarchy-aware interval), per-arm numerators /
+    denominators with Wilson 95% CIs, a design summary (cluster, scenario
+    and secret-variant counts, small-cell flags) and the per-scenario
+    sensitivity breakdown.
     """
     common_ids = sorted(set(outcomes_a) & set(outcomes_b))
     unmatched_a = sorted(set(outcomes_a) - set(outcomes_b))
@@ -314,21 +493,95 @@ def compare_paired_outcomes(
     permutation = paired_permmutation_test(differences, seed=seed, n_permutations=n_permutations)
     bootstrap = paired_bootstrap_ci(differences, seed=seed, n_iterations=n_bootstrap)
 
+    # Remediation §25/§26: hierarchy-aware reporting.
+    cluster_ci: dict[str, Any] | None = None
+    design_summary: dict[str, Any] = {
+        "pairing_unit": pairing_unit,
+        "n_pairs": n,
+        "cluster_unit": "scenario_id",
+        "n_clusters": None,
+        "n_scenarios": None,
+        "n_secret_variants_a": None,
+        "n_secret_variants_b": None,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": None,
+    }
+    scenario_sensitivity: dict[str, Any] = {}
+    if unit_scenarios is not None:
+        scenarios = [unit_scenarios.get(cid, "") for cid in common_ids]
+        cluster_ci = cluster_bootstrap_ci(
+            differences, scenarios, seed=seed, n_iterations=n_bootstrap
+        )
+        per_scenario: dict[str, dict[str, int]] = {}
+        for cid, (x, y), scenario in zip(common_ids, pairs, scenarios):
+            cell = per_scenario.setdefault(scenario, {"n": 0, "numerator_a": 0, "numerator_b": 0})
+            cell["n"] += 1
+            cell["numerator_a"] += int(x)
+            cell["numerator_b"] += int(y)
+        small_cells: list[str] = []
+        for scenario in sorted(per_scenario):
+            cell = per_scenario[scenario]
+            scenario_sensitivity[scenario] = {
+                "n": cell["n"],
+                "numerator_a": cell["numerator_a"],
+                "numerator_b": cell["numerator_b"],
+                "rate_a": cell["numerator_a"] / cell["n"],
+                "rate_b": cell["numerator_b"] / cell["n"],
+            }
+            if cell["n"] < SMALL_CELL_MINIMUM:
+                small_cells.append(scenario)
+        design_summary.update(
+            {
+                "n_clusters": cluster_ci["n_clusters"],
+                "n_scenarios": len(per_scenario),
+                "n_secret_variants_a": (
+                    len(set(unit_secret_variants_a.values())) if unit_secret_variants_a else None
+                ),
+                "n_secret_variants_b": (
+                    len(set(unit_secret_variants_b.values())) if unit_secret_variants_b else None
+                ),
+                "small_cell_scenarios": small_cells,
+                "min_scenario_pairs": min(
+                    (cell["n"] for cell in per_scenario.values()), default=None
+                ),
+            }
+        )
+
+    perfect_rate_observed = bool(n) and (rate_a in (0.0, 1.0) or rate_b in (0.0, 1.0))
+    interpretation_note = (
+        "Observed rate is at the 0/1 boundary; the Wilson interval remains "
+        "non-degenerate and the result must not be described as perfect "
+        "generalization."
+        if perfect_rate_observed
+        else None
+    )
+
     return {
         "condition_a": condition_a,
         "condition_b": condition_b,
         "metric": metric,
         "pairing_unit": pairing_unit,
         "n_pairs": n,
+        "numerator_a": a11 + b,
+        "denominator_a": n,
+        "numerator_b": a11 + c,
+        "denominator_b": n,
         "unmatched": {"only_in_a": unmatched_a, "only_in_b": unmatched_b},
         "contingency": {"both_positive": a11, "a_only": b, "b_only": c, "both_negative": d},
         "rate_a": rate_a,
         "rate_b": rate_b,
+        "rate_ci_95_a": wilson_score_ci(a11 + b, n),
+        "rate_ci_95_b": wilson_score_ci(a11 + c, n),
         "risk_difference": rate_a - rate_b if n else None,
         "relative_risk": (rate_a / rate_b) if (n and rate_b > 0) else None,
         "mcnemar": mcnemar,
         "permutation": permutation,
         "bootstrap_ci_95": bootstrap,
+        "cluster_bootstrap_ci_95": cluster_ci,
+        "design_summary": design_summary,
+        "scenario_sensitivity": scenario_sensitivity,
+        "perfect_rate_observed": perfect_rate_observed,
+        "interpretation_note": interpretation_note,
         "cohens_h": cohens_h(rate_a, rate_b) if n else None,
         "effect_size": cohens_h(rate_a, rate_b) if n else None,
     }
@@ -393,12 +646,28 @@ def run_paired_statistics(
     n_permutations: int = DEFAULT_PERMUTATIONS,
     n_bootstrap: int = DEFAULT_BOOTSTRAP_ITERATIONS,
 ) -> list[dict[str, Any]]:
-    """Run every applicable paired comparison; never pool conditions."""
+    """Run every applicable paired comparison; never pool conditions.
+
+    Remediation §25: each comparison receives the scenario / secret-variant
+    identity of its pairing units so confidence intervals respect the data
+    hierarchy (scenario-cluster bootstrap).
+    """
     exposure = exposure_outcomes_by_condition(inputs["candidate_trials"])
     reconstruction = reconstruction_outcomes_by_condition(inputs["reconstruction_records"])
     recontamination = recontamination_outcomes_by_condition(inputs["recontamination_records"])
     false_block = false_block_outcomes_by_condition(inputs["candidate_trials"])
     utility_pairs = _utility_outcome_pairs(inputs["utility_trials"])
+
+    # Remediation §25: cluster identities aligned with each outcome index.
+    attack_clusters = candidate_unit_clusters(inputs["candidate_trials"], legitimate=False)
+    legitimate_clusters = candidate_unit_clusters(inputs["candidate_trials"], legitimate=True)
+    reconstruction_clusters = reconstruction_unit_clusters(inputs["reconstruction_records"])
+    recontamination_clusters = recontamination_unit_clusters(inputs["recontamination_records"])
+    utility_clusters: dict[tuple[str, str], dict[str, tuple[str, str]]] = {}
+    for trial in inputs["utility_trials"]:
+        utility_clusters.setdefault((trial.baseline_condition, trial.firewall_condition), {})[
+            trial.candidate_id
+        ] = (trial.scenario_id, trial.secret_variant_id)
 
     comparisons: list[dict[str, Any]] = []
     for cond_a, cond_b in condition_pairs:
@@ -416,8 +685,38 @@ def run_paired_statistics(
                         seed=seed,
                         n_permutations=n_permutations,
                         n_bootstrap=n_bootstrap,
+                        unit_scenarios=_scenario_map(clusters_for(metric), cond_a, cond_b),
+                        unit_secret_variants_a=_variant_map(clusters_for(metric), cond_a),
+                        unit_secret_variants_b=_variant_map(clusters_for(metric), cond_b),
                     )
                 )
+
+        def clusters_for(metric: str) -> Any:
+            if metric == "exposure":
+                return attack_clusters
+            if metric == "false_block":
+                return legitimate_clusters
+            if metric == "reconstruction":
+                return reconstruction_clusters
+            return recontamination_clusters
+
+        def _scenario_map(table: Any, ca: str, cb: str) -> dict[str, str] | None:
+            merged: dict[str, str] = {}
+            for condition in (ca, cb):
+                entry = table.get(condition) if isinstance(table, dict) else None
+                if entry is None:
+                    continue
+                for unit_id, value in entry.items():
+                    merged[unit_id] = value[0] if isinstance(value, tuple) else value
+            return merged or None
+
+        def _variant_map(table: Any, condition: str) -> dict[str, str] | None:
+            entry = table.get(condition) if isinstance(table, dict) else None
+            if not entry:
+                return None
+            return {
+                unit_id: value[1] for unit_id, value in entry.items() if isinstance(value, tuple)
+            } or None
 
         compare(exposure, "exposure", "candidate_id")
         compare(reconstruction, "reconstruction", "sequence_id")
@@ -428,6 +727,13 @@ def run_paired_statistics(
         utility_key = (cond_a, cond_b)
         if utility_key in utility_pairs:
             success, blocked = utility_pairs[utility_key]
+            utility_cluster_entry = utility_clusters.get(utility_key, {})
+            utility_scenarios = {
+                unit_id: value[0] for unit_id, value in utility_cluster_entry.items()
+            } or None
+            utility_variants = {
+                unit_id: value[1] for unit_id, value in utility_cluster_entry.items()
+            } or None
             baseline_success = {cid: True for cid in success}
             comparisons.append(
                 compare_paired_outcomes(
@@ -440,6 +746,9 @@ def run_paired_statistics(
                     seed=seed,
                     n_permutations=n_permutations,
                     n_bootstrap=n_bootstrap,
+                    unit_scenarios=utility_scenarios,
+                    unit_secret_variants_a=utility_variants,
+                    unit_secret_variants_b=utility_variants,
                 )
             )
             comparisons.append(
@@ -453,6 +762,9 @@ def run_paired_statistics(
                     seed=seed,
                     n_permutations=n_permutations,
                     n_bootstrap=n_bootstrap,
+                    unit_scenarios=utility_scenarios,
+                    unit_secret_variants_a=utility_variants,
+                    unit_secret_variants_b=utility_variants,
                 )
             )
     return comparisons

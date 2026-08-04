@@ -467,7 +467,13 @@ def check_leakage_analysis_valid() -> dict[str, Any]:
 def check_statistical_analysis_valid() -> dict[str, Any]:
     """Paired statistics must be complete: every comparison paired on
     candidate_id, contingency tables consistent, unmatched pairs reported,
-    and bootstrap confidence intervals available."""
+    and bootstrap confidence intervals available.
+
+    Remediation §25/§26 additionally requires hierarchy-aware uncertainty
+    for every comparison: per-arm numerators/denominators, Wilson rate
+    CIs, a scenario-cluster bootstrap CI, a design summary with cluster
+    counts, and a per-scenario sensitivity breakdown.
+    """
     path = RESULTS_DIR / "paired_statistics" / "paired_statistics.json"
     if not path.exists():
         return {"passed": False, "reason": "paired_statistics.json not found"}
@@ -487,6 +493,23 @@ def check_statistical_analysis_valid() -> dict[str, Any]:
             findings.append(f"unmatched_not_reported: {label}")
         if comp.get("bootstrap_ci_95") is None:
             findings.append(f"bootstrap_ci_missing: {label}")
+        # Remediation §26: every primary comparison reports numerators,
+        # denominators and per-arm uncertainty intervals.
+        if comp.get("numerator_a") is None or comp.get("denominator_a") is None:
+            findings.append(f"numerator_missing_a: {label}")
+        if comp.get("numerator_b") is None or comp.get("denominator_b") is None:
+            findings.append(f"numerator_missing_b: {label}")
+        if comp.get("rate_ci_95_a") is None or comp.get("rate_ci_95_b") is None:
+            findings.append(f"rate_ci_missing: {label}")
+        # Remediation §25: hierarchy-aware (scenario-cluster) CI, design
+        # summary and scenario sensitivity are mandatory.
+        if comp.get("cluster_bootstrap_ci_95") is None:
+            findings.append(f"cluster_bootstrap_ci_missing: {label}")
+        design = comp.get("design_summary", {})
+        if design.get("n_clusters") is None or design.get("n_scenarios") is None:
+            findings.append(f"design_summary_incomplete: {label}")
+        if "scenario_sensitivity" not in comp:
+            findings.append(f"scenario_sensitivity_missing: {label}")
         # Reconstruction trials exist per sequence, so their comparisons
         # pair on sequence_id; every other metric pairs on candidate_id.
         expected_unit = "sequence_id" if comp.get("metric") == "reconstruction" else "candidate_id"

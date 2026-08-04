@@ -168,6 +168,41 @@ authorizations, which keep their own proposition ontology above.
 
 ---
 
+## Hierarchy-Aware Statistics (Remediation §25/§26)
+
+The study design is nested: multiple trust levels and attack families per
+secret variant, multiple candidate samples per cell, sequence members
+within reconstruction trials, and repeated conditions on the same
+candidate. `experiments/trustparadox_u/paired_statistics.py` therefore
+never pools candidate-condition rows as independent observations.
+
+### Metric-specific pairing units (§25)
+
+| Metric | Pairing unit | Cluster unit |
+|--------|--------------|--------------|
+| exposure | `candidate_id` (attacks) | `scenario_id` |
+| reconstruction | `episode_id\|sequence_id\|forget_id` | `scenario_id` |
+| recontamination | `episode_id\|agent_id\|forget_id` | `scenario_id` |
+| false_block / utility | `candidate_id` (legitimate) | `scenario_id` |
+
+### Uncertainty reported per comparison (§26)
+
+- numerator and denominator for each condition arm;
+- point estimate (rate) per arm plus Wilson score 95% CI
+  (non-degenerate at perfect 0/1 observed rates);
+- paired effect size (Cohen's h), risk difference, relative risk;
+- exact McNemar and sign-flip permutation p-values;
+- unit-level paired bootstrap CI (sensitivity reference);
+- **primary CI**: scenario-cluster bootstrap — whole scenarios are
+  resampled, preserving within-scenario dependence;
+- `design_summary`: number of clusters, scenarios, secret variants per
+  arm, small-cell scenarios (< 5 paired units), minimum scenario cell;
+- `scenario_sensitivity`: per-scenario rates and counts;
+- `perfect_rate_observed` + interpretation note so perfect observed
+  performance is never described as perfect generalization.
+
+---
+
 ## Key Principles
 
 1. **Never inspect `candidate_text` for exposure metrics.** Only `released_text` determines what the recipient actually received.
