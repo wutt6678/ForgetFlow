@@ -21,14 +21,17 @@ import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.candidates import FrozenCandidate  # noqa: E402
+from experiments.trustparadox_u.candidates import (  # noqa: E402
+    FrozenCandidate,
+    FrozenTargetSpec,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -812,6 +815,99 @@ def _extract_forget_ids(scenario_id: str, variant: dict[str, Any]) -> list[str]:
     return []
 
 
+# ---------------------------------------------------------------------------
+# FF92-003: Canonical target specifications per secret variant
+# ---------------------------------------------------------------------------
+
+
+def get_variant_definition(scenario_id: str, secret_variant_id: str) -> dict[str, Any]:
+    """Return the canonical definition for one secret variant.
+
+    Raises KeyError for unknown scenarios or variants.
+    """
+    scenario_def = SCENARIO_DEFINITIONS.get(scenario_id)
+    if scenario_def is None:
+        raise KeyError(f"Unknown scenario: {scenario_id!r}")
+    variants: list[dict[str, Any]] = scenario_def["secret_variants"]
+    for variant in variants:
+        if variant["secret_variant_id"] == secret_variant_id:
+            return variant
+    raise KeyError(f"Unknown secret variant {secret_variant_id!r} in scenario {scenario_id!r}")
+
+
+def target_spec_for_variant(scenario_id: str, secret_variant_id: str) -> FrozenTargetSpec:
+    """Build the canonical FrozenTargetSpec for one secret variant.
+
+    The spec is derived entirely from SCENARIO_DEFINITIONS so every trial
+    protects the variant's own secret content, never the base scenario's.
+    """
+    scenario_def = SCENARIO_DEFINITIONS.get(scenario_id)
+    if scenario_def is None:
+        raise KeyError(f"Unknown scenario: {scenario_id!r}")
+    variant = get_variant_definition(scenario_id, secret_variant_id)
+    forget_ids = _extract_forget_ids(scenario_id, variant)
+    if len(forget_ids) != 1:
+        raise ValueError(
+            f"Scenario {scenario_id!r} variant {secret_variant_id!r} must map to "
+            f"exactly one forget_id, got {forget_ids}"
+        )
+    return FrozenTargetSpec(
+        scenario_id=scenario_id,
+        secret_variant_id=secret_variant_id,
+        forget_id=forget_ids[0],
+        target_type=scenario_def["target_type"],
+        canonical_target=variant["canonical_target"],
+        aliases=tuple(variant.get("aliases", [])),
+        semantic_variants=tuple(variant.get("semantic_variants", [])),
+        permitted_residuals=tuple(variant.get("permitted_residuals", [])),
+        fragments=tuple(variant.get("fragments", [])),
+        required_facts=tuple(variant.get("required_facts", [])),
+    )
+
+
+def target_specs_for_scenario(scenario_id: str) -> tuple[FrozenTargetSpec, ...]:
+    """All canonical target specs for one scenario, in definition order."""
+    scenario_def = SCENARIO_DEFINITIONS.get(scenario_id)
+    if scenario_def is None:
+        raise KeyError(f"Unknown scenario: {scenario_id!r}")
+    return tuple(
+        target_spec_for_variant(scenario_id, variant["secret_variant_id"])
+        for variant in scenario_def["secret_variants"]
+    )
+
+
+def build_target_specs() -> list[FrozenTargetSpec]:
+    """Canonical target specs for every secret variant in every scenario."""
+    specs: list[FrozenTargetSpec] = []
+    for scenario_id in sorted(SCENARIO_DEFINITIONS):
+        specs.extend(target_specs_for_scenario(scenario_id))
+    return specs
+
+
+def _target_spec_to_dict(spec: FrozenTargetSpec) -> dict[str, Any]:
+    """Convert a FrozenTargetSpec to a JSON-serializable dict."""
+    d = asdict(spec)
+    for key in (
+        "aliases",
+        "semantic_variants",
+        "permitted_residuals",
+        "fragments",
+        "required_facts",
+    ):
+        d[key] = list(getattr(spec, key))
+    return d
+
+
+def _target_spec_hash(specs: Sequence[FrozenTargetSpec]) -> str:
+    """Stable SHA-256 over the canonical target-spec records."""
+    records = [
+        _target_spec_to_dict(s)
+        for s in sorted(specs, key=lambda s: (s.scenario_id, s.secret_variant_id))
+    ]
+    payload = json.dumps(records, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 def _get_sender_recipient(attack_type: str, custodian: str, seeker: str) -> tuple[str, str]:
     """Determine sender and recipient for an attack type."""
     # Most attacks: seeker asks, custodian responds
@@ -881,6 +977,7 @@ def build_corpus_manifest(
     corpus_version: str = "1.0",
     generation_model: str = "deterministic_template",
     generation_temperature: float = 0.0,
+    target_specs: Sequence[FrozenTargetSpec] | None = None,
 ) -> dict[str, Any]:
     """Build the corpus manifest with metadata and hash."""
     # Compute corpus SHA-256
@@ -894,6 +991,10 @@ def build_corpus_manifest(
 
     # Count sequences
     sequences = set(c.sequence_id for c in candidates if c.sequence_id)
+
+    # FF92-003: canonical target specifications for every secret variant
+    specs = list(target_specs) if target_specs is not None else build_target_specs()
+    spec_hash = _target_spec_hash(specs)
 
     # Prompt template hashes
     prompt_hashes = set()
@@ -913,6 +1014,10 @@ def build_corpus_manifest(
         "candidate_count": len(candidates),
         "sequence_count": len(sequences),
         "secret_variant_count": len(secret_variants),
+        # FF92-003: target specs are serialized in target_specs.jsonl;
+        # the manifest pins their count and canonical hash.
+        "target_spec_count": len(specs),
+        "target_spec_sha256": spec_hash,
         "corpus_sha256": corpus_hash,
         "split_counts": {
             split_name: len(split_candidates) for split_name, split_candidates in splits.items()
@@ -963,6 +1068,20 @@ def validate_corpus(
     if len(seq_keys) != len(set(seq_keys)):
         errors.append("Duplicate sequence-step identities within same trust level")
 
+    # FF92-003: every candidate must reference a known secret variant and
+    # its target forget_ids must match the variant's canonical spec.
+    for c in candidates:
+        try:
+            spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
+        except (KeyError, ValueError) as exc:
+            errors.append(f"Unresolvable secret variant for {c.candidate_id}: {exc}")
+            continue
+        if c.target_forget_ids and tuple(c.target_forget_ids) != (spec.forget_id,):
+            errors.append(
+                f"Candidate {c.candidate_id} target_forget_ids {c.target_forget_ids} "
+                f"do not match variant {c.secret_variant_id} forget_id {spec.forget_id!r}"
+            )
+
     # Check no overlap between validation and test
     val_ids = set(c.candidate_id for c in splits.get("validation", []))
     test_ids = set(c.candidate_id for c in splits.get("test", []))
@@ -998,6 +1117,7 @@ def write_corpus(
     splits: dict[str, list[FrozenCandidate]],
     manifest: dict[str, Any],
     output_dir: Path,
+    target_specs: Sequence[FrozenTargetSpec] | None = None,
 ) -> None:
     """Write the frozen corpus to disk."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1007,6 +1127,14 @@ def write_corpus(
     with open(corpus_path, "w") as f:
         for c in sorted(candidates, key=lambda x: x.candidate_id):
             f.write(json.dumps(_candidate_to_dict(c)) + "\n")
+
+    # FF92-003: canonical target specifications, one record per secret
+    # variant, in a separate manifest file.
+    specs = list(target_specs) if target_specs is not None else build_target_specs()
+    specs_path = output_dir / "target_specs.jsonl"
+    with open(specs_path, "w") as f:
+        for spec in sorted(specs, key=lambda s: (s.scenario_id, s.secret_variant_id)):
+            f.write(json.dumps(_target_spec_to_dict(spec)) + "\n")
 
     # Write split files
     for split_name, split_candidates in splits.items():
@@ -1068,17 +1196,21 @@ def main() -> int:
     print("  Validation passed")
 
     # Build manifest
-    manifest = build_corpus_manifest(candidates, splits, repository_commit)
+    target_specs = build_target_specs()
+    manifest = build_corpus_manifest(
+        candidates, splits, repository_commit, target_specs=target_specs
+    )
 
     # Write corpus
     output_dir = CORPUS_DIR
     print(f"Writing corpus to {output_dir}...")
-    write_corpus(candidates, splits, manifest, output_dir)
+    write_corpus(candidates, splits, manifest, output_dir, target_specs=target_specs)
 
     print(f"\nCorpus SHA-256: {manifest['corpus_sha256']}")
     print(f"Candidates: {manifest['candidate_count']}")
     print(f"Sequences: {manifest['sequence_count']}")
     print(f"Secret variants: {manifest['secret_variant_count']}")
+    print(f"Target specs: {manifest['target_spec_count']} ({manifest['target_spec_sha256'][:16]}…)")
     print(f"Manifest: {output_dir / 'corpus_manifest.json'}")
     print("\nExit criterion: PASSED")
     return 0

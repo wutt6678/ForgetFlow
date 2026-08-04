@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -16,7 +18,11 @@ from experiments.trustparadox_u.generate_corpus import (  # noqa: E402
     TRUST_LEVELS,
     assign_splits,
     build_corpus_manifest,
+    build_target_specs,
     generate_candidates,
+    get_variant_definition,
+    target_spec_for_variant,
+    target_specs_for_scenario,
     validate_corpus,
     write_corpus,
 )
@@ -43,6 +49,31 @@ class TestGenerateCandidates:
         candidates = generate_candidates()
         trust_levels = set(c.trust_level for c in candidates)
         assert trust_levels == {"low", "default", "high"}
+
+    def test_trust_level_conditions_generation(self) -> None:
+        """FF92-002: trust level changes candidate identity and generation prompt.
+
+        Candidates differing only in trust level must have distinct IDs
+        and distinct trust-conditioned generation prompt hashes.
+        """
+        candidates = generate_candidates()
+        by_level = {
+            level: next(
+                c
+                for c in candidates
+                if c.scenario_id == "credential_001"
+                and c.secret_variant_id == "sv_cred_0107"
+                and c.attack_type == "direct"
+                and c.trust_level == level
+            )
+            for level in TRUST_LEVELS
+        }
+        ids = {c.candidate_id for c in by_level.values()}
+        assert len(ids) == 3
+        for level, c in by_level.items():
+            assert f"_{level}_" in c.candidate_id
+        hashes = {c.generation_prompt_hash for c in by_level.values()}
+        assert len(hashes) == 3
 
     def test_unique_candidate_ids(self) -> None:
         """Every candidate has a unique ID."""
@@ -265,3 +296,88 @@ class TestWriteCorpus:
         loaded = json.loads((tmp_path / "corpus_manifest.json").read_text())
         assert loaded["corpus_sha256"] == manifest["corpus_sha256"]
         assert loaded["candidate_count"] == manifest["candidate_count"]
+
+
+class TestTargetSpecsFF92003:
+    """FF92-003: canonical per-variant target specifications."""
+
+    def test_build_target_specs_covers_every_variant(self) -> None:
+        """One spec per secret variant, consistent with SCENARIO_DEFINITIONS."""
+        specs = build_target_specs()
+        expected_count = sum(len(defn["secret_variants"]) for defn in SCENARIO_DEFINITIONS.values())
+        assert len(specs) == expected_count
+        by_scenario: dict[str, int] = {}
+        for spec in specs:
+            by_scenario[spec.scenario_id] = by_scenario.get(spec.scenario_id, 0) + 1
+            variant = get_variant_definition(spec.scenario_id, spec.secret_variant_id)
+            assert spec.canonical_target == variant["canonical_target"]
+            assert spec.aliases == tuple(variant.get("aliases", []))
+            assert spec.fragments == tuple(variant.get("fragments", []))
+            assert spec.required_facts == tuple(variant.get("required_facts", []))
+        for scenario_id, defn in SCENARIO_DEFINITIONS.items():
+            assert by_scenario[scenario_id] == len(defn["secret_variants"])
+
+    def test_target_spec_for_variant_fields(self) -> None:
+        """sv_cred_0215 resolves to its own canonical content."""
+        spec = target_spec_for_variant("credential_001", "sv_cred_0215")
+        assert spec.forget_id == "F001"
+        assert spec.target_type == "credential"
+        assert spec.canonical_target == "0215"
+        assert spec.fragments == ("02", "15")
+        attr_spec = target_spec_for_variant("attribute_001", "sv_attr_bob_Y")
+        assert attr_spec.forget_id == "F002"
+        assert attr_spec.required_facts == (
+            "employee_23_is_bob",
+            "employee_23_has_M7",
+            "M7_implies_condition_Y",
+        )
+
+    def test_unknown_scenario_and_variant_raise(self) -> None:
+        """Unknown scenario or variant IDs fail loudly."""
+        with pytest.raises(KeyError):
+            get_variant_definition("no_such_scenario", "sv_cred_0107")
+        with pytest.raises(KeyError):
+            target_spec_for_variant("credential_001", "sv_cred_9999")
+        with pytest.raises(KeyError):
+            target_specs_for_scenario("no_such_scenario")
+
+    def test_every_candidate_variant_resolves(self) -> None:
+        """Every generated candidate references a resolvable variant."""
+        candidates = generate_candidates()
+        for c in candidates:
+            spec = target_spec_for_variant(c.scenario_id, c.secret_variant_id)
+            if c.target_forget_ids:
+                assert tuple(c.target_forget_ids) == (spec.forget_id,), c.candidate_id
+
+    def test_manifest_pins_target_specs(self) -> None:
+        """Manifest records target spec count and a stable hash."""
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        specs = build_target_specs()
+        m1 = build_corpus_manifest(candidates, splits, "abc123", target_specs=specs)
+        m2 = build_corpus_manifest(candidates, splits, "abc123", target_specs=specs)
+        assert m1["target_spec_count"] == len(specs)
+        assert m1["target_spec_sha256"] == m2["target_spec_sha256"]
+        assert len(m1["target_spec_sha256"]) == 64
+
+    def test_target_specs_round_trip(self, tmp_path: Path) -> None:
+        """target_specs.jsonl is written sorted and round-trips all fields."""
+        candidates = generate_candidates()
+        splits = assign_splits(candidates)
+        specs = build_target_specs()
+        manifest = build_corpus_manifest(candidates, splits, "abc123", target_specs=specs)
+        write_corpus(candidates, splits, manifest, tmp_path, target_specs=specs)
+
+        path = tmp_path / "target_specs.jsonl"
+        assert path.exists()
+        lines = path.read_text().strip().split("\n")
+        assert len(lines) == len(specs)
+        records = [json.loads(line) for line in lines]
+        keys = [(r["scenario_id"], r["secret_variant_id"]) for r in records]
+        assert keys == sorted(keys)
+        by_variant = {(r["scenario_id"], r["secret_variant_id"]): r for r in records}
+        spec = target_spec_for_variant("credential_001", "sv_cred_0215")
+        record = by_variant[("credential_001", "sv_cred_0215")]
+        assert record["canonical_target"] == spec.canonical_target
+        assert record["fragments"] == list(spec.fragments)
+        assert record["forget_id"] == spec.forget_id

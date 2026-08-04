@@ -307,6 +307,29 @@ FrozenLookupKey = tuple[str, str, str, str, int, str, str, int]
 
 
 @dataclass(frozen=True)
+class FrozenTargetSpec:
+    """FF92-001/FF92-003: Frozen target definition for candidate-level trials.
+
+    Captures exactly one protected target (one forget_id) with the secret
+    variant identity used by a trial. FF92-001 derives this from the base
+    scenario; FF92-003 populates it with variant-specific content
+    (canonical target, aliases, fragments, required facts) so every trial
+    protects the candidate's actual secret variant.
+    """
+
+    scenario_id: str
+    secret_variant_id: str
+    forget_id: str
+    target_type: str
+    canonical_target: str
+    aliases: tuple[str, ...]
+    semantic_variants: tuple[str, ...]
+    permitted_residuals: tuple[str, ...]
+    fragments: tuple[str, ...] = ()
+    required_facts: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class FrozenCandidateIndex:
     """Deterministic index over a frozen candidate corpus.
 

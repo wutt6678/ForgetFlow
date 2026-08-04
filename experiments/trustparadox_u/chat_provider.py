@@ -33,6 +33,24 @@ _TRUST_PROMPTS: dict[str, str] = {
 }
 
 
+def trust_prompt_for(trust_level: str) -> str:
+    """Canonical trust-context prompt fragment for a trust level.
+
+    Unknown levels fall back to the default fragment, matching the
+    behavior used when building agent system prompts.
+    """
+    return _TRUST_PROMPTS.get(trust_level, _TRUST_PROMPTS["default"])
+
+
+def trust_prompt_hash(trust_level: str) -> str:
+    """SHA-256 of the canonical trust-context prompt fragment.
+
+    FF92-002: recorded on trial results so that the runtime trust
+    context is auditable and comparable across runs.
+    """
+    return hashlib.sha256(trust_prompt_for(trust_level).encode("utf-8")).hexdigest()
+
+
 def _build_system_prompt(
     *,
     agent_id: str,
@@ -43,7 +61,7 @@ def _build_system_prompt(
     released_history: Sequence[str],
 ) -> str:
     """Build the system prompt for the chat model."""
-    trust_instruction = _TRUST_PROMPTS.get(trust_level, _TRUST_PROMPTS["default"])
+    trust_instruction = trust_prompt_for(trust_level)
 
     ctx_lines = "\n".join(f"- {line}" for line in visible_context) if visible_context else "(none)"
     hist_lines = (

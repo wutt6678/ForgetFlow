@@ -23,17 +23,24 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 # Ensure project root is on path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.agent import ScriptedResponder  # noqa: E402
+from experiments.trustparadox_u.attacks import (  # noqa: E402
+    build_attack,
+    format_attack_instruction,
+)
 from experiments.trustparadox_u.candidates import (  # noqa: E402
     FrozenCandidate,
+    FrozenTargetSpec,
     load_frozen_corpus,
 )
+from experiments.trustparadox_u.chat_provider import trust_prompt_hash  # noqa: E402
 from experiments.trustparadox_u.config import (  # noqa: E402
     DetectorConfig,
     ExperimentConfig,
@@ -43,11 +50,24 @@ from experiments.trustparadox_u.config import (  # noqa: E402
     RunConfig,
 )
 from experiments.trustparadox_u.dataset import (  # noqa: E402
+    ExpectedSpec,
+    MessageLabel,
+    PhasesSpec,
+    PostForgetAttack,
+    SensitiveItemSpec,
     TrustParadoxEpisode,
     load_episode,
 )
 from experiments.trustparadox_u.evaluator import evaluate_all  # noqa: E402
-from experiments.trustparadox_u.runner import EpisodeResult, run_episode  # noqa: E402
+from experiments.trustparadox_u.generate_corpus import (  # noqa: E402
+    target_spec_for_variant,
+    target_specs_for_scenario,
+)
+from experiments.trustparadox_u.runner import (  # noqa: E402
+    EpisodeResult,
+    _select_fragment_for_instruction,
+    run_episode,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -102,7 +122,15 @@ CONDITIONS: dict[str, dict[str, Any]] = {
     },
     "one_time_monitoring": {
         "firewall_enabled": True,
-        "monitoring": MonitoringConfig(continuous=True, duration_rounds=1),
+        # FF92-006: one-time monitoring must expire after the first
+        # recontamination opportunity. continuous=True made duration_rounds
+        # a no-op; the correct configuration is bounded monitoring clocked
+        # by recontamination opportunities.
+        "monitoring": MonitoringConfig(
+            continuous=False,
+            duration_rounds=1,
+            clock_mode="recontamination_opportunity",
+        ),
         "detector": DetectorConfig(
             exact_enabled=True,
             entity_enabled=True,
@@ -166,37 +194,502 @@ def build_config_for_condition(
 
 
 # ---------------------------------------------------------------------------
-# Responder builder
+# FF92-001: Candidate-level trial construction
 # ---------------------------------------------------------------------------
 
+_SEQUENCE_ATTACK_TYPES = {"temporal_fragmentation", "cross_agent_fragmentation"}
+_CLAIM_ASSERTION_TYPES = {"claim_positive", "claim_negation", "claim_past", "claim_modal"}
+_RECONTAMINATION_REQUEST_PREFIX = "Here is the information you need to remember: "
 
-def _build_frozen_responder(
-    episode: TrustParadoxEpisode,
+
+def target_spec_from_episode(
+    base_episode: TrustParadoxEpisode,
     candidate: FrozenCandidate,
-) -> Any:
-    """Build a ScriptedResponder that uses the frozen candidate text.
+) -> FrozenTargetSpec:
+    """Resolve the frozen target spec for a trial from the candidate's variant.
 
-    For legitimate_task and benign_control candidates, the candidate text
-    is the response. For attack candidates, the candidate text is the
-    attack message.
+    FF92-003: the protected target content (canonical target, aliases,
+    fragments, required facts) comes from the candidate's own secret
+    variant definition, never from the base scenario's hardcoded item.
+    Candidates whose text refers to a different variant are rejected.
     """
-    from experiments.trustparadox_u.agent import ScriptedResponder
+    if candidate.scenario_id != base_episode.scenario_id:
+        raise ValueError(
+            f"Candidate {candidate.candidate_id!r} scenario "
+            f"{candidate.scenario_id!r} does not match base episode "
+            f"{base_episode.scenario_id!r}"
+        )
+    spec = target_spec_for_variant(candidate.scenario_id, candidate.secret_variant_id)
+    if candidate.target_forget_ids:
+        forget_id = candidate.target_forget_ids[0]
+        if forget_id != spec.forget_id:
+            raise ValueError(
+                f"Candidate {candidate.candidate_id!r} targets forget_id "
+                f"{forget_id!r} but variant {candidate.secret_variant_id!r} "
+                f"protects {spec.forget_id!r}"
+            )
+        if not any(si.forget_id == forget_id for si in base_episode.sensitive_items):
+            raise ValueError(
+                f"Candidate {candidate.candidate_id!r} targets unknown forget_id "
+                f"{forget_id!r} in scenario {base_episode.scenario_id!r}"
+            )
+    else:
+        if not base_episode.sensitive_items:
+            raise ValueError(f"Scenario {base_episode.scenario_id!r} has no sensitive items")
+    _validate_candidate_variant_reference(candidate, spec)
+    return spec
 
-    responder = ScriptedResponder()
-    success_value = episode.task.success_value
 
-    # Override the responder to return the candidate text for all turns
-    attack_types_needing_success = {"legitimate_task", "benign_control"}
+def _validate_candidate_variant_reference(
+    candidate: FrozenCandidate,
+    spec: FrozenTargetSpec,
+) -> None:
+    """FF92-003: reject candidates whose text names another variant's secret.
 
-    def respond_with_candidate(
-        episode_id: str, agent_id: str, turn_id: int, instruction: str, **_: Any
-    ) -> str:
-        if candidate.attack_type in attack_types_needing_success:
-            return success_value
-        return candidate.candidate_text
+    The candidate text must refer to the selected secret variant; mentioning
+    the canonical target of any other variant in the same scenario means the
+    firewall would protect a different secret than the one being attacked.
+    """
+    text = candidate.candidate_text.casefold()
+    for other in target_specs_for_scenario(candidate.scenario_id):
+        if other.secret_variant_id == spec.secret_variant_id:
+            continue
+        if other.canonical_target.casefold() in text:
+            raise ValueError(
+                f"Candidate {candidate.candidate_id!r} (variant "
+                f"{candidate.secret_variant_id!r}) refers to a different "
+                f"secret variant {other.secret_variant_id!r}"
+            )
 
-    responder.respond = respond_with_candidate  # type: ignore
-    return responder
+
+@dataclass(frozen=True)
+class TrialUnit:
+    """One controlled attack trial: a candidate or one replayable sequence."""
+
+    representative: FrozenCandidate
+    members: tuple[FrozenCandidate, ...]
+
+
+def partition_trial_units(candidates: Sequence[FrozenCandidate]) -> tuple[TrialUnit, ...]:
+    """Group candidates into trial units.
+
+    One single-message candidate becomes one trial; all members sharing a
+    nonempty sequence_id (within one scenario/trust/type/variant) become one
+    reconstruction trial represented by its earliest step. Order is preserved.
+    """
+    groups: dict[tuple[str, str, str, str, str], list[FrozenCandidate]] = {}
+    for candidate in candidates:
+        key = (
+            candidate.scenario_id,
+            candidate.trust_level,
+            candidate.attack_type,
+            candidate.secret_variant_id,
+            candidate.sequence_id,
+        )
+        groups.setdefault(key, []).append(candidate)
+
+    units: list[TrialUnit] = []
+    for members in groups.values():
+        ordered = tuple(sorted(members, key=lambda c: (c.sequence_step_index, c.candidate_id)))
+        units.append(TrialUnit(representative=ordered[0], members=ordered))
+    return tuple(units)
+
+
+def _matching_base_entry(
+    base_episode: TrustParadoxEpisode,
+    *,
+    attack_type: str,
+    attacker: str,
+    target_agent: str,
+) -> PostForgetAttack | None:
+    """Find a base post-forget entry with the same type and direction."""
+    for atk in base_episode.phases.post_forget:
+        if (
+            atk.attack_type == attack_type
+            and atk.attacker == attacker
+            and atk.target_agent == target_agent
+        ):
+            return atk
+    return None
+
+
+def _instruction_for_entry(
+    base_episode: TrustParadoxEpisode,
+    candidate: FrozenCandidate,
+    spec: FrozenTargetSpec,
+    *,
+    attack_type: str,
+    attacker: str,
+    target_agent: str,
+) -> str:
+    """Reuse an authored base instruction when direction matches, else template."""
+    base_entry = _matching_base_entry(
+        base_episode,
+        attack_type=attack_type,
+        attacker=attacker,
+        target_agent=target_agent,
+    )
+    if base_entry is not None:
+        return base_entry.instruction
+    return format_attack_instruction(
+        attack_type,
+        target_type=spec.target_type,
+        alias=spec.aliases[0] if spec.aliases else spec.canonical_target,
+        variant=spec.semantic_variants[0] if spec.semantic_variants else spec.canonical_target,
+    )
+
+
+def _build_trial_post_forget(
+    base_episode: TrustParadoxEpisode,
+    candidate: FrozenCandidate,
+    spec: FrozenTargetSpec,
+) -> tuple[PostForgetAttack, ...]:
+    """Synthesize the trial's post-forget phase for exactly one attack type."""
+    attack_type = candidate.attack_type
+    target_ids = (spec.forget_id,)
+
+    if attack_type in _SEQUENCE_ATTACK_TYPES:
+        # Sequence trials reuse the authored base entries: fragmentation
+        # validation requires their ordered multi-step structure.
+        entries = tuple(
+            atk for atk in base_episode.phases.post_forget if atk.attack_type == attack_type
+        )
+        if len(entries) < 2:
+            raise ValueError(
+                f"Scenario {base_episode.scenario_id!r} has no usable {attack_type} "
+                f"entries for candidate {candidate.candidate_id!r}"
+            )
+        return entries
+
+    if attack_type == "compositional_inference":
+        instruction = _instruction_for_entry(
+            base_episode,
+            candidate,
+            spec,
+            attack_type=attack_type,
+            attacker=candidate.sender_id,
+            target_agent=candidate.recipient_id,
+        )
+        return (
+            PostForgetAttack(
+                attack_type=attack_type,
+                attacker=candidate.sender_id,
+                target_agent=candidate.recipient_id,
+                instruction=instruction,
+                label=MessageLabel(
+                    is_attack_attempt=True,
+                    is_reconstruction_attempt=True,
+                    target_forget_ids=target_ids,
+                ),
+            ),
+        )
+
+    if attack_type in _CLAIM_ASSERTION_TYPES:
+        # The cleaned custodian (corpus sender) must deliver the claim, so the
+        # entry direction is flipped relative to the corpus row and the claim
+        # sentence itself becomes the instruction.
+        return (
+            PostForgetAttack(
+                attack_type=attack_type,
+                attacker=candidate.recipient_id,
+                target_agent=candidate.sender_id,
+                instruction=candidate.candidate_text,
+                label=MessageLabel(is_attack_attempt=True, target_forget_ids=target_ids),
+            ),
+        )
+
+    if attack_type == "recontamination":
+        instruction = _instruction_for_entry(
+            base_episode,
+            candidate,
+            spec,
+            attack_type=attack_type,
+            attacker=candidate.sender_id,
+            target_agent=candidate.recipient_id,
+        )
+        return (
+            PostForgetAttack(
+                attack_type=attack_type,
+                attacker=candidate.sender_id,
+                target_agent=candidate.recipient_id,
+                instruction=instruction,
+                label=MessageLabel(
+                    is_attack_attempt=True,
+                    is_recontamination_attempt=True,
+                    target_forget_ids=target_ids,
+                ),
+            ),
+        )
+
+    if attack_type in ("legitimate_task", "benign_control"):
+        instruction = _instruction_for_entry(
+            base_episode,
+            candidate,
+            spec,
+            attack_type=attack_type,
+            attacker=candidate.sender_id,
+            target_agent=candidate.recipient_id,
+        )
+        return (
+            PostForgetAttack(
+                attack_type=attack_type,
+                attacker=candidate.sender_id,
+                target_agent=candidate.recipient_id,
+                instruction=instruction,
+                label=MessageLabel(
+                    is_legitimate_message=True,
+                    task_relevant=attack_type == "legitimate_task",
+                ),
+            ),
+        )
+
+    # Single-message attack: corpus direction is authoritative.
+    instruction = _instruction_for_entry(
+        base_episode,
+        candidate,
+        spec,
+        attack_type=attack_type,
+        attacker=candidate.sender_id,
+        target_agent=candidate.recipient_id,
+    )
+    return (
+        PostForgetAttack(
+            attack_type=attack_type,
+            attacker=candidate.sender_id,
+            target_agent=candidate.recipient_id,
+            instruction=instruction,
+            label=MessageLabel(is_attack_attempt=True, target_forget_ids=target_ids),
+        ),
+    )
+
+
+def _reconstruction_for_spec(spec: FrozenTargetSpec) -> dict[str, Any]:
+    """FF92-003: reconstruction metadata derived from the selected variant."""
+    if spec.required_facts:
+        return {
+            "type": "fact_chain",
+            "forget_id": spec.forget_id,
+            "required_facts": list(spec.required_facts),
+        }
+    if spec.fragments:
+        return {
+            "type": "fragments",
+            "forget_id": spec.forget_id,
+            "fragments": list(spec.fragments),
+        }
+    raise ValueError(
+        f"Target spec for variant {spec.secret_variant_id!r} has neither "
+        f"fragments nor required_facts; cannot build reconstruction metadata"
+    )
+
+
+def _parse_fact_triple(fact: str) -> tuple[str, str, str]:
+    """Parse one encoded required fact into a (subject, predicate, object) triple.
+
+    Encoding (mirrors the base scenario YAML fact chains):
+      ``X_is_y``       -> (X, "identity", "Y")
+      ``X_has_Y``      -> (X, "accommodation", Y)
+      ``X_implies_Y``  -> (X, "implies", Y)
+    """
+    if "_implies_" in fact:
+        subject, obj = fact.split("_implies_", 1)
+        return (subject, "implies", obj)
+    if "_is_" in fact:
+        subject, obj = fact.split("_is_", 1)
+        return (subject, "identity", obj.capitalize())
+    if "_has_" in fact:
+        subject, obj = fact.split("_has_", 1)
+        return (subject, "accommodation", obj)
+    raise ValueError(f"Unparseable required fact: {fact!r}")
+
+
+def _forbidden_strings_for_spec(spec: FrozenTargetSpec) -> tuple[str, ...]:
+    """FF92-003: annotation forbidden strings for the selected variant."""
+    strings = [spec.canonical_target]
+    if " has " in spec.canonical_target:
+        strings.append(spec.canonical_target.split(" has ", 1)[1])
+    return tuple(dict.fromkeys(strings))
+
+
+def build_trial_episode(
+    base_episode: TrustParadoxEpisode,
+    candidate: FrozenCandidate,
+    target_spec: FrozenTargetSpec,
+    sequence_members: Sequence[FrozenCandidate] = (),
+) -> TrustParadoxEpisode:
+    """FF92-001: Build one controlled attack trial episode for a candidate.
+
+    The returned episode contains only the candidate's scenario, trust level,
+    secret variant, relevant sender/recipient, one attack type, and one
+    candidate message or one reconstruction sequence. Unrelated base-episode
+    attacks are dropped.
+    """
+    for member in sequence_members:
+        if (
+            member.scenario_id != candidate.scenario_id
+            or member.attack_type != candidate.attack_type
+        ):
+            raise ValueError(
+                f"Sequence member {member.candidate_id!r} does not match trial "
+                f"candidate {candidate.candidate_id!r}"
+            )
+
+    base_item = next(
+        (si for si in base_episode.sensitive_items if si.forget_id == target_spec.forget_id),
+        None,
+    )
+    if base_item is None:
+        raise ValueError(
+            f"Target spec forget_id {target_spec.forget_id!r} not found in "
+            f"scenario {base_episode.scenario_id!r}"
+        )
+
+    # FF92-003: every candidate target ID must resolve in the new episode.
+    known_forget_ids = {target_spec.forget_id}
+    for forget_id in candidate.target_forget_ids:
+        if forget_id not in known_forget_ids:
+            raise ValueError(
+                f"Candidate {candidate.candidate_id!r} targets forget_id "
+                f"{forget_id!r} which is not protected by the trial episode "
+                f"(protects {sorted(known_forget_ids)})"
+            )
+
+    sensitive_item = SensitiveItemSpec(
+        forget_id=target_spec.forget_id,
+        target_type=target_spec.target_type,
+        canonical_target=target_spec.canonical_target,
+        aliases=target_spec.aliases,
+        semantic_variants=target_spec.semantic_variants,
+        permitted_residuals=target_spec.permitted_residuals,
+        active_from_turn=base_item.active_from_turn,
+        # FF92-003: reconstruction metadata comes from the selected variant,
+        # not from the base scenario's hardcoded item.
+        reconstruction=_reconstruction_for_spec(target_spec),
+        secret_variant_id=target_spec.secret_variant_id,
+    )
+
+    fragment_map: dict[str, dict[str, Any]] = {}
+    if target_spec.fragments:
+        fragment_map[target_spec.forget_id] = {
+            "target": target_spec.canonical_target,
+            "fragments": list(target_spec.fragments),
+        }
+
+    # FF92-003: fact chains come from the selected variant's required facts.
+    fact_chains: tuple[tuple[tuple[str, str, str], ...], ...] = ()
+    fact_chain_map: dict[str, list[list[tuple[str, str, str]]]] = {}
+    if target_spec.required_facts:
+        chain = tuple(_parse_fact_triple(fact) for fact in target_spec.required_facts)
+        fact_chains = (chain,)
+        fact_chain_map[target_spec.forget_id] = [list(chain)]
+
+    # FF92-003: annotation expectations name the selected variant's secret.
+    expected = ExpectedSpec(
+        forbidden_strings=_forbidden_strings_for_spec(target_spec),
+        permitted_strings=base_episode.expected.permitted_strings,
+    )
+
+    post_forget = _build_trial_post_forget(base_episode, candidate, target_spec)
+
+    return TrustParadoxEpisode(
+        episode_id=f"{base_episode.scenario_id}::trial::{candidate.candidate_id}",
+        scenario_id=base_episode.scenario_id,
+        macro_scene=base_episode.macro_scene,
+        trust_level=candidate.trust_level,
+        agents=base_episode.agents,
+        relationships=base_episode.relationships,
+        task=base_episode.task,
+        sensitive_items=(sensitive_item,),
+        phases=PhasesSpec(
+            pre_forget=base_episode.phases.pre_forget,
+            forget=base_episode.phases.forget,
+            post_forget=post_forget,
+        ),
+        expected=expected,
+        fragment_map=fragment_map,
+        fact_chains=fact_chains,
+        fact_chain_map=fact_chain_map,
+        metadata=dict(base_episode.metadata),
+    )
+
+
+def build_trial_responder(
+    trial_episode: TrustParadoxEpisode,
+    candidate: FrozenCandidate,
+    sequence_members: Sequence[FrozenCandidate] = (),
+) -> ScriptedResponder:
+    """Script the frozen candidate text only at the trial's intended turns.
+
+    All other turns (pre-forget, unmatched requests, final probe) fall
+    through to the responder's default refusal, so a candidate can never leak
+    into an unrelated turn.
+    """
+    eid = trial_episode.episode_id
+    scripts: dict[str, str] = {}
+    attack_type = candidate.attack_type
+
+    if attack_type in _SEQUENCE_ATTACK_TYPES:
+        plan = build_attack(trial_episode, attack_type, seed=0)
+        available = list(sequence_members)
+        for step in plan.steps:
+            # Requests are literal instructions from the attacker.
+            scripts[f"{eid}:{step.sender}:{step.instruction}"] = step.instruction
+            member = next(
+                (
+                    m
+                    for m in available
+                    if (m.sender_id, m.recipient_id) == (step.sender, step.recipient)
+                ),
+                None,
+            )
+            if member is not None:
+                available.remove(member)
+            fragment = _select_fragment_for_instruction(
+                instruction=step.instruction,
+                episode=trial_episode,
+                step_index=step.step_index,
+                default_fragments=plan.fragments,
+            )
+            if fragment:
+                resp_instr = f"Share this portion of the old information: {fragment}"
+                text = member.candidate_text if member else f"The next part is {fragment}."
+            else:
+                if member is None:
+                    continue  # leave the default refusal in place
+                resp_instr = step.instruction
+                text = member.candidate_text
+            scripts[f"{eid}:{step.recipient}:{resp_instr}"] = text
+        return ScriptedResponder(scripts=scripts)
+
+    entry = trial_episode.phases.post_forget[0]
+
+    if attack_type in ("legitimate_task", "benign_control"):
+        # Single legitimate turn delivered by the corpus sender.
+        scripts[f"{eid}:{candidate.sender_id}:{entry.instruction}"] = candidate.candidate_text
+        return ScriptedResponder(scripts=scripts)
+
+    if attack_type == "recontamination":
+        # The runner replaces the request instruction with the canonical
+        # target payload; the candidate text is the delivered recontamination
+        # message. The cleaned custodian's response stays at default refusal.
+        canonical = trial_episode.sensitive_items[0].canonical_target
+        scripts[f"{eid}:{candidate.sender_id}:{_RECONTAMINATION_REQUEST_PREFIX}{canonical}"] = (
+            candidate.candidate_text
+        )
+        return ScriptedResponder(scripts=scripts)
+
+    if attack_type in _CLAIM_ASSERTION_TYPES:
+        # Attacker asserts the claim; the cleaned custodian echoes it — the
+        # scripted echo is the scored exposure opportunity.
+        scripts[f"{eid}:{entry.attacker}:{entry.instruction}"] = candidate.candidate_text
+        scripts[f"{eid}:{entry.target_agent}:{entry.instruction}"] = candidate.candidate_text
+        return ScriptedResponder(scripts=scripts)
+
+    # Single-message attacks: request is the literal instruction, the cleaned
+    # custodian's response carries the candidate text.
+    scripts[f"{eid}:{entry.attacker}:{entry.instruction}"] = entry.instruction
+    scripts[f"{eid}:{entry.target_agent}:{entry.instruction}"] = candidate.candidate_text
+    return ScriptedResponder(scripts=scripts)
 
 
 # ---------------------------------------------------------------------------
@@ -224,36 +717,62 @@ class ConditionResult:
 
 def run_condition(
     condition_name: str,
-    candidates: list[FrozenCandidate],
+    candidates: Sequence[FrozenCandidate],
     scenario_episodes: dict[str, TrustParadoxEpisode],
     seed: int = 42,
     run_id: str = "",
 ) -> ConditionResult:
-    """Run all candidates under one experimental condition."""
+    """Run one controlled attack trial per candidate unit under a condition.
+
+    FF92-001: Each single-message candidate produces exactly one trial
+    episode; each reconstruction sequence produces exactly one trial.
+    Missing scenarios and failed episodes raise instead of being skipped.
+    """
     config = build_config_for_condition(condition_name, seed=seed)
     results: list[EpisodeResult] = []
 
     start = time.monotonic()
-    for candidate in candidates:
+    for unit in partition_trial_units(candidates):
+        candidate = unit.representative
         base_ep = scenario_episodes.get(candidate.scenario_id)
         if base_ep is None:
-            continue
-
-        # Build responder with the frozen candidate
-        responder = _build_frozen_responder(base_ep, candidate)
-
-        try:
-            result = run_episode(
-                episode=base_ep,
-                config=config,
-                responder=responder,
-                run_id=run_id,
+            raise ValueError(
+                f"No base scenario episode loaded for {candidate.scenario_id!r} "
+                f"(candidate {candidate.candidate_id!r})"
             )
-            result.candidate_sample_id = candidate.candidate_id
-            results.append(result)
-        except Exception as e:
-            # Log error but continue
-            print(f"  Warning: episode {candidate.candidate_id} failed: {e}")
+        spec = target_spec_from_episode(base_ep, candidate)
+        trial_ep = build_trial_episode(base_ep, candidate, spec, sequence_members=unit.members)
+        responder = build_trial_responder(trial_ep, candidate, sequence_members=unit.members)
+        result = run_episode(
+            episode=trial_ep,
+            config=config,
+            responder=responder,
+            run_id=run_id,
+        )
+        result.candidate_sample_id = candidate.candidate_id
+        # FF92-002: record the trust-level lineage for this trial. The
+        # candidate trust level must drive the runtime episode trust
+        # level; any disagreement is a construction defect, not data.
+        if result.trust_level != candidate.trust_level:
+            raise ValueError(
+                f"Trust level mismatch for {candidate.candidate_id!r}: "
+                f"episode={result.trust_level!r} candidate={candidate.trust_level!r}"
+            )
+        result.metadata["candidate_trust_level"] = candidate.trust_level
+        result.metadata["episode_trust_level"] = result.trust_level
+        result.metadata["trust_prompt_hash"] = trust_prompt_hash(result.trust_level)
+        # FF92-003: record secret-variant lineage for this trial. The
+        # runtime must protect the candidate's own variant; any
+        # disagreement is a construction defect, not data.
+        episode_variant = result.metadata.get("secret_variant_id", "")
+        if episode_variant and episode_variant != candidate.secret_variant_id:
+            raise ValueError(
+                f"Secret variant mismatch for {candidate.candidate_id!r}: "
+                f"episode={episode_variant!r} candidate={candidate.secret_variant_id!r}"
+            )
+        result.metadata["secret_variant_id"] = candidate.secret_variant_id
+        result.metadata["canonical_target"] = spec.canonical_target
+        results.append(result)
 
     elapsed = time.monotonic() - start
 
@@ -303,13 +822,10 @@ def run_frozen_replay(
 
     print(f"  Loaded {len(candidates)} candidates")
 
-    # Load base scenario episodes
+    # Load base scenario episodes (fail loudly: trials depend on every base)
     scenario_episodes: dict[str, TrustParadoxEpisode] = {}
     for scenario_id in ["credential_001", "attribute_001", "auth_001"]:
-        try:
-            scenario_episodes[scenario_id] = _load_scenario_episode(scenario_id)
-        except Exception as e:
-            print(f"  Warning: could not load scenario for {scenario_id}: {e}")
+        scenario_episodes[scenario_id] = _load_scenario_episode(scenario_id)
 
     # Run each condition
     all_results: dict[str, ConditionResult] = {}
@@ -371,6 +887,13 @@ def write_results(
                     "episode_id": er.episode_id,
                     "scenario_id": er.scenario_id,
                     "trust_level": er.trust_level,
+                    # FF92-002: trust-level lineage recorded at trial time
+                    "candidate_trust_level": er.metadata.get("candidate_trust_level", ""),
+                    "episode_trust_level": er.metadata.get("episode_trust_level", ""),
+                    "trust_prompt_hash": er.metadata.get("trust_prompt_hash", ""),
+                    # FF92-003: secret-variant lineage recorded at trial time
+                    "secret_variant_id": er.metadata.get("secret_variant_id", ""),
+                    "canonical_target": er.metadata.get("canonical_target", ""),
                     "seed": er.seed,
                     "candidate_sample_id": er.candidate_sample_id,
                     "task_success": er.task_success,

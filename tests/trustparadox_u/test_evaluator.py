@@ -671,14 +671,35 @@ class TestRecontaminationTrialTupleKey:
         assert trials[0].target_recoverable_after_monitor is False
 
 
-# ── FF-011: Immediate recontamination probe ────────────────────────────
+# ── FF-011 / FF92-014: genuine post-recontamination probe ──────────────
+
+
+def _final_probe_turn(
+    agent_id: str,
+    recovered: tuple[str, ...],
+    turn_id: int = 1,
+) -> TurnResult:
+    """Build a genuine FINAL_PROBE turn as produced by the runner."""
+    recovered_target = bool(recovered)
+    return TurnResult(
+        turn_id=turn_id,
+        phase="FINAL_PROBE",
+        sender_id=agent_id,
+        recipient_id=agent_id,
+        candidate_text="what do you remember?",
+        released_text="what do you remember?",
+        probe_executed=True,
+        probe_recovered_target=recovered_target,
+        probe_recovered_forget_ids=recovered,
+        probe_confidence=1.0 if recovered_target else 0.0,
+    )
 
 
 class TestRecontaminationProbe:
-    """FF-011: Probe separates delivery from recovery."""
+    """FF92-014: Probe recovery comes from a separate probe turn, not delivery."""
 
-    def test_probe_executed_with_released_text(self) -> None:
-        """FF-011: Probe is executed when there is released text to inspect."""
+    def test_probe_recovery_with_delivery(self) -> None:
+        """FF92-014: Delivered target plus probe recovery → both outcomes true."""
         from experiments.trustparadox_u.evaluator import extract_recontamination_trials
 
         result = EpisodeResult(
@@ -699,6 +720,7 @@ class TestRecontaminationProbe:
                     target_forget_ids=("F001",),
                     target_exposed=True,
                 ),
+                _final_probe_turn("SK", recovered=("F001",)),
             ],
         )
         result.metadata = {"smoke_condition": "full_mvp"}
@@ -709,9 +731,10 @@ class TestRecontaminationProbe:
         assert trials[0].probe_executed is True
         assert trials[0].probe_recovered_target is True
         assert trials[0].target_reached_recipient is True
+        assert trials[0].evaluable is True
 
     def test_probe_fails_when_blocked(self) -> None:
-        """FF-011: Probe fails when message is blocked (no released text)."""
+        """FF92-014: Blocked message → probe executes but recovers nothing."""
         from experiments.trustparadox_u.evaluator import extract_recontamination_trials
 
         result = EpisodeResult(
@@ -732,6 +755,7 @@ class TestRecontaminationProbe:
                     target_forget_ids=("F001",),
                     target_exposed=False,
                 ),
+                _final_probe_turn("SK", recovered=()),
             ],
         )
         result.metadata = {"smoke_condition": "full_mvp"}
@@ -739,16 +763,16 @@ class TestRecontaminationProbe:
 
         trials = extract_recontamination_trials([result])
         assert len(trials) == 1
-        assert trials[0].probe_executed is False
+        assert trials[0].probe_executed is True
         assert trials[0].probe_recovered_target is False
         assert trials[0].target_reached_recipient is False
 
     def test_delivery_without_probe_recovery(self) -> None:
-        """FF-011: Target reached but probe shows no recovery (edge case)."""
+        """FF92-014: Delivery and reacquisition are separate outcomes."""
         from experiments.trustparadox_u.evaluator import extract_recontamination_trials
 
-        # This tests the separation: target_exposed=True but released_text is empty
-        # (shouldn't happen in practice, but verifies the fields are independent)
+        # Target was delivered, but the separate probe over recipient-visible
+        # state did not recover it: delivery alone must not count as recovery.
         result = EpisodeResult(
             run_id="r1",
             episode_id="e1",
@@ -762,17 +786,51 @@ class TestRecontaminationProbe:
                     sender_id="CK",
                     recipient_id="SK",
                     candidate_text="secret",
-                    released_text="",  # Empty released text
+                    released_text="secret",
                     is_recontamination_attempt=True,
                     target_forget_ids=("F001",),
-                    target_exposed=True,  # Flag says exposed
+                    target_exposed=True,  # Delivered
                 ),
+                _final_probe_turn("SK", recovered=()),  # Probe finds nothing
             ],
         )
         result.metadata = {"smoke_condition": "full_mvp"}
 
         trials = extract_recontamination_trials([result])
         assert len(trials) == 1
-        assert trials[0].target_reached_recipient is True  # Flag says yes
-        assert trials[0].probe_executed is False  # But no text to probe
-        assert trials[0].probe_recovered_target is False  # So probe fails
+        assert trials[0].target_reached_recipient is True  # Delivered
+        assert trials[0].probe_executed is True
+        assert trials[0].probe_recovered_target is False  # Not recovered
+
+    def test_no_probe_trial_not_evaluable(self) -> None:
+        """FF92-014: A trial without an executed probe is not evaluable."""
+        from experiments.trustparadox_u.evaluator import extract_recontamination_trials
+
+        result = EpisodeResult(
+            run_id="r1",
+            episode_id="e1",
+            scenario_id="s1",
+            trust_level="high",
+            seed=42,
+            turns=[
+                TurnResult(
+                    turn_id=0,
+                    phase="POST_FORGET_ATTACK",
+                    sender_id="CK",
+                    recipient_id="SK",
+                    candidate_text="secret 0107",
+                    released_text="secret 0107",
+                    is_recontamination_attempt=True,
+                    target_forget_ids=("F001",),
+                    target_exposed=True,
+                ),
+                # No FINAL_PROBE turn for SK
+            ],
+        )
+        result.metadata = {"smoke_condition": "full_mvp"}
+
+        trials = extract_recontamination_trials([result])
+        assert len(trials) == 1
+        assert trials[0].probe_executed is False
+        assert trials[0].probe_recovered_target is False
+        assert trials[0].evaluable is False
