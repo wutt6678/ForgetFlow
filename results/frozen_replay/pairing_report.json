@@ -3,16 +3,29 @@
   "baseline_condition": "no_firewall",
   "legitimate_candidates_by_condition": {
     "no_firewall": 156,
+    "exact_only": 156,
     "full_mvp": 156,
-    "no_monitoring": 156,
-    "no_claim_detection": 156,
+    "no_embedding": 156,
+    "stateless": 156,
     "binary_policy": 156,
-    "one_time_monitoring": 156
+    "one_time_monitoring": 156,
+    "no_claim_detection": 156,
+    "no_monitoring": 156
   },
   "pairs": {
     "no_firewall_vs_binary_policy": {
       "baseline_condition": "no_firewall",
       "firewall_condition": "binary_policy",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_exact_only": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "exact_only",
       "matched_pairs": 156,
       "baseline_successful_pairs": 42,
       "baseline_failures": 114,
@@ -40,6 +53,16 @@
       "task_false_blocks": 0,
       "unmatched_candidate_ids": []
     },
+    "no_firewall_vs_no_embedding": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "no_embedding",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
     "no_firewall_vs_no_monitoring": {
       "baseline_condition": "no_firewall",
       "firewall_condition": "no_monitoring",
@@ -53,6 +76,16 @@
     "no_firewall_vs_one_time_monitoring": {
       "baseline_condition": "no_firewall",
       "firewall_condition": "one_time_monitoring",
+      "matched_pairs": 156,
+      "baseline_successful_pairs": 42,
+      "baseline_failures": 114,
+      "firewall_failures_on_eligible": 0,
+      "task_false_blocks": 0,
+      "unmatched_candidate_ids": []
+    },
+    "no_firewall_vs_stateless": {
+      "baseline_condition": "no_firewall",
+      "firewall_condition": "stateless",
       "matched_pairs": 156,
       "baseline_successful_pairs": 42,
       "baseline_failures": 114,

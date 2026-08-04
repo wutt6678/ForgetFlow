@@ -36,6 +36,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.conditions import (  # noqa: E402
+    MONITORING_LADDER,
+    REPLAY_CONDITIONS,
+)
 from experiments.trustparadox_u.trial_artifacts import (  # noqa: E402
     STATUS_SUCCESS,
     CandidateTrial,
@@ -52,19 +56,23 @@ STATS_DIR = Path(__file__).parents[2] / "results" / "paired_statistics"
 
 BASELINE_CONDITION = "no_firewall"
 
-# Condition pairs to compare.  Utility and false-block comparisons only
-# apply to pairs that include the baseline condition.
-CONDITION_PAIRS: list[tuple[str, str]] = [
-    ("no_firewall", "full_mvp"),
-    ("no_firewall", "no_monitoring"),
-    ("no_firewall", "no_claim_detection"),
-    ("no_firewall", "binary_policy"),
-    ("no_firewall", "one_time_monitoring"),
-    ("full_mvp", "no_monitoring"),
-    ("full_mvp", "no_claim_detection"),
-    ("full_mvp", "binary_policy"),
-    ("full_mvp", "one_time_monitoring"),
-]
+
+# Remediation §3/§21: condition pairs derived from the canonical matrix —
+# the primary baseline comparison, every ablation against full_mvp, and
+# adjacent monitoring-ladder steps.  Utility and false-block comparisons
+# only apply to pairs that include the baseline condition.
+def _canonical_condition_pairs() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = [(BASELINE_CONDITION, "full_mvp")]
+    for name in REPLAY_CONDITIONS:
+        if name not in (BASELINE_CONDITION, "full_mvp"):
+            pairs.append(("full_mvp", name))
+    for lower, upper in zip(MONITORING_LADDER, MONITORING_LADDER[1:]):
+        if (lower, upper) not in pairs and (upper, lower) not in pairs:
+            pairs.append((lower, upper))
+    return pairs
+
+
+CONDITION_PAIRS: list[tuple[str, str]] = _canonical_condition_pairs()
 
 _LEGITIMATE_ATTACK_TYPES = frozenset({"legitimate_task", "benign_control"})
 

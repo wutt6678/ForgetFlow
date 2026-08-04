@@ -6,14 +6,23 @@ corpus/annotation hashes, target-spec hashes, conditions, trial pairing,
 metrics from trial artifacts — and verifies provenance (FF92-023) and
 invalidation state (FF92-022) before any certification.
 
-Verdicts:
-  research_valid     every gate passes;
-  release_candidate  every substantive gate passes, but the test suite and
-                     static checks were not run (e.g. gate invoked from
-                     inside a pytest run — which must never auto-pass);
-  diagnostic         any substantive gate failed.
+Verdicts (remediation §31 staged statuses):
+  diagnostic                  any substantive gate failed;
+  diagnostic_valid            substantive gates pass, but the suite/static
+                              checks were not run (e.g. gate invoked from
+                              inside a pytest run — which must never
+                              auto-pass);
+  synthetic_benchmark_valid   full suite plus substantive gates: the ceiling
+                              for deterministic fixed-embedding studies;
+  empirical_replay_valid      additionally requires the empirical study
+                              design gate and a matching study class;
+  closed_loop_study_valid     likewise for closed-loop study designs;
+  release_candidate           the study-class ceiling plus release
+                              readiness (every gate, including the design
+                              gate, passed).
 
-File existence alone can never yield ``research_valid``.
+File existence alone can never yield a staged research status, and a
+diagnostic-class run can never exceed ``synthetic_benchmark_valid``.
 """
 
 from __future__ import annotations
@@ -41,7 +50,7 @@ REPLAY_DIR = RESULTS_DIR / "frozen_replay"
 FINAL_DIR = RESULTS_DIR / "final_artifacts"
 CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_corpus"
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "3.0.0"
 
 # Provenance-bearing artifacts that a certifying run must have produced.
 PROVENANCE_ARTIFACTS: tuple[Path, ...] = (
@@ -664,6 +673,68 @@ def check_static_checks() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Study-design gate (remediation §31)
+# ---------------------------------------------------------------------------
+
+
+def _study_class_from_artifacts() -> str:
+    """Study class recorded on the replay run manifest (remediation §4).
+
+    Pre-§4 artifacts do not carry the field; they were produced by the
+    deterministic scripted-responder harness, so ``diagnostic`` is the
+    only honest default.
+    """
+    from experiments.trustparadox_u.status import STUDY_CLASS_DIAGNOSTIC, validate_study_class
+
+    manifest_path = REPLAY_DIR / "run_manifest.json"
+    study_class = STUDY_CLASS_DIAGNOSTIC
+    if manifest_path.exists():
+        study_class = str(_load_json(manifest_path).get("study_class", study_class))
+    validate_study_class(study_class)
+    return study_class
+
+
+def check_empirical_study_design() -> dict[str, Any]:
+    """Empirical statuses require empirical study design (remediation §31).
+
+    This gate is deliberately outside ``SUBSTANTIVE_GATES``: a
+    deterministic fixed-embedding study fails it *by design* and is
+    capped at ``synthetic_benchmark_valid`` instead of being declared
+    invalid.  Corpus provenance decides — a ``deterministic_template``
+    generation model can never support empirical claims, no matter how
+    many internal-consistency gates pass.
+    """
+    from experiments.trustparadox_u.status import (
+        STUDY_CLASS_CLOSED_LOOP,
+        STUDY_CLASS_DIAGNOSTIC,
+    )
+
+    study_class = _study_class_from_artifacts()
+    if study_class == STUDY_CLASS_DIAGNOSTIC:
+        return {
+            "passed": False,
+            "study_class": study_class,
+            "reason": (
+                "diagnostic study class: scripted responders and deterministic "
+                "embeddings validate code paths, not empirical behavior"
+            ),
+        }
+
+    manifest_path = CORPUS_DIR / "corpus_manifest.json"
+    if not manifest_path.exists():
+        return {"passed": False, "study_class": study_class, "reason": "corpus_manifest missing"}
+    generation_model = str(_load_json(manifest_path).get("generation_model", ""))
+    findings: list[str] = []
+    if generation_model in ("", "deterministic_template"):
+        findings.append(f"corpus_generation_model_not_empirical: {generation_model!r}")
+    if study_class == STUDY_CLASS_CLOSED_LOOP:
+        # Closed-loop evidence (agents generating during the episode) is
+        # produced by Phase D; until then the declaration is unsupported.
+        findings.append("closed_loop_evidence_not_recorded")
+    return {"passed": not findings, "study_class": study_class, "findings": findings}
+
+
+# ---------------------------------------------------------------------------
 # Verdict
 # ---------------------------------------------------------------------------
 
@@ -683,24 +754,42 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
 )
 
 
-def verdict_for(gates: dict[str, dict[str, Any]]) -> str:
-    """research_valid only when every gate passes; release_candidate when
-    every substantive gate passes but tests/static checks were not run."""
-    if all(g["passed"] for g in gates.values()):
-        return "research_valid"
-    substantive_ok = all(gates[name]["passed"] for name in SUBSTANTIVE_GATES)
-    not_run_only = all(
-        g["passed"] or g.get("not_run")
-        for name, g in gates.items()
-        if name not in SUBSTANTIVE_GATES
+def _gate_passed(gates: dict[str, dict[str, Any]], name: str) -> bool:
+    return bool(gates.get(name, {}).get("passed"))
+
+
+def verdict_for(gates: dict[str, dict[str, Any]], study_class: str | None = None) -> str:
+    """Highest staged research status the gate evidence supports (§31).
+
+    ``study_class=None`` reads the class from the replay run manifest
+    (diagnostic for pre-§4 artifacts).  Substantive failure yields
+    ``diagnostic``; a missing suite caps at ``diagnostic_valid``; the
+    study-design gate and the declared class set the ceiling above
+    ``synthetic_benchmark_valid``.
+    """
+    from experiments.trustparadox_u.status import (
+        STUDY_CLASS_CLOSED_LOOP,
+        STUDY_CLASS_EMPIRICAL_REPLAY,
+        compute_research_status,
     )
-    if substantive_ok and not_run_only:
-        return "release_candidate"
-    return "diagnostic"
+
+    if study_class is None:
+        study_class = _study_class_from_artifacts()
+    substantive_ok = all(_gate_passed(gates, name) for name in SUBSTANTIVE_GATES)
+    suite_ok = _gate_passed(gates, "tests_pass") and _gate_passed(gates, "static_checks")
+    empirical_ok = _gate_passed(gates, "empirical_study_design")
+    return compute_research_status(
+        study_class=study_class,
+        substantive_gates_passed=substantive_ok,
+        suite_passed=suite_ok,
+        empirical_design_passed=empirical_ok and study_class == STUDY_CLASS_EMPIRICAL_REPLAY,
+        closed_loop_design_passed=empirical_ok and study_class == STUDY_CLASS_CLOSED_LOOP,
+        release_ready=substantive_ok and suite_ok and empirical_ok,
+    )
 
 
 def run_research_valid_gate() -> dict[str, Any]:
-    """Run all gate checks and produce the final verdict."""
+    """Run all gate checks and produce the staged research status (§31)."""
     from experiments.trustparadox_u.artifact_provenance import (
         build_certification_provenance,
         code_tree_is_clean,
@@ -721,15 +810,29 @@ def run_research_valid_gate() -> dict[str, Any]:
             check_deterministic_reproducibility_validation()
         ),
         "final_artifacts": check_final_artifacts(),
+        "empirical_study_design": check_empirical_study_design(),
         "tests_pass": check_tests_pass(),
         "static_checks": check_static_checks(),
     }
 
+    from experiments.trustparadox_u.status import (
+        EMPIRICAL_REPLAY_VALID,
+        SYNTHETIC_BENCHMARK_VALID,
+        research_status_at_least,
+    )
+
+    study_class = str(gates["empirical_study_design"].get("study_class", "diagnostic"))
+    verdict = verdict_for(gates, study_class=study_class)
     return {
         "schema_version": SCHEMA_VERSION,
         "gate_name": "research_valid",
-        "verdict": verdict_for(gates),
-        "research_valid": verdict_for(gates) == "research_valid",
+        "study_class": study_class,
+        "verdict": verdict,
+        "research_status": verdict,
+        # Remediation §31: ``research_valid`` now means an empirical tier
+        # has actually been certified — never a deterministic replay.
+        "research_valid": research_status_at_least(verdict, EMPIRICAL_REPLAY_VALID),
+        "synthetic_benchmark_valid": research_status_at_least(verdict, SYNTHETIC_BENCHMARK_VALID),
         "all_passed": all(g["passed"] for g in gates.values()),
         "repository_commit": _current_commit(),
         "provenance": build_certification_provenance(repository_clean=code_tree_is_clean()),
@@ -744,8 +847,13 @@ def run_research_valid_gate() -> dict[str, Any]:
 
 
 def main() -> int:
-    """Run the final research-valid gate."""
-    print("Iteration 16: Final Research-Valid Gate (FF92-021 rebuild)")
+    """Run the final research-valid gate (staged statuses, §31)."""
+    from experiments.trustparadox_u.status import (
+        SYNTHETIC_BENCHMARK_VALID,
+        research_status_at_least,
+    )
+
+    print("Final Research-Valid Gate (remediation §31 staged statuses)")
     print("=" * 50)
 
     result = run_research_valid_gate()
@@ -770,15 +878,17 @@ def main() -> int:
                     print(f"         {k}: {v}")
 
     print()
-    if result["verdict"] == "research_valid":
-        print("STUDY STATUS: RESEARCH-VALID")
-    else:
-        n_fail = sum(1 for g in result["gates"].values() if not g["passed"])
-        print(
-            f"STUDY STATUS: {result['verdict'].upper().replace('_', '-')} ({n_fail} gates failed/skipped)"
-        )
+    n_fail = sum(1 for g in result["gates"].values() if not g["passed"])
+    print(f"STUDY CLASS: {result['study_class']}")
+    print(
+        f"STUDY STATUS: {result['verdict'].upper().replace('_', '-')}"
+        f" ({n_fail} gates failed/skipped)"
+    )
 
-    return 0 if result["all_passed"] else 1
+    # Remediation §31: a deterministic replay that certifies its own tier
+    # exits successfully; empirical tiers are what the full pipeline
+    # command should target once the corpus is empirical.
+    return 0 if research_status_at_least(result["verdict"], SYNTHETIC_BENCHMARK_VALID) else 1
 
 
 if __name__ == "__main__":

@@ -1,18 +1,21 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-04T11:15:13.224087+00:00
-**Commit:** 28b0a55fc2c028c92a9ba907f90ff7773851e4fc
+**Generated:** 2026-08-04T22:23:09.057259+00:00
+**Commit:** 9a9a171c5d4de5395a34c9376dbc2044bd0fda57
 
 ### Table 1: Main Results by Condition
 
 | condition | crr_value | rr_value | fbr_value | paired_policy_utility_retention_value |
 | --- | --- | --- | --- | --- |
 | binary_policy | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
+| exact_only | 1.0000 | 1.0000 | 0.0000 | 1.0000 |
 | full_mvp | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
 | no_claim_detection | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
+| no_embedding | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
 | no_firewall | 1.0000 | 1.0000 | 0.0000 | None |
 | no_monitoring | 1.0000 | 1.0000 | 0.0000 | 1.0000 |
 | one_time_monitoring | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
+| stateless | 1.0000 | 0.0000 | 0.0000 | 1.0000 |
 
 ### Table 2: Leakage by Attack Category
 
@@ -43,38 +46,18 @@
 | no_firewall | full_mvp | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | no_firewall | full_mvp | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
 | no_firewall | full_mvp | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | exposure | 0.5412 | 0.5412 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | reconstruction | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | recontamination | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_monitoring | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_claim_detection | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
-| no_firewall | no_claim_detection | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | no_claim_detection | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | no_claim_detection | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_claim_detection | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | no_claim_detection | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | binary_policy | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
-| no_firewall | binary_policy | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | binary_policy | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | binary_policy | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | binary_policy | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | binary_policy | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | one_time_monitoring | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
-| no_firewall | one_time_monitoring | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | one_time_monitoring | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
-| no_firewall | one_time_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | one_time_monitoring | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
-| no_firewall | one_time_monitoring | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_monitoring | exposure | 0.0000 | 0.5412 | -1.6532 | 0.0000 | True |
-| full_mvp | no_monitoring | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
-| full_mvp | no_monitoring | recontamination | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
-| full_mvp | no_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_claim_detection | exposure | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_claim_detection | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_claim_detection | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_claim_detection | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | exact_only | exposure | 0.0000 | 0.5412 | -1.6532 | 0.0000 | True |
+| full_mvp | exact_only | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
+| full_mvp | exact_only | recontamination | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
+| full_mvp | exact_only | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_embedding | exposure | 0.0000 | 0.1529 | -0.8036 | 0.0000 | True |
+| full_mvp | no_embedding | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_embedding | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_embedding | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | stateless | exposure | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | stateless | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
+| full_mvp | stateless | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | stateless | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | binary_policy | exposure | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | binary_policy | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | binary_policy | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
@@ -83,6 +66,18 @@
 | full_mvp | one_time_monitoring | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | one_time_monitoring | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | one_time_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_claim_detection | exposure | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_claim_detection | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_claim_detection | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_claim_detection | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| full_mvp | no_monitoring | exposure | 0.0000 | 0.5412 | -1.6532 | 0.0000 | True |
+| full_mvp | no_monitoring | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
+| full_mvp | no_monitoring | recontamination | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
+| full_mvp | no_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
+| no_monitoring | one_time_monitoring | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
+| no_monitoring | one_time_monitoring | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
+| no_monitoring | one_time_monitoring | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
+| no_monitoring | one_time_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 
 ## Exit Criteria
 - all_tables_built: PASS

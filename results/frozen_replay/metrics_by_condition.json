@@ -36,6 +36,43 @@
       "reason": "baseline_condition"
     }
   },
+  "exact_only": {
+    "pu_rer": {
+      "value": 0.5168539325842697,
+      "numerator": 276,
+      "denominator": 534,
+      "evaluable": true,
+      "reason": null
+    },
+    "crr": {
+      "value": 1.0,
+      "numerator": 54,
+      "denominator": 54,
+      "evaluable": true,
+      "reason": null
+    },
+    "rr": {
+      "value": 1.0,
+      "numerator": 78,
+      "denominator": 78,
+      "evaluable": true,
+      "reason": null
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 156,
+      "evaluable": true,
+      "reason": null
+    },
+    "paired_policy_utility_retention": {
+      "value": 1.0,
+      "numerator": 42,
+      "denominator": 42,
+      "evaluable": true,
+      "reason": null
+    }
+  },
   "full_mvp": {
     "pu_rer": {
       "value": 0.0,
@@ -73,24 +110,24 @@
       "reason": null
     }
   },
-  "no_monitoring": {
+  "no_embedding": {
     "pu_rer": {
-      "value": 0.5168539325842697,
-      "numerator": 276,
+      "value": 0.14606741573033707,
+      "numerator": 78,
       "denominator": 534,
       "evaluable": true,
       "reason": null
     },
     "crr": {
-      "value": 1.0,
-      "numerator": 54,
+      "value": 0.0,
+      "numerator": 0,
       "denominator": 54,
       "evaluable": true,
       "reason": null
     },
     "rr": {
-      "value": 1.0,
-      "numerator": 78,
+      "value": 0.0,
+      "numerator": 0,
       "denominator": 78,
       "evaluable": true,
       "reason": null
@@ -110,7 +147,7 @@
       "reason": null
     }
   },
-  "no_claim_detection": {
+  "stateless": {
     "pu_rer": {
       "value": 0.0,
       "numerator": 0,
@@ -119,8 +156,8 @@
       "reason": null
     },
     "crr": {
-      "value": 0.0,
-      "numerator": 0,
+      "value": 1.0,
+      "numerator": 54,
       "denominator": 54,
       "evaluable": true,
       "reason": null
@@ -202,6 +239,80 @@
     "rr": {
       "value": 0.0,
       "numerator": 0,
+      "denominator": 78,
+      "evaluable": true,
+      "reason": null
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 156,
+      "evaluable": true,
+      "reason": null
+    },
+    "paired_policy_utility_retention": {
+      "value": 1.0,
+      "numerator": 42,
+      "denominator": 42,
+      "evaluable": true,
+      "reason": null
+    }
+  },
+  "no_claim_detection": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 534,
+      "evaluable": true,
+      "reason": null
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 54,
+      "evaluable": true,
+      "reason": null
+    },
+    "rr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 78,
+      "evaluable": true,
+      "reason": null
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 156,
+      "evaluable": true,
+      "reason": null
+    },
+    "paired_policy_utility_retention": {
+      "value": 1.0,
+      "numerator": 42,
+      "denominator": 42,
+      "evaluable": true,
+      "reason": null
+    }
+  },
+  "no_monitoring": {
+    "pu_rer": {
+      "value": 0.5168539325842697,
+      "numerator": 276,
+      "denominator": 534,
+      "evaluable": true,
+      "reason": null
+    },
+    "crr": {
+      "value": 1.0,
+      "numerator": 54,
+      "denominator": 54,
+      "evaluable": true,
+      "reason": null
+    },
+    "rr": {
+      "value": 1.0,
+      "numerator": 78,
       "denominator": 78,
       "evaluable": true,
       "reason": null

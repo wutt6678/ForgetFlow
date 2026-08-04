@@ -20,6 +20,7 @@ from experiments.trustparadox_u.conditions import (
     CONDITION_OVERRIDES,
     OPTIONAL_CONDITIONS,
     REQUIRED_CONDITIONS,
+    SUPPLEMENTARY_CONDITIONS,
     assert_condition_diff,
     build_condition,
     build_conditions,
@@ -67,7 +68,9 @@ class TestRequiredBaselines:
             assert name in CONDITION_OVERRIDES, f"Missing optional condition: {name}"
 
     def test_condition_matrix_is_exactly_documented(self) -> None:
-        expected = set(REQUIRED_CONDITIONS) | set(OPTIONAL_CONDITIONS)
+        # Remediation §3: required matrix plus declared supplementary
+        # conditions (no_claim_detection, monitoring-ladder no_monitoring).
+        expected = set(REQUIRED_CONDITIONS) | set(SUPPLEMENTARY_CONDITIONS)
         assert set(CONDITION_OVERRIDES) == expected
         assert set(ALLOWED_DIFF_PATHS) == expected
 

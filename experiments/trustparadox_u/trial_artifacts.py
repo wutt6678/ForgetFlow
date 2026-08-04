@@ -757,18 +757,26 @@ def build_run_manifest(
     artifact_files: Sequence[str],
     git_commit: str = "",
     provenance: dict[str, Any] | None = None,
+    study_class: str = "diagnostic",
 ) -> dict[str, Any]:
     """Run provenance manifest with per-artifact content hashes.
 
     FF92-023: the certification provenance block (tested code commit,
     artifact generation commit, repository cleanliness, workflow
     identity) is stored inside the manifest itself.
+
+    Remediation §4: every run records its study class so downstream gates
+    can cap diagnostic artifacts below empirical validity tiers.
     """
+    from experiments.trustparadox_u.status import validate_study_class
+
+    validate_study_class(study_class)
     total_failed = sum(len(entries) for entries in failed_candidates.values())
     manifest = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
+        "study_class": study_class,
         "seed": seed,
         "git_commit": git_commit,
         "conditions": list(conditions),
@@ -815,6 +823,7 @@ def write_trial_artifacts(
     candidate_count: int,
     git_commit: str = "",
     provenance: dict[str, Any] | None = None,
+    study_class: str = "diagnostic",
 ) -> dict[str, Any]:
     """Write the full FF92-015 artifact set and return the run manifest.
 
@@ -917,6 +926,7 @@ def write_trial_artifacts(
         artifact_files=[name for name in REQUIRED_ARTIFACT_FILES if name != "run_manifest.json"],
         git_commit=git_commit,
         provenance=provenance,
+        study_class=study_class,
     )
     (output_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

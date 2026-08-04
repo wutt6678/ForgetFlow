@@ -6,13 +6,21 @@ import argparse
 from typing import Any
 
 from experiments.trustparadox_u.status import (
+    CLOSED_LOOP_STUDY_VALID,
     DIAGNOSTIC_VALID,
+    DIAGNOSTIC_VALID_RS,
+    EMPIRICAL_REPLAY_VALID,
     EXECUTION_COMPLETE,
     RELEASE_CANDIDATE,
+    RESEARCH_STATUS_ORDER,
     RESEARCH_VALID,
     STATUS_ORDER,
+    SYNTHETIC_BENCHMARK_VALID,
+    compute_research_status,
     compute_status,
+    research_status_at_least,
     status_at_least,
+    validate_study_class,
 )
 from scripts.validate_smoke_result import validate
 
@@ -78,6 +86,106 @@ class TestStatusAtLeast:
     def test_unknown_status_is_not_at_least(self) -> None:
         assert not status_at_least("GO", RESEARCH_VALID)
         assert not status_at_least(RESEARCH_VALID, "GO")
+
+
+class TestStudyClasses:
+    """Remediation §4: every artifact must declare a known study class."""
+
+    def test_declared_classes(self) -> None:
+        for study_class in ("diagnostic", "empirical_replay", "closed_loop"):
+            validate_study_class(study_class)
+
+    def test_unknown_class_raises(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError, match="unknown study_class"):
+            validate_study_class("real_science")
+
+
+class TestComputeResearchStatus:
+    """Remediation §31: staged statuses cap claims by study class."""
+
+    def test_status_order_lowest_to_highest(self) -> None:
+        assert RESEARCH_STATUS_ORDER == (
+            DIAGNOSTIC_VALID_RS,
+            SYNTHETIC_BENCHMARK_VALID,
+            EMPIRICAL_REPLAY_VALID,
+            CLOSED_LOOP_STUDY_VALID,
+            "release_candidate",
+        )
+
+    def test_substantive_failure_is_not_valid(self) -> None:
+        assert (
+            compute_research_status(
+                study_class="diagnostic",
+                substantive_gates_passed=False,
+                suite_passed=True,
+            )
+            == "diagnostic"
+        )
+
+    def test_suite_not_run_caps_at_diagnostic_valid(self) -> None:
+        assert (
+            compute_research_status(
+                study_class="diagnostic",
+                substantive_gates_passed=True,
+                suite_passed=False,
+            )
+            == DIAGNOSTIC_VALID_RS
+        )
+
+    def test_diagnostic_run_capped_at_synthetic_benchmark(self) -> None:
+        # Even with a (hypothetically) passing design gate, the class
+        # ceiling keeps a diagnostic run below empirical tiers.
+        assert (
+            compute_research_status(
+                study_class="diagnostic",
+                substantive_gates_passed=True,
+                suite_passed=True,
+                empirical_design_passed=True,
+                release_ready=True,
+            )
+            == SYNTHETIC_BENCHMARK_VALID
+        )
+
+    def test_empirical_replay_reaches_release_candidate(self) -> None:
+        assert (
+            compute_research_status(
+                study_class="empirical_replay",
+                substantive_gates_passed=True,
+                suite_passed=True,
+                empirical_design_passed=True,
+                release_ready=True,
+            )
+            == "release_candidate"
+        )
+
+    def test_empirical_replay_without_design_gate_is_synthetic(self) -> None:
+        assert (
+            compute_research_status(
+                study_class="empirical_replay",
+                substantive_gates_passed=True,
+                suite_passed=True,
+                empirical_design_passed=False,
+            )
+            == SYNTHETIC_BENCHMARK_VALID
+        )
+
+    def test_closed_loop_requires_own_design_gate(self) -> None:
+        assert (
+            compute_research_status(
+                study_class="closed_loop",
+                substantive_gates_passed=True,
+                suite_passed=True,
+                closed_loop_design_passed=True,
+            )
+            == CLOSED_LOOP_STUDY_VALID
+        )
+
+    def test_research_status_at_least(self) -> None:
+        assert research_status_at_least("release_candidate", EMPIRICAL_REPLAY_VALID)
+        assert not research_status_at_least(SYNTHETIC_BENCHMARK_VALID, EMPIRICAL_REPLAY_VALID)
+        assert not research_status_at_least("diagnostic", DIAGNOSTIC_VALID_RS)
 
 
 def _args(**overrides: bool | str | None) -> argparse.Namespace:

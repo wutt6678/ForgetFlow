@@ -5,7 +5,7 @@
   "passed": true,
   "max_candidates": 50,
   "seed": 42,
-  "num_conditions": 6,
+  "num_conditions": 9,
   "checks": {
     "candidate_level": {
       "passed": true,

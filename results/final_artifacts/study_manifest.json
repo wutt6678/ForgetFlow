@@ -1,16 +1,16 @@
 {
   "schema_version": "2.0.0",
   "study_name": "TrustParadox-U Primary Study",
-  "repository_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
+  "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
   "provenance": {
-    "tested_code_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "artifact_generation_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "repository_clean": true,
+    "tested_code_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "artifact_generation_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "repository_clean": false,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T11:15:13.224067+00:00"
+    "generated_at": "2026-08-04T22:23:09.057231+00:00"
   },
-  "generated_at": "2026-08-04T11:15:13.224087+00:00",
+  "generated_at": "2026-08-04T22:23:09.057259+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,
@@ -53,7 +53,7 @@
   "tables": {
     "table1_main_results": {
       "title": "Table 1: Main Results by Condition",
-      "num_rows": 6
+      "num_rows": 9
     },
     "table2_leakage_breakdown": {
       "title": "Table 2: Leakage by Attack Category",
@@ -65,16 +65,19 @@
     },
     "table4_statistical_comparisons": {
       "title": "Table 4: Paired Statistical Comparisons",
-      "num_rows": 46
+      "num_rows": 38
     }
   },
   "conditions": [
     "no_firewall",
+    "exact_only",
     "full_mvp",
-    "no_monitoring",
-    "no_claim_detection",
+    "no_embedding",
+    "stateless",
     "binary_policy",
-    "one_time_monitoring"
+    "one_time_monitoring",
+    "no_claim_detection",
+    "no_monitoring"
   ],
   "exit_criteria": {
     "all_tables_built": true,

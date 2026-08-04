@@ -1,41 +1,41 @@
 {
-  "generated_at": "2026-08-04T11:15:07.698689+00:00",
-  "num_comparisons": 46,
+  "generated_at": "2026-08-04T22:22:36.715112+00:00",
+  "num_comparisons": 38,
   "condition_pairs": [
     [
       "no_firewall",
       "full_mvp"
     ],
     [
-      "no_firewall",
-      "no_monitoring"
+      "full_mvp",
+      "exact_only"
     ],
     [
-      "no_firewall",
-      "no_claim_detection"
+      "full_mvp",
+      "no_embedding"
     ],
     [
-      "no_firewall",
+      "full_mvp",
+      "stateless"
+    ],
+    [
+      "full_mvp",
       "binary_policy"
     ],
     [
-      "no_firewall",
+      "full_mvp",
       "one_time_monitoring"
     ],
     [
       "full_mvp",
-      "no_monitoring"
-    ],
-    [
-      "full_mvp",
       "no_claim_detection"
     ],
     [
       "full_mvp",
-      "binary_policy"
+      "no_monitoring"
     ],
     [
-      "full_mvp",
+      "no_monitoring",
       "one_time_monitoring"
     ]
   ],
@@ -306,8 +306,8 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
       "metric": "exposure",
       "pairing_unit": "candidate_id",
       "n_pairs": 510,
@@ -316,42 +316,42 @@
         "only_in_b": []
       },
       "contingency": {
-        "both_positive": 276,
+        "both_positive": 0,
         "a_only": 0,
-        "b_only": 0,
+        "b_only": 276,
         "both_negative": 234
       },
-      "rate_a": 0.5411764705882353,
+      "rate_a": 0.0,
       "rate_b": 0.5411764705882353,
-      "risk_difference": 0.0,
-      "relative_risk": 1.0,
+      "risk_difference": -0.5411764705882353,
+      "relative_risk": 0.0,
       "mcnemar": {
         "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "c": 276,
+        "discordant": 276,
+        "p_value": 1.6472184286297693e-83,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": -0.5411764705882353,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": -0.5843137254901961,
+        "upper": -0.4980392156862745,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": -1.6532426395836117,
+      "effect_size": -1.6532426395836117
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
       "metric": "reconstruction",
       "pairing_unit": "sequence_id",
       "n_pairs": 54,
@@ -360,42 +360,42 @@
         "only_in_b": []
       },
       "contingency": {
-        "both_positive": 54,
+        "both_positive": 0,
         "a_only": 0,
-        "b_only": 0,
+        "b_only": 54,
         "both_negative": 0
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 1.0,
-      "risk_difference": 0.0,
-      "relative_risk": 1.0,
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
       "mcnemar": {
         "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "c": 54,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": -1.0,
+        "upper": -1.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
       "metric": "recontamination",
       "pairing_unit": "candidate_id",
       "n_pairs": 78,
@@ -404,42 +404,42 @@
         "only_in_b": []
       },
       "contingency": {
-        "both_positive": 78,
+        "both_positive": 0,
         "a_only": 0,
-        "b_only": 0,
+        "b_only": 78,
         "both_negative": 0
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 1.0,
-      "risk_difference": 0.0,
-      "relative_risk": 1.0,
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
       "mcnemar": {
         "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "c": 78,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": -1.0,
+        "upper": -1.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
       "metric": "false_block",
       "pairing_unit": "candidate_id",
       "n_pairs": 156,
@@ -482,96 +482,8 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
-      "metric": "utility",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 42,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 42,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 0
-      },
-      "rate_a": 1.0,
-      "rate_b": 1.0,
-      "risk_difference": 0.0,
-      "relative_risk": 1.0,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "no_firewall",
-      "condition_b": "no_monitoring",
-      "metric": "utility_false_block",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 156,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 156
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
       "metric": "exposure",
       "pairing_unit": "candidate_id",
       "n_pairs": 510,
@@ -581,41 +493,41 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 276,
-        "b_only": 0,
-        "both_negative": 234
+        "a_only": 0,
+        "b_only": 78,
+        "both_negative": 432
       },
-      "rate_a": 0.5411764705882353,
-      "rate_b": 0.0,
-      "risk_difference": 0.5411764705882353,
-      "relative_risk": null,
+      "rate_a": 0.0,
+      "rate_b": 0.15294117647058825,
+      "risk_difference": -0.15294117647058825,
+      "relative_risk": 0.0,
       "mcnemar": {
-        "b": 276,
-        "c": 0,
-        "discordant": 276,
-        "p_value": 1.6472184286297693e-83,
+        "b": 0,
+        "c": 78,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.5411764705882353,
+        "statistic": -0.15294117647058825,
         "p_value": 0.0,
         "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.4980392156862745,
-        "upper": 0.5843137254901961,
+        "lower": -0.1843137254901961,
+        "upper": -0.12156862745098039,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 1.6532426395836117,
-      "effect_size": 1.6532426395836117
+      "cohens_h": -0.8036028773414163,
+      "effect_size": -0.8036028773414163
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
       "metric": "reconstruction",
       "pairing_unit": "sequence_id",
       "n_pairs": 54,
@@ -625,41 +537,41 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 54,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 54
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 54,
+        "b": 0,
         "c": 0,
-        "discordant": 54,
-        "p_value": 1.1102230246251565e-16,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
       "metric": "recontamination",
       "pairing_unit": "candidate_id",
       "n_pairs": 78,
@@ -669,41 +581,41 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 78,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 78
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 78,
+        "b": 0,
         "c": 0,
-        "discordant": 78,
-        "p_value": 6.617444900424222e-24,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
       "metric": "false_block",
       "pairing_unit": "candidate_id",
       "n_pairs": 156,
@@ -746,25 +658,25 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
-      "metric": "utility",
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "exposure",
       "pairing_unit": "candidate_id",
-      "n_pairs": 42,
+      "n_pairs": 510,
       "unmatched": {
         "only_in_a": [],
         "only_in_b": []
       },
       "contingency": {
-        "both_positive": 42,
+        "both_positive": 0,
         "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 510
       },
-      "rate_a": 1.0,
-      "rate_b": 1.0,
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "risk_difference": 0.0,
-      "relative_risk": 1.0,
+      "relative_risk": null,
       "mcnemar": {
         "b": 0,
         "c": 0,
@@ -790,9 +702,97 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "no_claim_detection",
-      "metric": "utility_false_block",
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 54,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 54,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "false_block",
       "pairing_unit": "candidate_id",
       "n_pairs": 156,
       "unmatched": {
@@ -834,7 +834,7 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "binary_policy",
       "metric": "exposure",
       "pairing_unit": "candidate_id",
@@ -845,40 +845,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 276,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 234
+        "both_negative": 510
       },
-      "rate_a": 0.5411764705882353,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 0.5411764705882353,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 276,
+        "b": 0,
         "c": 0,
-        "discordant": 276,
-        "p_value": 1.6472184286297693e-83,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.5411764705882353,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.4980392156862745,
-        "upper": 0.5843137254901961,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 1.6532426395836117,
-      "effect_size": 1.6532426395836117
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "binary_policy",
       "metric": "reconstruction",
       "pairing_unit": "sequence_id",
@@ -889,40 +889,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 54,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 54
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 54,
+        "b": 0,
         "c": 0,
-        "discordant": 54,
-        "p_value": 1.1102230246251565e-16,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "binary_policy",
       "metric": "recontamination",
       "pairing_unit": "candidate_id",
@@ -933,40 +933,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 78,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 78
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 78,
+        "b": 0,
         "c": 0,
-        "discordant": 78,
-        "p_value": 6.617444900424222e-24,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "binary_policy",
       "metric": "false_block",
       "pairing_unit": "candidate_id",
@@ -1010,95 +1010,7 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "binary_policy",
-      "metric": "utility",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 42,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 42,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 0
-      },
-      "rate_a": 1.0,
-      "rate_b": 1.0,
-      "risk_difference": 0.0,
-      "relative_risk": 1.0,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "no_firewall",
-      "condition_b": "binary_policy",
-      "metric": "utility_false_block",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 156,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 156
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
       "metric": "exposure",
       "pairing_unit": "candidate_id",
@@ -1109,40 +1021,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 276,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 234
+        "both_negative": 510
       },
-      "rate_a": 0.5411764705882353,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 0.5411764705882353,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 276,
+        "b": 0,
         "c": 0,
-        "discordant": 276,
-        "p_value": 1.6472184286297693e-83,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.5411764705882353,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.4980392156862745,
-        "upper": 0.5843137254901961,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 1.6532426395836117,
-      "effect_size": 1.6532426395836117
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
       "metric": "reconstruction",
       "pairing_unit": "sequence_id",
@@ -1153,40 +1065,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 54,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 54
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 54,
+        "b": 0,
         "c": 0,
-        "discordant": 54,
-        "p_value": 1.1102230246251565e-16,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
       "metric": "recontamination",
       "pairing_unit": "candidate_id",
@@ -1197,40 +1109,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 78,
+        "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 78
       },
-      "rate_a": 1.0,
+      "rate_a": 0.0,
       "rate_b": 0.0,
-      "risk_difference": 1.0,
+      "risk_difference": 0.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 78,
+        "b": 0,
         "c": 0,
-        "discordant": 78,
-        "p_value": 6.617444900424222e-24,
+        "discordant": 0,
+        "p_value": 1.0,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 1.0,
-        "p_value": 0.0,
-        "n_permutations": 10000,
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 1.0,
-        "upper": 1.0,
+        "lower": 0.0,
+        "upper": 0.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 3.141592653589793,
-      "effect_size": 3.141592653589793
+      "cohens_h": 0.0,
+      "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
+      "condition_a": "full_mvp",
       "condition_b": "one_time_monitoring",
       "metric": "false_block",
       "pairing_unit": "candidate_id",
@@ -1274,25 +1186,25 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "one_time_monitoring",
-      "metric": "utility",
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "exposure",
       "pairing_unit": "candidate_id",
-      "n_pairs": 42,
+      "n_pairs": 510,
       "unmatched": {
         "only_in_a": [],
         "only_in_b": []
       },
       "contingency": {
-        "both_positive": 42,
+        "both_positive": 0,
         "a_only": 0,
         "b_only": 0,
-        "both_negative": 0
+        "both_negative": 510
       },
-      "rate_a": 1.0,
-      "rate_b": 1.0,
+      "rate_a": 0.0,
+      "rate_b": 0.0,
       "risk_difference": 0.0,
-      "relative_risk": 1.0,
+      "relative_risk": null,
       "mcnemar": {
         "b": 0,
         "c": 0,
@@ -1318,9 +1230,97 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "no_firewall",
-      "condition_b": "one_time_monitoring",
-      "metric": "utility_false_block",
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 54
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "false_block",
       "pairing_unit": "candidate_id",
       "n_pairs": 156,
       "unmatched": {
@@ -1538,359 +1538,7 @@
       "effect_size": 0.0
     },
     {
-      "condition_a": "full_mvp",
-      "condition_b": "no_claim_detection",
-      "metric": "exposure",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 510,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 510
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "no_claim_detection",
-      "metric": "reconstruction",
-      "pairing_unit": "sequence_id",
-      "n_pairs": 54,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 54
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "no_claim_detection",
-      "metric": "recontamination",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 78,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 78
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "no_claim_detection",
-      "metric": "false_block",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 156,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 156
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "binary_policy",
-      "metric": "exposure",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 510,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 510
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "binary_policy",
-      "metric": "reconstruction",
-      "pairing_unit": "sequence_id",
-      "n_pairs": 54,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 54
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "binary_policy",
-      "metric": "recontamination",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 78,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 78
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
-      "condition_b": "binary_policy",
-      "metric": "false_block",
-      "pairing_unit": "candidate_id",
-      "n_pairs": 156,
-      "unmatched": {
-        "only_in_a": [],
-        "only_in_b": []
-      },
-      "contingency": {
-        "both_positive": 0,
-        "a_only": 0,
-        "b_only": 0,
-        "both_negative": 156
-      },
-      "rate_a": 0.0,
-      "rate_b": 0.0,
-      "risk_difference": 0.0,
-      "relative_risk": null,
-      "mcnemar": {
-        "b": 0,
-        "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
-        "test": "exact_mcnemar"
-      },
-      "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
-        "seed": 42,
-        "test": "paired_permmutation"
-      },
-      "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
-        "confidence_level": 0.95,
-        "n_iterations": 10000,
-        "seed": 42
-      },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
-    },
-    {
-      "condition_a": "full_mvp",
+      "condition_a": "no_monitoring",
       "condition_b": "one_time_monitoring",
       "metric": "exposure",
       "pairing_unit": "candidate_id",
@@ -1901,40 +1549,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 0,
+        "a_only": 276,
         "b_only": 0,
-        "both_negative": 510
+        "both_negative": 234
       },
-      "rate_a": 0.0,
+      "rate_a": 0.5411764705882353,
       "rate_b": 0.0,
-      "risk_difference": 0.0,
+      "risk_difference": 0.5411764705882353,
       "relative_risk": null,
       "mcnemar": {
-        "b": 0,
+        "b": 276,
         "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "discordant": 276,
+        "p_value": 1.6472184286297693e-83,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": 0.5411764705882353,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": 0.4980392156862745,
+        "upper": 0.5843137254901961,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": 1.6532426395836117,
+      "effect_size": 1.6532426395836117
     },
     {
-      "condition_a": "full_mvp",
+      "condition_a": "no_monitoring",
       "condition_b": "one_time_monitoring",
       "metric": "reconstruction",
       "pairing_unit": "sequence_id",
@@ -1945,40 +1593,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 0,
+        "a_only": 54,
         "b_only": 0,
-        "both_negative": 54
+        "both_negative": 0
       },
-      "rate_a": 0.0,
+      "rate_a": 1.0,
       "rate_b": 0.0,
-      "risk_difference": 0.0,
+      "risk_difference": 1.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 0,
+        "b": 54,
         "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": 1.0,
+        "upper": 1.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
     },
     {
-      "condition_a": "full_mvp",
+      "condition_a": "no_monitoring",
       "condition_b": "one_time_monitoring",
       "metric": "recontamination",
       "pairing_unit": "candidate_id",
@@ -1989,40 +1637,40 @@
       },
       "contingency": {
         "both_positive": 0,
-        "a_only": 0,
+        "a_only": 78,
         "b_only": 0,
-        "both_negative": 78
+        "both_negative": 0
       },
-      "rate_a": 0.0,
+      "rate_a": 1.0,
       "rate_b": 0.0,
-      "risk_difference": 0.0,
+      "risk_difference": 1.0,
       "relative_risk": null,
       "mcnemar": {
-        "b": 0,
+        "b": 78,
         "c": 0,
-        "discordant": 0,
-        "p_value": 1.0,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
         "test": "exact_mcnemar"
       },
       "permutation": {
-        "statistic": 0.0,
-        "p_value": 1.0,
-        "n_permutations": 0,
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
         "seed": 42,
         "test": "paired_permmutation"
       },
       "bootstrap_ci_95": {
-        "lower": 0.0,
-        "upper": 0.0,
+        "lower": 1.0,
+        "upper": 1.0,
         "confidence_level": 0.95,
         "n_iterations": 10000,
         "seed": 42
       },
-      "cohens_h": 0.0,
-      "effect_size": 0.0
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
     },
     {
-      "condition_a": "full_mvp",
+      "condition_a": "no_monitoring",
       "condition_b": "one_time_monitoring",
       "metric": "false_block",
       "pairing_unit": "candidate_id",

@@ -34,7 +34,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.17
+          "elapsed_seconds": 0.16
         },
         {
           "value": 0.6,
@@ -103,7 +103,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.16
+          "elapsed_seconds": 0.17
         },
         {
           "value": 0.9,
@@ -126,7 +126,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.17
+          "elapsed_seconds": 0.15
         },
         {
           "value": 0.95,
@@ -183,7 +183,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.16
         },
         {
           "value": 0.5,
@@ -206,7 +206,7 @@
             }
           },
           "num_trials": 180,
-          "elapsed_seconds": 0.15
+          "elapsed_seconds": 0.16
         },
         {
           "value": 0.7,
@@ -388,7 +388,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.24
+          "elapsed_seconds": 0.25
         },
         {
           "value": 3.0,
@@ -405,7 +405,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.34
+          "elapsed_seconds": 0.29
         },
         {
           "value": 5.0,
@@ -422,7 +422,7 @@
             }
           },
           "num_trials": 282,
-          "elapsed_seconds": 0.31
+          "elapsed_seconds": 0.3
         }
       ],
       "selected_value": 5.0
@@ -513,13 +513,13 @@
       "final_evaluation_split": "test"
     }
   },
-  "generated_at": "2026-08-04T11:15:12.414736+00:00",
+  "generated_at": "2026-08-04T22:22:54.209167+00:00",
   "provenance": {
-    "tested_code_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "artifact_generation_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "repository_clean": true,
+    "tested_code_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "artifact_generation_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "repository_clean": false,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T11:15:08.001711+00:00"
+    "generated_at": "2026-08-04T22:22:49.854552+00:00"
   }
 }

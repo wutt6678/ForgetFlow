@@ -1,5 +1,5 @@
 {
-  "run_id": "frozen_replay_28b0a55",
+  "run_id": "frozen_replay_9a9a171",
   "conditions": {
     "no_firewall": {
       "condition_name": "no_firewall",
@@ -58,7 +58,68 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.39605717700032983,
+      "elapsed_seconds": 0.3908109119947767,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
+    },
+    "exact_only": {
+      "condition_name": "exact_only",
+      "num_episodes": 666,
+      "metrics": {
+        "pu_rer": {
+          "value": 0.45098039215686275,
+          "numerator": 276,
+          "denominator": 612,
+          "reason": null,
+          "evaluable": true
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 54,
+          "denominator": 54,
+          "reason": null,
+          "evaluable": true
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_clean": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_at_risk": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
+          "population": "already_at_risk"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
+          "reason": null,
+          "evaluable": true
+        },
+        "paired_policy_utility_retention": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no_eligible_pairs",
+          "evaluable": false
+        }
+      },
+      "elapsed_seconds": 0.27460090701060835,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -119,17 +180,78 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6442189990048064,
+      "elapsed_seconds": 0.6263874610012863,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
-    "no_monitoring": {
-      "condition_name": "no_monitoring",
+    "no_embedding": {
+      "condition_name": "no_embedding",
       "num_episodes": 666,
       "metrics": {
         "pu_rer": {
-          "value": 0.45098039215686275,
-          "numerator": 276,
+          "value": 0.12745098039215685,
+          "numerator": 78,
+          "denominator": 612,
+          "reason": null,
+          "evaluable": true
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
+          "reason": null,
+          "evaluable": true
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_clean": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_at_risk": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
+          "population": "already_at_risk"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
+          "reason": null,
+          "evaluable": true
+        },
+        "paired_policy_utility_retention": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no_eligible_pairs",
+          "evaluable": false
+        }
+      },
+      "elapsed_seconds": 0.5728492449998157,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
+    },
+    "stateless": {
+      "condition_name": "stateless",
+      "num_episodes": 666,
+      "metrics": {
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 612,
           "reason": null,
           "evaluable": true
@@ -142,67 +264,6 @@
           "evaluable": true
         },
         "rr": {
-          "value": 1.0,
-          "numerator": 9,
-          "denominator": 9,
-          "reason": null,
-          "evaluable": true,
-          "population": "clean_or_verified"
-        },
-        "rr_clean": {
-          "value": 1.0,
-          "numerator": 9,
-          "denominator": 9,
-          "reason": null,
-          "evaluable": true,
-          "population": "clean_or_verified"
-        },
-        "rr_at_risk": {
-          "value": null,
-          "numerator": 0,
-          "denominator": 0,
-          "reason": "no at-risk pair attempts",
-          "evaluable": false,
-          "population": "already_at_risk"
-        },
-        "fbr": {
-          "value": 0.0,
-          "numerator": 0,
-          "denominator": 822,
-          "reason": null,
-          "evaluable": true
-        },
-        "paired_policy_utility_retention": {
-          "value": null,
-          "numerator": 0,
-          "denominator": 0,
-          "reason": "no_eligible_pairs",
-          "evaluable": false
-        }
-      },
-      "elapsed_seconds": 0.3324502350005787,
-      "failed_candidate_count": 0,
-      "failed_candidate_ids": []
-    },
-    "no_claim_detection": {
-      "condition_name": "no_claim_detection",
-      "num_episodes": 666,
-      "metrics": {
-        "pu_rer": {
-          "value": 0.0,
-          "numerator": 0,
-          "denominator": 612,
-          "reason": null,
-          "evaluable": true
-        },
-        "crr": {
-          "value": 0.0,
-          "numerator": 0,
-          "denominator": 54,
-          "reason": null,
-          "evaluable": true
-        },
-        "rr": {
           "value": 0.0,
           "numerator": 0,
           "denominator": 9,
@@ -241,7 +302,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.47310867899795994,
+      "elapsed_seconds": 0.6260764959879452,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -302,7 +363,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.4860236620006617,
+      "elapsed_seconds": 0.4867507159942761,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -363,11 +424,133 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6263606959983008,
+      "elapsed_seconds": 0.6664743160072248,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
+    },
+    "no_claim_detection": {
+      "condition_name": "no_claim_detection",
+      "num_episodes": 666,
+      "metrics": {
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 612,
+          "reason": null,
+          "evaluable": true
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 54,
+          "reason": null,
+          "evaluable": true
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_clean": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_at_risk": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
+          "population": "already_at_risk"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
+          "reason": null,
+          "evaluable": true
+        },
+        "paired_policy_utility_retention": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no_eligible_pairs",
+          "evaluable": false
+        }
+      },
+      "elapsed_seconds": 0.45580424000218045,
+      "failed_candidate_count": 0,
+      "failed_candidate_ids": []
+    },
+    "no_monitoring": {
+      "condition_name": "no_monitoring",
+      "num_episodes": 666,
+      "metrics": {
+        "pu_rer": {
+          "value": 0.45098039215686275,
+          "numerator": 276,
+          "denominator": 612,
+          "reason": null,
+          "evaluable": true
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 54,
+          "denominator": 54,
+          "reason": null,
+          "evaluable": true
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_clean": {
+          "value": 1.0,
+          "numerator": 9,
+          "denominator": 9,
+          "reason": null,
+          "evaluable": true,
+          "population": "clean_or_verified"
+        },
+        "rr_at_risk": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no at-risk pair attempts",
+          "evaluable": false,
+          "population": "already_at_risk"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 822,
+          "reason": null,
+          "evaluable": true
+        },
+        "paired_policy_utility_retention": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "reason": "no_eligible_pairs",
+          "evaluable": false
+        }
+      },
+      "elapsed_seconds": 0.45898813199892174,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     }
   },
   "baseline_condition": "no_firewall",
-  "generated_at": "2026-08-04T11:14:54.554973+00:00"
+  "generated_at": "2026-08-04T22:20:13.572456+00:00"
 }

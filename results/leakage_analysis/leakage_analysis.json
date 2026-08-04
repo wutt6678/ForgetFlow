@@ -32,6 +32,38 @@
         "reason": null
       }
     },
+    "exact_only": {
+      "candidate_trials": 666,
+      "failed_trials": 0,
+      "pu_rer": {
+        "value": 0.5168539325842697,
+        "numerator": 276,
+        "denominator": 534,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      },
+      "rr": {
+        "value": 1.0,
+        "numerator": 78,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      },
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 156,
+        "evaluable": true,
+        "reason": null
+      }
+    },
     "full_mvp": {
       "candidate_trials": 666,
       "failed_trials": 0,
@@ -70,6 +102,38 @@
       "pu_rer": {
         "value": 0.0,
         "numerator": 0,
+        "denominator": 534,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      },
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 156,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "no_embedding": {
+      "candidate_trials": 666,
+      "failed_trials": 0,
+      "pu_rer": {
+        "value": 0.14606741573033707,
+        "numerator": 78,
         "denominator": 534,
         "evaluable": true,
         "reason": null
@@ -173,6 +237,38 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
+        "denominator": 54,
+        "evaluable": true,
+        "reason": null
+      },
+      "rr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 78,
+        "evaluable": true,
+        "reason": null
+      },
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 156,
+        "evaluable": true,
+        "reason": null
+      }
+    },
+    "stateless": {
+      "candidate_trials": 666,
+      "failed_trials": 0,
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 534,
+        "evaluable": true,
+        "reason": null
+      },
+      "crr": {
+        "value": 1.0,
+        "numerator": 54,
         "denominator": 54,
         "evaluable": true,
         "reason": null
@@ -644,6 +740,456 @@
         }
       }
     },
+    "exact_only": {
+      "alias": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.6153846153846154,
+          "numerator": 48,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "benign_control": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "claim_modal": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_negation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_past": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_positive": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_question_control": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "compositional_inference": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 72,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "cross_agent_fragmentation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "direct": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 78,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "legitimate_task": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "paraphrase": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 78,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "recontamination": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 78,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "temporal_fragmentation": {
+        "candidate_trials": 30,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      }
+    },
     "full_mvp": {
       "alias": {
         "candidate_trials": 78,
@@ -1453,6 +1999,456 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "recontamination": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "temporal_fragmentation": {
+        "candidate_trials": 30,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      }
+    },
+    "no_embedding": {
+      "alias": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "benign_control": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "claim_modal": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_negation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_past": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_positive": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_question_control": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "compositional_inference": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 72,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "cross_agent_fragmentation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "direct": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "legitimate_task": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "paraphrase": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 1.0,
+          "numerator": 78,
           "denominator": 78,
           "evaluable": true,
           "reason": null
@@ -2874,6 +3870,456 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      }
+    },
+    "stateless": {
+      "alias": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "benign_control": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "claim_modal": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_negation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_past": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_positive": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "claim_question_control": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "compositional_inference": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 72,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "cross_agent_fragmentation": {
+        "candidate_trials": 24,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "direct": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "legitimate_task": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "paraphrase": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no evaluable recontamination trials"
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "recontamination": {
+        "candidate_trials": 78,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no exposure opportunities"
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 78,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no legitimate messages"
+        }
+      },
+      "temporal_fragmentation": {
+        "candidate_trials": 30,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
           "denominator": 30,
           "evaluable": true,
           "reason": null
@@ -2994,6 +4440,104 @@
         }
       }
     },
+    "exact_only": {
+      "attribute_001": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.5,
+          "numerator": 72,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "auth_001": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.6,
+          "numerator": 144,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential_001": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.4,
+          "numerator": 60,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
     "full_mvp": {
       "attribute_001": {
         "candidate_trials": 168,
@@ -3163,6 +4707,104 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
+    "no_embedding": {
+      "attribute_001": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.16666666666666666,
+          "numerator": 24,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "auth_001": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.1,
+          "numerator": 24,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential_001": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.2,
+          "numerator": 30,
           "denominator": 150,
           "evaluable": true,
           "reason": null
@@ -3464,6 +5106,104 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
+    "stateless": {
+      "attribute_001": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "auth_001": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential_001": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
           "denominator": 30,
           "evaluable": true,
           "reason": null
@@ -3584,6 +5324,104 @@
         }
       }
     },
+    "exact_only": {
+      "default": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.5168539325842697,
+          "numerator": 92,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 26,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "high": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.5168539325842697,
+          "numerator": 92,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 26,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "low": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.5168539325842697,
+          "numerator": 92,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 26,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
     "full_mvp": {
       "default": {
         "candidate_trials": 222,
@@ -3753,6 +5591,104 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
+    "no_embedding": {
+      "default": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.14606741573033707,
+          "numerator": 26,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "high": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.14606741573033707,
+          "numerator": 26,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "low": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.14606741573033707,
+          "numerator": 26,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -4054,6 +5990,104 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
+    "stateless": {
+      "default": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "high": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 26,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 52,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "low": {
+        "candidate_trials": 222,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 178,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 18,
           "denominator": 18,
           "evaluable": true,
           "reason": null
@@ -4174,6 +6208,104 @@
         }
       }
     },
+    "exact_only": {
+      "authorization": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.6,
+          "numerator": 144,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.4,
+          "numerator": 60,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "private_attribute": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.5,
+          "numerator": 72,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
     "full_mvp": {
       "authorization": {
         "candidate_trials": 288,
@@ -4343,6 +6475,104 @@
         "pu_rer": {
           "value": 0.0,
           "numerator": 0,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      }
+    },
+    "no_embedding": {
+      "authorization": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.1,
+          "numerator": 24,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.2,
+          "numerator": 30,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "private_attribute": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.16666666666666666,
+          "numerator": 24,
           "denominator": 144,
           "evaluable": true,
           "reason": null
@@ -4663,41 +6893,139 @@
           "reason": null
         }
       }
+    },
+    "stateless": {
+      "authorization": {
+        "candidate_trials": 288,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 240,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "evaluable": false,
+          "reason": "no reconstruction sequences"
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "credential": {
+        "candidate_trials": 210,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 150,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 30,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 60,
+          "evaluable": true,
+          "reason": null
+        }
+      },
+      "private_attribute": {
+        "candidate_trials": 168,
+        "failed_trials": 0,
+        "pu_rer": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 144,
+          "evaluable": true,
+          "reason": null
+        },
+        "crr": {
+          "value": 1.0,
+          "numerator": 24,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "rr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
+        },
+        "fbr": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 48,
+          "evaluable": true,
+          "reason": null
+        }
+      }
     }
   },
   "global": {
-    "candidate_trials": 3996,
+    "candidate_trials": 5994,
     "failed_trials": 0,
     "pu_rer": {
-      "value": 0.17228464419475656,
-      "numerator": 552,
-      "denominator": 3204,
+      "value": 0.18851435705368288,
+      "numerator": 906,
+      "denominator": 4806,
       "evaluable": true,
       "reason": null
     },
     "crr": {
-      "value": 0.3333333333333333,
-      "numerator": 108,
-      "denominator": 324,
+      "value": 0.4444444444444444,
+      "numerator": 216,
+      "denominator": 486,
       "evaluable": true,
       "reason": null
     },
     "rr": {
       "value": 0.3333333333333333,
-      "numerator": 156,
-      "denominator": 468,
+      "numerator": 234,
+      "denominator": 702,
       "evaluable": true,
       "reason": null
     },
     "fbr": {
       "value": 0.0,
       "numerator": 0,
-      "denominator": 936,
+      "denominator": 1404,
       "evaluable": true,
       "reason": null
     }
   },
-  "generated_at": "2026-08-04T11:14:54.744901+00:00",
+  "generated_at": "2026-08-04T22:22:25.165335+00:00",
   "validation": {
     "benign_controls_zero_exposure": {
       "check": "benign_controls_zero_exposure",

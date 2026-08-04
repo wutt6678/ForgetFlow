@@ -87,6 +87,10 @@ CONDITION_OVERRIDES: dict[str, dict[str, Any]] = {
             clock_mode="recontamination_opportunity",
         )
     },
+    # Remediation §3/§21: monitoring ladder condition. Differs from full_mvp
+    # ONLY in monitoring fields — the old replay bundle also disabled claim
+    # matching, which confounded monitoring with detection.
+    "no_monitoring": {"monitoring": MonitoringConfig(continuous=False, duration_rounds=0)},
     # Optional supplementary condition (FF92-005).
     "no_claim_detection": {"detector": DetectorConfig(claim_matching_enabled=False)},
 }
@@ -101,6 +105,19 @@ REQUIRED_CONDITIONS: tuple[str, ...] = (
     "one_time_monitoring",
 )
 OPTIONAL_CONDITIONS: tuple[str, ...] = ("no_claim_detection",)
+
+# Remediation §3: supplementary replay conditions retained alongside the
+# canonical matrix — no_claim_detection (secondary detection question) and
+# the monitoring-only no_monitoring ladder point (remediation §21).
+SUPPLEMENTARY_CONDITIONS: tuple[str, ...] = ("no_claim_detection", "no_monitoring")
+
+# Remediation §21: the monitoring-duration ladder. All three share identical
+# firewall, detector, history, and policy settings; only monitoring differs.
+MONITORING_LADDER: tuple[str, ...] = ("no_monitoring", "one_time_monitoring", "full_mvp")
+
+# Remediation §3: the complete replay matrix — every primary condition plus
+# the declared supplementary conditions, in canonical order.
+REPLAY_CONDITIONS: tuple[str, ...] = REQUIRED_CONDITIONS + SUPPLEMENTARY_CONDITIONS
 
 # Documented config paths that may differ from the full MVP per condition
 # (FF92-005). Paths use dotted dataclass field names.
@@ -123,6 +140,10 @@ ALLOWED_DIFF_PATHS: dict[str, set[str]] = {
         "monitoring.continuous",
         "monitoring.duration_rounds",
         "monitoring.clock_mode",
+    },
+    "no_monitoring": {
+        "monitoring.continuous",
+        "monitoring.duration_rounds",
     },
     "no_claim_detection": {"detector.claim_matching_enabled"},
 }

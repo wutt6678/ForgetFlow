@@ -4,12 +4,17 @@ Loads the frozen corpus and annotations, then replays each candidate
 through the TrustParadox agent under each experimental condition.
 Computes per-condition metrics and writes results.
 
-Conditions:
+Conditions (remediation §3 canonical replay matrix, sourced from the
+canonical condition builder in ``conditions.py``):
+- no_firewall: no firewall baseline
+- exact_only: exact-match detection only, no history/policy/monitoring
 - full_mvp: complete system (firewall + monitoring + claim detection)
-- no_monitoring: firewall only, no monitoring
-- no_claim_detection: firewall + monitoring, no claim detection
-- binary_policy: firewall + monitoring, binary policy
-- one_time_monitoring: firewall + monitoring, one-time only
+- no_embedding: full system minus the embedding detector
+- stateless: full system minus conversation history
+- binary_policy: full system with a binary policy engine
+- one_time_monitoring: bounded (one-opportunity) monitoring
+- no_claim_detection (supplementary): full system minus claim detection
+- no_monitoring (supplementary): monitoring ladder floor, monitoring only
 
 Exit criterion:
   All conditions produce results; metrics are computable for all.
@@ -42,15 +47,12 @@ from experiments.trustparadox_u.candidates import (  # noqa: E402
     load_frozen_corpus,
 )
 from experiments.trustparadox_u.chat_provider import trust_prompt_hash  # noqa: E402
-from experiments.trustparadox_u.conditions import CONDITION_OVERRIDES  # noqa: E402
-from experiments.trustparadox_u.config import (  # noqa: E402
-    DetectorConfig,
-    ExperimentConfig,
-    HistoryConfig,
-    MonitoringConfig,
-    PolicyConfig,
-    RunConfig,
+from experiments.trustparadox_u.conditions import (  # noqa: E402
+    CONDITION_OVERRIDES,
+    REPLAY_CONDITIONS,
+    build_condition,
 )
+from experiments.trustparadox_u.config import ExperimentConfig  # noqa: E402
 from experiments.trustparadox_u.dataset import (  # noqa: E402
     ExpectedSpec,
     MessageLabel,
@@ -87,34 +89,17 @@ SCENARIOS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "scenari
 # can be scored against them.
 BASELINE_CONDITION = "no_firewall"
 
-# Condition definitions — FF92-005: primary conditions are sourced from the
-# canonical condition module; no_monitoring is a supplementary replay bundle.
+# Remediation §4: the scripted-responder/fixed-embedding replay harness is
+# a diagnostic study class — its artifacts can never receive empirical
+# research validity, regardless of gate outcomes.
+REPLAY_STUDY_CLASS = "diagnostic"
+
+# Remediation §3: the replay matrix IS the canonical condition matrix.
+# Every condition — primary and supplementary — is defined once in
+# conditions.py and built by one canonical builder; nothing here may
+# redefine a condition's configuration.
 CONDITIONS: dict[str, dict[str, Any]] = {
-    "no_firewall": {
-        "firewall_enabled": False,
-    },
-    "full_mvp": {
-        "firewall_enabled": True,
-        **CONDITION_OVERRIDES["full_mvp"],
-    },
-    "no_monitoring": {
-        # Supplementary bundle: monitoring off plus claim detection off.
-        "firewall_enabled": True,
-        "monitoring": MonitoringConfig(continuous=False, duration_rounds=0),
-        "detector": DetectorConfig(claim_matching_enabled=False),
-    },
-    "no_claim_detection": {
-        "firewall_enabled": True,
-        **CONDITION_OVERRIDES["no_claim_detection"],
-    },
-    "binary_policy": {
-        "firewall_enabled": True,
-        **CONDITION_OVERRIDES["binary_policy"],
-    },
-    "one_time_monitoring": {
-        "firewall_enabled": True,
-        **CONDITION_OVERRIDES["one_time_monitoring"],
-    },
+    name: {"firewall_enabled": True, **CONDITION_OVERRIDES[name]} for name in REPLAY_CONDITIONS
 }
 
 
@@ -146,30 +131,14 @@ def build_config_for_condition(
     condition_name: str,
     seed: int = 42,
 ) -> ExperimentConfig:
-    """Build an ExperimentConfig for a given condition."""
-    overrides = CONDITIONS.get(condition_name)
-    if overrides is None:
-        raise ValueError(f"Unknown condition: {condition_name}")
+    """Build an ExperimentConfig for a given condition.
 
-    kwargs: dict[str, Any] = dict(
-        seed=seed,
-        repetitions=1,
-        # FF92-004: base is the full MVP component stack (all detectors on);
-        # condition overrides then change only their documented components.
-        detector=DetectorConfig(
-            exact_enabled=True,
-            entity_enabled=True,
-            embedding_enabled=True,
-            claim_matching_enabled=True,
-        ),
-        history=HistoryConfig(),
-        policy=PolicyConfig(),
-        monitoring=MonitoringConfig(),
-        run=RunConfig(mode="test"),
-        firewall_enabled=True,
-    )
-    kwargs.update(overrides)
-    return ExperimentConfig(**kwargs)
+    Remediation §3: delegates to the single canonical condition builder so
+    a condition name means the same configuration in every entry point.
+    """
+    if condition_name not in CONDITIONS:
+        raise ValueError(f"Unknown condition: {condition_name}")
+    return build_condition(condition_name, seed=seed)
 
 
 # ---------------------------------------------------------------------------
@@ -250,26 +219,64 @@ class TrialUnit:
     members: tuple[FrozenCandidate, ...]
 
 
+def _validate_sequence_members(members: Sequence[FrozenCandidate]) -> None:
+    """Remediation §11: one sequence_id must be one coherent sequence.
+
+    All members must share a single scenario, secret variant, trust level,
+    and attack family; step indices must be unique, contiguous from zero,
+    and match the declared step count.
+    """
+    first = members[0]
+    seq_id = first.sequence_id
+    seen_steps: set[int] = set()
+    for member in members:
+        if (
+            member.scenario_id != first.scenario_id
+            or member.secret_variant_id != first.secret_variant_id
+            or member.trust_level != first.trust_level
+            or member.attack_type != first.attack_type
+        ):
+            raise ValueError(
+                f"Sequence {seq_id!r} mixes incompatible members: "
+                f"{member.candidate_id!r} differs in scenario/variant/trust/attack"
+            )
+        if member.sequence_step_index in seen_steps:
+            raise ValueError(f"Sequence {seq_id!r} has duplicate step {member.sequence_step_index}")
+        seen_steps.add(member.sequence_step_index)
+    declared = first.sequence_step_count
+    if declared and len(members) != declared:
+        raise ValueError(f"Sequence {seq_id!r} has {len(members)} members, declared {declared}")
+    if sorted(seen_steps) != list(range(len(members))):
+        raise ValueError(
+            f"Sequence {seq_id!r} steps {sorted(seen_steps)} are not contiguous from 0"
+        )
+
+
 def partition_trial_units(candidates: Sequence[FrozenCandidate]) -> tuple[TrialUnit, ...]:
     """Group candidates into trial units.
 
-    One single-message candidate becomes one trial; all members sharing a
-    nonempty sequence_id (within one scenario/trust/type/variant) become one
-    reconstruction trial represented by its earliest step. Order is preserved.
+    Remediation §11: a candidate with a sequence_id is grouped solely by
+    ``("sequence", sequence_id)``; every other candidate forms its own
+    ``("candidate", candidate_id)`` unit — independent non-sequence
+    candidates in the same cell must never collapse into one trial.
+    Sequence membership is validated before grouping. Input order is kept.
     """
-    groups: dict[tuple[str, str, str, str, str], list[FrozenCandidate]] = {}
+    groups: dict[tuple[str, str], list[FrozenCandidate]] = {}
+    order: list[tuple[str, str]] = []
     for candidate in candidates:
-        key = (
-            candidate.scenario_id,
-            candidate.trust_level,
-            candidate.attack_type,
-            candidate.secret_variant_id,
-            candidate.sequence_id,
-        )
+        if candidate.sequence_id:
+            key: tuple[str, str] = ("sequence", candidate.sequence_id)
+        else:
+            key = ("candidate", candidate.candidate_id)
+        if key not in groups:
+            order.append(key)
         groups.setdefault(key, []).append(candidate)
 
     units: list[TrialUnit] = []
-    for members in groups.values():
+    for key in order:
+        members = groups[key]
+        if key[0] == "sequence":
+            _validate_sequence_members(members)
         ordered = tuple(sorted(members, key=lambda c: (c.sequence_step_index, c.candidate_id)))
         units.append(TrialUnit(representative=ordered[0], members=ordered))
     return tuple(units)
@@ -843,6 +850,25 @@ def run_condition(
     )
 
 
+def select_candidates(
+    candidates: Sequence[FrozenCandidate], limit: int
+) -> tuple[FrozenCandidate, ...]:
+    """Truncate a corpus prefix to whole trial units (remediation §11).
+
+    Slicing candidate rows directly can split a multi-step sequence, and
+    a partial sequence must never be replayed: selection therefore takes
+    complete trial units until the candidate limit is reached.
+    """
+    if limit <= 0:
+        return ()
+    selected: list[FrozenCandidate] = []
+    for unit in partition_trial_units(candidates):
+        if len(selected) >= limit:
+            break
+        selected.extend(unit.members)
+    return tuple(selected)
+
+
 def run_frozen_replay(
     corpus_path: Path | None = None,
     seed: int = 42,
@@ -867,7 +893,7 @@ def run_frozen_replay(
     candidates = list(index.candidates)
 
     if max_candidates_per_condition is not None:
-        candidates = candidates[:max_candidates_per_condition]
+        candidates = list(select_candidates(candidates, max_candidates_per_condition))
 
     print(f"  Loaded {len(candidates)} candidates")
 
@@ -914,6 +940,7 @@ def write_results(
     diagnostic: bool = False,
     git_commit: str = "",
     provenance: dict[str, Any] | None = None,
+    study_class: str = REPLAY_STUDY_CLASS,
 ) -> None:
     """Write frozen replay results to disk.
 
@@ -944,6 +971,7 @@ def write_results(
         candidate_count=candidate_count,
         git_commit=git_commit,
         provenance=provenance,
+        study_class=study_class,
     )
 
     # Shallow summary index (never the authoritative dataset).

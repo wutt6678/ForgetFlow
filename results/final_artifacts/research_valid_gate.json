@@ -1,24 +1,35 @@
 {
-  "schema_version": "2.0.0",
+  "schema_version": "3.0.0",
   "gate_name": "research_valid",
-  "verdict": "research_valid",
-  "research_valid": true,
-  "all_passed": true,
-  "repository_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
+  "study_class": "diagnostic",
+  "verdict": "diagnostic",
+  "research_status": "diagnostic",
+  "research_valid": false,
+  "synthetic_benchmark_valid": false,
+  "all_passed": false,
+  "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty",
   "provenance": {
-    "tested_code_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "artifact_generation_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-    "repository_clean": true,
+    "tested_code_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "artifact_generation_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57",
+    "repository_clean": false,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T11:17:36.359141+00:00"
+    "generated_at": "2026-08-04T22:26:08.098241+00:00"
   },
-  "generated_at": "2026-08-04T11:17:36.359156+00:00",
+  "generated_at": "2026-08-04T22:26:08.098255+00:00",
   "gates": {
     "repository_provenance": {
-      "passed": true,
-      "repository_commit": "28b0a55fc2c028c92a9ba907f90ff7773851e4fc",
-      "findings": []
+      "passed": false,
+      "repository_commit": "9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty",
+      "findings": [
+        "repository_tree_dirty",
+        "run_manifest.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
+        "run_manifest.json: dirty_artifact: repository_clean is not true",
+        "sweep_summary.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
+        "sweep_summary.json: dirty_artifact: repository_clean is not true",
+        "study_manifest.json: invalid_commit:current_commit='9a9a171c5d4de5395a34c9376dbc2044bd0fda57-dirty'",
+        "study_manifest.json: dirty_artifact: repository_clean is not true"
+      ]
     },
     "no_invalidated_artifacts": {
       "passed": true,
@@ -41,42 +52,48 @@
       "passed": true,
       "conditions": [
         "binary_policy",
+        "exact_only",
         "full_mvp",
         "no_claim_detection",
+        "no_embedding",
         "no_firewall",
         "no_monitoring",
-        "one_time_monitoring"
+        "one_time_monitoring",
+        "stateless"
       ],
       "findings": []
     },
     "replay_complete": {
       "passed": true,
-      "trial_count": 3996,
-      "expected_count": 3996,
-      "expected_member_count": 4608,
+      "trial_count": 5994,
+      "expected_count": 5994,
+      "expected_member_count": 6912,
       "findings": []
     },
     "metrics_recompute": {
       "passed": true,
       "conditions": [
         "binary_policy",
+        "exact_only",
         "full_mvp",
         "no_claim_detection",
+        "no_embedding",
         "no_firewall",
         "no_monitoring",
-        "one_time_monitoring"
+        "one_time_monitoring",
+        "stateless"
       ],
       "findings": []
     },
     "leakage_analysis_valid": {
       "passed": true,
-      "conditions": 6,
+      "conditions": 9,
       "validations_passed": 4,
       "findings": []
     },
     "statistical_analysis_valid": {
       "passed": true,
-      "num_comparisons": 46,
+      "num_comparisons": 38,
       "findings": []
     },
     "parameter_sweep_complete": {
@@ -86,7 +103,7 @@
     },
     "deterministic_reproducibility_validation": {
       "passed": true,
-      "num_conditions": 6,
+      "num_conditions": 9,
       "num_layers": 4,
       "num_mismatches": 0
     },
@@ -96,9 +113,14 @@
       "total": 6,
       "findings": []
     },
+    "empirical_study_design": {
+      "passed": false,
+      "study_class": "diagnostic",
+      "reason": "diagnostic study class: scripted responders and deterministic embeddings validate code paths, not empirical behavior"
+    },
     "tests_pass": {
       "passed": true,
-      "output": "1712 passed, 4 skipped in 11.68s"
+      "output": "1731 passed, 4 skipped in 10.68s"
     },
     "static_checks": {
       "passed": true,

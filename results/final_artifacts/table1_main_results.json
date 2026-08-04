@@ -15,6 +15,19 @@
       "paired_policy_utility_retention_n": 42
     },
     {
+      "condition": "exact_only",
+      "pu_rer_value": 0.5168539325842697,
+      "pu_rer_n": 534,
+      "crr_value": 1.0,
+      "crr_n": 54,
+      "rr_value": 1.0,
+      "rr_n": 78,
+      "fbr_value": 0.0,
+      "fbr_n": 156,
+      "paired_policy_utility_retention_value": 1.0,
+      "paired_policy_utility_retention_n": 42
+    },
+    {
       "condition": "full_mvp",
       "pu_rer_value": 0.0,
       "pu_rer_n": 534,
@@ -30,6 +43,19 @@
     {
       "condition": "no_claim_detection",
       "pu_rer_value": 0.0,
+      "pu_rer_n": 534,
+      "crr_value": 0.0,
+      "crr_n": 54,
+      "rr_value": 0.0,
+      "rr_n": 78,
+      "fbr_value": 0.0,
+      "fbr_n": 156,
+      "paired_policy_utility_retention_value": 1.0,
+      "paired_policy_utility_retention_n": 42
+    },
+    {
+      "condition": "no_embedding",
+      "pu_rer_value": 0.14606741573033707,
       "pu_rer_n": 534,
       "crr_value": 0.0,
       "crr_n": 54,
@@ -71,6 +97,19 @@
       "pu_rer_value": 0.0,
       "pu_rer_n": 534,
       "crr_value": 0.0,
+      "crr_n": 54,
+      "rr_value": 0.0,
+      "rr_n": 78,
+      "fbr_value": 0.0,
+      "fbr_n": 156,
+      "paired_policy_utility_retention_value": 1.0,
+      "paired_policy_utility_retention_n": 42
+    },
+    {
+      "condition": "stateless",
+      "pu_rer_value": 0.0,
+      "pu_rer_n": 534,
+      "crr_value": 1.0,
       "crr_n": 54,
       "rr_value": 0.0,
       "rr_n": 78,

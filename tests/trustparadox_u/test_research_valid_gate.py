@@ -22,6 +22,7 @@ from experiments.trustparadox_u.research_valid_gate import (  # noqa: E402
     check_annotations_valid,
     check_conditions_valid,
     check_corpus_valid,
+    check_empirical_study_design,
     check_metrics_recompute,
     check_no_invalidated_artifacts,
     check_replay_complete,
@@ -145,33 +146,59 @@ class TestFileExistenceIsNotCertification:
 
 
 class TestVerdictLogic:
-    """FF92-021: research_valid only when every gate passes."""
+    """Remediation §31: staged statuses replace the binary research_valid."""
 
     def _gates(self, **overrides: dict[str, object]) -> dict[str, dict[str, object]]:
         gates: dict[str, dict[str, object]] = {name: {"passed": True} for name in SUBSTANTIVE_GATES}
+        gates["empirical_study_design"] = {"passed": False, "study_class": "diagnostic"}
         gates["tests_pass"] = {"passed": True}
         gates["static_checks"] = {"passed": True}
         for name, update in overrides.items():
             gates[name].update(update)
         return gates
 
-    def test_all_pass_is_research_valid(self) -> None:
-        assert verdict_for(self._gates()) == "research_valid"
+    def test_all_pass_diagnostic_capped_at_synthetic_benchmark(self) -> None:
+        # A deterministic replay passes every substantive gate and the
+        # suite, but the empirical design gate fails by design.
+        assert verdict_for(self._gates(), study_class="diagnostic") == ("synthetic_benchmark_valid")
 
-    def test_not_run_checks_cap_verdict_at_release_candidate(self) -> None:
+    def test_empirical_design_failure_blocks_release_candidate(self) -> None:
+        gates = self._gates(empirical_study_design={"passed": False})
+        assert verdict_for(gates, study_class="empirical_replay") == "synthetic_benchmark_valid"
+
+    def test_empirical_replay_with_design_gate_reaches_empirical_tier(self) -> None:
+        gates = self._gates(empirical_study_design={"passed": True})
+        assert verdict_for(gates, study_class="empirical_replay") == "release_candidate"
+
+    def test_not_run_checks_cap_verdict_at_diagnostic_valid(self) -> None:
         gates = self._gates(
             tests_pass={"passed": False, "not_run": True},
             static_checks={"passed": False, "not_run": True},
         )
-        assert verdict_for(gates) == "release_candidate"
+        assert verdict_for(gates, study_class="diagnostic") == "diagnostic_valid"
 
     def test_failed_directional_gate_is_diagnostic(self) -> None:
         gates = self._gates(metrics_recompute={"passed": False})
-        assert verdict_for(gates) == "diagnostic"
+        assert verdict_for(gates, study_class="diagnostic") == "diagnostic"
 
     def test_not_run_substantive_gate_is_diagnostic(self) -> None:
         gates = self._gates(corpus_valid={"passed": False, "not_run": True})
-        assert verdict_for(gates) == "diagnostic"
+        assert verdict_for(gates, study_class="diagnostic") == "diagnostic"
+
+
+class TestEmpiricalStudyDesignGate:
+    """Remediation §31: deterministic corpus can never pass the design gate."""
+
+    def test_diagnostic_corpus_fails_design_gate(self) -> None:
+        result = check_empirical_study_design()
+        assert result["passed"] is False
+        assert result["study_class"] == "diagnostic"
+
+    def test_full_result_never_claims_research_valid_for_diagnostic_run(self) -> None:
+        result = run_research_valid_gate()
+        assert result["study_class"] == "diagnostic"
+        assert result["research_valid"] is False
+        assert result["gates"]["empirical_study_design"]["passed"] is False
 
 
 class TestTestsGateNeverAutoPasses:
@@ -188,6 +215,7 @@ class TestTestsGateNeverAutoPasses:
         assert result["gates"]["tests_pass"]["passed"] is False
         assert result["gates"]["static_checks"]["passed"] is False
         assert result["verdict"] != "research_valid"
+        assert result["research_valid"] is False
 
 
 class TestProvenanceGate:

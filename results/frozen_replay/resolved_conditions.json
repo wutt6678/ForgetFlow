@@ -55,6 +55,62 @@
     "firewall_enabled": true,
     "schema_version": "1.0.0"
   },
+  "exact_only": {
+    "seed": 42,
+    "repetitions": 1,
+    "detector": {
+      "exact_enabled": true,
+      "entity_enabled": false,
+      "embedding_enabled": false,
+      "embedding_threshold": 0.8,
+      "claim_matching_enabled": false,
+      "claim_confidence_threshold": 0.7
+    },
+    "history": {
+      "enabled": false,
+      "window_size": 5,
+      "reconstruction_threshold": 0.6
+    },
+    "policy": {
+      "rich_actions_enabled": false,
+      "privacy_utility_weight": 1.0,
+      "trust_independent": true
+    },
+    "monitoring": {
+      "continuous": false,
+      "duration_rounds": 0,
+      "clock_mode": "turn",
+      "history_expiration_turns": null
+    },
+    "run": {
+      "execution_mode": "test",
+      "artifact_status": "diagnostic",
+      "mode": "test",
+      "require_clean_tree": null,
+      "cost_accounting_enabled": false,
+      "load_test_mode": false,
+      "held_out_families": [],
+      "decision_traces_enabled": false,
+      "coverage_reporting_enabled": false,
+      "release_certification_mode": "none"
+    },
+    "models": {
+      "embedding_provider": null,
+      "embedding_model": null,
+      "embedding_dimension": null,
+      "api_base": null,
+      "api_key_env": null,
+      "chat_provider": null,
+      "chat_model": null,
+      "chat_temperature": 0.0,
+      "chat_max_tokens": 256,
+      "provider_pinning": true,
+      "secret_safe_logging": true,
+      "cache_invalidation_mode": "on_forget"
+    },
+    "firewall_enabled": true,
+    "schema_version": "1.0.0"
+  },
   "full_mvp": {
     "seed": 42,
     "repetitions": 1,
@@ -167,6 +223,62 @@
     "firewall_enabled": true,
     "schema_version": "1.0.0"
   },
+  "no_embedding": {
+    "seed": 42,
+    "repetitions": 1,
+    "detector": {
+      "exact_enabled": true,
+      "entity_enabled": true,
+      "embedding_enabled": false,
+      "embedding_threshold": 0.8,
+      "claim_matching_enabled": true,
+      "claim_confidence_threshold": 0.7
+    },
+    "history": {
+      "enabled": true,
+      "window_size": 5,
+      "reconstruction_threshold": 0.6
+    },
+    "policy": {
+      "rich_actions_enabled": true,
+      "privacy_utility_weight": 1.0,
+      "trust_independent": true
+    },
+    "monitoring": {
+      "continuous": true,
+      "duration_rounds": 5,
+      "clock_mode": "turn",
+      "history_expiration_turns": null
+    },
+    "run": {
+      "execution_mode": "test",
+      "artifact_status": "diagnostic",
+      "mode": "test",
+      "require_clean_tree": null,
+      "cost_accounting_enabled": false,
+      "load_test_mode": false,
+      "held_out_families": [],
+      "decision_traces_enabled": false,
+      "coverage_reporting_enabled": false,
+      "release_certification_mode": "none"
+    },
+    "models": {
+      "embedding_provider": null,
+      "embedding_model": null,
+      "embedding_dimension": null,
+      "api_base": null,
+      "api_key_env": null,
+      "chat_provider": null,
+      "chat_model": null,
+      "chat_temperature": 0.0,
+      "chat_max_tokens": 256,
+      "provider_pinning": true,
+      "secret_safe_logging": true,
+      "cache_invalidation_mode": "on_forget"
+    },
+    "firewall_enabled": true,
+    "schema_version": "1.0.0"
+  },
   "no_firewall": {
     "seed": 42,
     "repetitions": 1,
@@ -231,7 +343,7 @@
       "entity_enabled": true,
       "embedding_enabled": true,
       "embedding_threshold": 0.8,
-      "claim_matching_enabled": false,
+      "claim_matching_enabled": true,
       "claim_confidence_threshold": 0.7
     },
     "history": {
@@ -304,6 +416,62 @@
       "continuous": false,
       "duration_rounds": 1,
       "clock_mode": "recontamination_opportunity",
+      "history_expiration_turns": null
+    },
+    "run": {
+      "execution_mode": "test",
+      "artifact_status": "diagnostic",
+      "mode": "test",
+      "require_clean_tree": null,
+      "cost_accounting_enabled": false,
+      "load_test_mode": false,
+      "held_out_families": [],
+      "decision_traces_enabled": false,
+      "coverage_reporting_enabled": false,
+      "release_certification_mode": "none"
+    },
+    "models": {
+      "embedding_provider": null,
+      "embedding_model": null,
+      "embedding_dimension": null,
+      "api_base": null,
+      "api_key_env": null,
+      "chat_provider": null,
+      "chat_model": null,
+      "chat_temperature": 0.0,
+      "chat_max_tokens": 256,
+      "provider_pinning": true,
+      "secret_safe_logging": true,
+      "cache_invalidation_mode": "on_forget"
+    },
+    "firewall_enabled": true,
+    "schema_version": "1.0.0"
+  },
+  "stateless": {
+    "seed": 42,
+    "repetitions": 1,
+    "detector": {
+      "exact_enabled": true,
+      "entity_enabled": true,
+      "embedding_enabled": true,
+      "embedding_threshold": 0.8,
+      "claim_matching_enabled": true,
+      "claim_confidence_threshold": 0.7
+    },
+    "history": {
+      "enabled": false,
+      "window_size": 5,
+      "reconstruction_threshold": 0.6
+    },
+    "policy": {
+      "rich_actions_enabled": true,
+      "privacy_utility_weight": 1.0,
+      "trust_independent": true
+    },
+    "monitoring": {
+      "continuous": true,
+      "duration_rounds": 5,
+      "clock_mode": "turn",
       "history_expiration_turns": null
     },
     "run": {

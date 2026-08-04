@@ -25,6 +25,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.conditions import REPLAY_CONDITIONS  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -254,17 +256,10 @@ def build_study_manifest(
             }
             for name, data in tables.items()
         },
-        "conditions": [
-            "no_firewall",
-            "full_mvp",
-            "no_monitoring",
-            "no_claim_detection",
-            "binary_policy",
-            "one_time_monitoring",
-        ],
+        "conditions": list(REPLAY_CONDITIONS),
         "exit_criteria": {
             "all_tables_built": not any("error" in data for data in tables.values()),
-            "all_conditions_run": len(table1.get("rows", [])) >= 6,
+            "all_conditions_run": len(table1.get("rows", [])) >= len(REPLAY_CONDITIONS),
             "all_metrics_computed": "error" not in table1 and bool(table1.get("rows")),
             "paired_statistics_available": table4.get("num_comparisons", 0) > 0,
             "leakage_breakdown_available": bool(table2.get("rows")),

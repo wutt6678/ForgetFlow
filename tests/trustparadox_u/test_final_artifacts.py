@@ -9,6 +9,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.conditions import REPLAY_CONDITIONS  # noqa: E402
 from experiments.trustparadox_u.final_artifacts import (  # noqa: E402
     build_annotation_summary,
     build_corpus_summary,
@@ -27,20 +28,13 @@ class TestTable1MainResults:
     def test_has_rows(self) -> None:
         t1 = build_table1_main_results()
         assert "rows" in t1
-        # FF92-024: the no_firewall baseline joins the five firewall conditions.
-        assert len(t1["rows"]) == 6
+        # Remediation §3: one row per canonical replay condition.
+        assert len(t1["rows"]) == len(REPLAY_CONDITIONS)
 
     def test_all_conditions_present(self) -> None:
         t1 = build_table1_main_results()
         conditions = {r["condition"] for r in t1["rows"]}
-        assert conditions == {
-            "no_firewall",
-            "full_mvp",
-            "no_monitoring",
-            "no_claim_detection",
-            "binary_policy",
-            "one_time_monitoring",
-        }
+        assert conditions == set(REPLAY_CONDITIONS)
 
 
 class TestTable2LeakageBreakdown:

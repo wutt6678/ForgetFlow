@@ -32,6 +32,7 @@ from experiments.trustparadox_u.frozen_replay import (  # noqa: E402
     partition_trial_units,
     run_condition,
     run_frozen_replay,
+    select_candidates,
     target_spec_from_episode,
     write_results,
 )
@@ -119,7 +120,7 @@ class TestRunCondition:
     @pytest.fixture
     def small_candidates(self):
         index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
-        return list(index.candidates)[:6]
+        return list(select_candidates(list(index.candidates), 6))
 
     def test_run_condition_produces_results(self, scenario_episodes, small_candidates) -> None:
         result = run_condition("full_mvp", small_candidates, scenario_episodes, seed=42)
@@ -279,6 +280,61 @@ class TestTrialConstructionFF92001:
         assert units[0].members == tuple(
             sorted(one_sequence, key=lambda c: (c.sequence_step_index, c.candidate_id))
         )
+
+    @staticmethod
+    def _sequence_members(corpus_candidates) -> list[FrozenCandidate]:
+        members = [
+            c
+            for c in corpus_candidates
+            if c.attack_type == "temporal_fragmentation" and c.sequence_id
+        ]
+        first = members[0]
+        return [
+            c
+            for c in members
+            if c.sequence_id == first.sequence_id and c.trust_level == first.trust_level
+        ]
+
+    def test_independent_samples_in_same_cell_are_separate_units(self, corpus_candidates) -> None:
+        # Remediation §11: independent (non-sequence) samples are keyed by
+        # candidate_id — two samples in the same cell stay two trial units.
+        singles = [
+            c
+            for c in corpus_candidates
+            if not c.sequence_id
+            and c.scenario_id == "credential_001"
+            and c.attack_type == "direct"
+            and c.trust_level == "default"
+        ][:2]
+        assert len(singles) == 2
+        units = partition_trial_units(singles)
+        assert len(units) == 2
+        assert {u.representative.candidate_id for u in units} == {c.candidate_id for c in singles}
+
+    def test_sequence_with_mismatched_member_raises(self, corpus_candidates) -> None:
+        one_sequence = self._sequence_members(corpus_candidates)
+        intruder = replace(one_sequence[-1], trust_level="elevated")
+        with pytest.raises(ValueError, match="mixes incompatible members"):
+            partition_trial_units([*one_sequence[:-1], intruder])
+
+    def test_sequence_with_duplicate_step_raises(self, corpus_candidates) -> None:
+        one_sequence = self._sequence_members(corpus_candidates)
+        duplicate = replace(one_sequence[-1], candidate_id="dup-id")
+        with pytest.raises(ValueError, match="duplicate step"):
+            partition_trial_units([*one_sequence, duplicate])
+
+    def test_sequence_with_wrong_declared_count_raises(self, corpus_candidates) -> None:
+        one_sequence = self._sequence_members(corpus_candidates)
+        with pytest.raises(ValueError, match="declared"):
+            partition_trial_units(one_sequence[:-1])
+
+    def test_sequence_with_noncontiguous_steps_raises(self, corpus_candidates) -> None:
+        one_sequence = self._sequence_members(corpus_candidates)
+        jumped = replace(
+            one_sequence[-1], sequence_step_index=one_sequence[-1].sequence_step_index + 5
+        )
+        with pytest.raises(ValueError, match="not contiguous"):
+            partition_trial_units([*one_sequence[:-1], jumped])
 
 
 class TestParaphraseFidelityFF92016:
@@ -667,7 +723,7 @@ class TestTrialArtifactsFF92015:
 
     def test_every_condition_candidate_pair_present(self, tmp_path: Path) -> None:
         index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
-        candidates = list(index.candidates)[:3]
+        candidates = list(select_candidates(list(index.candidates), 3))
         expected_units = len(partition_trial_units(candidates))
         results = run_frozen_replay(max_candidates_per_condition=3)
         write_results(results, tmp_path, run_id="test")
@@ -722,7 +778,7 @@ class TestFailFastFF92025:
     @pytest.fixture
     def small_candidates(self):
         index = load_frozen_corpus(CORPUS_DIR / "frozen_corpus.jsonl")
-        return list(index.candidates)[:3]
+        return list(select_candidates(list(index.candidates), 3))
 
     def test_research_mode_raises_on_failure(self, small_candidates) -> None:
         with pytest.raises(ValueError, match="No base scenario episode loaded"):
