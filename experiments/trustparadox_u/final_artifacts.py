@@ -214,24 +214,36 @@ def build_study_manifest(
     corpus_summary: dict[str, Any],
     annotation_summary: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build the final study manifest."""
-    import subprocess
+    """Build the final study manifest.
 
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=_PROJECT_ROOT,
+    FF92-023: provenance is snapshotted via the certification helper so the
+    manifest carries tested/artifact commits and repository cleanliness.
+    FF92-021: exit criteria are derived from the artifacts actually built,
+    never hardcoded; formal certification lives in research_valid_gate.json.
+    """
+    from experiments.trustparadox_u.artifact_provenance import (
+        build_certification_provenance,
+        code_tree_is_clean,
+    )
+
+    provenance = build_certification_provenance(repository_clean=code_tree_is_clean())
+
+    def _table(prefix: str) -> dict[str, Any]:
+        return next(
+            (d for d in tables.values() if str(d.get("table", "")).startswith(prefix)),
+            {},
         )
-        commit = result.stdout.strip()
-    except Exception:
-        commit = "unknown"
+
+    table1 = _table("Table 1")
+    table2 = _table("Table 2")
+    table3 = _table("Table 3")
+    table4 = _table("Table 4")
 
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "study_name": "TrustParadox-U Primary Study",
-        "repository_commit": commit,
+        "repository_commit": provenance["artifact_generation_commit"],
+        "provenance": provenance,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "corpus": corpus_summary,
         "annotations": annotation_summary,
@@ -243,6 +255,7 @@ def build_study_manifest(
             for name, data in tables.items()
         },
         "conditions": [
+            "no_firewall",
             "full_mvp",
             "no_monitoring",
             "no_claim_detection",
@@ -250,12 +263,14 @@ def build_study_manifest(
             "one_time_monitoring",
         ],
         "exit_criteria": {
-            "all_conditions_run": True,
-            "all_metrics_computed": True,
-            "paired_statistics_available": True,
-            "leakage_breakdown_available": True,
-            "parameter_sweep_complete": True,
+            "all_tables_built": not any("error" in data for data in tables.values()),
+            "all_conditions_run": len(table1.get("rows", [])) >= 6,
+            "all_metrics_computed": "error" not in table1 and bool(table1.get("rows")),
+            "paired_statistics_available": table4.get("num_comparisons", 0) > 0,
+            "leakage_breakdown_available": bool(table2.get("rows")),
+            "parameter_sweep_complete": table3.get("num_parameters", 0) > 0,
         },
+        "certification": "see research_valid_gate.json for the research-valid verdict",
     }
 
 
@@ -297,6 +312,11 @@ def main() -> int:
     """Produce final artifacts and paper tables."""
     print("Iteration 14: Final Artifacts and Paper Tables")
     print("=" * 50)
+
+    # FF92-022: refuse to build tables from invalidated inputs.
+    from experiments.trustparadox_u.invalidation import reject_invalidated_inputs
+
+    reject_invalidated_inputs([RESULTS_DIR, SWEEP_DIR, LEAKAGE_DIR, STATS_DIR])
 
     # Build all tables
     tables = {
@@ -391,6 +411,11 @@ def main() -> int:
     for criterion, passed in study_manifest["exit_criteria"].items():
         status = "PASS" if passed else "FAIL"
         md_lines.append(f"- {criterion}: {status}")
+    md_lines.append("")
+    md_lines.append(
+        "Research-valid certification is decided by `research_valid_gate.json`, "
+        "not by this manifest."
+    )
 
     (FINAL_DIR / "study_summary.md").write_text("\n".join(md_lines))
 
@@ -402,8 +427,13 @@ def main() -> int:
         n_rows = len(data.get("rows", []))
         print(f"  {name}: {n_rows} rows")
 
-    print("\nExit criterion: PASSED (all tables generated and consistent)")
-    return 0
+    all_passed = all(study_manifest["exit_criteria"].values())
+    status = "PASSED" if all_passed else "FAILED"
+    print(
+        f"\nExit criterion: {status} (tables built: "
+        f"{sum(not any(k == 'error' for k in d) for d in tables.values())}/{len(tables)})"
+    )
+    return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
