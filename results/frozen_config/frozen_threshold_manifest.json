@@ -4,8 +4,8 @@
     "29",
     "30"
   ],
-  "study_version": "1.1.0",
-  "frozen_at": "2026-08-05T00:31:16.059431+00:00",
+  "study_version": "1.2.0",
+  "frozen_at": "2026-08-05T08:07:03.431838+00:00",
   "base_condition": "full_mvp",
   "parameters": {
     "detector.exact_enabled": {
@@ -145,8 +145,8 @@
     "pilot_private_attribute.yaml": "e4b6b815d08897bad6342c52b499ed89a31207a41e2efcfd11f7c3394cd1a0f3"
   },
   "corpus": {
-    "corpus_version": "2.0",
-    "corpus_sha256": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+    "corpus_version": "2.1",
+    "corpus_sha256": "33f426f3c1422c75f13b865e057c3ad8c71519a6b132f588229004b745ef834d",
     "generation_model": "deterministic_template",
     "prompt_template_hashes": [
       "218894af752dffcc",
@@ -159,10 +159,10 @@
       "db3080b3cec9a59e",
       "eed076c40e645bb6"
     ],
-    "annotation_manifest_sha256": "b2bb9e570c8cb51cb21ef31eb47adb92429a1f08df96a45bffcd6becea8992de"
+    "annotation_manifest_sha256": "9b8d2e78a244aa4976097ec604cf5db8850ffed50b5b631f9d974b87d9eb7f79"
   },
   "protocol": {
-    "protocol_version": "1.1.0",
+    "protocol_version": "1.2.0",
     "primary_hypotheses": [
       {
         "question_id": "RQ1",
@@ -186,22 +186,24 @@
       },
       {
         "question_id": "RQ6",
-        "statement": "Is enforcement invariant to trust level after controlling for the candidate message presented to the firewall?"
+        "statement": "For identical candidate content, does the firewall produce the same privacy, action, and utility outcomes under low, default, and high trust labels?"
       },
       {
         "question_id": "RQ7",
-        "statement": "Does trust level alter the behavior of the message-generating agent before firewall enforcement?"
+        "statement": "Before firewall enforcement, does trust level alter the generating agent's disclosure behavior?"
       }
     ]
   },
   "provenance": {
-    "tested_code_commit": "255a01d31e07d59dbe5689240f1d9303d658dec4",
-    "artifact_generation_commit": "255a01d31e07d59dbe5689240f1d9303d658dec4",
+    "tested_code_commit": "ccb90442ae2e0cb6520fce60afaca914441677dd",
+    "artifact_generation_commit": "ccb90442ae2e0cb6520fce60afaca914441677dd",
     "repository_clean": true,
-    "workflow_run_id": "",
-    "workflow_attempt": "",
-    "generated_at": "2026-08-05T00:31:15.973887+00:00",
-    "artifact_generation_tree": "4d795e773c7727d7baafd49b264122b8e5817b95b35fbbfd5328d01120f20c87",
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "protocol_version": "1.2.0",
+    "study_version": "1.2.0",
+    "generated_at": "2026-08-05T08:07:03.347728+00:00",
+    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   }
