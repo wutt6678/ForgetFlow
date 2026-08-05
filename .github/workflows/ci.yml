@@ -185,7 +185,7 @@ jobs:
             --require-manifest-valid \
             --require-all-assertions \
             --require-directional-checks \
-            --require-research-valid
+            --minimum-research-status synthetic_benchmark_valid
 
       - name: Record CI provenance
         if: always()
@@ -241,7 +241,7 @@ jobs:
             --require-manifest-valid \
             --require-all-assertions \
             --require-directional-checks \
-            --require-research-valid
+            --minimum-research-status synthetic_benchmark_valid
 
       - name: Record CI provenance
         if: always()
@@ -385,7 +385,7 @@ jobs:
             --require-manifest-valid \
             --require-all-assertions \
             --require-directional-checks \
-            --require-research-valid
+            --minimum-research-status synthetic_benchmark_valid
 
       - name: Re-validate multi-target smoke (audit gate)
         id: reval_multi
@@ -399,7 +399,7 @@ jobs:
             --require-manifest-valid \
             --require-all-assertions \
             --require-directional-checks \
-            --require-research-valid
+            --minimum-research-status synthetic_benchmark_valid
 
       - name: Write CI manifest
         env:

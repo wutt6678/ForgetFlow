@@ -197,7 +197,7 @@ def _args(**overrides: bool | str | None) -> argparse.Namespace:
         "require_all_conditions": False,
         "require_artifacts_complete": False,
         "require_directional_checks": False,
-        "require_research_valid": False,
+        "minimum_research_status": None,
         "require_status": None,
     }
     base.update(overrides)
@@ -222,17 +222,20 @@ def _research_valid_summary(**overrides: Any) -> dict[str, Any]:
 
 
 class TestValidatorStatusCrossCheck:
-    """--require-research-valid cross-checks the published execution_status."""
+    """--minimum-research-status enforces a staged (§31) tier."""
 
     def test_research_valid_gates_and_status_pass(self) -> None:
-        failures = validate(_research_valid_summary(), _args(require_research_valid=True))
+        failures = validate(
+            _research_valid_summary(),
+            _args(minimum_research_status=SYNTHETIC_BENCHMARK_VALID),
+        )
         assert failures == []
 
     def test_status_too_low_for_passing_gates_fails(self) -> None:
         # Gates all pass but the runner only claimed DIAGNOSTIC_VALID.
         failures = validate(
             _research_valid_summary(execution_status=DIAGNOSTIC_VALID),
-            _args(require_research_valid=True),
+            _args(minimum_research_status=SYNTHETIC_BENCHMARK_VALID),
         )
         assert any("execution_status" in f for f in failures)
 
@@ -240,15 +243,25 @@ class TestValidatorStatusCrossCheck:
         # Dirty repo breaks research validity but status claims RESEARCH_VALID.
         failures = validate(
             _research_valid_summary(repository_clean=False),
-            _args(require_research_valid=True),
+            _args(minimum_research_status=SYNTHETIC_BENCHMARK_VALID),
         )
-        assert any("research_valid is false" in f for f in failures)
+        assert any("does not meet minimum" in f for f in failures)
         assert any("execution_status" in f for f in failures)
+
+    def test_published_research_status_overclaim_fails(self) -> None:
+        # A published staged tier above what the gates justify is rejected.
+        failures = validate(
+            _research_valid_summary(
+                repository_clean=False, research_status="synthetic_benchmark_valid"
+            ),
+            _args(minimum_research_status=SYNTHETIC_BENCHMARK_VALID),
+        )
+        assert any("research-valid gates fail" in f for f in failures)
 
     def test_unknown_status_tier_fails(self) -> None:
         failures = validate(
             _research_valid_summary(execution_status="GO"),
-            _args(require_research_valid=True),
+            _args(minimum_research_status=SYNTHETIC_BENCHMARK_VALID),
         )
         assert any("not a known tier" in f for f in failures)
 

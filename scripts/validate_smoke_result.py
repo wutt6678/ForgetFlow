@@ -30,8 +30,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from experiments.trustparadox_u.status import (  # noqa: E402
+    DIAGNOSTIC_VALID_RS,
+    RESEARCH_STATUS_NOT_VALID,
+    RESEARCH_STATUS_ORDER,
     RESEARCH_VALID,
     STATUS_ORDER,
+    SYNTHETIC_BENCHMARK_VALID,
+    research_status_at_least,
     status_at_least,
 )
 
@@ -100,9 +105,11 @@ def validate(summary: dict[str, Any], args: argparse.Namespace) -> list[str]:
     if args.require_directional_checks and not directional_checks_pass:
         failures.append("directional_checks_pass is false")
 
-    if args.require_research_valid:
-        # Research validity is the conjunction of every component gate plus a
-        # clean repository.  A non-evaluable/diagnostic run is not research valid.
+    if args.minimum_research_status:
+        # SC-011: staged research statuses (remediation §31) replace the
+        # binary research_valid label.  The component gates determine which
+        # tier the run actually reaches; a smoke run is diagnostic-class, so
+        # synthetic_benchmark_valid is its ceiling.
         research_valid = (
             audit_valid
             and manifest_valid
@@ -114,9 +121,25 @@ def validate(summary: dict[str, Any], args: argparse.Namespace) -> list[str]:
             and repository_clean
         )
         status = _field(summary, "status", "top_line_status", default="")
-        if not research_valid:
+
+        published = _field(summary, "research_status", default=None)
+        if published is not None:
+            staged = str(published)
+            if staged not in RESEARCH_STATUS_ORDER:
+                failures.append(f"research_status is not a known staged tier: {staged!r}")
+            elif research_status_at_least(staged, SYNTHETIC_BENCHMARK_VALID) and not research_valid:
+                failures.append(f"research_status={staged!r} but research-valid gates fail")
+        elif research_valid:
+            staged = SYNTHETIC_BENCHMARK_VALID
+        elif artifact_set_complete:
+            staged = DIAGNOSTIC_VALID_RS
+        else:
+            staged = RESEARCH_STATUS_NOT_VALID
+
+        if not research_status_at_least(staged, args.minimum_research_status):
             failures.append(
-                "research_valid is false "
+                f"research status {staged!r} does not meet minimum "
+                f"{args.minimum_research_status!r} "
                 f"(status={status!r}, audit_valid={audit_valid}, "
                 f"manifest_valid={manifest_valid}, "
                 f"all_assertions_passed={all_assertions_passed}, "
@@ -164,7 +187,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--require-all-conditions", action="store_true")
     parser.add_argument("--require-artifacts-complete", action="store_true")
     parser.add_argument("--require-directional-checks", action="store_true")
-    parser.add_argument("--require-research-valid", action="store_true")
+    parser.add_argument(
+        "--minimum-research-status",
+        choices=list(RESEARCH_STATUS_ORDER),
+        default=None,
+        help="Require the staged research status (§31) to meet at least this tier.",
+    )
     parser.add_argument(
         "--require-status",
         choices=list(STATUS_ORDER),
