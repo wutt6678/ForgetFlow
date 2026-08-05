@@ -175,8 +175,11 @@ certifying manifest therefore records three identities:
 | Workspace | `artifact_generation_tree` | SHA-256 over every source path (`marble`, `experiments`, `scripts`, `tests`, `data`, `doc`) plus `pyproject.toml`, `poetry.lock`, `environment.yml` |
 | Environment | `environment_lock_hash` | SHA-256 of the dependency lock file |
 
-The storage commit (`artifact_storage_commit`) is derived from git history
-at validation time.  Certification rules:
+The storage commit (`artifact_storage_commit`) is unknowable at generation
+time — it is the commit that later *stores* the artifact.  Scientific
+artifacts therefore never embed one; the authoritative storage record is
+the release's `STORAGE_PROVENANCE.json` sidecar (see the release
+provenance model below).  Certification rules:
 
 - `tested_code_commit == artifact_generation_commit`;
 - `repository_clean == true` (clean code tree at generation);
@@ -234,6 +237,80 @@ Building a new release supersedes the previous active bundle: it moves to
 never be mistaken for the current release.  Papers and reports must cite
 the exact `release_id`.  The `release_bundles` gate requires exactly one
 active release whose component hashes all verify.
+
+## Release Provenance Model (FP-001..FP-014)
+
+Provenance is split into two records with distinct owners:
+
+> Scientific artifacts record **generation provenance**.  Storage
+> provenance is recorded authoritatively in the release storage sidecar
+> (`results/releases/<release_id>/STORAGE_PROVENANCE.json`).
+
+### Generation identity
+
+Every scientific manifest (study, reproduction, run, frozen-threshold,
+bundle, gate snapshot) carries the same generation record:
+
+| Field | Meaning |
+| --- | --- |
+| `tested_code_commit` | the commit whose code was executed |
+| `artifact_generation_commit` | the commit that generated the artifact (equal to the tested commit) |
+| `artifact_generation_tree` | SHA-256 workspace hash over every source path |
+| `environment_lock_hash` | SHA-256 of the dependency lock file |
+| `protocol_version` / `study_version` | the protocol and study versions the run followed |
+
+Generation records carry `artifact_storage_commit: null` plus a
+`storage_provenance` pointer (`{"source": "STORAGE_PROVENANCE.json",
+"authoritative": true}`) — an embedded storage commit (empty string or
+otherwise) is a validation finding, because it cannot be known when the
+artifact is generated.  The `release_storage_provenance` gate requires all
+generation fields to be synchronized across every manifest.
+
+### Storage identity
+
+The sidecar is the sole authoritative storage record:
+
+| Field | Meaning |
+| --- | --- |
+| `artifact_storage_commit` | the commit that stored the exact bundle bytes |
+| `gate_snapshot_commit` | the commit that stored the research-valid gate result |
+| `storage_metadata_digest` | digest of the sidecar's own lineage content |
+| `scientific_release_digest` | the scientific content digest of the release |
+
+Git ancestry is verified from history, never from timestamps:
+generation → storage → gate snapshot → review commit, and the exact
+bundle must exist byte-identically at `artifact_storage_commit`.  The
+bundle manifest echoes the storage identity at its top level; both copies
+must agree with the sidecar.
+
+### Digest model
+
+- `scientific_release_digest` hashes study version, corpus/annotation
+  hashes, and every component's SHA-256.  Storage metadata is never a
+  component, so sidecar updates can never change it.
+- `storage_metadata_digest` hashes the sidecar lineage fields (excluding
+  `verified_at` bookkeeping and the digest field itself).
+
+### Local versus CI certification
+
+Local certification (`workflow_run_id = workflow_attempt =
+certification_source = "local"`) verifies deterministic research
+artifacts on the local machine; it is **not** GitHub Actions evidence.
+CI certification requires numeric `workflow_run_id` / `workflow_attempt`
+identity.  A local run is never labeled as CI evidence, and vice versa.
+
+### Release immutability
+
+- Scientific files inside a release are immutable; changing any of them
+  changes the scientific digest and therefore the release identity.
+- Storage metadata may be finalized in the sidecar after the storage
+  commit (e.g. recording `gate_snapshot_commit`) without forking the
+  release — that is exactly what the two-digest model permits.
+- Archived releases (`results/archive/`) are never modified; their
+  `INVALIDATION_MARKER.json` stays intact.
+- Supersession produces a **new release ID** only when scientific
+  content changes, and formally archives the superseded release with
+  documented reasons — an existing release is never silently altered.
 
 ---
 

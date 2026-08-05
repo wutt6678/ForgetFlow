@@ -979,6 +979,11 @@ def check_release_storage_provenance() -> dict[str, Any]:
         for code, value in (("storage_commit", storage), ("gate_snapshot", snapshot)):
             if value and (not COMMIT_RE.match(value) or not _commit_exists(value)):
                 findings.append(f"storage_sidecar_{code}_invalid: {value!r}")
+        # FP-006: a finalized sidecar must carry both storage commits.
+        if not storage:
+            findings.append("storage_sidecar_storage_commit_invalid: '' (empty)")
+        if not snapshot:
+            findings.append("storage_sidecar_gate_snapshot_invalid: '' (empty)")
         if sidecar.get("storage_metadata_digest") != storage_metadata_digest(sidecar):
             findings.append("storage_metadata_digest_mismatch")
         if str(sidecar.get("scientific_release_digest", "")) != release_digest(manifest):

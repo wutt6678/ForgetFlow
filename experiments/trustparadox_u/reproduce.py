@@ -232,6 +232,22 @@ def collect_artifact_checksums() -> dict[str, str]:
     return checksums
 
 
+def _check_version_agreement(provenance: dict[str, Any], inputs: dict[str, Any]) -> None:
+    """FP-003: root, inputs and provenance must agree on both versions.
+
+    An empty input version or any disagreement is a hard error — a
+    reproduction whose recorded protocol/study versions do not line up
+    cannot certify anything.
+    """
+    for field in ("study_version", "protocol_version"):
+        root_value = str(provenance.get(field, "") or "")
+        input_value = str(inputs.get(field, "") or "")
+        if not input_value.strip() or root_value != input_value:
+            raise ReproductionError(
+                f"{field} mismatch: provenance={root_value!r} inputs={input_value!r}"
+            )
+
+
 def build_reproduction_manifest() -> dict[str, Any]:
     """Run the full reproduction and return its manifest payload."""
     from experiments.trustparadox_u.artifact_provenance import (
@@ -248,14 +264,7 @@ def build_reproduction_manifest() -> dict[str, Any]:
             "source files are not committed: reproduction must run from a clean code tree"
         )
     inputs = validate_frozen_inputs()
-    # FP-003: root, inputs and provenance must agree on both versions.
-    for field in ("study_version", "protocol_version"):
-        root_value = str(provenance.get(field, "") or "")
-        input_value = str(inputs.get(field, "") or "")
-        if not input_value.strip() or root_value != input_value:
-            raise ReproductionError(
-                f"{field} mismatch: provenance={root_value!r} inputs={input_value!r}"
-            )
+    _check_version_agreement(provenance, inputs)
 
     steps = [run_pipeline_step(module, description) for module, description in PIPELINE_STEPS]
     verification = verify_recomputed_metrics()
