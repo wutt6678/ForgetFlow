@@ -119,12 +119,12 @@
     }
   },
   "artifact_storage_commit": "4da2024e22f7d43c5df8a378291a16a0eec69de7",
-  "gate_snapshot_commit": "",
+  "gate_snapshot_commit": "209fb7ca992b669c01501c668bce7149225ab0f0",
   "status": "active",
   "superseded_by": "",
   "release_id": "trustparadox_u-v1.2.1-bb80497b320a",
   "release_digest": "bb80497b320a6ff6f169d6e10cbdcf5d5cb9874eb1ec4f2d47b02f211cf3120e",
   "scientific_release_digest": "bb80497b320a6ff6f169d6e10cbdcf5d5cb9874eb1ec4f2d47b02f211cf3120e",
-  "storage_metadata_digest": "9d070491983a0c6c3c5bdd44acc0d68f4f9f359e5bb336ef6d9ca6f05e5bb887",
+  "storage_metadata_digest": "8ab8e9c3a338f1e3c1ab88f958cb43101ae028bd9a0e230cc18d500d5654faa5",
   "created_at": "2026-08-05T17:26:54.952373+00:00"
 }
