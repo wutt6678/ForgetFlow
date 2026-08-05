@@ -586,6 +586,7 @@ def build_study_manifest(
         build_certification_provenance,
         code_tree_is_clean,
     )
+    from experiments.trustparadox_u.frozen_thresholds import STUDY_VERSION
     from experiments.trustparadox_u.research_protocol import (
         PROTOCOL_VERSION,
         TABLE_QUESTION_MAP,
@@ -652,6 +653,9 @@ def build_study_manifest(
         # Remediation §2: artifacts are interpretable against the protocol
         # version that declared their questions and table mappings.
         "protocol_version": PROTOCOL_VERSION,
+        # FP-004: the study version sits next to the protocol version so
+        # cross-manifest version checks see both at the root.
+        "study_version": STUDY_VERSION,
         "table_question_map": {k: list(v) for k, v in TABLE_QUESTION_MAP.items()},
         "repository_commit": provenance["artifact_generation_commit"],
         "provenance": provenance,
