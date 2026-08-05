@@ -862,6 +862,282 @@ def check_release_bundles() -> dict[str, Any]:
     }
 
 
+def _commit_exists(commit: str) -> bool:
+    """Whether ``commit`` names an existing commit in this repository."""
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+            capture_output=True,
+            cwd=_PROJECT_ROOT,
+        )
+    except Exception:
+        return False
+    return result.returncode == 0
+
+
+def check_release_storage_provenance() -> dict[str, Any]:
+    """FP-006..FP-009: authoritative storage lineage of the active release.
+
+    Bundle files existing on disk is not enough: this gate validates the
+    STORAGE_PROVENANCE.json sidecar schema, the git ancestry
+    generation -> storage -> gate snapshot -> review commit, the exact
+    bundle bytes at the storage commit, recomputes the scientific and
+    storage-metadata digests, and synchronizes the generation provenance
+    of every scientific manifest.  Storage-owned fields are compared
+    separately between the bundle manifest, the sidecar and the gate
+    snapshot's storage reference.
+    """
+    from experiments.trustparadox_u.artifact_provenance import (
+        COMMIT_RE,
+        commit_is_ancestor,
+        generation_provenance_findings,
+        storage_provenance_findings,
+        validate_release_lineage,
+        validate_release_provenance_consistency,
+        validate_storage_record_consistency,
+        validate_storage_reference,
+    )
+    from experiments.trustparadox_u.release_bundle import (
+        BUNDLE_MANIFEST_NAME,
+        STORAGE_PROVENANCE_NAME,
+        release_digest,
+        release_dirs,
+        storage_metadata_digest,
+        validate_bundle_at_storage_commit,
+    )
+
+    summary: dict[str, Any] = {
+        "passed": False,
+        "release_id": "",
+        "tested_code_commit": "",
+        "artifact_generation_commit": "",
+        "artifact_storage_commit": "",
+        "gate_snapshot_commit": "",
+        "scientific_release_digest": "",
+        "storage_metadata_digest": "",
+        "findings": [],
+    }
+    findings: list[str] = []
+
+    dirs = release_dirs()
+    active: list[Path] = [
+        bundle_dir
+        for bundle_dir in dirs
+        if _load_json(bundle_dir / BUNDLE_MANIFEST_NAME).get("status") == "active"
+    ]
+    if len(active) != 1:
+        code = "multiple_active_releases" if active else "no_active_release"
+        findings.append(f"{code}: {[d.name for d in active]}")
+        summary["findings"] = findings
+        return summary
+
+    bundle_dir = active[0]
+    manifest = _load_json(bundle_dir / BUNDLE_MANIFEST_NAME)
+    release_id = str(manifest.get("release_id", bundle_dir.name))
+    provenance = manifest.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+
+    # FP-006: the sidecar is the sole authoritative storage record.
+    sidecar_path = bundle_dir / STORAGE_PROVENANCE_NAME
+    sidecar: dict[str, Any] = {}
+    if not sidecar_path.exists():
+        findings.append(f"storage_sidecar_missing: {sidecar_path.name}")
+    else:
+        try:
+            sidecar = _load_json(sidecar_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            findings.append(f"storage_sidecar_unreadable: {exc}")
+
+    tested = str(sidecar.get("tested_code_commit", "") or "")
+    generation = str(sidecar.get("artifact_generation_commit", "") or "")
+    storage = str(sidecar.get("artifact_storage_commit", "") or "")
+    snapshot = str(sidecar.get("gate_snapshot_commit", "") or "")
+    summary.update(
+        {
+            "release_id": release_id,
+            "tested_code_commit": tested,
+            "artifact_generation_commit": generation,
+            "artifact_storage_commit": storage,
+            "gate_snapshot_commit": snapshot,
+            "scientific_release_digest": str(sidecar.get("scientific_release_digest", "") or ""),
+            "storage_metadata_digest": str(sidecar.get("storage_metadata_digest", "") or ""),
+        }
+    )
+
+    if sidecar:
+        if str(sidecar.get("release_id", "")) != release_id:
+            findings.append(
+                f"storage_sidecar_release_id_mismatch: "
+                f"sidecar={sidecar.get('release_id')!r} manifest={release_id!r}"
+            )
+        findings.extend(storage_provenance_findings(sidecar, require_gate_snapshot=True))
+        if tested and generation and tested != generation:
+            findings.append(
+                f"storage_sidecar_generation_mismatch: "
+                f"tested={tested!r} generation={generation!r}"
+            )
+        for code, value in (("storage_commit", storage), ("gate_snapshot", snapshot)):
+            if value and (not COMMIT_RE.match(value) or not _commit_exists(value)):
+                findings.append(f"storage_sidecar_{code}_invalid: {value!r}")
+        if sidecar.get("storage_metadata_digest") != storage_metadata_digest(sidecar):
+            findings.append("storage_metadata_digest_mismatch")
+        if str(sidecar.get("scientific_release_digest", "")) != release_digest(manifest):
+            findings.append("scientific_digest_mismatch")
+
+    # FP-008: ancestry comes from git history, never timestamps.
+    if generation and storage and COMMIT_RE.match(generation) and COMMIT_RE.match(storage):
+        if not commit_is_ancestor(generation, storage):
+            findings.append(
+                f"generation_not_ancestor_of_storage: generation={generation!r} storage={storage!r}"
+            )
+    if storage and snapshot and COMMIT_RE.match(storage) and COMMIT_RE.match(snapshot):
+        if not commit_is_ancestor(storage, snapshot):
+            findings.append(
+                f"storage_not_ancestor_of_gate_snapshot: storage={storage!r} snapshot={snapshot!r}"
+            )
+    current = _current_commit().removesuffix("-dirty")
+    if snapshot and COMMIT_RE.match(snapshot) and _commit_exists(snapshot):
+        if COMMIT_RE.match(current) and not commit_is_ancestor(snapshot, current):
+            findings.append(
+                f"gate_snapshot_not_ancestor_of_review_commit: "
+                f"snapshot={snapshot!r} current={current!r}"
+            )
+        gate_rel = str((FINAL_DIR / "research_valid_gate.json").relative_to(_PROJECT_ROOT))
+        blob = subprocess.run(
+            ["git", "show", f"{snapshot}:{gate_rel}"],
+            capture_output=True,
+            cwd=_PROJECT_ROOT,
+        )
+        if blob.returncode != 0:
+            findings.append(f"gate_file_missing_at_snapshot_commit: {snapshot}:{gate_rel}")
+
+    # FP-009: the exact bundle bytes must exist at the storage commit.
+    if storage and COMMIT_RE.match(storage):
+        for finding in validate_bundle_at_storage_commit(
+            bundle_dir, manifest, storage_commit=storage
+        ):
+            code = (
+                "bundle_component_checksum_mismatch_at_storage"
+                if "checksum mismatch" in finding
+                else "bundle_missing_at_storage_commit"
+            )
+            findings.append(f"{code}: {finding}")
+
+    # FP-007: the existing lineage validator runs against the live release,
+    # with the storage commit supplied by the authoritative sidecar.
+    findings.extend(validate_release_lineage({**provenance, "artifact_storage_commit": storage}))
+
+    # FP-007: generation fields must be synchronized across every
+    # scientific manifest; stale embedded storage commits are rejected.
+    scientific_manifests: dict[str, dict[str, Any]] = {}
+    for label, path in (
+        ("study_manifest", FINAL_DIR / "study_manifest.json"),
+        ("reproduction_manifest", RESULTS_DIR / "reproduction" / "reproduction_manifest.json"),
+        ("run_manifest", REPLAY_DIR / "run_manifest.json"),
+        ("gate_snapshot", FINAL_DIR / "research_valid_gate.json"),
+    ):
+        if path.exists():
+            scientific_manifests[label] = _load_json(path)
+        else:
+            findings.append(f"generation_provenance_mismatch: {label} missing ({path.name})")
+    for finding in validate_release_provenance_consistency(scientific_manifests):
+        findings.append(f"generation_provenance_mismatch: {finding}")
+    for label, manifest_data in scientific_manifests.items():
+        record = manifest_data.get("provenance")
+        record = record if isinstance(record, dict) else {}
+        findings.extend(f"{label}: {finding}" for finding in generation_provenance_findings(record))
+
+    # FP-007: storage-owned fields sync between manifest, sidecar and gate.
+    if sidecar:
+        findings.extend(
+            validate_storage_record_consistency(
+                {"bundle_manifest": manifest, "storage_sidecar": sidecar}
+            )
+        )
+    gate_snapshot = scientific_manifests.get("gate_snapshot", {})
+    findings.extend(
+        f"gate_snapshot: {finding}" for finding in validate_storage_reference(gate_snapshot)
+    )
+    for field in ("artifact_storage_commit", "gate_snapshot_commit"):
+        embedded = gate_snapshot.get(field)
+        if embedded not in (None, "") and str(embedded) != str(sidecar.get(field, "") or ""):
+            findings.append(f"stale_embedded_storage_commit: gate_snapshot.{field}={embedded!r}")
+
+    # FP-006/FP-010: protocol and study versions agree everywhere, and no
+    # active manifest carries an empty version string.
+    expected_protocol = str(provenance.get("protocol_version", "") or "")
+    expected_study = str(provenance.get("study_version", "") or "")
+    study_manifest = scientific_manifests.get("study_manifest", {})
+    reproduction_manifest = scientific_manifests.get("reproduction_manifest", {})
+    repro_inputs = reproduction_manifest.get("inputs")
+    repro_inputs = repro_inputs if isinstance(repro_inputs, dict) else {}
+    frozen_path = RESULTS_DIR / "frozen_config" / "frozen_threshold_manifest.json"
+    frozen = _load_json(frozen_path) if frozen_path.exists() else {}
+    frozen_protocol = frozen.get("protocol_version")
+    if not str(frozen_protocol or "").strip():
+        protocol_block = frozen.get("protocol")
+        frozen_protocol = (
+            protocol_block.get("protocol_version", "") if isinstance(protocol_block, dict) else ""
+        )
+    version_checks = (
+        (
+            "protocol_version_mismatch",
+            "study_manifest.protocol_version",
+            str(study_manifest.get("protocol_version", "") or ""),
+            expected_protocol,
+        ),
+        (
+            "study_version_mismatch",
+            "study_manifest.study_version",
+            str(study_manifest.get("study_version", "") or ""),
+            expected_study,
+        ),
+        (
+            "protocol_version_mismatch",
+            "reproduction_manifest.protocol_version",
+            str(reproduction_manifest.get("protocol_version", "") or ""),
+            expected_protocol,
+        ),
+        (
+            "study_version_mismatch",
+            "reproduction_manifest.study_version",
+            str(reproduction_manifest.get("study_version", "") or ""),
+            expected_study,
+        ),
+        (
+            "protocol_version_mismatch",
+            "reproduction_manifest.inputs.protocol_version",
+            str(repro_inputs.get("protocol_version", "") or ""),
+            expected_protocol,
+        ),
+        (
+            "study_version_mismatch",
+            "reproduction_manifest.inputs.study_version",
+            str(repro_inputs.get("study_version", "") or ""),
+            expected_study,
+        ),
+        (
+            "protocol_version_mismatch",
+            "frozen_threshold_manifest.protocol_version",
+            str(frozen_protocol or ""),
+            expected_protocol,
+        ),
+        (
+            "study_version_mismatch",
+            "frozen_threshold_manifest.study_version",
+            str(frozen.get("study_version", "") or ""),
+            expected_study,
+        ),
+    )
+    for code, label, actual, expected in version_checks:
+        if not actual.strip() or (expected and actual != expected):
+            findings.append(f"{code}: {label}={actual!r} expected={expected!r}")
+
+    summary["passed"] = not findings
+    summary["findings"] = findings[:40]
+    return summary
+
+
 def check_deterministic_reproducibility_validation() -> dict[str, Any]:
     """FF92-020: check the deterministic reproducibility validation.
 
@@ -1175,6 +1451,7 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
     "frozen_threshold_manifest",
     "reproduction_manifest",
     "release_bundles",
+    "release_storage_provenance",
     "deterministic_reproducibility_validation",
     "final_artifacts",
     "failure_examples",
@@ -1268,6 +1545,7 @@ def run_research_valid_gate() -> dict[str, Any]:
         "frozen_threshold_manifest": check_frozen_threshold_manifest(),
         "reproduction_manifest": check_reproduction_manifest(),
         "release_bundles": check_release_bundles(),
+        "release_storage_provenance": check_release_storage_provenance(),
         "deterministic_reproducibility_validation": (
             check_deterministic_reproducibility_validation()
         ),
