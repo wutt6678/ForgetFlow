@@ -7,26 +7,33 @@
   "research_valid": false,
   "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
+  "gate_execution_commit": "2f75fce6290a751d915a4c12ce6279c27ca893b8",
+  "gate_snapshot_commit": "6e9c4933459ddf2257b583b9284bff0ad02a542d",
+  "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+  "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+  "artifact_storage_commit": "",
   "provenance": {
-    "tested_code_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
-    "artifact_generation_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
+    "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+    "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
+    "certification_source": "local",
     "protocol_version": "1.2.0",
-    "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:13:33.764060+00:00",
-    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
+    "study_version": "1.2.1",
+    "generated_at": "2026-08-05T11:28:13.563958+00:00",
+    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
-    "artifact_storage_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4"
+    "artifact_storage_commit": ""
   },
-  "provenance_findings": [],
-  "generated_at": "2026-08-05T08:13:33.780025+00:00",
+  "provenance_findings": [
+    "provenance_field_empty: artifact_storage_commit"
+  ],
+  "generated_at": "2026-08-05T11:52:22.377292+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "repository_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
+      "gate_execution_commit": "2f75fce6290a751d915a4c12ce6279c27ca893b8",
       "findings": []
     },
     "no_invalidated_artifacts": {
@@ -112,13 +119,13 @@
     },
     "frozen_threshold_manifest": {
       "passed": true,
-      "study_version": "1.2.0",
+      "study_version": "1.2.1",
       "num_parameters": 16,
       "findings": []
     },
     "reproduction_manifest": {
       "passed": true,
-      "study_version": "1.2.0",
+      "study_version": "1.2.1",
       "num_artifacts": 20,
       "findings": []
     },
@@ -126,7 +133,7 @@
       "passed": true,
       "releases": 1,
       "active": [
-        "trustparadox_u-v1.2.0-6c3b32d5c6ca"
+        "trustparadox_u-v1.2.1-0bf24dc6d3a7"
       ],
       "findings": []
     },
@@ -155,7 +162,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1890 passed, 4 skipped in 14.76s"
+      "output": "1919 passed, 4 skipped in 15.09s"
     },
     "static_checks": {
       "passed": true,
