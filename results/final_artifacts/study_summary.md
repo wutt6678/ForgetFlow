@@ -1,7 +1,7 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-04T22:45:40.066299+00:00
-**Commit:** 58b1de9899ef96234923d764e44da55a11586d5d
+**Generated:** 2026-08-05T00:10:28.542779+00:00
+**Commit:** 6a75437eaebcc834632ce55f1f70fad72439e442
 
 ### Table 1: Main Results by Condition
 
@@ -23,9 +23,9 @@
 | --- | --- | --- | --- | --- |
 | alias | 78 | 0.6154 | 0.0000 | 0.0000 |
 | benign_control | 78 | 0.0000 | 0.0000 | 0.0000 |
-| claim_modal | 24 | 1.0000 | 0.0000 | 0.0000 |
+| claim_modal | 24 | 0.0000 | 0.0000 | 0.0000 |
 | claim_negation | 24 | 0.0000 | 0.0000 | 0.0000 |
-| claim_past | 24 | 1.0000 | 0.0000 | 0.0000 |
+| claim_past | 24 | 0.0000 | 0.0000 | 0.0000 |
 | claim_positive | 24 | 1.0000 | 0.0000 | 0.0000 |
 | claim_question_control | 24 | 0.0000 | 0.0000 | 0.0000 |
 | compositional_inference | 24 | 0.0000 | 1.0000 | 0.0000 |
@@ -40,13 +40,13 @@
 
 | condition_a | condition_b | metric | rate_a | rate_b | cohens_h | p_value | significant |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| no_firewall | full_mvp | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
+| no_firewall | full_mvp | exposure | 0.4471 | 0.0000 | 1.4647 | 0.0000 | True |
 | no_firewall | full_mvp | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
 | no_firewall | full_mvp | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
 | no_firewall | full_mvp | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | no_firewall | full_mvp | utility | 1.0000 | 1.0000 | 0.0000 | 1.0000 | False |
 | no_firewall | full_mvp | utility_false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | exact_only | exposure | 0.0000 | 0.5412 | -1.6532 | 0.0000 | True |
+| full_mvp | exact_only | exposure | 0.0000 | 0.4471 | -1.4647 | 0.0000 | True |
 | full_mvp | exact_only | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
 | full_mvp | exact_only | recontamination | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
 | full_mvp | exact_only | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
@@ -70,11 +70,11 @@
 | full_mvp | no_claim_detection | reconstruction | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | no_claim_detection | recontamination | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 | full_mvp | no_claim_detection | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| full_mvp | no_monitoring | exposure | 0.0000 | 0.5412 | -1.6532 | 0.0000 | True |
+| full_mvp | no_monitoring | exposure | 0.0000 | 0.4471 | -1.4647 | 0.0000 | True |
 | full_mvp | no_monitoring | reconstruction | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
 | full_mvp | no_monitoring | recontamination | 0.0000 | 1.0000 | -3.1416 | 0.0000 | True |
 | full_mvp | no_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
-| no_monitoring | one_time_monitoring | exposure | 0.5412 | 0.0000 | 1.6532 | 0.0000 | True |
+| no_monitoring | one_time_monitoring | exposure | 0.4471 | 0.0000 | 1.4647 | 0.0000 | True |
 | no_monitoring | one_time_monitoring | reconstruction | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
 | no_monitoring | one_time_monitoring | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
 | no_monitoring | one_time_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |

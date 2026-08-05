@@ -25,16 +25,19 @@
       "RQ5"
     ]
   },
-  "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+  "repository_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
   "provenance": {
-    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
-    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "tested_code_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
+    "artifact_generation_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:45:40.066192+00:00"
+    "generated_at": "2026-08-05T00:10:28.534177+00:00",
+    "artifact_generation_tree": "03fafa3ff81ff6d542921f5def5c3cdab0ed493d69e2f6a52d8022687599cd36",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-04T22:45:40.066299+00:00",
+  "generated_at": "2026-08-05T00:10:28.542779+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,

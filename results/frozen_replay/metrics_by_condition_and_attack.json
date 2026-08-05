@@ -193,8 +193,8 @@
     "claim_modal": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null
@@ -213,8 +213,8 @@
     "claim_past": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null
@@ -873,8 +873,8 @@
     "claim_modal": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null
@@ -893,8 +893,8 @@
     "claim_past": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null
@@ -1043,8 +1043,8 @@
     "claim_modal": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null
@@ -1063,8 +1063,8 @@
     "claim_past": {
       "candidate_trials": 24,
       "pu_rer": {
-        "value": 1.0,
-        "numerator": 24,
+        "value": 0.0,
+        "numerator": 0,
         "denominator": 24,
         "evaluable": true,
         "reason": null

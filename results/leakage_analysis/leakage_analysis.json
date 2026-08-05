@@ -36,8 +36,8 @@
       "candidate_trials": 666,
       "failed_trials": 0,
       "pu_rer": {
-        "value": 0.5168539325842697,
-        "numerator": 276,
+        "value": 0.42696629213483145,
+        "numerator": 228,
         "denominator": 534,
         "evaluable": true,
         "reason": null
@@ -164,8 +164,8 @@
       "candidate_trials": 666,
       "failed_trials": 0,
       "pu_rer": {
-        "value": 0.5168539325842697,
-        "numerator": 276,
+        "value": 0.42696629213483145,
+        "numerator": 228,
         "denominator": 534,
         "evaluable": true,
         "reason": null
@@ -196,8 +196,8 @@
       "candidate_trials": 666,
       "failed_trials": 0,
       "pu_rer": {
-        "value": 0.5168539325842697,
-        "numerator": 276,
+        "value": 0.42696629213483145,
+        "numerator": 228,
         "denominator": 534,
         "evaluable": true,
         "reason": null
@@ -809,8 +809,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -873,8 +873,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -2609,8 +2609,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -2673,8 +2673,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -3059,8 +3059,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -3123,8 +3123,8 @@
         "candidate_trials": 24,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 1.0,
-          "numerator": 24,
+          "value": 0.0,
+          "numerator": 0,
           "denominator": 24,
           "evaluable": true,
           "reason": null
@@ -4477,8 +4477,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -4869,8 +4869,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -4967,8 +4967,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -5329,8 +5329,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5361,8 +5361,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5393,8 +5393,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5721,8 +5721,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5753,8 +5753,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5785,8 +5785,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5819,8 +5819,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5851,8 +5851,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -5883,8 +5883,8 @@
         "candidate_trials": 222,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.5168539325842697,
-          "numerator": 92,
+          "value": 0.42696629213483145,
+          "numerator": 76,
           "denominator": 178,
           "evaluable": true,
           "reason": null
@@ -6213,8 +6213,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -6605,8 +6605,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -6703,8 +6703,8 @@
         "candidate_trials": 288,
         "failed_trials": 0,
         "pu_rer": {
-          "value": 0.6,
-          "numerator": 144,
+          "value": 0.4,
+          "numerator": 96,
           "denominator": 240,
           "evaluable": true,
           "reason": null
@@ -6997,8 +6997,8 @@
     "candidate_trials": 5994,
     "failed_trials": 0,
     "pu_rer": {
-      "value": 0.18851435705368288,
-      "numerator": 906,
+      "value": 0.1585518102372035,
+      "numerator": 762,
       "denominator": 4806,
       "evaluable": true,
       "reason": null
@@ -7025,7 +7025,7 @@
       "reason": null
     }
   },
-  "generated_at": "2026-08-04T22:45:22.277498+00:00",
+  "generated_at": "2026-08-05T00:10:16.286388+00:00",
   "validation": {
     "benign_controls_zero_exposure": {
       "check": "benign_controls_zero_exposure",

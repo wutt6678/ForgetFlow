@@ -1,8 +1,8 @@
 {
   "no_firewall": {
     "pu_rer": {
-      "value": 0.5168539325842697,
-      "numerator": 276,
+      "value": 0.42696629213483145,
+      "numerator": 228,
       "denominator": 534,
       "evaluable": true,
       "reason": null
@@ -38,8 +38,8 @@
   },
   "exact_only": {
     "pu_rer": {
-      "value": 0.5168539325842697,
-      "numerator": 276,
+      "value": 0.42696629213483145,
+      "numerator": 228,
       "denominator": 534,
       "evaluable": true,
       "reason": null
@@ -67,8 +67,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -104,8 +104,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -141,8 +141,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -178,8 +178,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -215,8 +215,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -252,8 +252,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
@@ -289,16 +289,16 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }
   },
   "no_monitoring": {
     "pu_rer": {
-      "value": 0.5168539325842697,
-      "numerator": 276,
+      "value": 0.42696629213483145,
+      "numerator": 228,
       "denominator": 534,
       "evaluable": true,
       "reason": null
@@ -326,8 +326,8 @@
     },
     "paired_policy_utility_retention": {
       "value": 1.0,
-      "numerator": 42,
-      "denominator": 42,
+      "numerator": 54,
+      "denominator": 54,
       "evaluable": true,
       "reason": null
     }

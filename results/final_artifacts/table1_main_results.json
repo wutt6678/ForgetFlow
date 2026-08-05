@@ -12,11 +12,11 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "exact_only",
-      "pu_rer_value": 0.5168539325842697,
+      "pu_rer_value": 0.42696629213483145,
       "pu_rer_n": 534,
       "crr_value": 1.0,
       "crr_n": 54,
@@ -25,7 +25,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "full_mvp",
@@ -38,7 +38,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "no_claim_detection",
@@ -51,7 +51,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "no_embedding",
@@ -64,11 +64,11 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "no_firewall",
-      "pu_rer_value": 0.5168539325842697,
+      "pu_rer_value": 0.42696629213483145,
       "pu_rer_n": 534,
       "crr_value": 1.0,
       "crr_n": 54,
@@ -81,7 +81,7 @@
     },
     {
       "condition": "no_monitoring",
-      "pu_rer_value": 0.5168539325842697,
+      "pu_rer_value": 0.42696629213483145,
       "pu_rer_n": 534,
       "crr_value": 1.0,
       "crr_n": 54,
@@ -90,7 +90,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "one_time_monitoring",
@@ -103,7 +103,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     },
     {
       "condition": "stateless",
@@ -116,7 +116,7 @@
       "fbr_value": 0.0,
       "fbr_n": 156,
       "paired_policy_utility_retention_value": 1.0,
-      "paired_policy_utility_retention_n": 42
+      "paired_policy_utility_retention_n": 54
     }
   ]
 }

@@ -5,10 +5,10 @@
       "condition_a": "no_firewall",
       "condition_b": "full_mvp",
       "metric": "exposure",
-      "rate_a": 0.5411764705882353,
+      "rate_a": 0.4470588235294118,
       "rate_b": 0.0,
-      "cohens_h": 1.6532426395836117,
-      "p_value": 1.6472184286297693e-83,
+      "cohens_h": 1.4647151265712561,
+      "p_value": 4.636507688359277e-69,
       "significant": true
     },
     {
@@ -66,9 +66,9 @@
       "condition_b": "exact_only",
       "metric": "exposure",
       "rate_a": 0.0,
-      "rate_b": 0.5411764705882353,
-      "cohens_h": -1.6532426395836117,
-      "p_value": 1.6472184286297693e-83,
+      "rate_b": 0.4470588235294118,
+      "cohens_h": -1.4647151265712561,
+      "p_value": 4.636507688359277e-69,
       "significant": true
     },
     {
@@ -306,9 +306,9 @@
       "condition_b": "no_monitoring",
       "metric": "exposure",
       "rate_a": 0.0,
-      "rate_b": 0.5411764705882353,
-      "cohens_h": -1.6532426395836117,
-      "p_value": 1.6472184286297693e-83,
+      "rate_b": 0.4470588235294118,
+      "cohens_h": -1.4647151265712561,
+      "p_value": 4.636507688359277e-69,
       "significant": true
     },
     {
@@ -345,10 +345,10 @@
       "condition_a": "no_monitoring",
       "condition_b": "one_time_monitoring",
       "metric": "exposure",
-      "rate_a": 0.5411764705882353,
+      "rate_a": 0.4470588235294118,
       "rate_b": 0.0,
-      "cohens_h": 1.6532426395836117,
-      "p_value": 1.6472184286297693e-83,
+      "cohens_h": 1.4647151265712561,
+      "p_value": 4.636507688359277e-69,
       "significant": true
     },
     {

@@ -18,7 +18,7 @@
     {
       "category": "claim_modal",
       "n_episodes": 24,
-      "exposure_rate": 1.0,
+      "exposure_rate": 0.0,
       "reconstruction_rate": 0.0,
       "recontamination_rate": 0.0
     },
@@ -32,7 +32,7 @@
     {
       "category": "claim_past",
       "n_episodes": 24,
-      "exposure_rate": 1.0,
+      "exposure_rate": 0.0,
       "reconstruction_rate": 0.0,
       "recontamination_rate": 0.0
     },
