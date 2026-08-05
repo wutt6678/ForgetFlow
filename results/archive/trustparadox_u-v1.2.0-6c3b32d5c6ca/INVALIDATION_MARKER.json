@@ -1,0 +1,8 @@
+{
+  "status": "superseded",
+  "superseded_by": "trustparadox_u-v1.2.1-0bf24dc6d3a7",
+  "reason": [
+    "sequence-level RQ6 pairing used incompatible runtime sequence identities",
+    "active release provenance fields were incomplete or inconsistent"
+  ]
+}
