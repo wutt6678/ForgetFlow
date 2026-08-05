@@ -140,6 +140,14 @@ def validate_frozen_inputs() -> dict[str, Any]:
         raise ReproductionError(f"corpus manifest missing: {manifest_path}")
     corpus_manifest = _load_json(manifest_path)
     frozen_manifest = load_frozen_manifest()
+    # FP-003: the frozen manifest carries protocol_version under its
+    # nested ``protocol`` block; fall back so the reproduction manifest
+    # never records an empty protocol version.
+    protocol_block = frozen_manifest.get("protocol")
+    nested_protocol = protocol_block if isinstance(protocol_block, dict) else {}
+    protocol_version = str(
+        frozen_manifest.get("protocol_version") or nested_protocol.get("protocol_version", "") or ""
+    )
 
     return {
         "corpus": {
@@ -162,7 +170,7 @@ def validate_frozen_inputs() -> dict[str, Any]:
             "annotation_model": corpus_manifest.get("annotation_model", ""),
             "study_class": corpus_manifest.get("study_class", "diagnostic"),
         },
-        "protocol_version": str(frozen_manifest.get("protocol_version", "")),
+        "protocol_version": protocol_version,
         "study_version": str(frozen_manifest.get("study_version", "")),
     }
 
@@ -240,6 +248,14 @@ def build_reproduction_manifest() -> dict[str, Any]:
             "source files are not committed: reproduction must run from a clean code tree"
         )
     inputs = validate_frozen_inputs()
+    # FP-003: root, inputs and provenance must agree on both versions.
+    for field in ("study_version", "protocol_version"):
+        root_value = str(provenance.get(field, "") or "")
+        input_value = str(inputs.get(field, "") or "")
+        if not input_value.strip() or root_value != input_value:
+            raise ReproductionError(
+                f"{field} mismatch: provenance={root_value!r} inputs={input_value!r}"
+            )
 
     steps = [run_pipeline_step(module, description) for module, description in PIPELINE_STEPS]
     verification = verify_recomputed_metrics()

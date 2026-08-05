@@ -1248,7 +1248,8 @@ def run_research_valid_gate() -> dict[str, Any]:
     """Run all gate checks and produce the staged research status (§31)."""
     from experiments.trustparadox_u.artifact_provenance import (
         generation_provenance_findings,
-        storage_commit_for,
+        storage_provenance_reference,
+        validate_storage_reference,
     )
 
     gates = {
@@ -1304,15 +1305,21 @@ def run_research_valid_gate() -> dict[str, Any]:
         # ``gate_execution_commit``; the lineage fields below echo the
         # generation provenance instead of shadowing it.
         "gate_execution_commit": execution_commit,
-        "gate_snapshot_commit": storage_commit_for(FINAL_DIR / "research_valid_gate.json"),
+        # FP-005: the snapshot cannot know its own storage commit — both
+        # storage commits are null here and recorded authoritatively in
+        # the release's STORAGE_PROVENANCE.json sidecar.
+        "gate_snapshot_commit": None,
         "tested_code_commit": str(provenance.get("tested_code_commit", "") or ""),
         "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
-        "artifact_storage_commit": str(provenance.get("artifact_storage_commit", "") or ""),
+        "artifact_storage_commit": None,
+        "storage_provenance": storage_provenance_reference(),
         "provenance": provenance,
         # FP-002: generation-field completeness only; storage identity is
         # recorded authoritatively in the release's STORAGE_PROVENANCE.json
         # sidecar, not inside the gate snapshot.
         "provenance_findings": generation_provenance_findings(provenance),
+        # FP-005: the sidecar pointer must be well-formed.
+        "storage_provenance_findings": validate_storage_reference(provenance),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "gates": gates,
     }
