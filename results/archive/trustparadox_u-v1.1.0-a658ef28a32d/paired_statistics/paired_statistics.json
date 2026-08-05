@@ -1,0 +1,4232 @@
+{
+  "generated_at": "2026-08-05T00:31:53.940530+00:00",
+  "study_class": "diagnostic",
+  "num_comparisons": 38,
+  "condition_pairs": [
+    [
+      "no_firewall",
+      "full_mvp"
+    ],
+    [
+      "full_mvp",
+      "exact_only"
+    ],
+    [
+      "full_mvp",
+      "no_embedding"
+    ],
+    [
+      "full_mvp",
+      "stateless"
+    ],
+    [
+      "full_mvp",
+      "binary_policy"
+    ],
+    [
+      "full_mvp",
+      "one_time_monitoring"
+    ],
+    [
+      "full_mvp",
+      "no_claim_detection"
+    ],
+    [
+      "full_mvp",
+      "no_monitoring"
+    ],
+    [
+      "no_monitoring",
+      "one_time_monitoring"
+    ]
+  ],
+  "baseline_condition": "no_firewall",
+  "comparisons": [
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 228,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 228,
+        "b_only": 0,
+        "both_negative": 282
+      },
+      "rate_a": 0.4470588235294118,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.4470588235294118,
+        "lower": 0.40446398754103235,
+        "upper": 0.49044523189492845,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 228,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.4470588235294118,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 228,
+        "c": 0,
+        "discordant": 228,
+        "p_value": 4.636507688359277e-69,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.4470588235294118,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.403921568627451,
+        "upper": 0.49019607843137253,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.4,
+        "upper": 0.6,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 72,
+          "numerator_b": 0,
+          "rate_a": 0.6,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 96,
+          "numerator_b": 0,
+          "rate_a": 0.4,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 60,
+          "numerator_b": 0,
+          "rate_a": 0.4,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 1.4647151265712561,
+      "effect_size": 1.4647151265712561
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 54,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 54,
+        "b_only": 0,
+        "both_negative": 0
+      },
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 1.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 54,
+        "c": 0,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 30,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 78,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 78,
+        "b_only": 0,
+        "both_negative": 0
+      },
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 1.0,
+        "lower": 0.9530621895820832,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 78,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 1.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 78,
+        "c": 0,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 30,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "utility",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 54,
+      "numerator_a": 54,
+      "denominator_a": 54,
+      "numerator_b": 54,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 54,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 0
+      },
+      "rate_a": 1.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "risk_difference": 0.0,
+      "relative_risk": 1.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 24,
+          "rate_a": 1.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 30,
+          "numerator_b": 30,
+          "rate_a": 1.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "no_firewall",
+      "condition_b": "full_mvp",
+      "metric": "utility_false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 228,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 228,
+        "both_negative": 282
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.4470588235294118,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.4470588235294118,
+        "lower": 0.40446398754103235,
+        "upper": 0.49044523189492845,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 228,
+        "n": 510
+      },
+      "risk_difference": -0.4470588235294118,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 228,
+        "discordant": 228,
+        "p_value": 4.636507688359277e-69,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -0.4470588235294118,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -0.49019607843137253,
+        "upper": -0.403921568627451,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -0.6,
+        "upper": -0.4,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 72,
+          "rate_a": 0.0,
+          "rate_b": 0.6
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 96,
+          "rate_a": 0.0,
+          "rate_b": 0.4
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 60,
+          "rate_a": 0.0,
+          "rate_b": 0.4
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -1.4647151265712561,
+      "effect_size": -1.4647151265712561
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 54,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 54,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 54,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 78,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 78,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.9530621895820832,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 78,
+        "n": 78
+      },
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 78,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "exact_only",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 78,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 78,
+        "both_negative": 432
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.15294117647058825,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.15294117647058825,
+        "lower": 0.12430687753423726,
+        "upper": 0.1867646721015064,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 78,
+        "n": 510
+      },
+      "risk_difference": -0.15294117647058825,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 78,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -0.15294117647058825,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -0.1843137254901961,
+        "upper": -0.12156862745098039,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -0.2,
+        "upper": -0.1,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 0.2
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 0.1
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 0.2
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -0.8036028773414163,
+      "effect_size": -0.8036028773414163
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 54
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_embedding",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 510
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 54,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 54,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 54,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "stateless",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 510
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 54
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "binary_policy",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 510
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 54
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "one_time_monitoring",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 510
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 54
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 78
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_claim_detection",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 0,
+      "denominator_a": 510,
+      "numerator_b": 228,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 228,
+        "both_negative": 282
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.4470588235294118,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.4470588235294118,
+        "lower": 0.40446398754103235,
+        "upper": 0.49044523189492845,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 228,
+        "n": 510
+      },
+      "risk_difference": -0.4470588235294118,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 228,
+        "discordant": 228,
+        "p_value": 4.636507688359277e-69,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -0.4470588235294118,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -0.49019607843137253,
+        "upper": -0.403921568627451,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -0.6,
+        "upper": -0.4,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 0,
+          "numerator_b": 72,
+          "rate_a": 0.0,
+          "rate_b": 0.6
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 0,
+          "numerator_b": 96,
+          "rate_a": 0.0,
+          "rate_b": 0.4
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 0,
+          "numerator_b": 60,
+          "rate_a": 0.0,
+          "rate_b": 0.4
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -1.4647151265712561,
+      "effect_size": -1.4647151265712561
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 0,
+      "denominator_a": 54,
+      "numerator_b": 54,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 54,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 54,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 0,
+      "denominator_a": 78,
+      "numerator_b": 78,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 78,
+        "both_negative": 0
+      },
+      "rate_a": 0.0,
+      "rate_b": 1.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 1.0,
+        "lower": 0.9530621895820832,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 78,
+        "n": 78
+      },
+      "risk_difference": -1.0,
+      "relative_risk": 0.0,
+      "mcnemar": {
+        "b": 0,
+        "c": 78,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": -1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": -1.0,
+        "upper": -1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 0,
+          "numerator_b": 24,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 0,
+          "numerator_b": 30,
+          "rate_a": 0.0,
+          "rate_b": 1.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": -3.141592653589793,
+      "effect_size": -3.141592653589793
+    },
+    {
+      "condition_a": "full_mvp",
+      "condition_b": "no_monitoring",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "one_time_monitoring",
+      "metric": "exposure",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 510,
+      "numerator_a": 228,
+      "denominator_a": 510,
+      "numerator_b": 0,
+      "denominator_b": 510,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 228,
+        "b_only": 0,
+        "both_negative": 282
+      },
+      "rate_a": 0.4470588235294118,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.4470588235294118,
+        "lower": 0.40446398754103235,
+        "upper": 0.49044523189492845,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 228,
+        "n": 510
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.007475961339630686,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 510
+      },
+      "risk_difference": 0.4470588235294118,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 228,
+        "c": 0,
+        "discordant": 228,
+        "p_value": 4.636507688359277e-69,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.4470588235294118,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.403921568627451,
+        "upper": 0.49019607843137253,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.4,
+        "upper": 0.6,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 510,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 120
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 120,
+          "numerator_a": 72,
+          "numerator_b": 0,
+          "rate_a": 0.6,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 240,
+          "numerator_a": 96,
+          "numerator_b": 0,
+          "rate_a": 0.4,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 150,
+          "numerator_a": 60,
+          "numerator_b": 0,
+          "rate_a": 0.4,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 1.4647151265712561,
+      "effect_size": 1.4647151265712561
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "one_time_monitoring",
+      "metric": "reconstruction",
+      "pairing_unit": "sequence_id",
+      "n_pairs": 54,
+      "numerator_a": 54,
+      "denominator_a": 54,
+      "numerator_b": 0,
+      "denominator_b": 54,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 54,
+        "b_only": 0,
+        "both_negative": 0
+      },
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 1.0,
+        "lower": 0.933586410930963,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 54,
+        "n": 54
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06641358906903712,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 54
+      },
+      "risk_difference": 1.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 54,
+        "c": 0,
+        "discordant": 54,
+        "p_value": 1.1102230246251565e-16,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2
+      },
+      "design_summary": {
+        "pairing_unit": "sequence_id",
+        "n_pairs": 54,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 2,
+        "n_scenarios": 2,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 30,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "one_time_monitoring",
+      "metric": "recontamination",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 78,
+      "numerator_a": 78,
+      "denominator_a": 78,
+      "numerator_b": 0,
+      "denominator_b": 78,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 78,
+        "b_only": 0,
+        "both_negative": 0
+      },
+      "rate_a": 1.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 1.0,
+        "lower": 0.9530621895820832,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 78,
+        "n": 78
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.04693781041791674,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 78
+      },
+      "risk_difference": 1.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 78,
+        "c": 0,
+        "discordant": 78,
+        "p_value": 6.617444900424222e-24,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 1.0,
+        "p_value": 0.0,
+        "n_permutations": 10000,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 1.0,
+        "upper": 1.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 78,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": null,
+        "n_secret_variants_b": null,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 24
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 24,
+          "numerator_a": 24,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 30,
+          "numerator_a": 30,
+          "numerator_b": 0,
+          "rate_a": 1.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 3.141592653589793,
+      "effect_size": 3.141592653589793
+    },
+    {
+      "condition_a": "no_monitoring",
+      "condition_b": "one_time_monitoring",
+      "metric": "false_block",
+      "pairing_unit": "candidate_id",
+      "n_pairs": 156,
+      "numerator_a": 0,
+      "denominator_a": 156,
+      "numerator_b": 0,
+      "denominator_b": 156,
+      "unmatched": {
+        "only_in_a": [],
+        "only_in_b": []
+      },
+      "contingency": {
+        "both_positive": 0,
+        "a_only": 0,
+        "b_only": 0,
+        "both_negative": 156
+      },
+      "rate_a": 0.0,
+      "rate_b": 0.0,
+      "rate_ci_95_a": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "rate_ci_95_b": {
+        "rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.024032931807440552,
+        "confidence_level": 0.95,
+        "method": "wilson",
+        "successes": 0,
+        "n": 156
+      },
+      "risk_difference": 0.0,
+      "relative_risk": null,
+      "mcnemar": {
+        "b": 0,
+        "c": 0,
+        "discordant": 0,
+        "p_value": 1.0,
+        "test": "exact_mcnemar"
+      },
+      "permutation": {
+        "statistic": 0.0,
+        "p_value": 1.0,
+        "n_permutations": 0,
+        "seed": 42,
+        "test": "paired_permmutation"
+      },
+      "bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42
+      },
+      "cluster_bootstrap_ci_95": {
+        "lower": 0.0,
+        "upper": 0.0,
+        "confidence_level": 0.95,
+        "n_iterations": 10000,
+        "seed": 42,
+        "method": "cluster_bootstrap",
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3
+      },
+      "design_summary": {
+        "pairing_unit": "candidate_id",
+        "n_pairs": 156,
+        "cluster_unit": "scenario_id",
+        "n_clusters": 3,
+        "n_scenarios": 3,
+        "n_secret_variants_a": 26,
+        "n_secret_variants_b": 26,
+        "small_cell_scenarios": [],
+        "min_scenario_pairs": 48
+      },
+      "scenario_sensitivity": {
+        "attribute_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "auth_001": {
+          "n": 48,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        },
+        "credential_001": {
+          "n": 60,
+          "numerator_a": 0,
+          "numerator_b": 0,
+          "rate_a": 0.0,
+          "rate_b": 0.0
+        }
+      },
+      "perfect_rate_observed": true,
+      "interpretation_note": "Observed rate is at the 0/1 boundary; the Wilson interval remains non-degenerate and the result must not be described as perfect generalization.",
+      "cohens_h": 0.0,
+      "effect_size": 0.0
+    }
+  ]
+}
