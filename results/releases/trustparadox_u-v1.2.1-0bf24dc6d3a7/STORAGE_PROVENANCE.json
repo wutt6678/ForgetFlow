@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "release_id": "trustparadox_u-v1.2.1-0bf24dc6d3a7",
+  "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+  "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+  "artifact_storage_commit": "aacb3b51825254f0fd4949568ddca08c247ba64e",
+  "gate_snapshot_commit": "",
+  "verified_at": "2026-08-05T11:49:29.123058+00:00"
+}
