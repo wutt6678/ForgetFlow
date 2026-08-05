@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "study_version": "1.0.0",
+  "protocol_version": "",
+  "provenance": {
+    "tested_code_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
+    "artifact_generation_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
+    "repository_clean": true,
+    "workflow_run_id": "",
+    "workflow_attempt": "",
+    "generated_at": "2026-08-05T00:10:08.468096+00:00",
+    "artifact_generation_tree": "03fafa3ff81ff6d542921f5def5c3cdab0ed493d69e2f6a52d8022687599cd36",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": ""
+  },
+  "corpus": {
+    "corpus_sha256": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+    "manifest": "data/trustparadox_u/frozen_corpus/corpus_manifest.json"
+  },
+  "annotations": {
+    "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
+    "manifest": "data/trustparadox_u/frozen_corpus/annotation_manifest.json"
+  },
+  "components": {
+    "frozen_config/frozen_threshold_manifest.json": {
+      "role": "frozen condition configurations",
+      "sha256": "f2a7950f307c0701ea7c8019aa7459b52570f14339ea06abbdb54fb8bff51d6c"
+    },
+    "reproduction/reproduction_manifest.json": {
+      "role": "reproduction manifest and provenance",
+      "sha256": "788e4f0084c02c3e1d5cf97800d971054d8897cb40bec75986c2493758b9699d"
+    },
+    "frozen_replay/run_manifest.json": {
+      "role": "raw replay run manifest",
+      "sha256": "85d000d650cd7d732c555cd70c31fde7a109172d3032bbb412a85e3d16521f4b"
+    },
+    "frozen_replay/candidate_trials.jsonl": {
+      "role": "raw replay trials",
+      "sha256": "faa97dde9efb7fef5007c3afbdb5604d63b5ab5d26903749070e1d9275ff1ea6"
+    },
+    "frozen_replay/reconstruction_trials.jsonl": {
+      "role": "raw reconstruction trials",
+      "sha256": "291eabbb3a6982a9568bacce3212130796faf871bd9529afa0e4cee0305e47e0"
+    },
+    "frozen_replay/recontamination_trials.jsonl": {
+      "role": "raw recontamination trials",
+      "sha256": "b1c3b125fe44fed138c2435e51bbe0ef64f68f11931c01024e843b4fbb3c10b2"
+    },
+    "frozen_replay/utility_trials.jsonl": {
+      "role": "raw utility trials",
+      "sha256": "cb221706a0f1b20cc1043f6bc7bc0c86c13a0114b02fe81ea386e416e6b0ca92"
+    },
+    "frozen_replay/resolved_conditions.json": {
+      "role": "resolved condition configurations",
+      "sha256": "905d2a3803ab07060bf3c158dac9a8296180b9015d37781e540045655a77c431"
+    },
+    "frozen_replay/metrics_by_condition.json": {
+      "role": "metrics by condition",
+      "sha256": "f657f675d86d49400ba7832e644da1b141e4eedf8080dee2a203e035bbd02093"
+    },
+    "leakage_analysis/leakage_analysis.json": {
+      "role": "leakage analysis",
+      "sha256": "517e5ee2176f5cd5467d7cb9bfdaccf84025086262dfcfd8b0166a3fe5333042"
+    },
+    "paired_statistics/paired_statistics.json": {
+      "role": "statistical outputs",
+      "sha256": "ea8c6b84999e398513afb1814ee95040881346c9fee6bf8c30ddbc4cb0f2c549"
+    },
+    "parameter_sweep/sweep_summary.json": {
+      "role": "parameter sweep summary",
+      "sha256": "987a1db0816be0f1f940e692292fe724bc167dcfb0b1d850619bad6afe4fe375"
+    },
+    "final_artifacts/study_manifest.json": {
+      "role": "final study manifest",
+      "sha256": "7804346535050aa056785c1bb23613151a7198c359fadb6db8b251bb9f71c719"
+    },
+    "final_artifacts/table1_main_results.json": {
+      "role": "final table 1: main results",
+      "sha256": "9822c2ba941594b776b230a635b8970523dd39c442bab1e48e9a850af57cd46f"
+    },
+    "final_artifacts/table2_leakage_breakdown.json": {
+      "role": "final table 2: leakage breakdown",
+      "sha256": "e4fe10dc1ced2c91ebc53cd805cfe393165995db02ea0acd94d703ac3a003bc9"
+    },
+    "final_artifacts/table3_parameter_sensitivity.json": {
+      "role": "final table 3: parameter sensitivity",
+      "sha256": "e5bd8c54dde83bcd69e52dd03e1c0e1a9380893b60ee34a6014731df2e67da98"
+    },
+    "final_artifacts/table4_statistical_comparisons.json": {
+      "role": "final table 4: statistical comparisons",
+      "sha256": "ac6e60f0efe7cd9d7c8d933e37e42f143b75cf5f9b31d199ccca0deb72319310"
+    }
+  },
+  "status": "active",
+  "superseded_by": "",
+  "release_id": "trustparadox_u-v1.0.0-a314018808e5",
+  "release_digest": "a314018808e5e89b38228b304f95d74af9d3ba9486faad5fa346819e88bdaccc",
+  "created_at": "2026-08-05T00:13:08.240797+00:00"
+}
