@@ -16,6 +16,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -148,6 +152,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -187,6 +195,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -239,6 +251,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -291,6 +307,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -339,6 +359,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: the research-valid gate validates artifact
+          # storage-commit lineage (§32), which a shallow clone breaks.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
