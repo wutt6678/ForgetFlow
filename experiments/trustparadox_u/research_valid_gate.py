@@ -59,6 +59,8 @@ PROVENANCE_ARTIFACTS: tuple[Path, ...] = (
     # Remediation §29: the frozen configuration manifest is committed
     # before the test results it governs.
     RESULTS_DIR / "frozen_config" / "frozen_threshold_manifest.json",
+    # Remediation §33: the single-command reproduction manifest.
+    RESULTS_DIR / "reproduction" / "reproduction_manifest.json",
     FINAL_DIR / "study_manifest.json",
 )
 
@@ -623,6 +625,98 @@ def check_frozen_threshold_manifest() -> dict[str, Any]:
     }
 
 
+def check_reproduction_manifest() -> dict[str, Any]:
+    """Remediation §33: one documented reproduction command certifies the
+    final artifacts.
+
+    Requires a passing reproduction manifest whose three-way provenance
+    (§32) validates, whose pipeline steps all passed, and whose artifact
+    checksums still match the artifacts on disk.
+    """
+    import hashlib
+
+    from experiments.trustparadox_u.artifact_provenance import (
+        validate_three_way_provenance,
+    )
+
+    path = RESULTS_DIR / "reproduction" / "reproduction_manifest.json"
+    if not path.exists():
+        return {"passed": False, "reason": "reproduction_manifest.json not found"}
+    manifest = _load_json(path)
+
+    findings: list[str] = []
+    if manifest.get("passed") is not True:
+        findings.append("reproduction_not_passed")
+
+    provenance = manifest.get("provenance")
+    if not isinstance(provenance, dict):
+        findings.append("missing_provenance")
+    else:
+        findings.extend(
+            validate_three_way_provenance(
+                provenance, current_commit=_current_commit(), artifact_path=path
+            )
+        )
+
+    steps = manifest.get("steps", [])
+    if not steps:
+        findings.append("no_pipeline_steps_recorded")
+    failed = [s.get("module") for s in steps if not s.get("passed")]
+    if failed:
+        findings.append(f"failed_steps: {failed}")
+
+    artifacts = manifest.get("artifacts", {})
+    if not artifacts:
+        findings.append("no_artifact_checksums")
+    else:
+        for rel, sha in artifacts.items():
+            target = RESULTS_DIR / rel
+            if not target.exists():
+                findings.append(f"artifact_missing: {rel}")
+            elif hashlib.sha256(target.read_bytes()).hexdigest() != sha:
+                findings.append(f"artifact_checksum_mismatch: {rel}")
+
+    return {
+        "passed": not findings,
+        "study_version": manifest.get("study_version"),
+        "num_artifacts": len(artifacts),
+        "findings": findings[:20],
+    }
+
+
+def check_release_bundles() -> dict[str, Any]:
+    """Remediation §34: released bundles are unique, immutable, verifiable.
+
+    Requires at least one release bundle, exactly one active release, and
+    every component hash in every bundle manifest to match the bundle's
+    stored artifacts.  Superseded bundles stay auditable in the archive.
+    """
+    from experiments.trustparadox_u.release_bundle import (
+        BUNDLE_MANIFEST_NAME,
+        release_dirs,
+        validate_release_bundle,
+    )
+
+    dirs = release_dirs()
+    findings: list[str] = []
+    if not dirs:
+        findings.append("no_release_bundles")
+    active: list[str] = []
+    for bundle_dir in dirs:
+        findings.extend(validate_release_bundle(bundle_dir))
+        manifest = _load_json(bundle_dir / BUNDLE_MANIFEST_NAME)
+        if manifest.get("status") == "active":
+            active.append(str(manifest.get("release_id", bundle_dir.name)))
+    if dirs and len(active) != 1:
+        findings.append(f"active_release_count: {len(active)} (expected exactly 1)")
+    return {
+        "passed": not findings,
+        "releases": len(dirs),
+        "active": active,
+        "findings": findings[:20],
+    }
+
+
 def check_deterministic_reproducibility_validation() -> dict[str, Any]:
     """FF92-020: check the deterministic reproducibility validation.
 
@@ -848,6 +942,8 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
     "statistical_analysis_valid",
     "parameter_sweep_complete",
     "frozen_threshold_manifest",
+    "reproduction_manifest",
+    "release_bundles",
     "deterministic_reproducibility_validation",
     "final_artifacts",
 )
@@ -907,6 +1003,8 @@ def run_research_valid_gate() -> dict[str, Any]:
         "statistical_analysis_valid": check_statistical_analysis_valid(),
         "parameter_sweep_complete": check_parameter_sweep_complete(),
         "frozen_threshold_manifest": check_frozen_threshold_manifest(),
+        "reproduction_manifest": check_reproduction_manifest(),
+        "release_bundles": check_release_bundles(),
         "deterministic_reproducibility_validation": (
             check_deterministic_reproducibility_validation()
         ),
