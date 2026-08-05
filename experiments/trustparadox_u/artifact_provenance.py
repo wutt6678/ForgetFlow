@@ -32,6 +32,36 @@ failure modes: commit mismatch, dirty suffix, unknown commit, missing
 fields, and stale result directories.  ``validate_three_way_provenance``
 additionally enforces the §32 workspace/environment anchors required in
 the reproduction manifest and release bundles.
+
+Canonical release provenance model (PR-001)
+--------------------------------------------
+``COMPLETE_PROVENANCE_FIELDS`` is the canonical ten-field model every
+certified release records, with fixed semantics:
+
+- ``tested_code_commit`` — the commit whose code was executed;
+- ``artifact_generation_commit`` — the commit the artifacts were bound
+  to.  Normally ``tested_code_commit == artifact_generation_commit``;
+  when they legitimately differ (e.g. a replay ran against an older
+  checkout), a ``difference_reason`` must accompany the record;
+- ``artifact_generation_tree`` — workspace hash over every source path
+  (code, corpus data, annotations, thresholds, protocol documentation,
+  environment locks) — never mutable storage metadata such as
+  ``results/``;
+- ``artifact_storage_commit`` — the *first* commit in git history that
+  contains the exact stored artifact bundle (later edits of the same
+  path do not change it);
+- ``workflow_run_id`` / ``workflow_attempt`` — numeric CI run identity,
+  or ``local`` with ``certification_source=local`` outside CI;
+- ``protocol_version`` / ``study_version`` — the protocol/study the run
+  certified;
+- ``environment_lock_hash`` — hash of the dependency lock file;
+- ``repository_clean`` — whether the code tree was clean at generation.
+
+Because a release is stored by a commit later than the one that
+generated it, releases carry a ``STORAGE_PROVENANCE.json`` sidecar
+(PR-002) recording the audited lineage.  The sidecar is storage
+metadata: it is excluded from the scientific release digest and tracked
+by a separate ``storage_metadata_digest`` (PR-005).
 """
 
 from __future__ import annotations
@@ -87,6 +117,20 @@ COMPLETE_PROVENANCE_FIELDS: tuple[str, ...] = (
 SOURCE_PATHS: tuple[str, ...] = ("marble", "experiments", "scripts", "tests", "data", "doc")
 SOURCE_FILES: tuple[str, ...] = ("pyproject.toml", "poetry.lock", "environment.yml")
 _EXCLUDED_PARTS = frozenset({"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".git"})
+
+# PR-004: the lineage fields that must agree across every release manifest
+# (study/gate/reproduction/run/frozen-threshold/bundle manifests and the
+# STORAGE_PROVENANCE.json sidecar).  Timestamps like ``generated_at`` are
+# deliberately excluded — they legitimately differ between writers.
+PROVENANCE_SYNC_FIELDS: tuple[str, ...] = (
+    "tested_code_commit",
+    "artifact_generation_commit",
+    "artifact_generation_tree",
+    "artifact_storage_commit",
+    "protocol_version",
+    "study_version",
+    "environment_lock_hash",
+)
 
 
 def code_tree_is_clean() -> bool:
@@ -193,6 +237,70 @@ def storage_commit_for(path: Path) -> str:
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
+
+
+def _content_sha256_map(path: Path) -> dict[str, str]:
+    """Repo-relative path -> content SHA-256 for a file or directory."""
+    if path.is_file():
+        rel = path.resolve().relative_to(_PROJECT_ROOT)
+        return {str(rel): hashlib.sha256(path.read_bytes()).hexdigest()}
+    entries: dict[str, str] = {}
+    for child in sorted(path.rglob("*")):
+        if not child.is_file():
+            continue
+        rel = child.resolve().relative_to(_PROJECT_ROOT)
+        entries[str(rel)] = hashlib.sha256(child.read_bytes()).hexdigest()
+    return entries
+
+
+def first_storage_commit_for(path: Path) -> str:
+    """PR-001: the *first* commit that stored ``path``'s exact content.
+
+    ``storage_commit_for`` returns the last commit touching the path;
+    the canonical storage commit of a release is instead the earliest
+    commit whose stored bytes match the artifact exactly — later edits
+    of the same path (sidecar updates, markers) never move it.  Empty
+    when the path is untracked or no commit stored identical content.
+    """
+    try:
+        rel = path.resolve().relative_to(_PROJECT_ROOT)
+    except ValueError:
+        return ""
+    try:
+        expected = _content_sha256_map(path)
+    except (OSError, ValueError):
+        return ""
+    if not expected:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "log", "--reverse", "--format=%H", "--", str(rel)],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    for commit in result.stdout.split():
+        matched = True
+        for rel_path, digest in expected.items():
+            try:
+                blob = subprocess.run(
+                    ["git", "show", f"{commit}:{rel_path}"],
+                    capture_output=True,
+                    cwd=_PROJECT_ROOT,
+                )
+            except Exception:
+                matched = False
+                break
+            if blob.returncode != 0 or hashlib.sha256(blob.stdout).hexdigest() != digest:
+                matched = False
+                break
+        if matched:
+            return commit
+    return ""
 
 
 def commit_is_ancestor(ancestor: str, descendant: str) -> bool:
@@ -359,6 +467,58 @@ def validate_three_way_provenance(
                 f"storage_commit_mismatch: recorded={recorded_storage!r} "
                 f"actual={actual_storage!r}"
             )
+    return findings
+
+
+def _provenance_record(manifest: dict[str, Any]) -> dict[str, Any] | None:
+    """The provenance record inside a manifest (nested or top-level)."""
+    record = manifest.get("provenance")
+    if isinstance(record, dict):
+        return record
+    if "tested_code_commit" in manifest:
+        return manifest  # STORAGE_PROVENANCE.json sidecar layout
+    return None
+
+
+def validate_release_provenance_consistency(
+    manifests: dict[str, dict[str, Any]],
+) -> list[str]:
+    """PR-004: findings when release manifests record divergent lineage.
+
+    ``manifests`` maps a manifest label (e.g. ``"study_manifest"``) to its
+    parsed JSON.  Every manifest must carry a provenance record, and the
+    ``PROVENANCE_SYNC_FIELDS`` values must be identical across all of
+    them — any disagreement or empty lineage field is a finding.  An
+    empty return list means the release's provenance is synchronized.
+    """
+    findings: list[str] = []
+    if not manifests:
+        return ["provenance_sync_no_manifests"]
+
+    records: dict[str, dict[str, Any]] = {}
+    for label, manifest in manifests.items():
+        if not isinstance(manifest, dict):
+            findings.append(f"provenance_sync_not_a_manifest: {label}")
+            continue
+        record = _provenance_record(manifest)
+        if record is None:
+            findings.append(f"provenance_sync_missing_record: {label}")
+            continue
+        records[label] = record
+    if not records:
+        return findings
+
+    for field in PROVENANCE_SYNC_FIELDS:
+        values: dict[str, str] = {}
+        for label, record in records.items():
+            value = str(record.get(field, "") or "")
+            values[label] = value
+            if not value.strip():
+                findings.append(f"provenance_sync_empty_field: {label}.{field}")
+        distinct = sorted(set(values.values()))
+        if len(distinct) > 1:
+            detail = ", ".join(f"{label}={value!r}" for label, value in sorted(values.items()))
+            findings.append(f"provenance_sync_mismatch: {field} ({detail})")
     return findings
 
 

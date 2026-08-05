@@ -33,9 +33,17 @@ RELEASES_DIR = RESULTS_DIR / "releases"
 ARCHIVE_DIR = RESULTS_DIR / "archive"
 CORPUS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "frozen_corpus"
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 BUNDLE_MANIFEST_NAME = "bundle_manifest.json"
+STORAGE_PROVENANCE_NAME = "STORAGE_PROVENANCE.json"
+STORAGE_PROVENANCE_SCHEMA_VERSION = "1.0"
 SUPERSEDED_MARKER_NAME = "INVALIDATION_MARKER.json"
+
+# PR-003: schema 1.1 bundles enforce complete, synchronized provenance —
+# non-empty top-level versions matching the nested provenance record and
+# a non-empty artifact_storage_commit.  Schema 1.0 bundles (historical)
+# keep validating under the old, weaker rules.
+_LEGACY_SCHEMA_VERSIONS = frozenset({"", "1.0"})
 
 # (results-relative path, role) — every artifact a release must preserve.
 BUNDLE_COMPONENTS: tuple[tuple[str, str], ...] = (
@@ -106,7 +114,12 @@ def corpus_annotation_binding() -> dict[str, Any]:
 
 
 def release_digest(manifest: dict[str, Any]) -> str:
-    """Canonical digest over everything that defines a release's content."""
+    """Canonical digest over everything that defines a release's content.
+
+    PR-005: this is the *scientific* release digest.  Storage metadata —
+    the ``STORAGE_PROVENANCE.json`` sidecar — is never a component and
+    can never change it, so sidecar updates never fork a release.
+    """
     canonical = {
         "study_version": manifest["study_version"],
         "corpus_sha256": manifest["corpus"]["corpus_sha256"],
@@ -117,6 +130,65 @@ def release_digest(manifest: dict[str, Any]) -> str:
     }
     payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def scientific_release_digest(manifest: dict[str, Any]) -> str:
+    """PR-005: the scientific content digest of a release.
+
+    Identical to ``release_digest`` — named explicitly so the two-digest
+    scheme (scientific content vs. storage metadata) reads unambiguously.
+    """
+    return release_digest(manifest)
+
+
+def storage_metadata_digest(sidecar: dict[str, Any]) -> str:
+    """PR-005: digest of the STORAGE_PROVENANCE.json sidecar content.
+
+    ``verified_at`` is audit bookkeeping, not lineage, and is excluded so
+    re-auditing identical lineage never changes the digest.
+    """
+    canonical = {key: value for key, value in sidecar.items() if key != "verified_at"}
+    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def write_storage_provenance(
+    bundle_dir: Path,
+    *,
+    artifact_storage_commit: str = "",
+    gate_snapshot_commit: str = "",
+    verified_at: str | None = None,
+) -> dict[str, Any]:
+    """PR-002: audit a release's lineage and store the sidecar record.
+
+    Writes ``STORAGE_PROVENANCE.json`` next to the bundle manifest and
+    syncs ``storage_metadata_digest`` into the manifest.  Commits are
+    taken from the audited lineage (git history), never from the current
+    checkout: the sidecar records what *was* run and stored, not what is
+    checked out now.
+    """
+    manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
+    if not manifest_path.exists():
+        raise ReleaseError(f"bundle manifest missing: {manifest_path}")
+    manifest = _load_json(manifest_path)
+    provenance = manifest.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+    storage_commit = artifact_storage_commit or str(
+        provenance.get("artifact_storage_commit", "") or ""
+    )
+    sidecar: dict[str, Any] = {
+        "schema_version": STORAGE_PROVENANCE_SCHEMA_VERSION,
+        "release_id": str(manifest.get("release_id", "")),
+        "tested_code_commit": str(provenance.get("tested_code_commit", "") or ""),
+        "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
+        "artifact_storage_commit": storage_commit,
+        "gate_snapshot_commit": gate_snapshot_commit,
+        "verified_at": verified_at or datetime.now(timezone.utc).isoformat(),
+    }
+    (bundle_dir / STORAGE_PROVENANCE_NAME).write_text(json.dumps(sidecar, indent=2) + "\n")
+    manifest["storage_metadata_digest"] = storage_metadata_digest(sidecar)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    return sidecar
 
 
 def build_release_manifest() -> dict[str, Any]:
@@ -135,6 +207,15 @@ def build_release_manifest() -> dict[str, Any]:
     if reproduction.get("passed") is not True:
         raise ReleaseError("reproduction manifest did not pass; refusing to release")
 
+    repro_provenance = reproduction.get("provenance")
+    repro_provenance = repro_provenance if isinstance(repro_provenance, dict) else {}
+    study_version = str(
+        reproduction.get("study_version") or repro_provenance.get("study_version", "") or ""
+    )
+    protocol_version = str(
+        reproduction.get("protocol_version") or repro_provenance.get("protocol_version", "") or ""
+    )
+
     components: dict[str, dict[str, str]] = {}
     for rel, role in BUNDLE_COMPONENTS:
         source = RESULTS_DIR / rel
@@ -145,8 +226,8 @@ def build_release_manifest() -> dict[str, Any]:
     binding = corpus_annotation_binding()
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "study_version": str(reproduction.get("study_version", "")),
-        "protocol_version": str(reproduction.get("protocol_version", "")),
+        "study_version": study_version,
+        "protocol_version": protocol_version,
         "provenance": reproduction.get("provenance", {}),
         "corpus": {
             "corpus_sha256": binding["corpus_sha256"],
@@ -163,11 +244,26 @@ def build_release_manifest() -> dict[str, Any]:
     digest = release_digest(manifest)
     manifest["release_id"] = f"trustparadox_u-v{manifest['study_version']}-{digest[:12]}"
     manifest["release_digest"] = digest
+    # PR-005: the two-digest scheme — the scientific digest above defines
+    # the release; the storage metadata digest is recorded once the
+    # STORAGE_PROVENANCE.json sidecar has been audited and written.
+    manifest["scientific_release_digest"] = digest
+    manifest["storage_metadata_digest"] = ""
     return manifest
 
 
-def validate_release_bundle(bundle_dir: Path) -> list[str]:
-    """Recompute every component hash recorded in a bundle's manifest."""
+def validate_release_bundle(bundle_dir: Path, *, allow_pending_storage: bool = False) -> list[str]:
+    """Recompute every component hash recorded in a bundle's manifest.
+
+    PR-003: schema 1.1 bundles additionally require non-empty top-level
+    ``study_version``/``protocol_version`` matching the nested provenance
+    record, complete provenance lineage (including a non-empty
+    ``artifact_storage_commit``), and a reproducible
+    ``storage_metadata_digest`` when the sidecar is present.
+    ``allow_pending_storage`` exempts the storage-commit requirement for
+    bundles validated immediately after creation, before the commit that
+    stores them exists.
+    """
     findings: list[str] = []
     manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
     if not manifest_path.exists():
@@ -190,6 +286,20 @@ def validate_release_bundle(bundle_dir: Path) -> list[str]:
         if recomputed and recomputed != digest:
             findings.append(f"{bundle_dir.name}: release_digest not reproducible")
 
+    if str(manifest.get("schema_version", "")) not in _LEGACY_SCHEMA_VERSIONS:
+        findings.extend(
+            _validate_bundle_provenance_fields(bundle_dir.name, manifest, allow_pending_storage)
+        )
+
+    sidecar_path = bundle_dir / STORAGE_PROVENANCE_NAME
+    if sidecar_path.exists():
+        sidecar = _load_json(sidecar_path)
+        if sidecar.get("release_id") != manifest.get("release_id"):
+            findings.append(f"{bundle_dir.name}: storage provenance release_id mismatch")
+        recorded = str(manifest.get("storage_metadata_digest", "") or "")
+        if recorded and recorded != storage_metadata_digest(sidecar):
+            findings.append(f"{bundle_dir.name}: storage_metadata_digest not reproducible")
+
     for rel, component in manifest.get("components", {}).items():
         path = bundle_dir / rel
         if not path.exists():
@@ -200,18 +310,57 @@ def validate_release_bundle(bundle_dir: Path) -> list[str]:
     return findings
 
 
+def _validate_bundle_provenance_fields(
+    bundle_name: str,
+    manifest: dict[str, Any],
+    allow_pending_storage: bool,
+) -> list[str]:
+    """PR-003: strict provenance completeness for schema 1.1 bundles."""
+    findings: list[str] = []
+    provenance = manifest.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+
+    for field in ("study_version", "protocol_version"):
+        top_level = str(manifest.get(field, "") or "").strip()
+        if not top_level:
+            findings.append(f"{bundle_name}: empty top-level {field}")
+        elif str(provenance.get(field, "") or "") != manifest.get(field):
+            findings.append(f"{bundle_name}: top-level {field} != provenance.{field}")
+
+    if (
+        not allow_pending_storage
+        and not str(provenance.get("artifact_storage_commit", "") or "").strip()
+    ):
+        findings.append(f"{bundle_name}: empty provenance.artifact_storage_commit")
+    for field in (
+        "tested_code_commit",
+        "artifact_generation_commit",
+        "artifact_generation_tree",
+        "environment_lock_hash",
+    ):
+        if not str(provenance.get(field, "") or "").strip():
+            findings.append(f"{bundle_name}: empty provenance.{field}")
+    return findings
+
+
 def release_dirs() -> list[Path]:
     if not RELEASES_DIR.exists():
         return []
     return sorted(d for d in RELEASES_DIR.iterdir() if (d / BUNDLE_MANIFEST_NAME).exists())
 
 
-def supersede_release(bundle_dir: Path, *, superseded_by: str) -> None:
+def supersede_release(
+    bundle_dir: Path,
+    *,
+    superseded_by: str,
+    reason: str | list[str] | None = None,
+) -> None:
     """Archive a superseded release with an invalidation marker.
 
     The bundle moves wholesale into ``results/archive/<release_id>/`` so
     it stays auditable; markers inside the archive never fail the
-    invalidation gate.
+    invalidation gate.  ``reason`` may document the supersession as a
+    single string or a list of distinct causes (PR-009).
     """
     manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
     manifest = _load_json(manifest_path)
@@ -226,7 +375,10 @@ def supersede_release(bundle_dir: Path, *, superseded_by: str) -> None:
         json.dumps(
             {
                 "status": "superseded",
-                "reason": f"superseded by release {superseded_by}",
+                "superseded_by": superseded_by,
+                "reason": (
+                    reason if reason is not None else f"superseded by release {superseded_by}"
+                ),
             },
             indent=2,
         )
@@ -257,7 +409,7 @@ def build_release_bundle() -> dict[str, Any]:
         shutil.copy2(source, target)
     (bundle_dir / BUNDLE_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
 
-    findings = validate_release_bundle(bundle_dir)
+    findings = validate_release_bundle(bundle_dir, allow_pending_storage=True)
     if findings:
         raise ReleaseError(f"bundle self-validation failed: {findings}")
     return {"release_id": release_id, "status": "active", "new": True}
