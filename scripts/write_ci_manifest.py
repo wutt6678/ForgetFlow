@@ -12,11 +12,12 @@ Usage:
         --tested-commit "$GITHUB_SHA" \
         --phase static_checks=PASS \
         --phase test_suite=PASS \
-        --phase assertion_suite=PASS \
         --phase single_target_smoke=PASS \
         --phase multi_target_smoke=PASS \
         --phase independent_verification=PASS \
         --phase consistency_validation=PASS
+
+The assertion suite phase is retired (SC-010, Option B) and no longer needed.
 """
 
 from __future__ import annotations

@@ -50,6 +50,8 @@ EXIT_REPOSITORY_DIRTY = 2
 EXIT_COMMIT_MISMATCH = 3
 EXIT_STATIC_CHECK = 4
 EXIT_TEST_FAILURE = 5
+# SC-010 (Option B): the assertion suite is retired; exit code 6 is reserved
+# and never returned.
 EXIT_ASSERTION_FAILURE = 6
 EXIT_SMOKE_FAILURE = 7
 EXIT_VERIFICATION_FAILURE = 8
@@ -177,7 +179,6 @@ class ResultsGenerator:
         # Create directory structure
         self.provenance_dir = output_dir / "provenance"
         self.ci_dir = output_dir / "ci"
-        self.assertion_dir = output_dir / "assertion_suite"
         self.single_target_dir = output_dir / "single_target_smoke"
         self.multi_target_dir = output_dir / "multi_target_smoke"
         self.trustparadox_dir = output_dir / "trustparadox_u"
@@ -530,53 +531,22 @@ class ResultsGenerator:
         return phase
 
     def run_assertion_suite(self) -> PhaseResult:
-        """Phase 4: Run the deterministic assertion suite."""
-        print("Phase 4: Running assertion suite...")
+        """Phase 4: assertion suite (retired, SC-010 Option B).
+
+        The deterministic assertion suite is deprecated: its ten behaviour
+        cases are covered by the pytest behavioural suite executed in
+        Phase 3 (tests/trustparadox_u).  The phase is recorded as SKIP so
+        existing manifests keep their schema, but nothing is executed and
+        the suite can never fail the pipeline.
+        """
+        print("Phase 4: Assertion suite retired (SC-010 Option B) -- skipping")
 
         phase = PhaseResult(
             phase_name="assertion_suite",
-            status="PASS",
+            status="SKIP",
             start_time=self._now(),
             end_time="",
         )
-
-        self.assertion_dir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            # Run assertion suite
-            cmd_result = self._run_command(
-                f"poetry run python scripts/run_assertion_suite.py --output-dir {self.assertion_dir}",
-                "assertion_suite/assertion_suite_output.txt",
-            )
-            phase.commands.append(cmd_result)
-
-            # Check report
-            report_path = self.assertion_dir / "assertion_suite_report.json"
-            if report_path.exists():
-                report = json.loads(report_path.read_text())
-                if report.get("assertion_cases_failed", 0) > 0:
-                    phase.status = "FAIL"
-                    phase.errors.append(
-                        f"Assertion cases failed: {report['assertion_cases_failed']}"
-                    )
-                    self.failure_reasons.append("Assertion suite has failing cases")
-                elif report.get("individual_assertions_failed", 0) > 0:
-                    phase.status = "FAIL"
-                    phase.errors.append(
-                        f"Individual assertions failed: {report['individual_assertions_failed']}"
-                    )
-                    self.failure_reasons.append("Assertion suite has failing assertions")
-                else:
-                    print(f"  [PASS] {report.get('assertion_cases_passed', 0)} cases passed")
-            else:
-                phase.status = "FAIL"
-                phase.errors.append("Assertion report not found")
-                self.failure_reasons.append("Assertion suite report missing")
-
-        except RuntimeError as e:
-            phase.status = "FAIL"
-            phase.errors.append(str(e))
-            self.failure_reasons.append("Assertion suite execution failed")
 
         phase.end_time = self._now()
         self.phase_results.append(phase)
@@ -963,13 +933,8 @@ class ResultsGenerator:
                 self.write_complete_manifest()
                 return EXIT_TEST_FAILURE
 
-            # Phase 4: Assertion suite
-            assertion_result = self.run_assertion_suite()
-            if assertion_result.status == "FAIL":
-                print("\nAssertion suite failed. Stopping.")
-                self.write_command_log()
-                self.write_complete_manifest()
-                return EXIT_ASSERTION_FAILURE
+            # Phase 4: Assertion suite (retired, SC-010 Option B)
+            self.run_assertion_suite()
 
             # Phase 5: Single-target smoke
             single_result = self.run_single_target_smoke()

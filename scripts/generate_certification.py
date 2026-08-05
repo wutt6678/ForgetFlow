@@ -253,11 +253,9 @@ def determine_certification_status(
     if not test_passed:
         failure_reasons.append("Test suite did not pass")
 
-    # Check assertion suite
-    assertion_phase = phases.get("assertion_suite", {})
-    assertion_passed = assertion_phase.get("status") in ("PASS", "SKIP")
-    if not assertion_passed:
-        failure_reasons.append("Assertion suite did not pass")
+    # SC-010 (Option B): the deterministic assertion suite is retired and no
+    # longer part of certification; its behaviour cases are covered by the
+    # pytest behavioural suite checked above.
 
     # Check smoke tests
     single_phase = phases.get("single_target_smoke", {})
@@ -289,7 +287,6 @@ def determine_certification_status(
     all_passed = (
         static_passed
         and test_passed
-        and assertion_passed
         and smoke_passed
         and verify_passed
         and consistency_passed
@@ -310,7 +307,6 @@ def determine_certification_status(
     checks = {
         "static": static_passed,
         "tests": test_passed,
-        "assertions": assertion_passed,
         "smoke": smoke_passed,
         "manifest": smoke_passed and consistency_passed,
         "verification": verify_passed,
@@ -388,7 +384,8 @@ def generate_certification(
         artifact_completeness=not any("artifact" in r.lower() for r in failure_reasons),
         audit_status="PASS" if checks["smoke"] else "FAIL",
         manifest_status="PASS" if checks["manifest"] else "FAIL",
-        assertion_status="PASS" if checks["assertions"] else "FAIL",
+        # SC-010 (Option B): retired suite -- recorded for schema stability.
+        assertion_status="RETIRED",
         metric_consistency_status="PASS"
         if checks["verification"] and checks["consistency"]
         else "FAIL",

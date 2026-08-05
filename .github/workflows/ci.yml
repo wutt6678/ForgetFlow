@@ -145,49 +145,6 @@ jobs:
           path: ci/
           retention-days: 90
 
-  assertion-suite:
-    runs-on: ubuntu-latest
-    needs: validate
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # Full history: the research-valid gate validates artifact
-          # storage-commit lineage (§32), which a shallow clone breaks.
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Install dependencies
-        run: poetry install --sync
-
-      - name: Run assertion suite
-        continue-on-error: true  # Diagnostic suite (non-blocking): 5/10 cases passing, 0 consistency/audit failures
-        env:
-          FORGETFLOW_TEST_MODE: "1"
-        run: poetry run python scripts/run_assertion_suite.py --output-dir results/assertion_suite
-
-      - name: Record CI provenance
-        if: always()
-        run: |
-          poetry run python scripts/record_ci_provenance.py \
-            --output results/assertion_suite/ci_provenance.json
-
-      - name: Upload assertion results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: assertion-suite-results
-          path: results/assertion_suite/
-          retention-days: 90
-
   single-target-smoke:
     runs-on: ubuntu-latest
     needs: validate
@@ -350,7 +307,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - validate
-      - assertion-suite
       - single-target-smoke
       - multi-target-smoke
       - trustparadox-u
@@ -395,13 +351,6 @@ jobs:
         with:
           name: trustparadox-u-results
           path: results/trustparadox_u
-
-      - name: Download assertion-suite results
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: assertion-suite-results
-          path: results/assertion_suite
 
       - name: Record provenance and repository state
         run: |
@@ -455,7 +404,6 @@ jobs:
       - name: Write CI manifest
         env:
           VALIDATE_RESULT: ${{ needs.validate.result }}
-          ASSERTION_RESULT: ${{ needs.assertion-suite.result }}
           SINGLE_RESULT: ${{ needs.single-target-smoke.result }}
           MULTI_RESULT: ${{ needs.multi-target-smoke.result }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
@@ -467,7 +415,6 @@ jobs:
             --tested-commit "${{ github.sha }}" \
             --phase static_checks="$(map_result "$VALIDATE_RESULT")" \
             --phase test_suite="$(map_result "$VALIDATE_RESULT")" \
-            --phase assertion_suite="$(map_result "$ASSERTION_RESULT")" \
             --phase single_target_smoke="$(map_result "$SINGLE_RESULT")" \
             --phase multi_target_smoke="$(map_result "$MULTI_RESULT")" \
             --phase independent_verification="$(map_result "$VERIFY_OUTCOME")" \

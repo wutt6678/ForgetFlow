@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Deterministic assertion suite: 10 targeted test cases, single seed.
 
+DEPRECATED (SC-010, Option B -- Retire): this suite is retired from the
+certification pipeline.  Its ten behaviour cases are covered by the pytest
+behavioural suite executed in Phase 3 of ``scripts/generate_complete_results.py``
+(tests/trustparadox_u).  ``generate_complete_results.py`` no longer runs it
+and ``generate_certification.py`` no longer requires it.  The script is kept
+for historical reference only.
+
 This is a focused validation suite with exactly 10 test cases:
 1. One exact disclosure
 2. One alias-only disclosure
