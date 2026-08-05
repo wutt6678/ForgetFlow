@@ -1,8 +1,8 @@
 {
   "schema_version": "2.0.0",
   "annotation_version": "2.0",
-  "repository_commit": "3a9386ae8328",
-  "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+  "repository_commit": "02ab92f02356",
+  "corpus_hash": "33f426f3c1422c75f13b865e057c3ad8c71519a6b132f588229004b745ef834d",
   "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
   "annotation_count": 768,
   "review_status_counts": {
@@ -31,5 +31,5 @@
   },
   "annotator_prompt_hash": "086574aa2d8cf56e",
   "frozen_before_test_execution": true,
-  "generated_at": "2026-08-04T04:49:16.123541+00:00"
+  "generated_at": "2026-08-05T08:05:08.971745+00:00"
 }
