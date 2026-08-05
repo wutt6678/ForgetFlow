@@ -2,36 +2,32 @@
   "schema_version": "3.0.0",
   "gate_name": "research_valid",
   "study_class": "diagnostic",
-  "verdict": "diagnostic",
-  "research_status": "diagnostic",
+  "verdict": "synthetic_benchmark_valid",
+  "research_status": "synthetic_benchmark_valid",
   "research_valid": false,
-  "synthetic_benchmark_valid": false,
+  "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
+  "repository_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
   "provenance": {
-    "tested_code_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
-    "artifact_generation_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
+    "tested_code_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
+    "artifact_generation_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:09:16.499374+00:00",
+    "generated_at": "2026-08-05T08:12:07.565996+00:00",
     "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
-    "artifact_storage_commit": "0ca5e48641f1819ab1690fb765d08781c15e644b"
+    "artifact_storage_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4"
   },
   "provenance_findings": [],
-  "generated_at": "2026-08-05T08:09:16.740890+00:00",
+  "generated_at": "2026-08-05T08:12:07.582018+00:00",
   "gates": {
     "repository_provenance": {
-      "passed": false,
-      "repository_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
-      "findings": [
-        "run_manifest.json: stale_result_commit: artifact commit '84b5310eb08c3819a3083a219f09607751d82dbe' not in storage lineage of '0ca5e48641f1819ab1690fb765d08781c15e644b'",
-        "reproduction_manifest.json: stale_result_commit: artifact commit '84b5310eb08c3819a3083a219f09607751d82dbe' not in storage lineage of '0ca5e48641f1819ab1690fb765d08781c15e644b'",
-        "study_manifest.json: stale_result_commit: artifact commit '84b5310eb08c3819a3083a219f09607751d82dbe' not in storage lineage of '0ca5e48641f1819ab1690fb765d08781c15e644b'"
-      ]
+      "passed": true,
+      "repository_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
+      "findings": []
     },
     "no_invalidated_artifacts": {
       "passed": true,
@@ -121,12 +117,10 @@
       "findings": []
     },
     "reproduction_manifest": {
-      "passed": false,
+      "passed": true,
       "study_version": "1.2.0",
       "num_artifacts": 20,
-      "findings": [
-        "stale_result_commit: artifact commit '84b5310eb08c3819a3083a219f09607751d82dbe' not in storage lineage of '0ca5e48641f1819ab1690fb765d08781c15e644b'"
-      ]
+      "findings": []
     },
     "release_bundles": {
       "passed": true,
@@ -160,8 +154,8 @@
       "reason": "diagnostic study class: scripted responders and deterministic embeddings validate code paths, not empirical behavior"
     },
     "tests_pass": {
-      "passed": false,
-      "output": "1 failed, 1889 passed, 4 skipped in 20.03s"
+      "passed": true,
+      "output": "1890 passed, 4 skipped in 14.60s"
     },
     "static_checks": {
       "passed": true,

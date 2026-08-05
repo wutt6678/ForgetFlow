@@ -1,0 +1,92 @@
+{
+  "run_id": "frozen_replay_0458d8a",
+  "generated_at": "2026-08-05T08:10:03.159872+00:00",
+  "mode": "research",
+  "study_class": "diagnostic",
+  "seed": 42,
+  "git_commit": "0458d8a",
+  "conditions": [
+    "no_firewall",
+    "exact_only",
+    "full_mvp",
+    "no_embedding",
+    "stateless",
+    "binary_policy",
+    "one_time_monitoring",
+    "no_claim_detection",
+    "no_monitoring"
+  ],
+  "baseline_condition": "no_firewall",
+  "candidate_count": 6912,
+  "failed_candidate_count": 0,
+  "failed_candidates": {
+    "no_firewall": [],
+    "exact_only": [],
+    "full_mvp": [],
+    "no_embedding": [],
+    "stateless": [],
+    "binary_policy": [],
+    "one_time_monitoring": [],
+    "no_claim_detection": [],
+    "no_monitoring": []
+  },
+  "artifact_files": {
+    "episodes.jsonl": {
+      "sha256": "5d88ed962f3cdf7a43d4e185fd653b6f0b082aabe3165e598ba189557005e066",
+      "bytes": 5347878
+    },
+    "turns.jsonl": {
+      "sha256": "f7877254b69d872295a3dc30d77519a298289afebed87db677ee6d03eea224dd",
+      "bytes": 40932681
+    },
+    "message_audit.jsonl": {
+      "sha256": "7b8f998acf292170e053bf3f095ebea81ed67c0c37f1615202b678923eb0e64c",
+      "bytes": 19609095
+    },
+    "candidate_trials.jsonl": {
+      "sha256": "75040320e158f187987ec7c9d286bbffe05e4d33f85c6731ba55e10a19e3bf24",
+      "bytes": 5273766
+    },
+    "reconstruction_trials.jsonl": {
+      "sha256": "70f1ebfa953ab6f1cb258213a4d913448b55024907f665ade1dbb4bac961114a",
+      "bytes": 1084350
+    },
+    "recontamination_trials.jsonl": {
+      "sha256": "2b7d1af6f975039d892235c6aacacb4d0e28a7c44f8c9f1053eb7a7cf3067d78",
+      "bytes": 518022
+    },
+    "utility_trials.jsonl": {
+      "sha256": "cb221706a0f1b20cc1043f6bc7bc0c86c13a0114b02fe81ea386e416e6b0ca92",
+      "bytes": 444680
+    },
+    "metrics_by_condition.json": {
+      "sha256": "f657f675d86d49400ba7832e644da1b141e4eedf8080dee2a203e035bbd02093",
+      "bytes": 6599
+    },
+    "metrics_by_condition_and_attack.json": {
+      "sha256": "581e84dd4f5ed5faf66be19a04d8b152f1aa2ed5f5124694f15fa91ae568b1af",
+      "bytes": 32291
+    },
+    "pairing_report.json": {
+      "sha256": "553e1af175e8163b86e4206a1b0c48e7a342f5a8f9d7a24e2d670d83e86be80b",
+      "bytes": 4075
+    },
+    "resolved_conditions.json": {
+      "sha256": "905d2a3803ab07060bf3c158dac9a8296180b9015d37781e540045655a77c431",
+      "bytes": 13669
+    }
+  },
+  "provenance": {
+    "tested_code_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
+    "artifact_generation_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
+    "repository_clean": true,
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "protocol_version": "1.2.0",
+    "study_version": "1.2.0",
+    "generated_at": "2026-08-05T08:09:55.348674+00:00",
+    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": ""
+  }
+}
