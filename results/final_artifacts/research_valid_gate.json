@@ -7,7 +7,7 @@
   "research_valid": false,
   "synthetic_benchmark_valid": false,
   "all_passed": false,
-  "gate_execution_commit": "62513bdbfd4cfa5e57ec34f9facf6b444557b4ed",
+  "gate_execution_commit": "4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty",
   "gate_snapshot_commit": null,
   "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
   "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
@@ -36,12 +36,19 @@
   },
   "provenance_findings": [],
   "storage_provenance_findings": [],
-  "generated_at": "2026-08-05T17:28:09.807161+00:00",
+  "generated_at": "2026-08-05T17:35:12.451115+00:00",
   "gates": {
     "repository_provenance": {
-      "passed": true,
-      "gate_execution_commit": "62513bdbfd4cfa5e57ec34f9facf6b444557b4ed",
-      "findings": []
+      "passed": false,
+      "gate_execution_commit": "4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty",
+      "findings": [
+        "repository_tree_dirty",
+        "run_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
+        "sweep_summary.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
+        "frozen_threshold_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
+        "reproduction_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
+        "study_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'"
+      ]
     },
     "no_invalidated_artifacts": {
       "passed": true,
@@ -131,34 +138,33 @@
       "findings": []
     },
     "reproduction_manifest": {
-      "passed": true,
+      "passed": false,
       "study_version": "1.2.1",
       "num_artifacts": 20,
-      "findings": []
+      "findings": [
+        "invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'"
+      ]
     },
     "release_bundles": {
       "passed": true,
       "releases": 1,
       "active": [
-        "trustparadox_u-v1.2.1-bb80497b320a"
+        "trustparadox_u-v1.2.1-b2d33d49ea9d"
       ],
       "findings": []
     },
     "release_storage_provenance": {
       "passed": false,
-      "release_id": "trustparadox_u-v1.2.1-bb80497b320a",
+      "release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
       "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
       "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
-      "artifact_storage_commit": "4da2024e22f7d43c5df8a378291a16a0eec69de7",
+      "artifact_storage_commit": "d8b9d9eb0f86d6aa374f5aef41356ad78c51e40a",
       "gate_snapshot_commit": "",
-      "scientific_release_digest": "bb80497b320a6ff6f169d6e10cbdcf5d5cb9874eb1ec4f2d47b02f211cf3120e",
-      "storage_metadata_digest": "9d070491983a0c6c3c5bdd44acc0d68f4f9f359e5bb336ef6d9ca6f05e5bb887",
+      "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
+      "storage_metadata_digest": "51137c444597195f9219ea628f0d726ead82501f5dec0106fa376f2f5ffe55e9",
       "findings": [
         "storage_provenance_field_empty: gate_snapshot_commit",
-        "storage_sidecar_gate_snapshot_invalid: '' (empty)",
-        "generation_provenance_mismatch: provenance_sync_mismatch: tested_code_commit (gate_snapshot='1172866a62c93ec7d04241a37966276dd31acd8c', reproduction_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', run_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', study_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4')",
-        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_commit (gate_snapshot='1172866a62c93ec7d04241a37966276dd31acd8c', reproduction_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', run_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', study_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4')",
-        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_tree (gate_snapshot='ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa', reproduction_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce', run_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce', study_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce')"
+        "storage_sidecar_gate_snapshot_invalid: '' (empty)"
       ]
     },
     "deterministic_reproducibility_validation": {
@@ -185,8 +191,8 @@
       "reason": "diagnostic study class: scripted responders and deterministic embeddings validate code paths, not empirical behavior"
     },
     "tests_pass": {
-      "passed": true,
-      "output": "1938 passed, 4 skipped, 4 xfailed, 5 xpassed in 15.45s"
+      "passed": false,
+      "output": "4 failed, 1943 passed, 4 skipped in 15.30s"
     },
     "static_checks": {
       "passed": true,

@@ -8,8 +8,7 @@ level, git ancestry generation -> storage -> gate snapshot, the exact
 bundle bytes at the storage commit, and the two-digest model.
 
 The test fails on the inconsistent pre-patch state and passes only after
-every active artifact follows the model (FP-014 regeneration).  The
-module-level ``xfail`` marker is removed once that regeneration lands.
+every active artifact follows the model (FP-014 regeneration).
 """
 
 from __future__ import annotations
@@ -46,12 +45,8 @@ from experiments.trustparadox_u.research_valid_gate import (
     RESULTS_DIR,
 )
 
-# FP-011 acceptance: fails on the pre-patch inconsistent state; remove
-# this marker once the FP-014 provenance-only regeneration has landed.
-pytestmark = pytest.mark.xfail(
-    strict=False,
-    reason="active release predates the FP-001..FP-010 provenance model",
-)
+# FP-011 acceptance: the FP-014 provenance-only regeneration has landed;
+# the live release now follows the FP-001..FP-010 model end-to-end.
 
 _GATE_RESULT_REL = str((FINAL_DIR / "research_valid_gate.json").relative_to(_PROJECT_ROOT))
 
