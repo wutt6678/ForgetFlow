@@ -23,9 +23,12 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from experiments.trustparadox_u.manifest import COMMIT_RE
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = _PROJECT_ROOT / "results"
@@ -347,6 +350,60 @@ def release_dirs() -> list[Path]:
     if not RELEASES_DIR.exists():
         return []
     return sorted(d for d in RELEASES_DIR.iterdir() if (d / BUNDLE_MANIFEST_NAME).exists())
+
+
+def validate_bundle_at_storage_commit(
+    bundle_dir: Path,
+    manifest: dict[str, Any] | None = None,
+    *,
+    storage_commit: str = "",
+) -> list[str]:
+    """PR-006 rules 3-4: the storage commit must contain the exact bundle.
+
+    Every component must exist at the recorded ``artifact_storage_commit``
+    with byte-identical content, and the bundle manifest itself must exist
+    there.  The manifest is compared by presence only: the sidecar digest
+    field is legitimately added after the storage commit.
+    """
+    findings: list[str] = []
+    if manifest is None:
+        manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
+        if not manifest_path.exists():
+            return [f"{bundle_dir.name}: bundle_manifest.json missing"]
+        manifest = _load_json(manifest_path)
+    provenance = manifest.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+    commit = storage_commit or str(provenance.get("artifact_storage_commit", "") or "")
+    if not commit or not COMMIT_RE.match(commit):
+        return [f"{bundle_dir.name}: storage commit missing or invalid: {commit!r}"]
+    try:
+        bundle_rel = bundle_dir.resolve().relative_to(_PROJECT_ROOT)
+    except ValueError:
+        return [f"{bundle_dir.name}: bundle outside repository, cannot verify storage commit"]
+
+    def blob_digest(rel: str) -> str | None:
+        try:
+            blob = subprocess.run(
+                ["git", "show", f"{commit}:{rel}"],
+                capture_output=True,
+                cwd=_PROJECT_ROOT,
+            )
+        except Exception:
+            return None
+        if blob.returncode != 0:
+            return None
+        return hashlib.sha256(blob.stdout).hexdigest()
+
+    manifest_rel = str(bundle_rel / BUNDLE_MANIFEST_NAME)
+    if blob_digest(manifest_rel) is None:
+        findings.append(f"{bundle_dir.name}: storage commit missing manifest {manifest_rel}")
+    for rel, component in manifest.get("components", {}).items():
+        digest = blob_digest(str(bundle_rel / rel))
+        if digest is None:
+            findings.append(f"{bundle_dir.name}: storage commit missing component {rel}")
+        elif digest != component.get("sha256"):
+            findings.append(f"{bundle_dir.name}: storage commit checksum mismatch {rel}")
+    return findings
 
 
 def supersede_release(

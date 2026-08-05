@@ -351,6 +351,9 @@ def build_certification_provenance(
         "repository_clean": clean,
         "workflow_run_id": os.environ.get("GITHUB_RUN_ID") or "local",
         "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT") or "local",
+        # PR-006: local runs must be certified as local — never dressed up
+        # with CI-style workflow identity.
+        "certification_source": "ci" if os.environ.get("GITHUB_RUN_ID") else "local",
         "protocol_version": PROTOCOL_VERSION,
         "study_version": STUDY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -519,6 +522,94 @@ def validate_release_provenance_consistency(
         if len(distinct) > 1:
             detail = ", ".join(f"{label}={value!r}" for label, value in sorted(values.items()))
             findings.append(f"provenance_sync_mismatch: {field} ({detail})")
+    return findings
+
+
+def validate_release_lineage(
+    record: dict[str, Any],
+    *,
+    certification_source: str | None = None,
+) -> list[str]:
+    """PR-006: release-level provenance validation rules.
+
+    Enforced rules:
+
+    1. the generation commit must be an ancestor of the storage commit;
+    2. ``tested_code_commit == artifact_generation_commit`` unless the
+       record carries a non-empty ``difference_reason``;
+    5. the recorded protocol must be the current research protocol;
+    6. ``artifact_storage_commit``, ``protocol_version``,
+       ``study_version``, ``artifact_generation_tree`` and
+       ``environment_lock_hash`` must never be empty;
+    7. CI certification needs numeric workflow run/attempt identity; a
+       local run needs ``certification_source == "local"``.
+
+    Rules 3-4 (the storage commit must contain the exact bundle) are
+    checked by ``release_bundle.validate_bundle_at_storage_commit``.
+    Returns finding strings; an empty list means the lineage certifies.
+    """
+    findings: list[str] = []
+    tested = str(record.get("tested_code_commit", "") or "")
+    generation = str(record.get("artifact_generation_commit", "") or "")
+    storage = str(record.get("artifact_storage_commit", "") or "")
+
+    for field in (
+        "artifact_storage_commit",
+        "protocol_version",
+        "study_version",
+        "artifact_generation_tree",
+        "environment_lock_hash",
+    ):
+        if not str(record.get(field, "") or "").strip():
+            findings.append(f"release_provenance_empty_field: {field}")
+
+    if (
+        tested
+        and generation
+        and tested != generation
+        and not str(record.get("difference_reason", "") or "").strip()
+    ):
+        findings.append(
+            f"tested_generation_mismatch_without_reason: "
+            f"tested={tested!r} generation={generation!r}"
+        )
+
+    if generation and storage:
+        if COMMIT_RE.match(generation) and COMMIT_RE.match(storage):
+            if not commit_is_ancestor(generation, storage):
+                findings.append(
+                    f"lineage_not_ancestor: generation={generation!r} storage={storage!r}"
+                )
+        else:
+            findings.append(
+                f"lineage_unknown_commit: generation={generation!r} storage={storage!r}"
+            )
+
+    protocol = str(record.get("protocol_version", "") or "")
+    if protocol:
+        from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION
+
+        if protocol != PROTOCOL_VERSION:
+            findings.append(
+                f"protocol_version_not_current: recorded={protocol!r} "
+                f"current={PROTOCOL_VERSION!r}"
+            )
+
+    run_id = str(record.get("workflow_run_id", "") or "")
+    attempt = str(record.get("workflow_attempt", "") or "")
+    source = (
+        certification_source
+        if certification_source is not None
+        else str(record.get("certification_source", "") or "")
+    )
+    if run_id.isdigit() and attempt.isdigit():
+        pass  # numeric CI evidence
+    elif run_id == "local" and attempt == "local":
+        if source != "local":
+            findings.append("local_certification_source_missing")
+    else:
+        findings.append(f"workflow_identity_invalid: run_id={run_id!r} attempt={attempt!r}")
+
     return findings
 
 

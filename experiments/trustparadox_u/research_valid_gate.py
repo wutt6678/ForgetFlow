@@ -115,7 +115,7 @@ def check_repository_provenance() -> dict[str, Any]:
         findings.extend(validate_result_provenance_file(artifact, current_commit=commit))
     return {
         "passed": not findings,
-        "repository_commit": commit,
+        "gate_execution_commit": commit,
         "findings": findings,
     }
 
@@ -1215,12 +1215,40 @@ def verdict_for(gates: dict[str, dict[str, Any]], study_class: str | None = None
     )
 
 
-def run_research_valid_gate() -> dict[str, Any]:
-    """Run all gate checks and produce the staged research status (§31)."""
+def _generation_provenance_record() -> dict[str, Any]:
+    """PR-008: the generation provenance recorded with the study artifacts.
+
+    The gate snapshot carries the lineage of the run that *generated* the
+    artifacts.  Rebuilding it from the current checkout would let a later
+    gate run overwrite the study's provenance with its own commit, so the
+    recorded study-manifest provenance always wins; only when no recorded
+    provenance exists does the gate fall back to the current checkout.
+    """
     from experiments.trustparadox_u.artifact_provenance import (
         build_certification_provenance,
         code_tree_is_clean,
+    )
+
+    path = FINAL_DIR / "study_manifest.json"
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            data = {}
+        record = data.get("provenance")
+        if isinstance(record, dict) and str(record.get("tested_code_commit", "")).strip():
+            return record
+    return build_certification_provenance(
+        repository_clean=code_tree_is_clean(),
+        artifact_path=path,
+    )
+
+
+def run_research_valid_gate() -> dict[str, Any]:
+    """Run all gate checks and produce the staged research status (§31)."""
+    from experiments.trustparadox_u.artifact_provenance import (
         provenance_completeness_findings,
+        storage_commit_for,
     )
 
     gates = {
@@ -1257,12 +1285,10 @@ def run_research_valid_gate() -> dict[str, Any]:
 
     study_class = str(gates["empirical_study_design"].get("study_class", "diagnostic"))
     verdict = verdict_for(gates, study_class=study_class)
-    # SC-009: record every complete-provenance field; the storage commit of
-    # the committed study manifest is derivable from git history.
-    provenance = build_certification_provenance(
-        repository_clean=code_tree_is_clean(),
-        artifact_path=FINAL_DIR / "study_manifest.json",
-    )
+    # PR-008: the gate records the generation provenance of the study
+    # artifacts — never one rebuilt from the gate's own checkout.
+    provenance = _generation_provenance_record()
+    execution_commit = _current_commit()
     return {
         "schema_version": SCHEMA_VERSION,
         "gate_name": "research_valid",
@@ -1274,7 +1300,14 @@ def run_research_valid_gate() -> dict[str, Any]:
         "research_valid": research_status_at_least(verdict, EMPIRICAL_REPLAY_VALID),
         "synthetic_benchmark_valid": research_status_at_least(verdict, SYNTHETIC_BENCHMARK_VALID),
         "all_passed": all(g["passed"] for g in gates.values()),
-        "repository_commit": _current_commit(),
+        # PR-008: gate identity fields — the gate executes at
+        # ``gate_execution_commit``; the lineage fields below echo the
+        # generation provenance instead of shadowing it.
+        "gate_execution_commit": execution_commit,
+        "gate_snapshot_commit": storage_commit_for(FINAL_DIR / "research_valid_gate.json"),
+        "tested_code_commit": str(provenance.get("tested_code_commit", "") or ""),
+        "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
+        "artifact_storage_commit": str(provenance.get("artifact_storage_commit", "") or ""),
         "provenance": provenance,
         # Informational: empty only for artifact_storage_commit before the
         # manifest is committed; complete on committed records.
@@ -1307,7 +1340,7 @@ def main() -> int:
 
     # Print results
     print(f"\nVerdict: {result['verdict'].upper()}")
-    print(f"Commit: {result['repository_commit']}")
+    print(f"Commit: {result['gate_execution_commit']}")
     print()
 
     for gate_name, gate_result in result["gates"].items():
