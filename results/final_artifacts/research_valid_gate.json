@@ -7,7 +7,7 @@
   "research_valid": false,
   "synthetic_benchmark_valid": false,
   "all_passed": false,
-  "gate_execution_commit": "4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty",
+  "gate_execution_commit": "e037e6689e4c94337ea5934cf8198d0e5a62e188",
   "gate_snapshot_commit": null,
   "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
   "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
@@ -36,19 +36,12 @@
   },
   "provenance_findings": [],
   "storage_provenance_findings": [],
-  "generated_at": "2026-08-05T17:35:12.451115+00:00",
+  "generated_at": "2026-08-05T17:39:20.320628+00:00",
   "gates": {
     "repository_provenance": {
-      "passed": false,
-      "gate_execution_commit": "4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty",
-      "findings": [
-        "repository_tree_dirty",
-        "run_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
-        "sweep_summary.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
-        "frozen_threshold_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
-        "reproduction_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'",
-        "study_manifest.json: invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'"
-      ]
+      "passed": true,
+      "gate_execution_commit": "e037e6689e4c94337ea5934cf8198d0e5a62e188",
+      "findings": []
     },
     "no_invalidated_artifacts": {
       "passed": true,
@@ -138,12 +131,10 @@
       "findings": []
     },
     "reproduction_manifest": {
-      "passed": false,
+      "passed": true,
       "study_version": "1.2.1",
       "num_artifacts": 20,
-      "findings": [
-        "invalid_commit:current_commit='4f16fd818be61d6d672f500fd3fc6425a96db6c9-dirty'"
-      ]
+      "findings": []
     },
     "release_bundles": {
       "passed": true,
@@ -192,7 +183,7 @@
     },
     "tests_pass": {
       "passed": false,
-      "output": "4 failed, 1943 passed, 4 skipped in 15.30s"
+      "output": "3 failed, 1944 passed, 4 skipped in 15.28s"
     },
     "static_checks": {
       "passed": true,
