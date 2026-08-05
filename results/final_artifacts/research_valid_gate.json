@@ -7,26 +7,26 @@
   "research_valid": false,
   "synthetic_benchmark_valid": false,
   "all_passed": false,
-  "gate_execution_commit": "5ec3a591ab8d2539d987aecae82aa4b83202f083",
+  "gate_execution_commit": "62513bdbfd4cfa5e57ec34f9facf6b444557b4ed",
   "gate_snapshot_commit": null,
-  "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
-  "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+  "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
   "artifact_storage_commit": null,
   "storage_provenance": {
     "source": "STORAGE_PROVENANCE.json",
     "authoritative": true
   },
   "provenance": {
-    "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
-    "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+    "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "certification_source": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.1",
-    "generated_at": "2026-08-05T17:06:20.047348+00:00",
-    "artifact_generation_tree": "ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa",
+    "generated_at": "2026-08-05T17:25:21.631631+00:00",
+    "artifact_generation_tree": "244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": null,
     "storage_provenance": {
@@ -36,11 +36,11 @@
   },
   "provenance_findings": [],
   "storage_provenance_findings": [],
-  "generated_at": "2026-08-05T17:22:02.837563+00:00",
+  "generated_at": "2026-08-05T17:28:09.807161+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "gate_execution_commit": "5ec3a591ab8d2539d987aecae82aa4b83202f083",
+      "gate_execution_commit": "62513bdbfd4cfa5e57ec34f9facf6b444557b4ed",
       "findings": []
     },
     "no_invalidated_artifacts": {
@@ -140,29 +140,25 @@
       "passed": true,
       "releases": 1,
       "active": [
-        "trustparadox_u-v1.2.1-3d478d38d81c"
+        "trustparadox_u-v1.2.1-bb80497b320a"
       ],
       "findings": []
     },
     "release_storage_provenance": {
       "passed": false,
-      "release_id": "trustparadox_u-v1.2.1-3d478d38d81c",
-      "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
-      "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
-      "artifact_storage_commit": "7251d53f5bb5ef99e7df8e5f8ce385b812fd6f85",
+      "release_id": "trustparadox_u-v1.2.1-bb80497b320a",
+      "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+      "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+      "artifact_storage_commit": "4da2024e22f7d43c5df8a378291a16a0eec69de7",
       "gate_snapshot_commit": "",
-      "scientific_release_digest": "3d478d38d81cfbc93d8146cc5de2173063690a47de32c010ac1f4377623cfb2e",
-      "storage_metadata_digest": "aba62e147ea2f7f2014a13cb4f6a1fe311a48a7ca7cc59482af0eb2894dc2eb3",
+      "scientific_release_digest": "bb80497b320a6ff6f169d6e10cbdcf5d5cb9874eb1ec4f2d47b02f211cf3120e",
+      "storage_metadata_digest": "9d070491983a0c6c3c5bdd44acc0d68f4f9f359e5bb336ef6d9ca6f05e5bb887",
       "findings": [
         "storage_provenance_field_empty: gate_snapshot_commit",
         "storage_sidecar_gate_snapshot_invalid: '' (empty)",
-        "generation_provenance_mismatch: provenance_sync_mismatch: tested_code_commit (gate_snapshot='9faba3630d7fa03b46d7c7ac401cab8a0855be4a', reproduction_manifest='1172866a62c93ec7d04241a37966276dd31acd8c', run_manifest='1172866a62c93ec7d04241a37966276dd31acd8c', study_manifest='1172866a62c93ec7d04241a37966276dd31acd8c')",
-        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_commit (gate_snapshot='9faba3630d7fa03b46d7c7ac401cab8a0855be4a', reproduction_manifest='1172866a62c93ec7d04241a37966276dd31acd8c', run_manifest='1172866a62c93ec7d04241a37966276dd31acd8c', study_manifest='1172866a62c93ec7d04241a37966276dd31acd8c')",
-        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_tree (gate_snapshot='c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a', reproduction_manifest='ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa', run_manifest='ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa', study_manifest='ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa')",
-        "gate_snapshot: stale_embedded_storage_commit: artifact_storage_commit",
-        "gate_snapshot: storage_provenance_reference_missing: storage_provenance",
-        "stale_embedded_storage_commit: gate_snapshot.gate_snapshot_commit='6e9c4933459ddf2257b583b9284bff0ad02a542d'",
-        "study_version_mismatch: study_manifest.study_version='' expected='1.2.1'"
+        "generation_provenance_mismatch: provenance_sync_mismatch: tested_code_commit (gate_snapshot='1172866a62c93ec7d04241a37966276dd31acd8c', reproduction_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', run_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', study_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4')",
+        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_commit (gate_snapshot='1172866a62c93ec7d04241a37966276dd31acd8c', reproduction_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', run_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4', study_manifest='a45ab5a613399ce20d44897d427b9c9eac1c1cc4')",
+        "generation_provenance_mismatch: provenance_sync_mismatch: artifact_generation_tree (gate_snapshot='ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa', reproduction_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce', run_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce', study_manifest='244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce')"
       ]
     },
     "deterministic_reproducibility_validation": {
@@ -190,7 +186,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1938 passed, 4 skipped, 4 xfailed, 5 xpassed in 15.28s"
+      "output": "1938 passed, 4 skipped, 4 xfailed, 5 xpassed in 15.45s"
     },
     "static_checks": {
       "passed": true,
