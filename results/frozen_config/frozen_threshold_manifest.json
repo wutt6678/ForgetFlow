@@ -4,8 +4,8 @@
     "29",
     "30"
   ],
-  "study_version": "1.0.0",
-  "frozen_at": "2026-08-04T23:53:04.657287+00:00",
+  "study_version": "1.1.0",
+  "frozen_at": "2026-08-05T00:31:16.059431+00:00",
   "base_condition": "full_mvp",
   "parameters": {
     "detector.exact_enabled": {
@@ -162,7 +162,7 @@
     "annotation_manifest_sha256": "b2bb9e570c8cb51cb21ef31eb47adb92429a1f08df96a45bffcd6becea8992de"
   },
   "protocol": {
-    "protocol_version": "1.0.0",
+    "protocol_version": "1.1.0",
     "primary_hypotheses": [
       {
         "question_id": "RQ1",
@@ -195,11 +195,14 @@
     ]
   },
   "provenance": {
-    "tested_code_commit": "e6b32685fcffeeb19a5737fcfda9a1e742a7d417",
-    "artifact_generation_commit": "e6b32685fcffeeb19a5737fcfda9a1e742a7d417",
+    "tested_code_commit": "255a01d31e07d59dbe5689240f1d9303d658dec4",
+    "artifact_generation_commit": "255a01d31e07d59dbe5689240f1d9303d658dec4",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T23:53:04.582515+00:00"
+    "generated_at": "2026-08-05T00:31:15.973887+00:00",
+    "artifact_generation_tree": "4d795e773c7727d7baafd49b264122b8e5817b95b35fbbfd5328d01120f20c87",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": ""
   }
 }
