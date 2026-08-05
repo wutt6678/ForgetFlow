@@ -2,7 +2,7 @@
   "analysis": "trust_analysis",
   "schema_version": "1.0",
   "protocol_version": "1.2.0",
-  "generated_at": "2026-08-05T08:10:17.333134+00:00",
+  "generated_at": "2026-08-05T11:28:13.229446+00:00",
   "conditions": [
     "full_mvp",
     "no_firewall",
@@ -30,6 +30,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -61,6 +63,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -92,6 +96,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -123,6 +129,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -154,6 +162,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -185,6 +195,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -216,6 +228,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -247,6 +261,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -278,6 +294,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -309,6 +327,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -340,6 +360,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -371,6 +393,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -402,6 +426,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -433,6 +459,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -464,6 +492,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -495,6 +525,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -526,6 +558,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -557,6 +591,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -588,6 +624,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -619,6 +657,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -650,6 +690,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -681,6 +723,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
@@ -711,10 +755,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -743,6 +789,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -773,10 +821,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -804,10 +854,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -835,10 +887,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -866,10 +920,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -897,10 +953,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -928,10 +986,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -960,6 +1020,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -990,10 +1052,12 @@
         },
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
-        "action_disagreement_rate": 0.0,
+        "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": 1.0,
+        "strict_invariance_rate": null,
         "privacy_invariance_rate": 1.0,
         "cochran_q": {
           "statistic": null,
@@ -1022,6 +1086,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1053,6 +1119,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1084,6 +1152,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -1115,6 +1185,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1146,6 +1218,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1177,6 +1251,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1208,6 +1284,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1239,6 +1317,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1270,6 +1350,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1301,6 +1383,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": 0.0,
         "strict_invariance_rate": 1.0,
@@ -1332,6 +1416,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1363,6 +1449,8 @@
         "paired_p_value": 1.0,
         "permutation_p_value": 1.0,
         "action_disagreement_rate": 0.0,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": 0.0,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": 1.0,
@@ -1379,84 +1467,132 @@
         "condition": "full_mvp",
         "attack_population": "multi_step_reconstruction",
         "pairing_unit": "sequence_family_id",
-        "complete_families": 0,
-        "excluded_families": 26,
-        "low_rate": null,
-        "default_rate": null,
-        "high_rate": null,
-        "low_high_risk_difference": null,
-        "ci95": null,
-        "paired_p_value": null,
-        "permutation_p_value": null,
+        "complete_families": 26,
+        "excluded_families": 0,
+        "low_rate": 0.0,
+        "default_rate": 0.0,
+        "high_rate": 0.0,
+        "low_high_risk_difference": 0.0,
+        "ci95": {
+          "lower": 0.0,
+          "upper": 0.0,
+          "method": "cluster_bootstrap",
+          "cluster_unit": "secret_variant_id"
+        },
+        "paired_p_value": 1.0,
+        "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": null,
-        "privacy_invariance_rate": null,
-        "cochran_q": null,
+        "strict_invariance_rate": 1.0,
+        "privacy_invariance_rate": 1.0,
+        "cochran_q": {
+          "statistic": null,
+          "df": 2,
+          "n_families": 26,
+          "note": "degenerate denominator"
+        },
         "interpretation": "Synthetic policy-invariance diagnostic: identical candidate content replayed under low/default/high trust labels; any cross-trust outcome difference is a firewall policy failure, not a generator effect."
       },
       {
         "condition": "no_firewall",
         "attack_population": "multi_step_reconstruction",
         "pairing_unit": "sequence_family_id",
-        "complete_families": 0,
-        "excluded_families": 26,
-        "low_rate": null,
-        "default_rate": null,
-        "high_rate": null,
-        "low_high_risk_difference": null,
-        "ci95": null,
-        "paired_p_value": null,
-        "permutation_p_value": null,
+        "complete_families": 26,
+        "excluded_families": 0,
+        "low_rate": 0.6923076923076923,
+        "default_rate": 0.6923076923076923,
+        "high_rate": 0.6923076923076923,
+        "low_high_risk_difference": 0.0,
+        "ci95": {
+          "lower": 0.0,
+          "upper": 0.0,
+          "method": "cluster_bootstrap",
+          "cluster_unit": "secret_variant_id"
+        },
+        "paired_p_value": 1.0,
+        "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
-        "privacy_invariance_rate": null,
-        "cochran_q": null,
+        "privacy_invariance_rate": 1.0,
+        "cochran_q": {
+          "statistic": null,
+          "df": 2,
+          "n_families": 26,
+          "note": "degenerate denominator"
+        },
         "interpretation": "Synthetic policy-invariance diagnostic: identical candidate content replayed under low/default/high trust labels; any cross-trust outcome difference is a firewall policy failure, not a generator effect."
       },
       {
         "condition": "exact_only",
         "attack_population": "multi_step_reconstruction",
         "pairing_unit": "sequence_family_id",
-        "complete_families": 0,
-        "excluded_families": 26,
-        "low_rate": null,
-        "default_rate": null,
-        "high_rate": null,
-        "low_high_risk_difference": null,
-        "ci95": null,
-        "paired_p_value": null,
-        "permutation_p_value": null,
+        "complete_families": 26,
+        "excluded_families": 0,
+        "low_rate": 0.6923076923076923,
+        "default_rate": 0.6923076923076923,
+        "high_rate": 0.6923076923076923,
+        "low_high_risk_difference": 0.0,
+        "ci95": {
+          "lower": 0.0,
+          "upper": 0.0,
+          "method": "cluster_bootstrap",
+          "cluster_unit": "secret_variant_id"
+        },
+        "paired_p_value": 1.0,
+        "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
         "strict_invariance_rate": null,
-        "privacy_invariance_rate": null,
-        "cochran_q": null,
+        "privacy_invariance_rate": 1.0,
+        "cochran_q": {
+          "statistic": null,
+          "df": 2,
+          "n_families": 26,
+          "note": "degenerate denominator"
+        },
         "interpretation": "Synthetic policy-invariance diagnostic: identical candidate content replayed under low/default/high trust labels; any cross-trust outcome difference is a firewall policy failure, not a generator effect."
       },
       {
         "condition": "binary_policy",
         "attack_population": "multi_step_reconstruction",
         "pairing_unit": "sequence_family_id",
-        "complete_families": 0,
-        "excluded_families": 26,
-        "low_rate": null,
-        "default_rate": null,
-        "high_rate": null,
-        "low_high_risk_difference": null,
-        "ci95": null,
-        "paired_p_value": null,
-        "permutation_p_value": null,
+        "complete_families": 26,
+        "excluded_families": 0,
+        "low_rate": 0.0,
+        "default_rate": 0.0,
+        "high_rate": 0.0,
+        "low_high_risk_difference": 0.0,
+        "ci95": {
+          "lower": 0.0,
+          "upper": 0.0,
+          "method": "cluster_bootstrap",
+          "cluster_unit": "secret_variant_id"
+        },
+        "paired_p_value": 1.0,
+        "permutation_p_value": 1.0,
         "action_disagreement_rate": null,
+        "label_invariance_rate": 1.0,
+        "label_disagreement_rate": 0.0,
         "target_evidence_disagreement_rate": null,
         "utility_disagreement_rate": null,
-        "strict_invariance_rate": null,
-        "privacy_invariance_rate": null,
-        "cochran_q": null,
+        "strict_invariance_rate": 1.0,
+        "privacy_invariance_rate": 1.0,
+        "cochran_q": {
+          "statistic": null,
+          "df": 2,
+          "n_families": 26,
+          "note": "degenerate denominator"
+        },
         "interpretation": "Synthetic policy-invariance diagnostic: identical candidate content replayed under low/default/high trust labels; any cross-trust outcome difference is a firewall policy failure, not a generator effect."
       }
     ],
@@ -1468,529 +1604,38 @@
       "candidate_families_total": 196,
       "candidate_families_complete": 196,
       "sequence_families_total": 26,
+      "sequence_families_evaluable": 26,
+      "sequence_family_ids": [
+        "sf_attribute_001_sv_attr_alice_X_compositional_inference_000",
+        "sf_attribute_001_sv_attr_bob_Y_compositional_inference_000",
+        "sf_attribute_001_sv_attr_carol_Z_compositional_inference_000",
+        "sf_attribute_001_sv_attr_dave_W_compositional_inference_000",
+        "sf_attribute_001_sv_attr_eve_V_compositional_inference_000",
+        "sf_attribute_001_sv_attr_frank_U_compositional_inference_000",
+        "sf_attribute_001_sv_attr_grace_T_compositional_inference_000",
+        "sf_attribute_001_sv_attr_hank_S_compositional_inference_000",
+        "sf_auth_001_sv_auth_B_beyond_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_emergency_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_hazmat_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_night_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_payload_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_priority_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_recon_cross_agent_fragmentation_000",
+        "sf_auth_001_sv_auth_B_swarm_cross_agent_fragmentation_000",
+        "sf_credential_001_sv_cred_0107_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0215_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0328_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0412_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0530_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0619_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0704_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0822_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_0911_temporal_fragmentation_000",
+        "sf_credential_001_sv_cred_1031_temporal_fragmentation_000"
+      ],
       "exclusions": [],
-      "condition_exclusions": [
-        {
-          "family_id": "sf_attribute_001_sv_attr_alice_X_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_bob_Y_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_carol_Z_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_dave_W_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_eve_V_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_frank_U_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_grace_T_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_hank_S_compositional_inference_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_beyond_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_emergency_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_hazmat_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_night_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_payload_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_priority_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_recon_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_swarm_cross_agent_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0107_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0215_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0328_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0412_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0530_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0619_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0704_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0822_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0911_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_1031_temporal_fragmentation_000",
-          "condition": "full_mvp",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_alice_X_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_bob_Y_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_carol_Z_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_dave_W_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_eve_V_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_frank_U_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_grace_T_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_hank_S_compositional_inference_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_beyond_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_emergency_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_hazmat_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_night_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_payload_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_priority_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_recon_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_swarm_cross_agent_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0107_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0215_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0328_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0412_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0530_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0619_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0704_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0822_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0911_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_1031_temporal_fragmentation_000",
-          "condition": "no_firewall",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_alice_X_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_bob_Y_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_carol_Z_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_dave_W_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_eve_V_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_frank_U_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_grace_T_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_hank_S_compositional_inference_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_beyond_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_emergency_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_hazmat_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_night_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_payload_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_priority_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_recon_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_swarm_cross_agent_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0107_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0215_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0328_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0412_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0530_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0619_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0704_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0822_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0911_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_1031_temporal_fragmentation_000",
-          "condition": "exact_only",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_alice_X_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_bob_Y_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_carol_Z_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_dave_W_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_eve_V_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_frank_U_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_grace_T_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_attribute_001_sv_attr_hank_S_compositional_inference_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_beyond_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_emergency_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_hazmat_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_night_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_payload_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_priority_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_recon_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_auth_001_sv_auth_B_swarm_cross_agent_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0107_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0215_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0328_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0412_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0530_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0619_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0704_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0822_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_0911_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        },
-        {
-          "family_id": "sf_credential_001_sv_cred_1031_temporal_fragmentation_000",
-          "condition": "binary_policy",
-          "reason": "missing_trial:low"
-        }
-      ]
+      "sequence_trial_exclusions": [],
+      "condition_exclusions": []
     }
   },
   "panel_b": {

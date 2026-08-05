@@ -1,10 +1,10 @@
 {
-  "run_id": "frozen_replay_0458d8a",
-  "generated_at": "2026-08-05T08:10:03.159872+00:00",
+  "run_id": "frozen_replay_9faba36",
+  "generated_at": "2026-08-05T11:27:58.379408+00:00",
   "mode": "research",
   "study_class": "diagnostic",
   "seed": 42,
-  "git_commit": "0458d8a",
+  "git_commit": "9faba36",
   "conditions": [
     "no_firewall",
     "exact_only",
@@ -32,27 +32,27 @@
   },
   "artifact_files": {
     "episodes.jsonl": {
-      "sha256": "5d88ed962f3cdf7a43d4e185fd653b6f0b082aabe3165e598ba189557005e066",
+      "sha256": "cdbd438a1b017aabdb45e65c951d586fade81717807f2fe8307a5a149df06281",
       "bytes": 5347878
     },
     "turns.jsonl": {
-      "sha256": "f7877254b69d872295a3dc30d77519a298289afebed87db677ee6d03eea224dd",
+      "sha256": "c08777776207959d676b675cb58dc8973856c0d4f02522cf750c148d8f0af9f9",
       "bytes": 40932681
     },
     "message_audit.jsonl": {
-      "sha256": "7b8f998acf292170e053bf3f095ebea81ed67c0c37f1615202b678923eb0e64c",
+      "sha256": "3694e514d011b43a988b7ca3bfcb741eb651b444f1ffcd0ea2ab74552ab11876",
       "bytes": 19609095
     },
     "candidate_trials.jsonl": {
-      "sha256": "75040320e158f187987ec7c9d286bbffe05e4d33f85c6731ba55e10a19e3bf24",
-      "bytes": 5273766
+      "sha256": "376685d58da0136c73126b1ffaeee1343d8c5e0c8830b7c6c1ad7a3eaf4fd983",
+      "bytes": 5962284
     },
     "reconstruction_trials.jsonl": {
-      "sha256": "70f1ebfa953ab6f1cb258213a4d913448b55024907f665ade1dbb4bac961114a",
-      "bytes": 1084350
+      "sha256": "34c9b32200cc781a2686ef019ab74a96d2a49f0c2e8ecc0dddf22e3050079029",
+      "bytes": 582765
     },
     "recontamination_trials.jsonl": {
-      "sha256": "2b7d1af6f975039d892235c6aacacb4d0e28a7c44f8c9f1053eb7a7cf3067d78",
+      "sha256": "1efff6f5d8f0040c05a8a35d65d51eaa8fb22ac502924455f8a26a7d24d63bde",
       "bytes": 518022
     },
     "utility_trials.jsonl": {
@@ -60,12 +60,12 @@
       "bytes": 444680
     },
     "metrics_by_condition.json": {
-      "sha256": "f657f675d86d49400ba7832e644da1b141e4eedf8080dee2a203e035bbd02093",
-      "bytes": 6599
+      "sha256": "b5a429d803db15355ed223c62129939dee8b90102a3e801b1a974ce152871832",
+      "bytes": 6659
     },
     "metrics_by_condition_and_attack.json": {
-      "sha256": "581e84dd4f5ed5faf66be19a04d8b152f1aa2ed5f5124694f15fa91ae568b1af",
-      "bytes": 32291
+      "sha256": "1265a45a9f5364e05330642954216a89a79cc95cadd139394d086e53e28ce9d5",
+      "bytes": 32471
     },
     "pairing_report.json": {
       "sha256": "553e1af175e8163b86e4206a1b0c48e7a342f5a8f9d7a24e2d670d83e86be80b",
@@ -77,15 +77,16 @@
     }
   },
   "provenance": {
-    "tested_code_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
-    "artifact_generation_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
+    "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+    "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
+    "certification_source": "local",
     "protocol_version": "1.2.0",
-    "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:09:55.348674+00:00",
-    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
+    "study_version": "1.2.1",
+    "generated_at": "2026-08-05T11:27:51.137422+00:00",
+    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   }

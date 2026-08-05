@@ -1,5 +1,5 @@
 {
-  "run_id": "frozen_replay_0458d8a",
+  "run_id": "frozen_replay_9faba36",
   "conditions": {
     "no_firewall": {
       "condition_name": "no_firewall",
@@ -13,9 +13,9 @@
           "evaluable": true
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 54,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -58,7 +58,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.5601838459988357,
+      "elapsed_seconds": 0.5689034999959404,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -74,9 +74,9 @@
           "evaluable": true
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 54,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -119,7 +119,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.42365301700192504,
+      "elapsed_seconds": 0.4302847910003038,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -137,7 +137,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -180,7 +180,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 1.0082949240022572,
+      "elapsed_seconds": 0.810802035004599,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -198,7 +198,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -241,7 +241,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 1.042353634009487,
+      "elapsed_seconds": 0.7213714020035695,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -257,9 +257,9 @@
           "evaluable": true
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 54,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -302,7 +302,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.8997960530105047,
+      "elapsed_seconds": 0.8089707420003833,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -320,7 +320,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -363,7 +363,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6715014290093677,
+      "elapsed_seconds": 0.6750191059982171,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -381,7 +381,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -424,7 +424,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.7915714289993048,
+      "elapsed_seconds": 0.7951629950111965,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -442,7 +442,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -485,7 +485,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6592001120006898,
+      "elapsed_seconds": 0.6574625609937357,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -501,9 +501,9 @@
           "evaluable": true
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 54,
-          "denominator": 54,
+          "denominator": 78,
           "reason": null,
           "evaluable": true
         },
@@ -546,11 +546,11 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.5599306109943427,
+      "elapsed_seconds": 0.5672744259936735,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     }
   },
   "baseline_condition": "no_firewall",
-  "generated_at": "2026-08-05T08:10:03.231843+00:00"
+  "generated_at": "2026-08-05T11:27:58.451372+00:00"
 }

@@ -13,7 +13,7 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -43,9 +43,9 @@
         "reason": null
       },
       "crr": {
-        "value": 1.0,
+        "value": 0.6923076923076923,
         "numerator": 54,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -77,7 +77,7 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -109,7 +109,7 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -141,7 +141,7 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -171,9 +171,9 @@
         "reason": null
       },
       "crr": {
-        "value": 1.0,
+        "value": 0.6923076923076923,
         "numerator": 54,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -203,9 +203,9 @@
         "reason": null
       },
       "crr": {
-        "value": 1.0,
+        "value": 0.6923076923076923,
         "numerator": 54,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -237,7 +237,7 @@
       "crr": {
         "value": 0.0,
         "numerator": 0,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -267,9 +267,9 @@
         "reason": null
       },
       "crr": {
-        "value": 1.0,
+        "value": 0.6923076923076923,
         "numerator": 54,
-        "denominator": 54,
+        "denominator": 78,
         "evaluable": true,
         "reason": null
       },
@@ -558,11 +558,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -1008,11 +1008,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -1458,11 +1458,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -1908,11 +1908,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -2358,11 +2358,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -2808,11 +2808,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -3258,11 +3258,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -3708,11 +3708,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -4158,11 +4158,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": null,
@@ -4386,11 +4386,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -4484,11 +4484,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -4582,11 +4582,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -4680,11 +4680,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -4778,11 +4778,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -4876,11 +4876,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -4974,11 +4974,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -5072,11 +5072,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -5170,11 +5170,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -5240,7 +5240,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5272,7 +5272,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5304,7 +5304,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5336,9 +5336,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5368,9 +5368,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5400,9 +5400,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5436,7 +5436,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5468,7 +5468,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5500,7 +5500,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5534,7 +5534,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5566,7 +5566,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5598,7 +5598,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5632,7 +5632,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5664,7 +5664,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5696,7 +5696,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5728,9 +5728,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5760,9 +5760,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5792,9 +5792,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5826,9 +5826,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5858,9 +5858,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5890,9 +5890,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5926,7 +5926,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5958,7 +5958,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -5990,7 +5990,7 @@
         "crr": {
           "value": 0.0,
           "numerator": 0,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -6022,9 +6022,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -6054,9 +6054,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -6086,9 +6086,9 @@
           "reason": null
         },
         "crr": {
-          "value": 1.0,
+          "value": 0.6923076923076923,
           "numerator": 18,
-          "denominator": 18,
+          "denominator": 26,
           "evaluable": true,
           "reason": null
         },
@@ -6122,11 +6122,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -6220,11 +6220,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -6318,11 +6318,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -6416,11 +6416,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -6514,11 +6514,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -6612,11 +6612,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -6710,11 +6710,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 1.0,
@@ -6808,11 +6808,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -6906,11 +6906,11 @@
           "reason": null
         },
         "crr": {
-          "value": null,
+          "value": 0.0,
           "numerator": 0,
-          "denominator": 0,
-          "evaluable": false,
-          "reason": "no reconstruction sequences"
+          "denominator": 24,
+          "evaluable": true,
+          "reason": null
         },
         "rr": {
           "value": 0.0,
@@ -7004,9 +7004,9 @@
       "reason": null
     },
     "crr": {
-      "value": 0.4444444444444444,
+      "value": 0.3076923076923077,
       "numerator": 216,
-      "denominator": 486,
+      "denominator": 702,
       "evaluable": true,
       "reason": null
     },
@@ -7025,7 +7025,7 @@
       "reason": null
     }
   },
-  "generated_at": "2026-08-05T08:10:03.493038+00:00",
+  "generated_at": "2026-08-05T11:27:58.714552+00:00",
   "validation": {
     "benign_controls_zero_exposure": {
       "check": "benign_controls_zero_exposure",
