@@ -7,26 +7,26 @@
   "research_valid": false,
   "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
+  "repository_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
   "provenance": {
-    "tested_code_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
-    "artifact_generation_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
+    "tested_code_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
+    "artifact_generation_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:12:07.565996+00:00",
+    "generated_at": "2026-08-05T08:13:33.764060+00:00",
     "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4"
   },
   "provenance_findings": [],
-  "generated_at": "2026-08-05T08:12:07.582018+00:00",
+  "generated_at": "2026-08-05T08:13:33.780025+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "repository_commit": "33cb80e18e5b8003b07ac16994ab647cc86904d4",
+      "repository_commit": "474c0451fba864aca9979c6a58df5f9d96f42eab",
       "findings": []
     },
     "no_invalidated_artifacts": {
@@ -126,7 +126,7 @@
       "passed": true,
       "releases": 1,
       "active": [
-        "trustparadox_u-v1.1.0-e7c1579eee3e"
+        "trustparadox_u-v1.2.0-6c3b32d5c6ca"
       ],
       "findings": []
     },
@@ -155,7 +155,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1890 passed, 4 skipped in 14.60s"
+      "output": "1890 passed, 4 skipped in 14.76s"
     },
     "static_checks": {
       "passed": true,
