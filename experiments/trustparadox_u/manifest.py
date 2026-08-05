@@ -176,8 +176,8 @@ def build_artifact_provenance(
       (may differ from ``tested_code_commit`` when artifacts are committed
       separately).
     - ``repository_clean`` / ``artifact_dirty``: working-tree cleanliness.
-    - ``workflow_run_id`` / ``workflow_attempt``: CI run identity (empty when
-      running locally).
+    - ``workflow_run_id`` / ``workflow_attempt``: CI run identity (``local``
+      when running outside CI: provenance fields are never empty).
     - ``generated_at``: UTC timestamp of generation.
 
     When ``abort_on_dirty`` is true (default: when running inside GitHub
@@ -221,8 +221,8 @@ def build_artifact_provenance(
         "repository_commit": raw_commit,
         "repository_clean": repository_clean,
         "artifact_dirty": dirty,
-        "workflow_run_id": os.environ.get("GITHUB_RUN_ID", ""),
-        "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+        "workflow_run_id": os.environ.get("GITHUB_RUN_ID") or "local",
+        "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT") or "local",
         "certification_mode": mode,
         "run_mode": run_mode,
         "schema_version": schema_version,

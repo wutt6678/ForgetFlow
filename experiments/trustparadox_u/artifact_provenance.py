@@ -5,8 +5,8 @@ Every certifying run stores the five canonical provenance fields:
 - ``tested_code_commit`` — the commit whose code was executed;
 - ``artifact_generation_commit`` — the commit the artifacts were bound to;
 - ``repository_clean`` — whether the working tree was clean at generation;
-- ``workflow_run_id`` / ``workflow_attempt`` — CI run identity (empty when
-  running locally).
+- ``workflow_run_id`` / ``workflow_attempt`` — CI run identity (``local``
+  when running outside CI: provenance fields are never empty).
 
 Remediation §32 adds the three-way identity split so a reader can
 reproduce the exact code state *and* identify the commit that merely
@@ -63,6 +63,23 @@ REQUIRED_PROVENANCE_FIELDS: tuple[str, ...] = (
 THREE_WAY_FIELDS: tuple[str, ...] = (
     "artifact_generation_tree",
     "environment_lock_hash",
+)
+
+# SC-009: a complete certification provenance record — every field present
+# and non-empty.  ``artifact_storage_commit`` is knowable only once the
+# artifact is stored in git history, so completeness is checked against
+# committed records (see ``provenance_completeness_findings``).
+COMPLETE_PROVENANCE_FIELDS: tuple[str, ...] = (
+    "tested_code_commit",
+    "artifact_generation_commit",
+    "artifact_generation_tree",
+    "artifact_storage_commit",
+    "workflow_run_id",
+    "workflow_attempt",
+    "protocol_version",
+    "study_version",
+    "environment_lock_hash",
+    "repository_clean",
 )
 
 # Source paths hashed into the generation tree: everything that can change
@@ -197,6 +214,7 @@ def build_certification_provenance(
     *,
     repository_commit: str | None = None,
     repository_clean: bool | None = None,
+    artifact_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build the FF92-023 certification provenance record.
 
@@ -205,7 +223,15 @@ def build_certification_provenance(
     cleanliness is then derived from that snapshot.  ``repository_clean``
     overrides the derived value — pipelines snapshot ``code_tree_is_clean()``
     at run start so their own output cannot self-invalidate the run.
+
+    SC-009: every field is populated — workflow identity falls back to
+    ``local`` outside CI, protocol/study versions are always recorded, and
+    ``artifact_storage_commit`` is derived from git history when an
+    already-stored ``artifact_path`` is supplied.
     """
+    from experiments.trustparadox_u.frozen_thresholds import STUDY_VERSION
+    from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION
+
     raw_commit = repository_commit if repository_commit is not None else get_repository_commit()
     dirty = raw_commit.endswith("-dirty")
     commit = raw_commit.removesuffix("-dirty") if dirty else raw_commit
@@ -215,15 +241,38 @@ def build_certification_provenance(
         "tested_code_commit": commit,
         "artifact_generation_commit": commit,
         "repository_clean": clean,
-        "workflow_run_id": os.environ.get("GITHUB_RUN_ID", ""),
-        "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+        "workflow_run_id": os.environ.get("GITHUB_RUN_ID") or "local",
+        "workflow_attempt": os.environ.get("GITHUB_RUN_ATTEMPT") or "local",
+        "protocol_version": PROTOCOL_VERSION,
+        "study_version": STUDY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         # §32: workspace anchors; the storage commit is derived from git
-        # history at validation time (it is not known before committing).
+        # history (it is not known before the artifact is committed).
         "artifact_generation_tree": generation_tree_hash(),
         "environment_lock_hash": environment_lock_hash(),
-        "artifact_storage_commit": "",
+        "artifact_storage_commit": (
+            storage_commit_for(artifact_path) if artifact_path is not None else ""
+        ),
     }
+
+
+def provenance_completeness_findings(record: dict[str, Any]) -> list[str]:
+    """SC-009: findings for any missing or empty complete-provenance field.
+
+    ``repository_clean`` is complete when present (its value is a boolean);
+    every other field must be a non-empty string.
+    """
+    findings: list[str] = []
+    for field in COMPLETE_PROVENANCE_FIELDS:
+        if field not in record:
+            findings.append(f"provenance_field_missing: {field}")
+            continue
+        if field == "repository_clean":
+            continue
+        value = record[field]
+        if value is None or str(value).strip() == "":
+            findings.append(f"provenance_field_empty: {field}")
+    return findings
 
 
 def validate_artifact_provenance(

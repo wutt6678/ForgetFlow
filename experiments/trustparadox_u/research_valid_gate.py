@@ -1140,6 +1140,7 @@ def run_research_valid_gate() -> dict[str, Any]:
     from experiments.trustparadox_u.artifact_provenance import (
         build_certification_provenance,
         code_tree_is_clean,
+        provenance_completeness_findings,
     )
 
     gates = {
@@ -1176,6 +1177,12 @@ def run_research_valid_gate() -> dict[str, Any]:
 
     study_class = str(gates["empirical_study_design"].get("study_class", "diagnostic"))
     verdict = verdict_for(gates, study_class=study_class)
+    # SC-009: record every complete-provenance field; the storage commit of
+    # the committed study manifest is derivable from git history.
+    provenance = build_certification_provenance(
+        repository_clean=code_tree_is_clean(),
+        artifact_path=FINAL_DIR / "study_manifest.json",
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "gate_name": "research_valid",
@@ -1188,7 +1195,10 @@ def run_research_valid_gate() -> dict[str, Any]:
         "synthetic_benchmark_valid": research_status_at_least(verdict, SYNTHETIC_BENCHMARK_VALID),
         "all_passed": all(g["passed"] for g in gates.values()),
         "repository_commit": _current_commit(),
-        "provenance": build_certification_provenance(repository_clean=code_tree_is_clean()),
+        "provenance": provenance,
+        # Informational: empty only for artifact_storage_commit before the
+        # manifest is committed; complete on committed records.
+        "provenance_findings": provenance_completeness_findings(provenance),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "gates": gates,
     }
