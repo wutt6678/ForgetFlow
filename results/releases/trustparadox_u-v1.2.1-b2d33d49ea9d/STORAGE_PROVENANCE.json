@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.1",
+  "release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
+  "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "artifact_storage_commit": "d8b9d9eb0f86d6aa374f5aef41356ad78c51e40a",
+  "gate_snapshot_commit": "",
+  "verified_at": "2026-08-05T17:34:27.720284+00:00",
+  "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
+  "storage_metadata_digest": "51137c444597195f9219ea628f0d726ead82501f5dec0106fa376f2f5ffe55e9"
+}
