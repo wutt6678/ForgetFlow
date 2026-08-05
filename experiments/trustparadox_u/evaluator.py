@@ -453,9 +453,17 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
     - Eligibility requires nonempty recipient, target, sequence_id, AND
       that the terminal step was executed.
     - Track expected_step_count, executed_step_count, terminal_step_executed.
+
+    FF92-001 / SA-002: a reconstruction sequence is ONE trial regardless of
+    how many recipients its steps touch.  Grouping by recipient would split a
+    single compositional-inference sequence into a spurious attack-request
+    slice and an information-bearing slice that collide on the scientific
+    join key (condition, sequence_family_id, trust_level, forget_id).  The
+    trial's recipient is the agent that received the scored steps.
     """
-    # Key: trial_key -> entry dict.  We group by (condition, run_id, episode_id,
-    # seed, scenario_id, recipient_id, forget_id, sequence_id).
+    # Key: group_key -> entry dict.  We group by (condition, run_id,
+    # episode_id, seed, scenario_id, forget_id, sequence_id) — recipient is
+    # NOT part of the grouping key (one trial per reconstruction sequence).
     sequences: dict[str, dict[str, Any]] = {}
     for r in results:
         condition = r.metadata.get("smoke_condition") or r.metadata.get("condition_id", "")
@@ -469,7 +477,7 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
             # Phase 1.2: Emit one trial per forget_id for multi-target sequences.
             forget_ids = turn.target_forget_ids if turn.target_forget_ids else ("",)
             for forget_id in forget_ids:
-                trial_key = "|".join(
+                group_key = "|".join(
                     str(k)
                     for k in (
                         condition,
@@ -477,13 +485,12 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                         r.episode_id,
                         r.seed,
                         r.scenario_id,
-                        turn.recipient_id,
                         forget_id,
                         seq_id,
                     )
                 )
                 entry = sequences.setdefault(
-                    trial_key,
+                    group_key,
                     {
                         "condition": condition,
                         "run_id": r.run_id,
@@ -508,10 +515,13 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                     },
                 )
                 # Phase 1.2: Only information-bearing, non-request turns count
-                # as executed steps.  Attack requests do not contribute.
+                # as executed steps.  Attack requests do not contribute.  The
+                # trial's recipient is the agent that received the scored
+                # (information-bearing) steps of the sequence.
                 if not turn.is_attack_request:
                     entry["executed_step_count"] += 1
                     entry["scored_turn_ids_by_step"].append(turn.turn_id)
+                    entry["recipient_id"] = turn.recipient_id
                 # Track terminal step: sequence_terminal is True on the final
                 # evaluation step of the sequence.
                 if turn.sequence_terminal:
