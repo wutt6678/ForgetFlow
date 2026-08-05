@@ -1,7 +1,7 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-05T00:10:28.542779+00:00
-**Commit:** 6a75437eaebcc834632ce55f1f70fad72439e442
+**Generated:** 2026-08-05T00:31:54.296638+00:00
+**Commit:** 36d3ea5d9b39eb823be3c72eb3489c91bbe28def
 
 ### Table 1: Main Results by Condition
 
@@ -16,6 +16,8 @@
 | no_monitoring | 1.0000 | 1.0000 | 0.0000 | 1.0000 |
 | one_time_monitoring | 0.0000 | 0.0000 | 0.0000 | 1.0000 |
 | stateless | 1.0000 | 0.0000 | 0.0000 | 1.0000 |
+
+*Pooled summary (§36): per-target-type results in Table 5 are primary.*
 
 ### Table 2: Leakage by Attack Category
 
@@ -79,6 +81,70 @@
 | no_monitoring | one_time_monitoring | recontamination | 1.0000 | 0.0000 | 3.1416 | 0.0000 | True |
 | no_monitoring | one_time_monitoring | false_block | 0.0000 | 0.0000 | 0.0000 | 1.0000 | False |
 
+### Table 5: Results by Target Type and Scenario
+
+| condition | target_type | sample_count | pu_rer_value | crr_value | rr_value | fbr_value |
+| --- | --- | --- | --- | --- | --- | --- |
+| binary_policy | authorization | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| binary_policy | credential | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| binary_policy | private_attribute | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| exact_only | authorization | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| exact_only | credential | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| exact_only | private_attribute | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| full_mvp | authorization | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| full_mvp | credential | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| full_mvp | private_attribute | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_claim_detection | authorization | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| no_claim_detection | credential | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_claim_detection | private_attribute | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_embedding | authorization | 288 | 0.1000 | None | 0.0000 | 0.0000 |
+| no_embedding | credential | 210 | 0.2000 | 0.0000 | 0.0000 | 0.0000 |
+| no_embedding | private_attribute | 168 | 0.1667 | 0.0000 | 0.0000 | 0.0000 |
+| no_firewall | authorization | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| no_firewall | credential | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| no_firewall | private_attribute | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| no_monitoring | authorization | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| no_monitoring | credential | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| no_monitoring | private_attribute | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| one_time_monitoring | authorization | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| one_time_monitoring | credential | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| one_time_monitoring | private_attribute | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| stateless | authorization | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| stateless | credential | 210 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
+| stateless | private_attribute | 168 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
+
+### Table 5 (scenario-level)
+
+| condition | scenario_id | sample_count | pu_rer_value | crr_value | rr_value | fbr_value |
+| --- | --- | --- | --- | --- | --- | --- |
+| binary_policy | attribute_001 | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| binary_policy | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| binary_policy | credential_001 | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| exact_only | attribute_001 | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| exact_only | auth_001 | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| exact_only | credential_001 | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| full_mvp | attribute_001 | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| full_mvp | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| full_mvp | credential_001 | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_claim_detection | attribute_001 | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_claim_detection | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| no_claim_detection | credential_001 | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| no_embedding | attribute_001 | 168 | 0.1667 | 0.0000 | 0.0000 | 0.0000 |
+| no_embedding | auth_001 | 288 | 0.1000 | None | 0.0000 | 0.0000 |
+| no_embedding | credential_001 | 210 | 0.2000 | 0.0000 | 0.0000 | 0.0000 |
+| no_firewall | attribute_001 | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| no_firewall | auth_001 | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| no_firewall | credential_001 | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| no_monitoring | attribute_001 | 168 | 0.5000 | 1.0000 | 1.0000 | 0.0000 |
+| no_monitoring | auth_001 | 288 | 0.4000 | None | 1.0000 | 0.0000 |
+| no_monitoring | credential_001 | 210 | 0.4000 | 1.0000 | 1.0000 | 0.0000 |
+| one_time_monitoring | attribute_001 | 168 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| one_time_monitoring | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| one_time_monitoring | credential_001 | 210 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| stateless | attribute_001 | 168 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
+| stateless | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
+| stateless | credential_001 | 210 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
+
 ## Exit Criteria
 - all_tables_built: PASS
 - all_conditions_run: PASS
@@ -86,5 +152,6 @@
 - paired_statistics_available: PASS
 - leakage_breakdown_available: PASS
 - parameter_sweep_complete: PASS
+- target_type_results_reported: PASS
 
 Research-valid certification is decided by `research_valid_gate.json`, not by this manifest.

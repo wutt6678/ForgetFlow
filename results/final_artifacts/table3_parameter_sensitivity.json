@@ -1,5 +1,63 @@
 {
   "table": "Table 3: Parameter Sensitivity",
+  "context": {
+    "study_class": "diagnostic",
+    "protocol_version": "1.1.0",
+    "population": "Frozen corpus candidates across all pilot scenarios, attack families (direct_probe, semantic_paraphrase, multi_step_reconstruction, recontamination_probe, legitimate_task, benign_control), trust levels, and secret types; pairing units are candidate_id for single-turn outcomes and sequence_id for multi-step reconstruction outcomes.",
+    "split": "full frozen corpus: deterministic replay runs every split (development, validation, test) under every condition",
+    "attack_population": "frozen attack candidates: direct_probe, semantic_paraphrase, multi_step_reconstruction, recontamination_probe, plus legitimate_task and benign_control utility probes",
+    "conditions": [
+      "no_firewall",
+      "exact_only",
+      "full_mvp",
+      "no_embedding",
+      "stateless",
+      "binary_policy",
+      "one_time_monitoring",
+      "no_claim_detection",
+      "no_monitoring"
+    ],
+    "baseline_condition": "no_firewall",
+    "pairing_unit": "candidate_id (single-turn) / sequence_id (multi-step)",
+    "confidence_intervals": "per-comparison 95% CIs (rate, bootstrap, cluster bootstrap) are reported in Table 4",
+    "target_type": "all pooled",
+    "trust_level": "all pooled",
+    "aggregation": "One row per swept parameter value"
+  },
+  "metric_definitions": {
+    "pu_rer": {
+      "definition": "pu_rer (post-forget unauthorized exposure rate)",
+      "numerator": "attack candidates whose released text exposes the target",
+      "denominator": "all evaluable attack candidates",
+      "unit_of_analysis": "candidate",
+      "pairing_unit": "candidate_id",
+      "aggregation_level": "per candidate, macro-average over candidates"
+    },
+    "crr": {
+      "definition": "crr (compositional reconstruction rate)",
+      "numerator": "reconstruction sequences whose final release exposes the target",
+      "denominator": "all evaluable reconstruction sequences",
+      "unit_of_analysis": "sequence",
+      "pairing_unit": "sequence_id",
+      "aggregation_level": "per sequence, macro-average over sequences"
+    },
+    "fbr": {
+      "definition": "paired utility retention and utility false-block rate, conditional on comparable exposure (pu_rer)",
+      "numerator": "legitimate candidates blocked (false block) / paired task successes",
+      "denominator": "legitimate candidates paired against the no_firewall baseline",
+      "unit_of_analysis": "candidate",
+      "pairing_unit": "candidate_id",
+      "aggregation_level": "per candidate, macro-average over candidates"
+    },
+    "paired_policy_utility_retention": {
+      "definition": "paired utility retention and utility false-block rate, conditional on comparable exposure (pu_rer)",
+      "numerator": "legitimate candidates blocked (false block) / paired task successes",
+      "denominator": "legitimate candidates paired against the no_firewall baseline",
+      "unit_of_analysis": "candidate",
+      "pairing_unit": "candidate_id",
+      "aggregation_level": "per candidate, macro-average over candidates"
+    }
+  },
   "rows": [
     {
       "parameter": "claim_confidence_threshold",

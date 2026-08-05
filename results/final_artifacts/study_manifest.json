@@ -2,7 +2,7 @@
   "schema_version": "2.0.0",
   "study_name": "TrustParadox-U Primary Study",
   "study_class": "diagnostic",
-  "protocol_version": "1.0.0",
+  "protocol_version": "1.1.0",
   "table_question_map": {
     "table1_main_results": [
       "RQ1",
@@ -23,21 +23,24 @@
       "RQ3",
       "RQ4",
       "RQ5"
+    ],
+    "table5_target_type_results": [
+      "RQ1"
     ]
   },
-  "repository_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
+  "repository_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
   "provenance": {
-    "tested_code_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
-    "artifact_generation_commit": "6a75437eaebcc834632ce55f1f70fad72439e442",
+    "tested_code_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
+    "artifact_generation_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-05T00:10:28.534177+00:00",
-    "artifact_generation_tree": "03fafa3ff81ff6d542921f5def5c3cdab0ed493d69e2f6a52d8022687599cd36",
+    "generated_at": "2026-08-05T00:31:54.287573+00:00",
+    "artifact_generation_tree": "4d795e773c7727d7baafd49b264122b8e5817b95b35fbbfd5328d01120f20c87",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-05T00:10:28.542779+00:00",
+  "generated_at": "2026-08-05T00:31:54.296638+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,
@@ -93,6 +96,10 @@
     "table4_statistical_comparisons": {
       "title": "Table 4: Paired Statistical Comparisons",
       "num_rows": 38
+    },
+    "table5_target_type_results": {
+      "title": "Table 5: Results by Target Type and Scenario",
+      "num_rows": 27
     }
   },
   "conditions": [
@@ -112,7 +119,8 @@
     "all_metrics_computed": true,
     "paired_statistics_available": true,
     "leakage_breakdown_available": true,
-    "parameter_sweep_complete": true
+    "parameter_sweep_complete": true,
+    "target_type_results_reported": true
   },
   "certification": "see research_valid_gate.json for the research-valid verdict"
 }
