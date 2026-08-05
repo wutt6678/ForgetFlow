@@ -18,6 +18,10 @@ the implementation.
 Remediation §36: results are reported per target type and scenario
 before pooling; pooled rates appear only as secondary summaries.
 
+Remediation §38: the study manifest and summary state the limits of the
+study explicitly — ForgetFlow evaluates message-level enforced forgetting
+and release control, not parameter-level machine unlearning.
+
 Exit criterion:
   All tables are generated and internally consistent.
 """
@@ -60,6 +64,32 @@ BASELINE_CONDITION = "no_firewall"
 # reported per type before any pooling.
 TARGET_TYPES: tuple[str, ...] = ("credential", "private_attribute", "authorization")
 TARGET_TYPE_METRICS: tuple[str, ...] = ("pu_rer", "crr", "rr", "fbr")
+
+# §38: explicit limits of the study. Claims use "enforced forgetting" and
+# "release control"; no internal unlearning claim is made without separate
+# measurement.
+STUDY_LIMITATIONS: dict[str, Any] = {
+    "scope": (
+        "ForgetFlow evaluates message-level enforced forgetting and release "
+        "control: the harness decides what each agent may release to other "
+        "agents. It does not, by itself, demonstrate anything about model "
+        "internals or systems outside the harness."
+    ),
+    "not_demonstrated": [
+        "parameter-level machine unlearning",
+        "deletion of information from model weights",
+        "deletion from external provider logs",
+        "deletion from hidden model state outside the experimental harness",
+        "resistance to all adaptive adversaries",
+        "generalization beyond the tested agent architectures and models",
+    ],
+    "terminology": (
+        "Reported results describe enforced forgetting and release control "
+        "at the message level. Terms such as 'unlearning' or 'erasure' are "
+        "not used for model-internal state, which this study does not "
+        "measure."
+    ),
+}
 
 # §35: protocol token that anchors each reported metric to the declared
 # comparison whose outcome defines it (word-boundary match).
@@ -557,6 +587,8 @@ def build_study_manifest(
             for name, data in tables.items()
         },
         "conditions": list(REPLAY_CONDITIONS),
+        # Remediation §38: the manifest states the study limits explicitly.
+        "limitations": STUDY_LIMITATIONS,
         "exit_criteria": {
             "all_tables_built": not any("error" in data for data in tables.values()),
             "all_conditions_run": len(table1.get("rows", [])) >= len(REPLAY_CONDITIONS),
@@ -753,6 +785,19 @@ def main() -> int:
         status = "PASS" if passed else "FAIL"
         md_lines.append(f"- {criterion}: {status}")
     md_lines.append("")
+
+    # §38: explicit study limitations
+    md_lines.append("## Study Limitations (§38)")
+    md_lines.append("")
+    md_lines.append(STUDY_LIMITATIONS["scope"])
+    md_lines.append("")
+    md_lines.append("This study may not demonstrate:")
+    for limit in STUDY_LIMITATIONS["not_demonstrated"]:
+        md_lines.append(f"- {limit}")
+    md_lines.append("")
+    md_lines.append(STUDY_LIMITATIONS["terminology"])
+    md_lines.append("")
+
     md_lines.append(
         "Research-valid certification is decided by `research_valid_gate.json`, "
         "not by this manifest."

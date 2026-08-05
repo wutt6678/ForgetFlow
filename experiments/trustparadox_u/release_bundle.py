@@ -63,6 +63,10 @@ BUNDLE_COMPONENTS: tuple[tuple[str, str], ...] = (
         "final_artifacts/table5_target_type_results.json",
         "final table 5: results by target type and scenario",
     ),
+    (
+        "failure_examples/failure_examples.json",
+        "curated failure examples and decision traces",
+    ),
 )
 
 

@@ -767,10 +767,56 @@ def check_final_artifacts() -> dict[str, Any]:
         findings.append("exit_criteria_missing")
     if failed:
         findings.append(f"exit_criteria_failed: {failed}")
+
+    # §38: the manifest must state the study limits explicitly, using
+    # enforced-forgetting / release-control terminology.
+    limitations = manifest.get("limitations") or {}
+    if not limitations.get("not_demonstrated") or len(limitations["not_demonstrated"]) < 6:
+        findings.append("limitations_not_demonstrated_list_missing_or_incomplete")
+    scope = str(limitations.get("scope", ""))
+    if "enforced forgetting" not in scope or "release control" not in scope:
+        findings.append("limitations_terminology_not_precise")
     return {
         "passed": not findings,
         "present": len(required),
         "total": len(required),
+        "findings": findings,
+    }
+
+
+def check_failure_examples() -> dict[str, Any]:
+    """§37: curated failure examples must exist, follow a declared
+    selection procedure, cover all six declared categories, and attribute
+    each example to detector/history/policy/monitoring/annotation."""
+    from experiments.trustparadox_u.failure_examples import (
+        ATTRIBUTION_SOURCES,
+        CATEGORIES,
+        OUTPUT_PATH,
+    )
+
+    if not OUTPUT_PATH.exists():
+        return {"passed": False, "findings": [f"missing: {OUTPUT_PATH}"]}
+    data = _load_json(OUTPUT_PATH)
+    findings: list[str] = []
+    if not str(data.get("selection_procedure", "")).strip():
+        findings.append("selection_procedure_not_declared")
+    if not str(data.get("privacy_statement", "")).strip():
+        findings.append("privacy_statement_missing")
+    categories = data.get("categories", {})
+    missing_categories = [c for c in CATEGORIES if c not in categories]
+    if missing_categories:
+        findings.append(f"categories_missing: {missing_categories}")
+    example_count = 0
+    for name, info in categories.items():
+        for example in info.get("examples", []):
+            example_count += 1
+            attribution = example.get("error_attribution", "")
+            if attribution not in ATTRIBUTION_SOURCES:
+                findings.append(f"{name}: undeclared attribution {attribution!r}")
+    return {
+        "passed": not findings,
+        "num_categories": len(CATEGORIES) - len(missing_categories),
+        "num_examples": example_count,
         "findings": findings,
     }
 
@@ -947,6 +993,7 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
     "release_bundles",
     "deterministic_reproducibility_validation",
     "final_artifacts",
+    "failure_examples",
 )
 
 
@@ -1010,6 +1057,7 @@ def run_research_valid_gate() -> dict[str, Any]:
             check_deterministic_reproducibility_validation()
         ),
         "final_artifacts": check_final_artifacts(),
+        "failure_examples": check_failure_examples(),
         "empirical_study_design": check_empirical_study_design(),
         "tests_pass": check_tests_pass(),
         "static_checks": check_static_checks(),

@@ -44,6 +44,7 @@ PIPELINE_STEPS: tuple[tuple[str, str], ...] = (
     ("experiments.trustparadox_u.leakage_analysis", "leakage analysis over trial artifacts"),
     ("experiments.trustparadox_u.paired_statistics", "paired statistical comparisons"),
     ("experiments.trustparadox_u.final_artifacts", "final tables and study manifest"),
+    ("experiments.trustparadox_u.failure_examples", "curated failure examples and decision traces"),
 )
 
 # Artifacts the reproduction must have regenerated, checksummed last.
@@ -64,6 +65,7 @@ REPRODUCED_ARTIFACTS: tuple[str, ...] = (
     "final_artifacts/table3_parameter_sensitivity.json",
     "final_artifacts/table4_statistical_comparisons.json",
     "final_artifacts/table5_target_type_results.json",
+    "failure_examples/failure_examples.json",
 )
 
 

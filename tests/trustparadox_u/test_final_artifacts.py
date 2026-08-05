@@ -11,6 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from experiments.trustparadox_u.conditions import REPLAY_CONDITIONS  # noqa: E402
 from experiments.trustparadox_u.final_artifacts import (  # noqa: E402
+    STUDY_LIMITATIONS,
     TARGET_TYPES,
     build_annotation_summary,
     build_corpus_summary,
@@ -235,6 +236,48 @@ class TestStudyManifest:
         tables = {"t1": build_table1_main_results()}
         manifest = build_study_manifest(tables, build_corpus_summary(), build_annotation_summary())
         assert manifest["study_class"] in STUDY_CLASSES
+
+
+class TestStudyLimitationsRemediation38:
+    """§38: the study states its limits explicitly and precisely."""
+
+    REQUIRED_LIMITATIONS = (
+        "parameter-level machine unlearning",
+        "deletion of information from model weights",
+        "deletion from external provider logs",
+        "deletion from hidden model state outside the experimental harness",
+        "resistance to all adaptive adversaries",
+        "generalization beyond the tested agent architectures and models",
+    )
+
+    def test_all_six_limitations_declared(self) -> None:
+        for limit in self.REQUIRED_LIMITATIONS:
+            assert limit in STUDY_LIMITATIONS["not_demonstrated"]
+
+    def test_precise_terminology(self) -> None:
+        scope = STUDY_LIMITATIONS["scope"]
+        assert "enforced forgetting" in scope
+        assert "release control" in scope
+
+    def test_no_internal_unlearning_claim(self) -> None:
+        terminology = STUDY_LIMITATIONS["terminology"]
+        assert "does not" in terminology or "not used" in terminology
+
+    def test_manifest_carries_limitations(self) -> None:
+        tables = {"t1": build_table1_main_results()}
+        manifest = build_study_manifest(tables, build_corpus_summary(), build_annotation_summary())
+        assert manifest["limitations"] == STUDY_LIMITATIONS
+
+    def test_summary_markdown_renders_limitations(self) -> None:
+        from experiments.trustparadox_u.final_artifacts import FINAL_DIR
+
+        summary_path = FINAL_DIR / "study_summary.md"
+        if not summary_path.exists():
+            return
+        text = summary_path.read_text()
+        assert "Study Limitations" in text
+        for limit in self.REQUIRED_LIMITATIONS:
+            assert limit in text
 
 
 class TestMarkdownFormatter:
