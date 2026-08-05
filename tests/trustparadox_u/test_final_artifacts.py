@@ -11,6 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from experiments.trustparadox_u.conditions import REPLAY_CONDITIONS  # noqa: E402
 from experiments.trustparadox_u.final_artifacts import (  # noqa: E402
+    TARGET_TYPES,
     build_annotation_summary,
     build_corpus_summary,
     build_study_manifest,
@@ -18,6 +19,7 @@ from experiments.trustparadox_u.final_artifacts import (  # noqa: E402
     build_table2_leakage_breakdown,
     build_table3_parameter_sensitivity,
     build_table4_statistical_comparisons,
+    build_table5_target_type_results,
     format_table_as_markdown,
 )
 
@@ -94,6 +96,104 @@ class TestTable4StatisticalComparisons:
             assert "p_value" in row
 
 
+class TestTable5TargetTypeResults:
+    """Tests for Table 5 (§36: per-target-type results before pooling)."""
+
+    def test_has_rows(self) -> None:
+        t5 = build_table5_target_type_results()
+        assert "rows" in t5
+        assert len(t5["rows"]) > 0
+
+    def test_all_target_types_covered(self) -> None:
+        t5 = build_table5_target_type_results()
+        covered = {row["target_type"] for row in t5["by_target_type"]}
+        assert set(TARGET_TYPES) <= covered
+
+    def test_scenario_rows_present(self) -> None:
+        t5 = build_table5_target_type_results()
+        assert t5["by_scenario"]
+        for row in t5["by_scenario"]:
+            assert "scenario_id" in row
+            assert "condition" in row
+
+    def test_macro_average_per_condition(self) -> None:
+        t5 = build_table5_target_type_results()
+        conditions = {row["condition"] for row in t5["by_target_type"]}
+        macro_conditions = {row["condition"] for row in t5["macro_average_by_target_type"]}
+        assert conditions == macro_conditions
+
+    def test_pooled_rows_are_secondary(self) -> None:
+        # §36 acceptance: no primary conclusion relies only on pooled rate.
+        t5 = build_table5_target_type_results()
+        assert t5["pooled_secondary"]
+        for row in t5["pooled_secondary"]:
+            assert row["role"] == "secondary_summary"
+
+    def test_heterogeneity_reported(self) -> None:
+        t5 = build_table5_target_type_results()
+        assert t5["heterogeneity_note"]
+        assert t5["heterogeneity"]
+
+
+class TestSelfDescribingContext:
+    """§35: every table states study class, split, population, and metric
+    definitions so a reader can interpret it without opening the code."""
+
+    CONTEXT_KEYS = {
+        "study_class",
+        "protocol_version",
+        "population",
+        "split",
+        "attack_population",
+        "conditions",
+        "baseline_condition",
+        "pairing_unit",
+        "confidence_intervals",
+    }
+
+    def _tables(self) -> dict:
+        return {
+            "t1": build_table1_main_results(),
+            "t2": build_table2_leakage_breakdown(),
+            "t3": build_table3_parameter_sensitivity(),
+            "t4": build_table4_statistical_comparisons(),
+            "t5": build_table5_target_type_results(),
+        }
+
+    def test_every_table_has_context(self) -> None:
+        for name, table in self._tables().items():
+            context = table.get("context")
+            assert context, f"{name} missing context"
+            assert self.CONTEXT_KEYS <= set(context), f"{name} context incomplete"
+
+    def test_every_table_has_metric_definitions(self) -> None:
+        for name, table in self._tables().items():
+            definitions = table.get("metric_definitions")
+            assert definitions, f"{name} missing metric_definitions"
+            for metric, spec in definitions.items():
+                assert spec["definition"], f"{name}/{metric} has no definition"
+                assert spec["numerator"], f"{name}/{metric} has no numerator"
+                assert spec["denominator"], f"{name}/{metric} has no denominator"
+
+    def test_table1_rows_carry_numerator_and_denominator(self) -> None:
+        t1 = build_table1_main_results()
+        row = t1["rows"][0]
+        value_cols = [key for key in row if key.endswith("_value")]
+        assert value_cols
+        for key in value_cols:
+            metric = key[: -len("_value")]
+            assert f"{metric}_numerator" in row
+            assert f"{metric}_denominator" in row
+
+    def test_table4_rows_carry_pairing_and_cis(self) -> None:
+        t4 = build_table4_statistical_comparisons()
+        for row in t4["rows"]:
+            assert row["pairing_unit"]
+            assert row["n_pairs"] is not None
+            assert "rate_a_ci_95" in row
+            assert "cluster_bootstrap_ci_95" in row
+
+
 class TestCorpusSummary:
     """Tests for corpus summary."""
 
@@ -120,6 +220,7 @@ class TestStudyManifest:
             "t2": build_table2_leakage_breakdown(),
             "t3": build_table3_parameter_sensitivity(),
             "t4": build_table4_statistical_comparisons(),
+            "t5": build_table5_target_type_results(),
         }
         corpus = build_corpus_summary()
         ann = build_annotation_summary()

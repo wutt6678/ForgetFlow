@@ -7,20 +7,23 @@
   "research_valid": false,
   "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+  "repository_commit": "53704f0e8373566a8159d68f95b4c16d3e2c07a4",
   "provenance": {
-    "tested_code_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
-    "artifact_generation_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+    "tested_code_commit": "53704f0e8373566a8159d68f95b4c16d3e2c07a4",
+    "artifact_generation_commit": "53704f0e8373566a8159d68f95b4c16d3e2c07a4",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-04T22:45:57.084157+00:00"
+    "generated_at": "2026-08-05T00:14:27.131200+00:00",
+    "artifact_generation_tree": "03fafa3ff81ff6d542921f5def5c3cdab0ed493d69e2f6a52d8022687599cd36",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-04T22:45:57.084170+00:00",
+  "generated_at": "2026-08-05T00:14:27.139821+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "repository_commit": "58b1de9899ef96234923d764e44da55a11586d5d",
+      "repository_commit": "53704f0e8373566a8159d68f95b4c16d3e2c07a4",
       "findings": []
     },
     "no_invalidated_artifacts": {
@@ -98,6 +101,26 @@
       "num_sweeps": 4,
       "final_test_split": "test"
     },
+    "frozen_threshold_manifest": {
+      "passed": true,
+      "study_version": "1.0.0",
+      "num_parameters": 16,
+      "findings": []
+    },
+    "reproduction_manifest": {
+      "passed": true,
+      "study_version": "1.0.0",
+      "num_artifacts": 15,
+      "findings": []
+    },
+    "release_bundles": {
+      "passed": true,
+      "releases": 1,
+      "active": [
+        "trustparadox_u-v1.0.0-a314018808e5"
+      ],
+      "findings": []
+    },
     "deterministic_reproducibility_validation": {
       "passed": true,
       "num_conditions": 9,
@@ -117,7 +140,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1745 passed, 4 skipped in 14.87s"
+      "output": "1831 passed, 4 skipped in 11.29s"
     },
     "static_checks": {
       "passed": true,

@@ -84,6 +84,7 @@ class TestTableMapping:
             "table2_leakage_breakdown",
             "table3_parameter_sensitivity",
             "table4_statistical_comparisons",
+            "table5_target_type_results",
         }
 
     def test_no_table_maps_to_zero_questions(self) -> None:

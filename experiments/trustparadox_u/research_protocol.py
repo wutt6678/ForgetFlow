@@ -19,7 +19,7 @@ from typing import Any
 
 # Bump whenever a declared question, comparison, metric definition, or
 # table mapping changes (remediation §2 acceptance criteria).
-PROTOCOL_VERSION = "1.0.0"
+PROTOCOL_VERSION = "1.1.0"
 
 # Shared population for every primary comparison in the replay study.
 POPULATION = (
@@ -294,6 +294,9 @@ TABLE_QUESTION_MAP: dict[str, tuple[str, ...]] = {
     "table2_leakage_breakdown": ("RQ1",),
     "table3_parameter_sensitivity": ("RQ1",),
     "table4_statistical_comparisons": ("RQ1", "RQ2", "RQ3", "RQ4", "RQ5"),
+    # Remediation §36: per-target-type and per-scenario results are a
+    # declared final table; pooled summaries are secondary.
+    "table5_target_type_results": ("RQ1",),
 }
 
 

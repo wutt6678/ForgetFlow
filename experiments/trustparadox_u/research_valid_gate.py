@@ -753,6 +753,7 @@ def check_final_artifacts() -> dict[str, Any]:
         FINAL_DIR / "table2_leakage_breakdown.json",
         FINAL_DIR / "table3_parameter_sensitivity.json",
         FINAL_DIR / "table4_statistical_comparisons.json",
+        FINAL_DIR / "table5_target_type_results.json",
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:

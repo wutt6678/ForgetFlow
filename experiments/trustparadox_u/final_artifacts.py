@@ -5,8 +5,18 @@ Aggregates all experiment results into final summary artifacts:
 2. Leakage breakdown table (Table 2): by attack category
 3. Parameter sensitivity table (Table 3): from sweep
 4. Statistical comparison table (Table 4): paired tests
-5. Corpus manifest summary
-6. Final study manifest
+5. Target-type results table (Table 5): by target type and scenario (§36)
+6. Corpus manifest summary
+7. Final study manifest
+
+Remediation §35: every table is self-describing — it carries the study
+class, condition, split, attack population, target type, metric
+definition, numerator, denominator, pairing unit, confidence-interval
+source, and sample counts, so a reader can interpret it without opening
+the implementation.
+
+Remediation §36: results are reported per target type and scenario
+before pooling; pooled rates appear only as secondary summaries.
 
 Exit criterion:
   All tables are generated and internally consistent.
@@ -15,6 +25,7 @@ Exit criterion:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +37,11 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from experiments.trustparadox_u.conditions import REPLAY_CONDITIONS  # noqa: E402
+from experiments.trustparadox_u.research_protocol import (  # noqa: E402
+    COMPARISONS,
+    POPULATION,
+    PROTOCOL_VERSION,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -40,6 +56,92 @@ FINAL_DIR = Path(__file__).parents[2] / "results" / "final_artifacts"
 
 BASELINE_CONDITION = "no_firewall"
 
+# §36: disclosure semantics differ per target type, so results are
+# reported per type before any pooling.
+TARGET_TYPES: tuple[str, ...] = ("credential", "private_attribute", "authorization")
+TARGET_TYPE_METRICS: tuple[str, ...] = ("pu_rer", "crr", "rr", "fbr")
+
+# §35: protocol token that anchors each reported metric to the declared
+# comparison whose outcome defines it (word-boundary match).
+_PROTOCOL_METRIC_TOKENS: dict[str, str] = {
+    "pu_rer": "pu_rer",
+    "exposure": "pu_rer",
+    "crr": "crr",
+    "reconstruction": "crr",
+    "rr": "rr",
+    "recontamination": "rr",
+    "fbr": "false-block",
+    "false_block": "false-block",
+    "utility_false_block": "false-block",
+    "paired_policy_utility_retention": "utility retention",
+    "utility": "utility retention",
+}
+
+
+# ---------------------------------------------------------------------------
+# §35: self-describing table context and metric definitions
+# ---------------------------------------------------------------------------
+
+
+def build_table_context(**overrides: Any) -> dict[str, Any]:
+    """Shared self-describing context for every final table (§35).
+
+    States the study class, split, attack population, conditions and
+    protocol version that declared the metrics, so a reader can
+    interpret the table without opening the implementation.
+    """
+    from experiments.trustparadox_u.status import STUDY_CLASS_DIAGNOSTIC
+
+    study_class = STUDY_CLASS_DIAGNOSTIC
+    run_manifest_path = RESULTS_DIR / "run_manifest.json"
+    if run_manifest_path.exists():
+        study_class = str(json.loads(run_manifest_path.read_text()).get("study_class", study_class))
+    context: dict[str, Any] = {
+        "study_class": study_class,
+        "protocol_version": PROTOCOL_VERSION,
+        "population": POPULATION,
+        "split": (
+            "full frozen corpus: deterministic replay runs every split "
+            "(development, validation, test) under every condition"
+        ),
+        "attack_population": (
+            "frozen attack candidates: direct_probe, semantic_paraphrase, "
+            "multi_step_reconstruction, recontamination_probe, plus "
+            "legitimate_task and benign_control utility probes"
+        ),
+        "conditions": list(REPLAY_CONDITIONS),
+        "baseline_condition": BASELINE_CONDITION,
+        "pairing_unit": "candidate_id (single-turn) / sequence_id (multi-step)",
+        "confidence_intervals": (
+            "per-comparison 95% CIs (rate, bootstrap, cluster bootstrap) " "are reported in Table 4"
+        ),
+    }
+    context.update(overrides)
+    return context
+
+
+def metric_definitions(*metrics: str) -> dict[str, dict[str, str]]:
+    """§35: definition, numerator, denominator, and units per metric.
+
+    Each definition is anchored to the first declared protocol
+    comparison whose outcome names the metric, so the table states
+    exactly how each number is computed.
+    """
+    definitions: dict[str, dict[str, str]] = {}
+    for metric in metrics:
+        token = _PROTOCOL_METRIC_TOKENS.get(metric, metric)
+        pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z0-9])")
+        spec = next((c for c in COMPARISONS if pattern.search(c.outcome)), None)
+        definitions[metric] = {
+            "definition": spec.outcome if spec else "not declared in protocol",
+            "numerator": spec.numerator if spec else "",
+            "denominator": spec.denominator if spec else "",
+            "unit_of_analysis": spec.unit_of_analysis if spec else "",
+            "pairing_unit": spec.pairing_unit if spec else "",
+            "aggregation_level": spec.aggregation_level if spec else "",
+        }
+    return definitions
+
 
 # ---------------------------------------------------------------------------
 # Table builders
@@ -47,7 +149,12 @@ BASELINE_CONDITION = "no_firewall"
 
 
 def build_table1_main_results() -> dict[str, Any]:
-    """Table 1: Main results by condition."""
+    """Table 1: Main results by condition.
+
+    §35: pooled rows carry value/numerator/denominator per metric plus
+    the self-describing context. §36: this pooled view is the secondary
+    summary; per-target-type results in Table 5 are primary.
+    """
     metrics_path = RESULTS_DIR / "metrics_by_condition.json"
     if not metrics_path.exists():
         return {"error": "metrics_by_condition.json not found"}
@@ -59,11 +166,24 @@ def build_table1_main_results() -> dict[str, Any]:
         for metric_name, metric_data in metrics.items():
             if isinstance(metric_data, dict):
                 row[f"{metric_name}_value"] = metric_data.get("value")
-                row[f"{metric_name}_n"] = metric_data.get("denominator")
+                row[f"{metric_name}_numerator"] = metric_data.get("numerator")
+                row[f"{metric_name}_denominator"] = metric_data.get("denominator")
         rows.append(row)
 
     return {
         "table": "Table 1: Main Results by Condition",
+        "context": build_table_context(
+            target_type="all pooled",
+            trust_level="all pooled",
+            aggregation=(
+                "Pooled over target types, scenarios, and trust levels: "
+                "secondary pooled summary; per-target-type results are "
+                "primary (Table 5, §36)"
+            ),
+        ),
+        "metric_definitions": metric_definitions(
+            "pu_rer", "crr", "rr", "fbr", "paired_policy_utility_retention"
+        ),
         "rows": rows,
     }
 
@@ -101,6 +221,13 @@ def build_table2_leakage_breakdown() -> dict[str, Any]:
 
     return {
         "table": "Table 2: Leakage by Attack Category",
+        "context": build_table_context(
+            condition=BASELINE_CONDITION,
+            target_type="all pooled",
+            trust_level="all pooled",
+            aggregation="One row per attack population category",
+        ),
+        "metric_definitions": metric_definitions("pu_rer", "crr", "rr"),
         "rows": rows,
     }
 
@@ -142,13 +269,26 @@ def build_table3_parameter_sensitivity() -> dict[str, Any]:
 
     return {
         "table": "Table 3: Parameter Sensitivity",
+        "context": build_table_context(
+            target_type="all pooled",
+            trust_level="all pooled",
+            aggregation="One row per swept parameter value",
+        ),
+        "metric_definitions": metric_definitions(
+            "pu_rer", "crr", "fbr", "paired_policy_utility_retention"
+        ),
         "rows": rows,
         "num_parameters": len(data.get("sweeps", {})),
     }
 
 
 def build_table4_statistical_comparisons() -> dict[str, Any]:
-    """Table 4: Paired statistical comparisons."""
+    """Table 4: Paired statistical comparisons.
+
+    §35: each row states its pairing unit, paired sample size, rate and
+    cluster-bootstrap confidence intervals, so inference is readable
+    without opening the statistics implementation.
+    """
     stats_path = STATS_DIR / "paired_statistics.json"
     if not stats_path.exists():
         return {"error": "paired_statistics.json not found"}
@@ -157,14 +297,23 @@ def build_table4_statistical_comparisons() -> dict[str, Any]:
     comparisons = data.get("comparisons", [])
 
     rows = []
+    seen_metrics: set[str] = set()
     for comp in comparisons:
+        metric = str(comp.get("metric", ""))
+        seen_metrics.add(metric)
+        ci = comp.get("cluster_bootstrap_ci_95")
         rows.append(
             {
                 "condition_a": comp.get("condition_a", ""),
                 "condition_b": comp.get("condition_b", ""),
-                "metric": comp.get("metric", ""),
+                "metric": metric,
                 "rate_a": comp.get("rate_a", 0.0),
+                "rate_a_ci_95": comp.get("rate_ci_95_a"),
                 "rate_b": comp.get("rate_b", 0.0),
+                "rate_b_ci_95": comp.get("rate_ci_95_b"),
+                "pairing_unit": comp.get("pairing_unit", ""),
+                "n_pairs": comp.get("n_pairs"),
+                "cluster_bootstrap_ci_95": ci,
                 "cohens_h": comp.get("cohens_h", 0.0),
                 "p_value": comp.get("mcnemar", {}).get("p_value", 1.0),
                 "significant": comp.get("mcnemar", {}).get("p_value", 1.0) < 0.05,
@@ -173,8 +322,125 @@ def build_table4_statistical_comparisons() -> dict[str, Any]:
 
     return {
         "table": "Table 4: Paired Statistical Comparisons",
+        "context": build_table_context(
+            target_type="all pooled",
+            trust_level="all pooled",
+            aggregation="One row per paired condition comparison",
+        ),
+        "metric_definitions": metric_definitions(*sorted(seen_metrics)),
         "rows": rows,
         "num_comparisons": len(rows),
+    }
+
+
+def build_table5_target_type_results() -> dict[str, Any]:
+    """Table 5: Results by target type and scenario (§36).
+
+    Per-target-type and per-scenario breakdowns are primary; pooled
+    by-condition rows appear only as secondary summaries. A macro-
+    average across target types is reported for each condition.
+    """
+    analysis_path = LEAKAGE_DIR / "leakage_analysis.json"
+    if not analysis_path.exists():
+        return {"error": "leakage_analysis.json not found"}
+
+    data = json.loads(analysis_path.read_text())
+    by_target = data.get("by_condition_and_target_type", {})
+    by_scenario = data.get("by_condition_and_scenario", {})
+    by_condition = data.get("by_condition", {})
+
+    def _breakdown_row(row_key: dict[str, Any], breakdown: dict[str, Any]) -> dict[str, Any]:
+        row: dict[str, Any] = dict(row_key)
+        row["sample_count"] = breakdown.get("candidate_trials", 0)
+        row["failed_count"] = breakdown.get("failed_trials", 0)
+        for metric in TARGET_TYPE_METRICS:
+            entry = breakdown.get(metric) or {}
+            for field in ("value", "numerator", "denominator", "evaluable"):
+                row[f"{metric}_{field}"] = entry.get(field)
+        return row
+
+    target_rows = []
+    for condition in sorted(by_target):
+        for target_type, breakdown in sorted(by_target[condition].items()):
+            target_rows.append(
+                _breakdown_row({"condition": condition, "target_type": target_type}, breakdown)
+            )
+
+    scenario_rows = []
+    for condition in sorted(by_scenario):
+        for scenario_id, breakdown in sorted(by_scenario[condition].items()):
+            scenario_rows.append(
+                _breakdown_row({"condition": condition, "scenario_id": scenario_id}, breakdown)
+            )
+
+    # §36: macro-average across target types within each condition.
+    macro_rows = []
+    for condition in sorted(by_target):
+        row: dict[str, Any] = {"condition": condition}
+        for metric in TARGET_TYPE_METRICS:
+            values = [
+                breakdown[metric]["value"]
+                for breakdown in by_target[condition].values()
+                if breakdown.get(metric, {}).get("value") is not None
+            ]
+            row[f"{metric}_value"] = round(sum(values) / len(values), 4) if values else None
+            row[f"{metric}_target_types_averaged"] = len(values)
+        macro_rows.append(row)
+
+    # Pooled rates are reported, but only as a secondary summary.
+    pooled_rows = []
+    for condition, breakdown in sorted(by_condition.items()):
+        row = _breakdown_row(
+            {
+                "condition": condition,
+                "role": "secondary_summary",
+                "target_type": "all pooled",
+            },
+            breakdown,
+        )
+        pooled_rows.append(row)
+
+    def _pu_rer_spread(condition: str) -> tuple[float, float] | None:
+        values = [
+            breakdown.get("pu_rer", {}).get("value")
+            for breakdown in by_target.get(condition, {}).values()
+            if breakdown.get("pu_rer", {}).get("value") is not None
+        ]
+        return (min(values), max(values)) if values else None
+
+    heterogeneity: dict[str, Any] = {}
+    for condition in (BASELINE_CONDITION, "full_mvp"):
+        spread = _pu_rer_spread(condition)
+        if spread is not None:
+            heterogeneity[condition] = {
+                "pu_rer_min": spread[0],
+                "pu_rer_max": spread[1],
+            }
+
+    return {
+        "table": "Table 5: Results by Target Type and Scenario",
+        "context": build_table_context(
+            condition="all replay conditions",
+            target_type="reported per target type before pooling",
+            trust_level="all pooled",
+            aggregation=(
+                "Per-target-type and per-scenario rows are primary; pooled "
+                "by-condition rows carry role=secondary_summary (§36)"
+            ),
+        ),
+        "metric_definitions": metric_definitions(*TARGET_TYPE_METRICS),
+        "by_target_type": target_rows,
+        "by_scenario": scenario_rows,
+        "macro_average_by_target_type": macro_rows,
+        "pooled_secondary": pooled_rows,
+        "heterogeneity_note": (
+            "Exposure (pu_rer) min/max spread across target types per "
+            "condition; a wide spread means pooling hides target-type "
+            "differences, so no primary conclusion may rest on the pooled "
+            "rate alone (§36)."
+        ),
+        "heterogeneity": heterogeneity,
+        "rows": target_rows,
     }
 
 
@@ -259,6 +525,16 @@ def build_study_manifest(
     table2 = _table("Table 2")
     table3 = _table("Table 3")
     table4 = _table("Table 4")
+    table5 = _table("Table 5")
+
+    # §36: per-target-type results must exist before pooling claims.
+    target_types_covered = {row.get("target_type") for row in table5.get("rows", [])}
+    table5_rows_present = {
+        str(row.get("target_type")) for row in table5.get("by_target_type", [])
+    } == set(TARGET_TYPES)
+    pooled_secondary_only = all(
+        row.get("role") == "secondary_summary" for row in table5.get("pooled_secondary", [])
+    )
 
     return {
         "schema_version": "2.0.0",
@@ -288,6 +564,13 @@ def build_study_manifest(
             "paired_statistics_available": table4.get("num_comparisons", 0) > 0,
             "leakage_breakdown_available": bool(table2.get("rows")),
             "parameter_sweep_complete": table3.get("num_parameters", 0) > 0,
+            "target_type_results_reported": (
+                bool(table5.get("rows"))
+                and table5_rows_present
+                and table5.get("macro_average_by_target_type")
+                and pooled_secondary_only
+                and len(target_types_covered) >= len(TARGET_TYPES)
+            ),
         },
         "certification": "see research_valid_gate.json for the research-valid verdict",
     }
@@ -343,6 +626,7 @@ def main() -> int:
         "table2_leakage_breakdown": build_table2_leakage_breakdown(),
         "table3_parameter_sensitivity": build_table3_parameter_sensitivity(),
         "table4_statistical_comparisons": build_table4_statistical_comparisons(),
+        "table5_target_type_results": build_table5_target_type_results(),
     }
 
     # Build summaries
@@ -385,6 +669,8 @@ def main() -> int:
             )
         )
         md_lines.append("")
+        md_lines.append("*Pooled summary (§36): per-target-type results in Table 5 are primary.*")
+        md_lines.append("")
 
     # Table 2
     t2 = tables["table2_leakage_breakdown"]
@@ -420,6 +706,42 @@ def main() -> int:
                     "cohens_h",
                     "p_value",
                     "significant",
+                ],
+            )
+        )
+        md_lines.append("")
+
+    # Table 5 (§36)
+    t5 = tables["table5_target_type_results"]
+    if "rows" in t5:
+        md_lines.append(
+            format_table_as_markdown(
+                t5["table"],
+                t5["by_target_type"],
+                [
+                    "condition",
+                    "target_type",
+                    "sample_count",
+                    "pu_rer_value",
+                    "crr_value",
+                    "rr_value",
+                    "fbr_value",
+                ],
+            )
+        )
+        md_lines.append("")
+        md_lines.append(
+            format_table_as_markdown(
+                "Table 5 (scenario-level)",
+                t5["by_scenario"],
+                [
+                    "condition",
+                    "scenario_id",
+                    "sample_count",
+                    "pu_rer_value",
+                    "crr_value",
+                    "rr_value",
+                    "fbr_value",
                 ],
             )
         )

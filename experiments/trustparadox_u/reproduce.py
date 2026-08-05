@@ -63,6 +63,7 @@ REPRODUCED_ARTIFACTS: tuple[str, ...] = (
     "final_artifacts/table2_leakage_breakdown.json",
     "final_artifacts/table3_parameter_sensitivity.json",
     "final_artifacts/table4_statistical_comparisons.json",
+    "final_artifacts/table5_target_type_results.json",
 )
 
 
