@@ -118,13 +118,13 @@
       "sha256": "2870460afd5641e33b21c5babf1830f48bc48762b7ffbcb187993438a362c33a"
     }
   },
-  "artifact_storage_commit": null,
-  "gate_snapshot_commit": null,
+  "artifact_storage_commit": "7251d53f5bb5ef99e7df8e5f8ce385b812fd6f85",
+  "gate_snapshot_commit": "",
   "status": "active",
   "superseded_by": "",
   "release_id": "trustparadox_u-v1.2.1-3d478d38d81c",
   "release_digest": "3d478d38d81cfbc93d8146cc5de2173063690a47de32c010ac1f4377623cfb2e",
   "scientific_release_digest": "3d478d38d81cfbc93d8146cc5de2173063690a47de32c010ac1f4377623cfb2e",
-  "storage_metadata_digest": "",
+  "storage_metadata_digest": "aba62e147ea2f7f2014a13cb4f6a1fe311a48a7ca7cc59482af0eb2894dc2eb3",
   "created_at": "2026-08-05T17:20:15.803919+00:00"
 }
