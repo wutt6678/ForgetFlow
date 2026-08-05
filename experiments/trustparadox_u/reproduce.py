@@ -43,6 +43,10 @@ PIPELINE_STEPS: tuple[tuple[str, str], ...] = (
     ("experiments.trustparadox_u.frozen_replay", "run the declared condition matrix"),
     ("experiments.trustparadox_u.leakage_analysis", "leakage analysis over trial artifacts"),
     ("experiments.trustparadox_u.paired_statistics", "paired statistical comparisons"),
+    (
+        "experiments.trustparadox_u.trust_analysis",
+        "trust invariance and trust-manipulation analysis (Table 6)",
+    ),
     ("experiments.trustparadox_u.final_artifacts", "final tables and study manifest"),
     ("experiments.trustparadox_u.failure_examples", "curated failure examples and decision traces"),
 )
@@ -58,6 +62,8 @@ REPRODUCED_ARTIFACTS: tuple[str, ...] = (
     "frozen_replay/metrics_by_condition.json",
     "leakage_analysis/leakage_analysis.json",
     "paired_statistics/paired_statistics.json",
+    "trust_analysis/trust_analysis.json",
+    "trust_analysis/pairing_audit.json",
     "final_artifacts/study_manifest.json",
     "final_artifacts/study_summary.md",
     "final_artifacts/table1_main_results.json",
@@ -65,6 +71,7 @@ REPRODUCED_ARTIFACTS: tuple[str, ...] = (
     "final_artifacts/table3_parameter_sensitivity.json",
     "final_artifacts/table4_statistical_comparisons.json",
     "final_artifacts/table5_target_type_results.json",
+    "final_artifacts/table6_trust_analysis.json",
     "failure_examples/failure_examples.json",
 )
 

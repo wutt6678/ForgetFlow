@@ -6,8 +6,9 @@ Aggregates all experiment results into final summary artifacts:
 3. Parameter sensitivity table (Table 3): from sweep
 4. Statistical comparison table (Table 4): paired tests
 5. Target-type results table (Table 5): by target type and scenario (§36)
-6. Corpus manifest summary
-7. Final study manifest
+6. Trust analysis table (Table 6): RQ6/RQ7 trust invariance (SC-005)
+7. Corpus manifest summary
+8. Final study manifest
 
 Remediation §35: every table is self-describing — it carries the study
 class, condition, split, attack population, target type, metric
@@ -55,6 +56,7 @@ RESULTS_DIR = Path(__file__).parents[2] / "results" / "frozen_replay"
 SWEEP_DIR = Path(__file__).parents[2] / "results" / "parameter_sweep"
 LEAKAGE_DIR = Path(__file__).parents[2] / "results" / "leakage_analysis"
 STATS_DIR = Path(__file__).parents[2] / "results" / "paired_statistics"
+TRUST_DIR = Path(__file__).parents[2] / "results" / "trust_analysis"
 CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_corpus"
 FINAL_DIR = Path(__file__).parents[2] / "results" / "final_artifacts"
 
@@ -474,6 +476,64 @@ def build_table5_target_type_results() -> dict[str, Any]:
     }
 
 
+def build_table6_trust_analysis() -> dict[str, Any]:
+    """Table 6: Trust Invariance and Trust-Manipulation Analysis (SC-005).
+
+    Panel A (RQ6) reports firewall outcome invariance for content-identical
+    candidate families across low/default/high trust, per condition and
+    attack population — conditions are never pooled.  Panel B (RQ7) is
+    explicitly non-evaluable on the deterministic-template corpus.
+    """
+    analysis_path = TRUST_DIR / "trust_analysis.json"
+    if not analysis_path.exists():
+        return {"error": "trust_analysis.json not found; run trust_analysis first"}
+
+    data = json.loads(analysis_path.read_text())
+    panel_a = data.get("panel_a", {})
+    panel_b = data.get("panel_b", {})
+    rows = list(panel_a.get("rows", []))
+    return {
+        "table": "Table 6: Trust Invariance and Trust-Manipulation Analysis",
+        "schema_version": "1.0",
+        "study_class": "diagnostic",
+        "protocol_version": PROTOCOL_VERSION,
+        "questions": ["RQ6", "RQ7"],
+        "context": build_table_context(
+            trust_level="low/default/high compared within content-identical families",
+            pairing_unit=(
+                "candidate_family_id (single-message) / " "sequence_family_id (multi-step)"
+            ),
+            aggregation=(
+                "One row per condition x attack population; conditions are " "never pooled (SC-005)"
+            ),
+        ),
+        "panel_a_rq6_enforcement_invariance": {
+            "definition": (
+                "Firewall outcome invariance for content-identical candidate "
+                "families across trust levels."
+            ),
+            "pairing_units": {
+                "single_message": "candidate_family_id",
+                "sequence": "sequence_family_id",
+            },
+            "rows": rows,
+            "pairing_audit": panel_a.get("pairing_audit", {}),
+        },
+        "panel_b_rq7_generator_manipulation": {
+            "definition": "Pre-enforcement candidate-generation behavior by trust level.",
+            "evaluable": bool(panel_b.get("evaluable", False)),
+            "reason": panel_b.get("reason"),
+            "deterministic_benchmark": panel_b.get("deterministic_benchmark"),
+            "rows": list(panel_b.get("rows", [])),
+        },
+        "limitations": [
+            "Panel A is a synthetic policy-invariance diagnostic.",
+            "Panel B requires real trust-conditioned generation for empirical " "interpretation.",
+        ],
+        "rows": rows,
+    }
+
+
 def build_corpus_summary() -> dict[str, Any]:
     """Corpus manifest summary."""
     manifest_path = CORPUS_DIR / "corpus_manifest.json"
@@ -556,6 +616,25 @@ def build_study_manifest(
     table3 = _table("Table 3")
     table4 = _table("Table 4")
     table5 = _table("Table 5")
+    table6 = _table("Table 6")
+
+    def _table_entry(name: str, data: dict[str, Any]) -> dict[str, Any]:
+        # Table 6 records its RQ6/RQ7 panel structure instead of a flat
+        # row count: Panel B is deliberately non-evaluable on a
+        # deterministic corpus, so row count alone is meaningless.
+        if name == "table6_trust_analysis":
+            panel_a = data.get("panel_a_rq6_enforcement_invariance", {})
+            panel_b = data.get("panel_b_rq7_generator_manipulation", {})
+            return {
+                "title": data.get("table", name),
+                "questions": list(data.get("questions", [])),
+                "panel_a_rows": len(panel_a.get("rows", [])),
+                "panel_b_evaluable": bool(panel_b.get("evaluable", False)),
+            }
+        return {
+            "title": data.get("table", name),
+            "num_rows": len(data.get("rows", [])),
+        }
 
     # §36: per-target-type results must exist before pooling claims.
     target_types_covered = {row.get("target_type") for row in table5.get("rows", [])}
@@ -579,13 +658,7 @@ def build_study_manifest(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "corpus": corpus_summary,
         "annotations": annotation_summary,
-        "tables": {
-            name: {
-                "title": data.get("table", name),
-                "num_rows": len(data.get("rows", [])),
-            }
-            for name, data in tables.items()
-        },
+        "tables": {name: _table_entry(name, data) for name, data in tables.items()},
         "conditions": list(REPLAY_CONDITIONS),
         # Remediation §38: the manifest states the study limits explicitly.
         "limitations": STUDY_LIMITATIONS,
@@ -602,6 +675,11 @@ def build_study_manifest(
                 and table5.get("macro_average_by_target_type")
                 and pooled_secondary_only
                 and len(target_types_covered) >= len(TARGET_TYPES)
+            ),
+            "table6_trust_analysis_reported": (
+                "error" not in table6
+                and bool(table6.get("panel_a_rq6_enforcement_invariance"))
+                and table6.get("panel_b_rq7_generator_manipulation", {}).get("evaluable") is False
             ),
         },
         "certification": "see research_valid_gate.json for the research-valid verdict",
@@ -650,7 +728,7 @@ def main() -> int:
     # FF92-022: refuse to build tables from invalidated inputs.
     from experiments.trustparadox_u.invalidation import reject_invalidated_inputs
 
-    reject_invalidated_inputs([RESULTS_DIR, SWEEP_DIR, LEAKAGE_DIR, STATS_DIR])
+    reject_invalidated_inputs([RESULTS_DIR, SWEEP_DIR, LEAKAGE_DIR, STATS_DIR, TRUST_DIR])
 
     # Build all tables
     tables = {
@@ -659,6 +737,7 @@ def main() -> int:
         "table3_parameter_sensitivity": build_table3_parameter_sensitivity(),
         "table4_statistical_comparisons": build_table4_statistical_comparisons(),
         "table5_target_type_results": build_table5_target_type_results(),
+        "table6_trust_analysis": build_table6_trust_analysis(),
     }
 
     # Build summaries
@@ -777,6 +856,38 @@ def main() -> int:
                 ],
             )
         )
+        md_lines.append("")
+
+    # Table 6 (SC-005): trust invariance / trust-manipulation analysis.
+    t6 = tables["table6_trust_analysis"]
+    if "error" not in t6:
+        panel_a = t6["panel_a_rq6_enforcement_invariance"]
+        panel_b = t6["panel_b_rq7_generator_manipulation"]
+        md_lines.append(
+            format_table_as_markdown(
+                f"{t6['table']} — Panel A (RQ6)",
+                panel_a.get("rows", []),
+                [
+                    "condition",
+                    "attack_population",
+                    "pairing_unit",
+                    "complete_families",
+                    "low_rate",
+                    "default_rate",
+                    "high_rate",
+                    "strict_invariance_rate",
+                    "privacy_invariance_rate",
+                    "paired_p_value",
+                ],
+            )
+        )
+        md_lines.append("")
+        md_lines.append(
+            "**Panel B (RQ7)** evaluable: "
+            f"{panel_b.get('evaluable', False)} — {panel_b.get('reason', '')}"
+        )
+        for limitation in t6.get("limitations", []):
+            md_lines.append(f"- {limitation}")
         md_lines.append("")
 
     # Exit criteria

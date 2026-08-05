@@ -209,6 +209,9 @@ class SequenceTrial:
     expected_step_count: int = 0
     executed_step_count: int = 0
     terminal_step_executed: bool = False
+    # SC-002/SC-006: trust-independent sequence family for cross-trust
+    # pairing (never the trust-specific sequence_id).
+    sequence_family_id: str = ""
 
     @property
     def trial_key(self) -> str:
@@ -244,6 +247,7 @@ class SequenceTrial:
             "expected_step_count": self.expected_step_count,
             "executed_step_count": self.executed_step_count,
             "terminal_step_executed": self.terminal_step_executed,
+            "sequence_family_id": self.sequence_family_id,
             "trial_key": self.trial_key,
         }
 
@@ -448,6 +452,7 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                         "expected_step_count": turn.fragment_count or 0,
                         "executed_step_count": 0,
                         "terminal_step_executed": False,
+                        "sequence_family_id": r.metadata.get("sequence_family_id", ""),
                     },
                 )
                 # Phase 1.2: Only information-bearing, non-request turns count
@@ -495,6 +500,7 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                 expected_step_count=entry["expected_step_count"],
                 executed_step_count=entry["executed_step_count"],
                 terminal_step_executed=entry["terminal_step_executed"],
+                sequence_family_id=entry["sequence_family_id"],
             )
         )
     return trials

@@ -21,6 +21,7 @@ from experiments.trustparadox_u.final_artifacts import (  # noqa: E402
     build_table3_parameter_sensitivity,
     build_table4_statistical_comparisons,
     build_table5_target_type_results,
+    build_table6_trust_analysis,
     format_table_as_markdown,
 )
 
@@ -222,6 +223,7 @@ class TestStudyManifest:
             "t3": build_table3_parameter_sensitivity(),
             "t4": build_table4_statistical_comparisons(),
             "t5": build_table5_target_type_results(),
+            "t6": build_table6_trust_analysis(),
         }
         corpus = build_corpus_summary()
         ann = build_annotation_summary()

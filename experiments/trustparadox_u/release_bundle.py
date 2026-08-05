@@ -50,6 +50,8 @@ BUNDLE_COMPONENTS: tuple[tuple[str, str], ...] = (
     ("frozen_replay/metrics_by_condition.json", "metrics by condition"),
     ("leakage_analysis/leakage_analysis.json", "leakage analysis"),
     ("paired_statistics/paired_statistics.json", "statistical outputs"),
+    ("trust_analysis/trust_analysis.json", "trust invariance and trust-manipulation analysis"),
+    ("trust_analysis/pairing_audit.json", "trust-analysis family pairing audit"),
     ("parameter_sweep/sweep_summary.json", "parameter sweep summary"),
     ("final_artifacts/study_manifest.json", "final study manifest"),
     ("final_artifacts/table1_main_results.json", "final table 1: main results"),
@@ -62,6 +64,10 @@ BUNDLE_COMPONENTS: tuple[tuple[str, str], ...] = (
     (
         "final_artifacts/table5_target_type_results.json",
         "final table 5: results by target type and scenario",
+    ),
+    (
+        "final_artifacts/table6_trust_analysis.json",
+        "final table 6: trust invariance and trust-manipulation analysis",
     ),
     (
         "failure_examples/failure_examples.json",

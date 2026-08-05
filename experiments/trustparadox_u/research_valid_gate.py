@@ -48,6 +48,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 RESULTS_DIR = Path(__file__).parents[2] / "results"
 REPLAY_DIR = RESULTS_DIR / "frozen_replay"
 FINAL_DIR = RESULTS_DIR / "final_artifacts"
+TRUST_DIR = RESULTS_DIR / "trust_analysis"
 CORPUS_DIR = Path(__file__).parents[2] / "data" / "trustparadox_u" / "frozen_corpus"
 
 SCHEMA_VERSION = "3.0.0"
@@ -527,6 +528,70 @@ def check_statistical_analysis_valid() -> dict[str, Any]:
     }
 
 
+def check_trust_analysis() -> dict[str, Any]:
+    """SC-008: Table 6 must exist as a synthetic policy-invariance diagnostic.
+
+    The synthetic release requires: Panel A with complete content-identical
+    family pairing and correct pairing units, Panel B declared
+    non-evaluable on a deterministic corpus, and both panel limitations
+    stated.  RQ7 non-evaluability must never fail the synthetic release —
+    it is the point of the diagnostic.
+    """
+    table_path = FINAL_DIR / "table6_trust_analysis.json"
+    if not table_path.exists():
+        return {"passed": False, "findings": [f"missing: {table_path}"]}
+    data = _load_json(table_path)
+    findings: list[str] = []
+    if data.get("schema_version") != "1.0":
+        findings.append(f"schema_version: {data.get('schema_version')!r}")
+    if data.get("questions") != ["RQ6", "RQ7"]:
+        findings.append(f"questions: {data.get('questions')!r}")
+
+    panel_a = data.get("panel_a_rq6_enforcement_invariance", {})
+    if panel_a.get("pairing_units") != {
+        "single_message": "candidate_family_id",
+        "sequence": "sequence_family_id",
+    }:
+        findings.append("pairing_units_mismatch")
+    rows = panel_a.get("rows", [])
+    if not rows:
+        findings.append("panel_a_rows_empty")
+    else:
+        if not any(row.get("condition") == "full_mvp" for row in rows):
+            findings.append("panel_a_primary_condition_missing")
+        for row in rows:
+            if row.get("pairing_unit") not in ("candidate_family_id", "sequence_family_id"):
+                findings.append(f"panel_a_pairing_unit_invalid: {row.get('pairing_unit')!r}")
+            interpretation = str(row.get("interpretation", ""))
+            if "synthetic policy-invariance diagnostic" not in interpretation.lower():
+                findings.append(
+                    f"panel_a_interpretation_missing: {row.get('condition')!r}/"
+                    f"{row.get('attack_population')!r}"
+                )
+
+    panel_b = data.get("panel_b_rq7_generator_manipulation", {})
+    if panel_b.get("evaluable") is not False:
+        findings.append(f"panel_b_evaluable: {panel_b.get('evaluable')!r}")
+    reason = str(panel_b.get("reason", ""))
+    if "deterministic template generation" not in reason.lower():
+        findings.append("panel_b_reason_missing")
+
+    limitations = data.get("limitations", [])
+    required_limits = (
+        "Panel A is a synthetic policy-invariance diagnostic.",
+        "Panel B requires real trust-conditioned generation for empirical interpretation.",
+    )
+    for limit in required_limits:
+        if limit not in limitations:
+            findings.append(f"limitation_missing: {limit!r}")
+    return {
+        "passed": not findings,
+        "panel_a_rows": len(rows),
+        "panel_b_evaluable": panel_b.get("evaluable"),
+        "findings": findings[:20],
+    }
+
+
 def check_parameter_sweep_complete() -> dict[str, Any]:
     """FF92-018: check the one-at-a-time hyperparameter sweep is complete.
 
@@ -754,6 +819,7 @@ def check_final_artifacts() -> dict[str, Any]:
         FINAL_DIR / "table3_parameter_sensitivity.json",
         FINAL_DIR / "table4_statistical_comparisons.json",
         FINAL_DIR / "table5_target_type_results.json",
+        FINAL_DIR / "table6_trust_analysis.json",
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -911,6 +977,40 @@ def _study_class_from_artifacts() -> str:
     return study_class
 
 
+def _empirical_trust_findings() -> list[str]:
+    """SC-008: empirical statuses require empirical trust evidence.
+
+    RQ6 must pair complete content-identical families, RQ7 must be
+    evaluable with recorded manipulation statistics, and the annotation
+    manifest must show the frozen independent-annotation record.  On a
+    deterministic corpus every one of these fails by design.
+    """
+    table_path = FINAL_DIR / "table6_trust_analysis.json"
+    if not table_path.exists():
+        return ["trust_analysis_table_missing"]
+    data = _load_json(table_path)
+    findings: list[str] = []
+    panel_a = data.get("panel_a_rq6_enforcement_invariance", {})
+    audit = panel_a.get("pairing_audit", {})
+    if int(audit.get("candidate_families_complete", 0) or 0) <= 0:
+        findings.append("rq6_no_complete_content_identical_families")
+    panel_b = data.get("panel_b_rq7_generator_manipulation", {})
+    if panel_b.get("evaluable") is not True:
+        findings.append("rq7_not_evaluable")
+    elif not panel_b.get("rows"):
+        findings.append("rq7_no_manipulation_statistics")
+    annotation_path = CORPUS_DIR / "annotation_manifest.json"
+    if not annotation_path.exists():
+        findings.append("annotation_manifest_missing")
+    else:
+        manifest = _load_json(annotation_path)
+        if not manifest.get("label_source_counts") or not manifest.get(
+            "frozen_before_test_execution"
+        ):
+            findings.append("annotation_independence_not_recorded")
+    return findings
+
+
 def check_empirical_study_design() -> dict[str, Any]:
     """Empirical statuses require empirical study design (remediation §31).
 
@@ -948,6 +1048,9 @@ def check_empirical_study_design() -> dict[str, Any]:
         # Closed-loop evidence (agents generating during the episode) is
         # produced by Phase D; until then the declaration is unsupported.
         findings.append("closed_loop_evidence_not_recorded")
+    # SC-008: empirical trust claims additionally need paired RQ6
+    # families, an evaluable RQ7 and independent annotations.
+    findings.extend(_empirical_trust_findings())
     return {"passed": not findings, "study_class": study_class, "findings": findings}
 
 
@@ -987,6 +1090,7 @@ SUBSTANTIVE_GATES: tuple[str, ...] = (
     "metrics_recompute",
     "leakage_analysis_valid",
     "statistical_analysis_valid",
+    "trust_analysis",
     "parameter_sweep_complete",
     "frozen_threshold_manifest",
     "reproduction_manifest",
@@ -1049,6 +1153,7 @@ def run_research_valid_gate() -> dict[str, Any]:
         "metrics_recompute": check_metrics_recompute(),
         "leakage_analysis_valid": check_leakage_analysis_valid(),
         "statistical_analysis_valid": check_statistical_analysis_valid(),
+        "trust_analysis": check_trust_analysis(),
         "parameter_sweep_complete": check_parameter_sweep_complete(),
         "frozen_threshold_manifest": check_frozen_threshold_manifest(),
         "reproduction_manifest": check_reproduction_manifest(),
