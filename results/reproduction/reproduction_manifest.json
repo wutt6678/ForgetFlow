@@ -7,16 +7,16 @@
   ],
   "study_version": "1.2.0",
   "protocol_version": "",
-  "generated_at": "2026-08-05T08:07:45.698307+00:00",
+  "generated_at": "2026-08-05T08:10:18.207773+00:00",
   "provenance": {
-    "tested_code_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
-    "artifact_generation_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
+    "tested_code_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
+    "artifact_generation_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:07:23.234224+00:00",
+    "generated_at": "2026-08-05T08:09:55.117462+00:00",
     "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
@@ -24,9 +24,9 @@
   "environment": {
     "python": "3.11.15",
     "executable": "/home/ecs-user/.conda/envs/forgetflow/bin/python",
-    "repository_commit": "84b5310eb08c3819a3083a219f09607751d82dbe-dirty",
+    "repository_commit": "0458d8a6938364f8bc800d2361ffe35db8a6f48d",
     "source_files_clean": true,
-    "worktree_fully_clean": false,
+    "worktree_fully_clean": true,
     "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228"
   },
@@ -59,7 +59,7 @@
       "module": "experiments.trustparadox_u.frozen_replay",
       "description": "run the declared condition matrix",
       "returncode": 0,
-      "duration_seconds": 7.429,
+      "duration_seconds": 8.042,
       "passed": true,
       "output_tail": "Exit criterion: PASSED (all conditions produced results)"
     },
@@ -67,7 +67,7 @@
       "module": "experiments.trustparadox_u.leakage_analysis",
       "description": "leakage analysis over trial artifacts",
       "returncode": 0,
-      "duration_seconds": 0.235,
+      "duration_seconds": 0.234,
       "passed": true,
       "output_tail": "Validation: all FF92-016 checks passed"
     },
@@ -75,7 +75,7 @@
       "module": "experiments.trustparadox_u.paired_statistics",
       "description": "paired statistical comparisons",
       "returncode": 0,
-      "duration_seconds": 12.128,
+      "duration_seconds": 12.071,
       "passed": true,
       "output_tail": "  no_monitoring vs one_time_monitoring (false_block): n=156 rd=0.0 p=1.0000"
     },
@@ -83,7 +83,7 @@
       "module": "experiments.trustparadox_u.trust_analysis",
       "description": "trust invariance and trust-manipulation analysis (Table 6)",
       "returncode": 0,
-      "duration_seconds": 1.748,
+      "duration_seconds": 1.771,
       "passed": true,
       "output_tail": "  Written to /home/ecs-user/ForgetFlow/results/trust_analysis"
     },
@@ -91,7 +91,7 @@
       "module": "experiments.trustparadox_u.final_artifacts",
       "description": "final tables and study manifest",
       "returncode": 0,
-      "duration_seconds": 0.299,
+      "duration_seconds": 0.347,
       "passed": true,
       "output_tail": "Exit criterion: PASSED (tables built: 6/6)"
     },
@@ -99,7 +99,7 @@
       "module": "experiments.trustparadox_u.failure_examples",
       "description": "curated failure examples and decision traces",
       "returncode": 0,
-      "duration_seconds": 0.345,
+      "duration_seconds": 0.346,
       "passed": true,
       "output_tail": "Wrote 12 failure examples to /home/ecs-user/ForgetFlow/results/failure_examples/failure_examples.json"
     }
@@ -121,26 +121,26 @@
     ]
   },
   "artifacts": {
-    "frozen_replay/run_manifest.json": "926dc7dc1f6413a753c86eec9756583218209f7bf4c4b433d22a44e6dfac035f",
-    "frozen_replay/candidate_trials.jsonl": "ddf7ec3e1abef58f142c9a64f05b8ca6b6c164a31a4d3c12985db39c7d8e0a66",
-    "frozen_replay/reconstruction_trials.jsonl": "b30e619d33aa1d13d04ee77f429380d4c56b20a065951277a5c837b3134628b1",
-    "frozen_replay/recontamination_trials.jsonl": "179c7f56993c1706f7538cb510f4099ebca71bd7d1b1a796afcc78648b6b052b",
+    "frozen_replay/run_manifest.json": "045de20e0d23c8a533aa2617c130888bb3aaa237fe1fbcab79c81823ef9df259",
+    "frozen_replay/candidate_trials.jsonl": "75040320e158f187987ec7c9d286bbffe05e4d33f85c6731ba55e10a19e3bf24",
+    "frozen_replay/reconstruction_trials.jsonl": "70f1ebfa953ab6f1cb258213a4d913448b55024907f665ade1dbb4bac961114a",
+    "frozen_replay/recontamination_trials.jsonl": "2b7d1af6f975039d892235c6aacacb4d0e28a7c44f8c9f1053eb7a7cf3067d78",
     "frozen_replay/utility_trials.jsonl": "cb221706a0f1b20cc1043f6bc7bc0c86c13a0114b02fe81ea386e416e6b0ca92",
     "frozen_replay/resolved_conditions.json": "905d2a3803ab07060bf3c158dac9a8296180b9015d37781e540045655a77c431",
     "frozen_replay/metrics_by_condition.json": "f657f675d86d49400ba7832e644da1b141e4eedf8080dee2a203e035bbd02093",
-    "leakage_analysis/leakage_analysis.json": "aeb4b73654e3936b022922f1f3af489d51a66b8db634b4dad5f3f7ae844b0941",
-    "paired_statistics/paired_statistics.json": "542c7470b5cbf670947f66b000628f49cddaffbe90451f0699d0fce61f7eca1a",
-    "trust_analysis/trust_analysis.json": "f07b48ee77f5ce8d7994cc5406b15d1b097fb15ff17634c039d69f590afb410c",
+    "leakage_analysis/leakage_analysis.json": "c8d974ede8f0cf4318f0f1f54f5acfa649ee91b2b1b4defe4f86bdf066c8882a",
+    "paired_statistics/paired_statistics.json": "b8aea370a52df1e5972ee275a6c3d5f7b96c2879460bd50aa1333f7a2cf0274d",
+    "trust_analysis/trust_analysis.json": "ba180ac6183e50e06190ec3b73bfd952d5987e17e55d77a06207eed9dbed3f85",
     "trust_analysis/pairing_audit.json": "68bd1bd46bc467b6bb3b7369758b9f7e1273cdc1297a54692b7b5e5a57bd5d9b",
-    "final_artifacts/study_manifest.json": "6eb51589fe44616478f5a3ae372982ed73ebbddbf5bd509b0daddf757798fb85",
-    "final_artifacts/study_summary.md": "3ce32e0d22925df5ef1bb2417eec05bb1917b0ac0ee189d0a3b5251e522fda5f",
+    "final_artifacts/study_manifest.json": "b2fbd385710f02f0c5f4af0859e21a527cef5670b5bf506b9e2b59681045de69",
+    "final_artifacts/study_summary.md": "b312ce0594fa2e3336ef7072b1f3a9365d02b45061786831c31789b1ce0a5b19",
     "final_artifacts/table1_main_results.json": "47f0e842c1195a61bbc5403a0197e43469492c89efa020390139de4ea0c53278",
     "final_artifacts/table2_leakage_breakdown.json": "a8783b9c20d7f391e414ff513b6f4d79fbb468b007a6931ae88e3863ba98a43b",
     "final_artifacts/table3_parameter_sensitivity.json": "929359e392287565f7e7379f1cb5ebb271353d4351b811e0ccce7a40767806a1",
     "final_artifacts/table4_statistical_comparisons.json": "2a0ef22bc28349174cf5bfde88674b2c1bea725c354cc4bdd7e2b85466c21931",
     "final_artifacts/table5_target_type_results.json": "18bd40d26e750c07db70d7559a1e7ce1fa8f14175e208cc583663176fa2c11b8",
     "final_artifacts/table6_trust_analysis.json": "a3f30ab2ad233b059e111fd957fd46f6c78f421147018d035ca93a2fe0ddd05d",
-    "failure_examples/failure_examples.json": "dc9e31f9bc314eb885561d6b9e98ea014e92788214b9dd7ffe0a53952f0c8073"
+    "failure_examples/failure_examples.json": "d47d5fd1a27fc05397e97c7dcf98d953b420d8ab9792466e283db46d3470f1f8"
   },
   "passed": true
 }
