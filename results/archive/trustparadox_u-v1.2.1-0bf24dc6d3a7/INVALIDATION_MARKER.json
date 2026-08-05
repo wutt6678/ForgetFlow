@@ -1,0 +1,9 @@
+{
+  "status": "superseded",
+  "superseded_by": "trustparadox_u-v1.2.1-3d478d38d81c",
+  "reason": [
+    "FP-014: provenance-only regeneration at commit 1172866 under the FP-001..FP-010 provenance model changed bundle component bytes \u2014 replay run_id (frozen_replay_9faba36 -> frozen_replay_1172866) propagates into trial_key fields of the candidate/reconstruction/recontamination trial components, so the scientific release digest changes even though every metric and Table 1-6 value is unchanged.",
+    "FP-001..FP-010: provenance model normalized across all manifests \u2014 generation/storage schema split, stale empty storage-commit strings removed, protocol 1.2.0 and study 1.2.1 populated everywhere.",
+    "Audit: regeneration is provenance/identity-only; scientific values, metrics, leakage analysis, statistics and failure-example verdicts are byte-identical modulo run_id/trial_key/timing fields."
+  ]
+}
