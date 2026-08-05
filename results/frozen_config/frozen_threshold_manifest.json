@@ -4,8 +4,8 @@
     "29",
     "30"
   ],
-  "study_version": "1.2.0",
-  "frozen_at": "2026-08-05T08:07:03.431838+00:00",
+  "study_version": "1.2.1",
+  "frozen_at": "2026-08-05T11:13:51.160218+00:00",
   "base_condition": "full_mvp",
   "parameters": {
     "detector.exact_enabled": {
@@ -195,15 +195,16 @@
     ]
   },
   "provenance": {
-    "tested_code_commit": "ccb90442ae2e0cb6520fce60afaca914441677dd",
-    "artifact_generation_commit": "ccb90442ae2e0cb6520fce60afaca914441677dd",
+    "tested_code_commit": "3c605188cf924d64bf5c7f48fff11c941c523547",
+    "artifact_generation_commit": "3c605188cf924d64bf5c7f48fff11c941c523547",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
+    "certification_source": "local",
     "protocol_version": "1.2.0",
-    "study_version": "1.2.0",
-    "generated_at": "2026-08-05T08:07:03.347728+00:00",
-    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
+    "study_version": "1.2.1",
+    "generated_at": "2026-08-05T11:13:51.075591+00:00",
+    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   }
