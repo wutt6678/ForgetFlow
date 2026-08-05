@@ -241,6 +241,9 @@ def _sequence_family() -> list[FrozenCandidate]:
                     sequence_family_id="sf_pilot_credential_sv001_direct_probe_0",
                     sequence_step_index=step,
                     sequence_step_count=2,
+                    content_hash=f"step{step}_hash",
+                    family_content_hash="sf_family_hash",
+                    target_forget_ids=("f001",),
                 )
             )
     return members
@@ -253,7 +256,13 @@ class TestSequenceFamilyPairing:
                 "condition": CONDITION,
                 "sequence_family_id": "sf_pilot_credential_sv001_direct_probe_0",
                 "sequence_id": f"seq_{trust}",
+                "trust_level": trust,
+                "forget_id": "f001",
                 "eligible": True,
+                "complete": True,
+                "expected_step_count": 2,
+                "executed_step_count": 2,
+                "terminal_step_executed": True,
                 "recovered": False,
             }
             for trust in ("low", "default", "high")

@@ -584,12 +584,92 @@ def check_trust_analysis() -> dict[str, Any]:
     for limit in required_limits:
         if limit not in limitations:
             findings.append(f"limitation_missing: {limit!r}")
+
+    # SA-006: when the corpus contains sequence families, the
+    # sequence-level RQ6 analysis must be evaluable — complete families
+    # under every required condition, joined on the scientific key, with
+    # pairing-audit counts that match Table 6 exactly.
+    findings.extend(_check_sequence_rq6(rows))
     return {
         "passed": not findings,
         "panel_a_rows": len(rows),
         "panel_b_evaluable": panel_b.get("evaluable"),
         "findings": findings[:20],
     }
+
+
+_SEQUENCE_REQUIRED_CONDITIONS: tuple[str, ...] = (
+    "full_mvp",
+    "no_firewall",
+    "exact_only",
+    "binary_policy",
+)
+
+
+def _check_sequence_rq6(rows: list[dict[str, Any]]) -> list[str]:
+    """SA-006 gate checks for the sequence-level RQ6 rows."""
+    findings: list[str] = []
+    audit_path = TRUST_DIR / "pairing_audit.json"
+    audit = _load_json(audit_path) if audit_path.exists() else {}
+    seq_family_ids = set(audit.get("sequence_family_ids", []))
+    seq_rows = [r for r in rows if r.get("pairing_unit") == "sequence_family_id"]
+
+    # SA-006: every included reconstruction trial must carry its executed
+    # trust level, whatever the corpus state.
+    trial_exclusions = audit.get("sequence_trial_exclusions", [])
+    if any(e.get("reason") == "missing_trust_level" for e in trial_exclusions):
+        findings.append("rq6_sequence_missing_trust_level")
+    if any(
+        e.get("reason") in ("missing_sequence_family_id", "duplicate_sequence_trial_key")
+        for e in trial_exclusions
+    ):
+        findings.append("rq6_sequence_join_failure: trial join exclusions present")
+    trials_path = REPLAY_DIR / "reconstruction_trials.jsonl"
+    if trials_path.exists():
+        for line in trials_path.read_text().splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if record.get("sequence_family_id") and not record.get("trust_level"):
+                findings.append("rq6_sequence_missing_trust_level")
+                break
+
+    if not seq_family_ids:
+        return findings
+    if not seq_rows:
+        findings.append("rq6_sequence_rows_missing")
+        return findings
+
+    evaluable = int(audit.get("sequence_families_evaluable", 0))
+    condition_exclusions = [
+        e for e in audit.get("condition_exclusions", []) if e.get("family_id") in seq_family_ids
+    ]
+    row_conditions = {r.get("condition") for r in seq_rows}
+    for condition in _SEQUENCE_REQUIRED_CONDITIONS:
+        if condition not in row_conditions:
+            findings.append(f"rq6_sequence_condition_missing: {condition}")
+    for row in seq_rows:
+        condition = str(row.get("condition", ""))
+        complete = int(row.get("complete_families") or 0)
+        if complete <= 0:
+            findings.append(f"rq6_sequence_complete_families_zero: {condition}")
+        excluded_for_condition = sum(
+            1 for e in condition_exclusions if e.get("condition") == condition
+        )
+        # SA-006: pairing-audit counts must equal the Table 6 counts.
+        if complete + excluded_for_condition != evaluable:
+            findings.append(f"rq6_sequence_pairing_audit_mismatch: {condition}")
+        # SA-006: exclusions must not be dominated by missing trials per
+        # trust level — that is a join failure, not a scientific result.
+        missing_trial = sum(
+            1
+            for e in condition_exclusions
+            if e.get("condition") == condition
+            and str(e.get("reason", "")).startswith("missing_trial:")
+        )
+        if missing_trial > excluded_for_condition - missing_trial:
+            findings.append(f"rq6_sequence_join_failure: {condition} missing_trial-dominated")
+    return findings
 
 
 def check_parameter_sweep_complete() -> dict[str, Any]:

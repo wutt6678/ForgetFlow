@@ -110,6 +110,11 @@ class CandidateTrial:
     # pairing (never the trust-specific candidate_id/sequence_id).
     candidate_family_id: str = ""
     sequence_family_id: str = ""
+    # SA-008: the exact scored message(s) this trial's outcome is
+    # attributed to.  Policy actions must be read from these turns' audit
+    # records, never from a reduction over the whole episode.
+    scored_turn_ids: tuple[int, ...] = ()
+    scored_message_ids: tuple[str, ...] = ()
 
     @property
     def released_exposure_positive(self) -> bool:
@@ -149,6 +154,8 @@ class CandidateTrial:
             "failure_reason": self.failure_reason,
             "candidate_family_id": self.candidate_family_id,
             "sequence_family_id": self.sequence_family_id,
+            "scored_turn_ids": list(self.scored_turn_ids),
+            "scored_message_ids": list(self.scored_message_ids),
         }
 
     @staticmethod
@@ -175,6 +182,8 @@ class CandidateTrial:
             failure_reason=record.get("failure_reason"),
             candidate_family_id=record.get("candidate_family_id", ""),
             sequence_family_id=record.get("sequence_family_id", ""),
+            scored_turn_ids=tuple(record.get("scored_turn_ids", ())),
+            scored_message_ids=tuple(record.get("scored_message_ids", ())),
         )
 
 
@@ -187,8 +196,10 @@ def _eligible_turn(turn: TurnResult) -> bool:
     return turn.is_exposure_attempt and not turn.is_attack_request
 
 
-def _labels_for_trial(turns: Sequence[TurnResult], candidate_ids: frozenset[str]) -> list[str]:
-    """Released exposure labels of the turns belonging to this trial.
+def _labels_for_trial(
+    turns: Sequence[TurnResult], candidate_ids: frozenset[str]
+) -> tuple[list[str], list[int]]:
+    """Released exposure labels and scored turn ids of this trial's turns.
 
     A turn belongs to the trial when it carries one of the trial's
     candidate texts.  Trial episodes contain exactly one candidate unit,
@@ -198,8 +209,12 @@ def _labels_for_trial(turns: Sequence[TurnResult], candidate_ids: frozenset[str]
     variant-bearing confirmation, not the frozen candidate text (which
     deliberately avoids every surface form), so the paraphrase
     attack-response turn is attributed directly.
+
+    SA-008: the returned turn ids are the scored messages the trial's
+    policy action is attributed to.
     """
     labels: list[str] = []
+    turn_ids: list[int] = []
     for turn in turns:
         if not _eligible_turn(turn):
             continue
@@ -212,7 +227,8 @@ def _labels_for_trial(turns: Sequence[TurnResult], candidate_ids: frozenset[str]
                 f"(released_target_exposure) on turn {turn.turn_id}"
             )
         labels.append(turn.released_target_exposure)
-    return labels
+        turn_ids.append(turn.turn_id)
+    return labels, turn_ids
 
 
 def extract_candidate_trials(
@@ -250,7 +266,7 @@ def extract_candidate_trials(
             )
         candidate = unit.representative
         member_ids = frozenset(m.candidate_text for m in unit.members)
-        labels = _labels_for_trial(result.turns, member_ids)
+        labels, scored_turn_ids = _labels_for_trial(result.turns, member_ids)
         # FBR evidence: legitimate messages that never reached the recipient.
         blocked = any(
             turn.is_legitimate_message and turn.released_text is None for turn in result.turns
@@ -280,6 +296,10 @@ def extract_candidate_trials(
                 failure_reason=None,
                 candidate_family_id=getattr(candidate, "candidate_family_id", ""),
                 sequence_family_id=getattr(candidate, "sequence_family_id", ""),
+                scored_turn_ids=tuple(scored_turn_ids),
+                scored_message_ids=tuple(
+                    f"{result.episode_id}:{turn_id}" for turn_id in scored_turn_ids
+                ),
             )
         )
 

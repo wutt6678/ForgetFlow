@@ -212,6 +212,14 @@ class SequenceTrial:
     # SC-002/SC-006: trust-independent sequence family for cross-trust
     # pairing (never the trust-specific sequence_id).
     sequence_family_id: str = ""
+    # SA-001: the trust level this trial was executed under.  Cross-trust
+    # sequence pairing indexes trials by (family, trust); a sequence trial
+    # without a trust level is never joinable.
+    trust_level: str = ""
+    # SA-008: turn ids of the scored (executed-step) messages, in step
+    # order.  Policy actions for this trial are attributed to these turns
+    # via the message audit, never to the episode as a whole.
+    scored_turn_ids_by_step: tuple[int, ...] = ()
 
     @property
     def trial_key(self) -> str:
@@ -248,8 +256,47 @@ class SequenceTrial:
             "executed_step_count": self.executed_step_count,
             "terminal_step_executed": self.terminal_step_executed,
             "sequence_family_id": self.sequence_family_id,
+            "trust_level": self.trust_level,
+            "scored_turn_ids_by_step": list(self.scored_turn_ids_by_step),
             "trial_key": self.trial_key,
         }
+
+    @staticmethod
+    def from_dict(record: dict[str, Any]) -> "SequenceTrial":
+        """SA-001: typed deserialization of a reconstruction trial record.
+
+        Protocol 1.2.x records must carry a trust level; its absence is a
+        validation failure, never a silent default.
+        """
+        trust_level = record.get("trust_level", "")
+        if not trust_level:
+            raise ValueError(
+                f"reconstruction trial record {record.get('trial_key', record.get('sequence_id', ''))!r} "
+                "is missing required field 'trust_level' (protocol 1.2.x)"
+            )
+        return SequenceTrial(
+            condition=record["condition"],
+            run_id=record["run_id"],
+            episode_id=record["episode_id"],
+            seed=record["seed"],
+            scenario_id=record["scenario_id"],
+            recipient_id=record["recipient_id"],
+            forget_id=record["forget_id"],
+            sequence_id=record["sequence_id"],
+            eligible=record["eligible"],
+            complete=record["complete"],
+            recovered=record["recovered"],
+            fragment_count=record.get("fragment_count"),
+            final_turn_index=record.get("final_turn_index"),
+            expected_step_count=record.get("expected_step_count", 0),
+            executed_step_count=record.get("executed_step_count", 0),
+            terminal_step_executed=record.get("terminal_step_executed", False),
+            sequence_family_id=record.get("sequence_family_id", ""),
+            trust_level=trust_level,
+            scored_turn_ids_by_step=tuple(
+                int(t) for t in record.get("scored_turn_ids_by_step", ())
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -453,12 +500,18 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                         "executed_step_count": 0,
                         "terminal_step_executed": False,
                         "sequence_family_id": r.metadata.get("sequence_family_id", ""),
+                        # SA-001: the executed trust level travels with the
+                        # trial so cross-trust pairing never infers it.
+                        "trust_level": r.trust_level,
+                        # SA-008: scored (executed-step) turn ids, step order.
+                        "scored_turn_ids_by_step": [],
                     },
                 )
                 # Phase 1.2: Only information-bearing, non-request turns count
                 # as executed steps.  Attack requests do not contribute.
                 if not turn.is_attack_request:
                     entry["executed_step_count"] += 1
+                    entry["scored_turn_ids_by_step"].append(turn.turn_id)
                 # Track terminal step: sequence_terminal is True on the final
                 # evaluation step of the sequence.
                 if turn.sequence_terminal:
@@ -501,6 +554,8 @@ def extract_sequence_trials(results: list[EpisodeResult]) -> list[SequenceTrial]
                 executed_step_count=entry["executed_step_count"],
                 terminal_step_executed=entry["terminal_step_executed"],
                 sequence_family_id=entry["sequence_family_id"],
+                trust_level=entry["trust_level"],
+                scored_turn_ids_by_step=tuple(entry["scored_turn_ids_by_step"]),
             )
         )
     return trials
