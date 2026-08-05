@@ -28,19 +28,19 @@
       "RQ1"
     ]
   },
-  "repository_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
+  "repository_commit": "c88b700493f59542250527a7630674b211314148",
   "provenance": {
-    "tested_code_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
-    "artifact_generation_commit": "36d3ea5d9b39eb823be3c72eb3489c91bbe28def",
+    "tested_code_commit": "c88b700493f59542250527a7630674b211314148",
+    "artifact_generation_commit": "c88b700493f59542250527a7630674b211314148",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-05T00:31:54.287573+00:00",
-    "artifact_generation_tree": "4d795e773c7727d7baafd49b264122b8e5817b95b35fbbfd5328d01120f20c87",
+    "generated_at": "2026-08-05T01:05:36.443501+00:00",
+    "artifact_generation_tree": "e93601e5df72a3639f7d27fbb2958a4b73fa6153c3dc0d3df00f64fc0f67aa91",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-05T00:31:54.296638+00:00",
+  "generated_at": "2026-08-05T01:05:36.452622+00:00",
   "corpus": {
     "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
     "total_candidates": 768,
@@ -113,6 +113,18 @@
     "no_claim_detection",
     "no_monitoring"
   ],
+  "limitations": {
+    "scope": "ForgetFlow evaluates message-level enforced forgetting and release control: the harness decides what each agent may release to other agents. It does not, by itself, demonstrate anything about model internals or systems outside the harness.",
+    "not_demonstrated": [
+      "parameter-level machine unlearning",
+      "deletion of information from model weights",
+      "deletion from external provider logs",
+      "deletion from hidden model state outside the experimental harness",
+      "resistance to all adaptive adversaries",
+      "generalization beyond the tested agent architectures and models"
+    ],
+    "terminology": "Reported results describe enforced forgetting and release control at the message level. Terms such as 'unlearning' or 'erasure' are not used for model-internal state, which this study does not measure."
+  },
   "exit_criteria": {
     "all_tables_built": true,
     "all_conditions_run": true,

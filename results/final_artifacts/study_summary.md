@@ -1,7 +1,7 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-05T00:31:54.296638+00:00
-**Commit:** 36d3ea5d9b39eb823be3c72eb3489c91bbe28def
+**Generated:** 2026-08-05T01:05:36.452622+00:00
+**Commit:** c88b700493f59542250527a7630674b211314148
 
 ### Table 1: Main Results by Condition
 
@@ -153,5 +153,19 @@
 - leakage_breakdown_available: PASS
 - parameter_sweep_complete: PASS
 - target_type_results_reported: PASS
+
+## Study Limitations (§38)
+
+ForgetFlow evaluates message-level enforced forgetting and release control: the harness decides what each agent may release to other agents. It does not, by itself, demonstrate anything about model internals or systems outside the harness.
+
+This study may not demonstrate:
+- parameter-level machine unlearning
+- deletion of information from model weights
+- deletion from external provider logs
+- deletion from hidden model state outside the experimental harness
+- resistance to all adaptive adversaries
+- generalization beyond the tested agent architectures and models
+
+Reported results describe enforced forgetting and release control at the message level. Terms such as 'unlearning' or 'erasure' are not used for model-internal state, which this study does not measure.
 
 Research-valid certification is decided by `research_valid_gate.json`, not by this manifest.
