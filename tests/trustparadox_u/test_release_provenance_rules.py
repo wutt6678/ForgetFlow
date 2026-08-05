@@ -89,6 +89,9 @@ def _schema11_manifest(
         "corpus": {"corpus_sha256": "c"},
         "annotations": {"annotation_hash": "a"},
         "components": {},
+        # FP-001: storage identity is a top-level field kept in sync with
+        # the provenance embedding this fixture still exercises.
+        "artifact_storage_commit": storage_commit or None,
         "status": "active",
         "superseded_by": "",
     }

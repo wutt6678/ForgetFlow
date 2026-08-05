@@ -44,7 +44,13 @@ class TestThreeWayProvenance:
         record = build_certification_provenance(repository_clean=True)
         assert record["artifact_generation_tree"] == generation_tree_hash()
         assert record["environment_lock_hash"] == environment_lock_hash()
-        assert record["artifact_storage_commit"] == ""
+        # FP-001: generation records never embed a storage commit — null
+        # plus a pointer at the authoritative STORAGE_PROVENANCE.json.
+        assert record["artifact_storage_commit"] is None
+        assert record["storage_provenance"] == {
+            "source": "STORAGE_PROVENANCE.json",
+            "authoritative": True,
+        }
 
     def test_storage_commit_for_untracked_path_is_empty(self, tmp_path: Path) -> None:
         # A file outside the repository has no storage commit.

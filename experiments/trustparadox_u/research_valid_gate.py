@@ -1247,7 +1247,7 @@ def _generation_provenance_record() -> dict[str, Any]:
 def run_research_valid_gate() -> dict[str, Any]:
     """Run all gate checks and produce the staged research status (§31)."""
     from experiments.trustparadox_u.artifact_provenance import (
-        provenance_completeness_findings,
+        generation_provenance_findings,
         storage_commit_for,
     )
 
@@ -1309,9 +1309,10 @@ def run_research_valid_gate() -> dict[str, Any]:
         "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
         "artifact_storage_commit": str(provenance.get("artifact_storage_commit", "") or ""),
         "provenance": provenance,
-        # Informational: empty only for artifact_storage_commit before the
-        # manifest is committed; complete on committed records.
-        "provenance_findings": provenance_completeness_findings(provenance),
+        # FP-002: generation-field completeness only; storage identity is
+        # recorded authoritatively in the release's STORAGE_PROVENANCE.json
+        # sidecar, not inside the gate snapshot.
+        "provenance_findings": generation_provenance_findings(provenance),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "gates": gates,
     }

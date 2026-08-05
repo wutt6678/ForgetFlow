@@ -33,35 +33,41 @@ fields, and stale result directories.  ``validate_three_way_provenance``
 additionally enforces the §32 workspace/environment anchors required in
 the reproduction manifest and release bundles.
 
-Canonical release provenance model (PR-001)
---------------------------------------------
-``COMPLETE_PROVENANCE_FIELDS`` is the canonical ten-field model every
-certified release records, with fixed semantics:
+Canonical release provenance model — generation/storage split (FP-001/002)
+--------------------------------------------------------------------------
+Scientific artifacts record *generation* provenance only — everything
+knowable when the artifact was produced.  *Storage* provenance is
+recorded authoritatively in the release's ``STORAGE_PROVENANCE.json``
+sidecar: the storage commit is unknowable at generation time (it is the
+commit that later stores the artifact), so generation records carry
+``artifact_storage_commit: null`` plus a sidecar reference instead of an
+empty string.
 
-- ``tested_code_commit`` — the commit whose code was executed;
-- ``artifact_generation_commit`` — the commit the artifacts were bound
-  to.  Normally ``tested_code_commit == artifact_generation_commit``;
-  when they legitimately differ (e.g. a replay ran against an older
-  checkout), a ``difference_reason`` must accompany the record;
+Generation fields (``GENERATION_PROVENANCE_FIELDS``):
+
+- ``tested_code_commit`` — the commit whose code was executed; normally
+  equal to ``artifact_generation_commit`` (a ``difference_reason`` is
+  required when they legitimately differ);
+- ``artifact_generation_commit`` — the commit the artifacts were bound to;
 - ``artifact_generation_tree`` — workspace hash over every source path
   (code, corpus data, annotations, thresholds, protocol documentation,
   environment locks) — never mutable storage metadata such as
   ``results/``;
-- ``artifact_storage_commit`` — the *first* commit in git history that
-  contains the exact stored artifact bundle (later edits of the same
-  path do not change it);
 - ``workflow_run_id`` / ``workflow_attempt`` — numeric CI run identity,
   or ``local`` with ``certification_source=local`` outside CI;
+- ``certification_source`` — ``ci`` or ``local``;
 - ``protocol_version`` / ``study_version`` — the protocol/study the run
   certified;
 - ``environment_lock_hash`` — hash of the dependency lock file;
 - ``repository_clean`` — whether the code tree was clean at generation.
 
-Because a release is stored by a commit later than the one that
-generated it, releases carry a ``STORAGE_PROVENANCE.json`` sidecar
-(PR-002) recording the audited lineage.  The sidecar is storage
-metadata: it is excluded from the scientific release digest and tracked
-by a separate ``storage_metadata_digest`` (PR-005).
+Storage fields (``STORAGE_PROVENANCE_FIELDS``) live in the sidecar:
+``release_id``, ``tested_code_commit``, ``artifact_generation_commit``,
+``artifact_storage_commit``, ``gate_snapshot_commit``, ``verified_at``,
+plus the ``scientific_release_digest`` / ``storage_metadata_digest``
+two-digest scheme (PR-005).  The sidecar is storage metadata: it is
+excluded from the scientific release digest, so updating it never forks
+a release.
 """
 
 from __future__ import annotations
@@ -95,21 +101,41 @@ THREE_WAY_FIELDS: tuple[str, ...] = (
     "environment_lock_hash",
 )
 
-# SC-009: a complete certification provenance record — every field present
-# and non-empty.  ``artifact_storage_commit`` is knowable only once the
-# artifact is stored in git history, so completeness is checked against
-# committed records (see ``provenance_completeness_findings``).
-COMPLETE_PROVENANCE_FIELDS: tuple[str, ...] = (
+# FP-001/002: generation provenance — everything a scientific artifact
+# can know at generation time.  Every field must be present; strings must
+# be non-empty (``repository_clean`` is a boolean).
+GENERATION_PROVENANCE_FIELDS: tuple[str, ...] = (
     "tested_code_commit",
     "artifact_generation_commit",
     "artifact_generation_tree",
-    "artifact_storage_commit",
     "workflow_run_id",
     "workflow_attempt",
+    "certification_source",
     "protocol_version",
     "study_version",
     "environment_lock_hash",
     "repository_clean",
+)
+
+# FP-002: storage provenance — recorded authoritatively in the release's
+# STORAGE_PROVENANCE.json sidecar, never inside scientific artifacts.
+STORAGE_PROVENANCE_FIELDS: tuple[str, ...] = (
+    "release_id",
+    "tested_code_commit",
+    "artifact_generation_commit",
+    "artifact_storage_commit",
+    "gate_snapshot_commit",
+    "verified_at",
+)
+STORAGE_SIDECAR_NAME = "STORAGE_PROVENANCE.json"
+STORAGE_REFERENCE_KEY = "storage_provenance"
+
+# FP-010: scientific artifacts must never embed an empty-string storage
+# commit — the field is either absent/null plus a sidecar reference, or
+# the authoritative value lives in the sidecar itself.
+STORAGE_COMMIT_FIELDS: tuple[str, ...] = (
+    "artifact_storage_commit",
+    "gate_snapshot_commit",
 )
 
 # Source paths hashed into the generation tree: everything that can change
@@ -118,18 +144,33 @@ SOURCE_PATHS: tuple[str, ...] = ("marble", "experiments", "scripts", "tests", "d
 SOURCE_FILES: tuple[str, ...] = ("pyproject.toml", "poetry.lock", "environment.yml")
 _EXCLUDED_PARTS = frozenset({"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".git"})
 
-# PR-004: the lineage fields that must agree across every release manifest
-# (study/gate/reproduction/run/frozen-threshold/bundle manifests and the
-# STORAGE_PROVENANCE.json sidecar).  Timestamps like ``generated_at`` are
-# deliberately excluded — they legitimately differ between writers.
+# FP-007: generation lineage fields that must agree across every
+# scientific manifest (study/gate/reproduction/run/frozen-threshold/bundle
+# manifests).  Storage fields are compared separately between the bundle
+# manifest, the sidecar and the gate's storage reference
+# (``validate_storage_record_consistency``).  Timestamps like
+# ``generated_at`` are deliberately excluded — they legitimately differ
+# between writers.
 PROVENANCE_SYNC_FIELDS: tuple[str, ...] = (
     "tested_code_commit",
     "artifact_generation_commit",
     "artifact_generation_tree",
-    "artifact_storage_commit",
     "protocol_version",
     "study_version",
     "environment_lock_hash",
+)
+
+# FP-007: the storage-record fields that must agree between the bundle
+# manifest, the STORAGE_PROVENANCE.json sidecar and the gate snapshot's
+# storage reference.
+STORAGE_SYNC_FIELDS: tuple[str, ...] = (
+    "release_id",
+    "tested_code_commit",
+    "artifact_generation_commit",
+    "artifact_storage_commit",
+    "gate_snapshot_commit",
+    "scientific_release_digest",
+    "storage_metadata_digest",
 )
 
 
@@ -318,6 +359,19 @@ def commit_is_ancestor(ancestor: str, descendant: str) -> bool:
     return result.returncode == 0
 
 
+def storage_provenance_reference() -> dict[str, Any]:
+    """FP-001: the canonical sidecar pointer carried by generation records.
+
+    The storage commit is unknowable at generation time (it is the commit
+    that later stores the artifact), so scientific artifacts never embed
+    one.  They point instead at the authoritative record; ``source`` is
+    resolved relative to the unique active release directory
+    (``results/releases/<release_id>/STORAGE_PROVENANCE.json``) by the
+    release storage provenance gate.
+    """
+    return {"source": STORAGE_SIDECAR_NAME, "authoritative": True}
+
+
 def build_certification_provenance(
     *,
     repository_commit: str | None = None,
@@ -332,10 +386,13 @@ def build_certification_provenance(
     overrides the derived value — pipelines snapshot ``code_tree_is_clean()``
     at run start so their own output cannot self-invalidate the run.
 
-    SC-009: every field is populated — workflow identity falls back to
-    ``local`` outside CI, protocol/study versions are always recorded, and
-    ``artifact_storage_commit`` is derived from git history when an
-    already-stored ``artifact_path`` is supplied.
+    FP-001: the record is generation provenance only.  Every generation
+    field is populated — workflow identity falls back to ``local`` outside
+    CI, protocol/study versions are always recorded — and
+    ``artifact_storage_commit`` is ``null`` with a sidecar reference: the
+    authoritative storage record is written later, and updating it must
+    never change the scientific digest.  ``artifact_path`` is accepted for
+    signature compatibility and is no longer consulted.
     """
     from experiments.trustparadox_u.frozen_thresholds import STUDY_VERSION
     from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION
@@ -357,32 +414,84 @@ def build_certification_provenance(
         "protocol_version": PROTOCOL_VERSION,
         "study_version": STUDY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        # §32: workspace anchors; the storage commit is derived from git
-        # history (it is not known before the artifact is committed).
+        # §32: workspace anchors.
         "artifact_generation_tree": generation_tree_hash(),
         "environment_lock_hash": environment_lock_hash(),
-        "artifact_storage_commit": (
-            storage_commit_for(artifact_path) if artifact_path is not None else ""
-        ),
+        # FP-001: storage identity is recorded by the sidecar, never here.
+        "artifact_storage_commit": None,
+        STORAGE_REFERENCE_KEY: storage_provenance_reference(),
     }
 
 
-def provenance_completeness_findings(record: dict[str, Any]) -> list[str]:
-    """SC-009: findings for any missing or empty complete-provenance field.
+def generation_provenance_findings(record: dict[str, Any]) -> list[str]:
+    """FP-002: findings for an incomplete generation provenance record.
 
-    ``repository_clean`` is complete when present (its value is a boolean);
-    every other field must be a non-empty string.
+    Every ``GENERATION_PROVENANCE_FIELDS`` entry must be present;
+    ``repository_clean`` is complete when present (its value is a
+    boolean), every other field must be a non-empty string.  FP-010:
+    embedded storage commits are never valid in a generation record — an
+    empty string is a stale placeholder and a non-empty value is
+    unknowable at generation time; only ``null``/absent passes.
     """
     findings: list[str] = []
-    for field in COMPLETE_PROVENANCE_FIELDS:
+    for field in GENERATION_PROVENANCE_FIELDS:
         if field not in record:
-            findings.append(f"provenance_field_missing: {field}")
+            findings.append(f"generation_provenance_field_missing: {field}")
             continue
         if field == "repository_clean":
             continue
         value = record[field]
         if value is None or str(value).strip() == "":
-            findings.append(f"provenance_field_empty: {field}")
+            findings.append(f"generation_provenance_field_empty: {field}")
+    for field in STORAGE_COMMIT_FIELDS:
+        if field in record and record[field] is not None:
+            findings.append(f"stale_embedded_storage_commit: {field}")
+    return findings
+
+
+def storage_provenance_findings(
+    record: dict[str, Any],
+    *,
+    require_gate_snapshot: bool = True,
+) -> list[str]:
+    """FP-002: findings for an incomplete storage provenance sidecar.
+
+    Every ``STORAGE_PROVENANCE_FIELDS`` entry must be present and a
+    non-empty string — no empty strings anywhere.  The gate snapshot
+    commit may be pending (``null``/empty) only before the sidecar is
+    finalized, which callers opt into with ``require_gate_snapshot=False``.
+    The two digest fields are recommended; when present they must be
+    non-empty.
+    """
+    findings: list[str] = []
+    for field in STORAGE_PROVENANCE_FIELDS:
+        if field not in record:
+            findings.append(f"storage_provenance_field_missing: {field}")
+            continue
+        value = record[field]
+        if field == "gate_snapshot_commit" and not require_gate_snapshot:
+            if value is not None and str(value).strip() != "" and not COMMIT_RE.match(str(value)):
+                findings.append(f"storage_provenance_field_invalid: {field}")
+            continue
+        if value is None or str(value).strip() == "":
+            findings.append(f"storage_provenance_field_empty: {field}")
+    for field in ("scientific_release_digest", "storage_metadata_digest"):
+        value = record.get(field)
+        if value is not None and str(value).strip() == "":
+            findings.append(f"storage_provenance_field_empty: {field}")
+    return findings
+
+
+def validate_storage_reference(record: dict[str, Any]) -> list[str]:
+    """FP-001: a generation record's sidecar pointer must be well-formed."""
+    reference = record.get(STORAGE_REFERENCE_KEY)
+    if not isinstance(reference, dict):
+        return [f"storage_provenance_reference_missing: {STORAGE_REFERENCE_KEY}"]
+    findings: list[str] = []
+    if not str(reference.get("source", "") or "").strip():
+        findings.append("storage_provenance_reference_source_empty")
+    if reference.get("authoritative") is not True:
+        findings.append("storage_provenance_reference_not_authoritative")
     return findings
 
 
@@ -486,13 +595,15 @@ def _provenance_record(manifest: dict[str, Any]) -> dict[str, Any] | None:
 def validate_release_provenance_consistency(
     manifests: dict[str, dict[str, Any]],
 ) -> list[str]:
-    """PR-004: findings when release manifests record divergent lineage.
+    """FP-007: findings when scientific manifests record divergent lineage.
 
     ``manifests`` maps a manifest label (e.g. ``"study_manifest"``) to its
     parsed JSON.  Every manifest must carry a provenance record, and the
-    ``PROVENANCE_SYNC_FIELDS`` values must be identical across all of
-    them — any disagreement or empty lineage field is a finding.  An
-    empty return list means the release's provenance is synchronized.
+    generation ``PROVENANCE_SYNC_FIELDS`` values must be identical across
+    all of them — any disagreement or empty lineage field is a finding.
+    Storage fields are deliberately excluded: they are recorded once, in
+    the sidecar, and compared by ``validate_storage_record_consistency``.
+    An empty return list means the generation provenance is synchronized.
     """
     findings: list[str] = []
     if not manifests:
@@ -522,6 +633,34 @@ def validate_release_provenance_consistency(
         if len(distinct) > 1:
             detail = ", ".join(f"{label}={value!r}" for label, value in sorted(values.items()))
             findings.append(f"provenance_sync_mismatch: {field} ({detail})")
+    return findings
+
+
+def validate_storage_record_consistency(
+    records: dict[str, dict[str, Any]],
+) -> list[str]:
+    """FP-007: findings when storage records disagree with each other.
+
+    ``records`` maps a source label (e.g. ``"bundle_manifest"``,
+    ``"storage_sidecar"``, ``"gate_snapshot"``) to its storage record.
+    Every ``STORAGE_SYNC_FIELDS`` value present in more than one record
+    must be identical.  ``None``/absent normalizes to the empty string so
+    a pending field is comparable; emptiness itself is reported by
+    ``storage_provenance_findings`` against the authoritative sidecar.
+    """
+    findings: list[str] = []
+    if not records:
+        return ["storage_sync_no_records"]
+    for field in STORAGE_SYNC_FIELDS:
+        values: dict[str, str] = {}
+        for label, record in records.items():
+            if not isinstance(record, dict) or field not in record:
+                continue
+            values[label] = str(record.get(field) or "")
+        distinct = sorted(set(values.values()))
+        if len(distinct) > 1:
+            detail = ", ".join(f"{label}={value!r}" for label, value in sorted(values.items()))
+            findings.append(f"storage_sync_mismatch: {field} ({detail})")
     return findings
 
 

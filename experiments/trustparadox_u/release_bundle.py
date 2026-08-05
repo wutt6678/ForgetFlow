@@ -39,13 +39,16 @@ CORPUS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "frozen_corpus"
 SCHEMA_VERSION = "1.1"
 BUNDLE_MANIFEST_NAME = "bundle_manifest.json"
 STORAGE_PROVENANCE_NAME = "STORAGE_PROVENANCE.json"
-STORAGE_PROVENANCE_SCHEMA_VERSION = "1.0"
+STORAGE_PROVENANCE_SCHEMA_VERSION = "1.1"
 SUPERSEDED_MARKER_NAME = "INVALIDATION_MARKER.json"
 
-# PR-003: schema 1.1 bundles enforce complete, synchronized provenance —
-# non-empty top-level versions matching the nested provenance record and
-# a non-empty artifact_storage_commit.  Schema 1.0 bundles (historical)
-# keep validating under the old, weaker rules.
+# PR-003 / FP-002: schema 1.1 bundles enforce complete, synchronized
+# provenance — non-empty top-level versions matching the nested
+# generation provenance record, complete generation lineage fields, and
+# a top-level ``artifact_storage_commit`` in sync with the
+# STORAGE_PROVENANCE.json sidecar (``null``/absent while the storage
+# commit is still pending).  Schema 1.0 bundles (historical) keep
+# validating under the old, weaker rules.
 _LEGACY_SCHEMA_VERSIONS = frozenset({"", "1.0"})
 
 # (results-relative path, role) — every artifact a release must preserve.
@@ -148,9 +151,15 @@ def storage_metadata_digest(sidecar: dict[str, Any]) -> str:
     """PR-005: digest of the STORAGE_PROVENANCE.json sidecar content.
 
     ``verified_at`` is audit bookkeeping, not lineage, and is excluded so
-    re-auditing identical lineage never changes the digest.
+    re-auditing identical lineage never changes the digest.  The digest's
+    own field is excluded too, so the sidecar can carry it without
+    self-reference.
     """
-    canonical = {key: value for key, value in sidecar.items() if key != "verified_at"}
+    canonical = {
+        key: value
+        for key, value in sidecar.items()
+        if key not in ("verified_at", "storage_metadata_digest")
+    }
     payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -162,13 +171,18 @@ def write_storage_provenance(
     gate_snapshot_commit: str = "",
     verified_at: str | None = None,
 ) -> dict[str, Any]:
-    """PR-002: audit a release's lineage and store the sidecar record.
+    """FP-001: audit a release's lineage and store the authoritative sidecar.
 
     Writes ``STORAGE_PROVENANCE.json`` next to the bundle manifest and
-    syncs ``storage_metadata_digest`` into the manifest.  Commits are
-    taken from the audited lineage (git history), never from the current
-    checkout: the sidecar records what *was* run and stored, not what is
-    checked out now.
+    syncs the storage identity (``artifact_storage_commit``,
+    ``gate_snapshot_commit``, ``storage_metadata_digest``) into the
+    manifest's top level.  The sidecar itself carries the full storage
+    record — ``STORAGE_PROVENANCE_FIELDS`` plus the scientific release
+    digest and its own ``storage_metadata_digest`` — and is the sole
+    authoritative source for storage identity.  Commits are taken from
+    the audited lineage (git history), never from the current checkout:
+    the sidecar records what *was* run and stored, not what is checked
+    out now.  Updating the sidecar never touches the scientific digest.
     """
     manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
     if not manifest_path.exists():
@@ -176,20 +190,23 @@ def write_storage_provenance(
     manifest = _load_json(manifest_path)
     provenance = manifest.get("provenance")
     provenance = provenance if isinstance(provenance, dict) else {}
-    storage_commit = artifact_storage_commit or str(
-        provenance.get("artifact_storage_commit", "") or ""
-    )
+    storage_commit = artifact_storage_commit or str(manifest.get("artifact_storage_commit") or "")
+    snapshot_commit = gate_snapshot_commit or str(manifest.get("gate_snapshot_commit") or "")
     sidecar: dict[str, Any] = {
         "schema_version": STORAGE_PROVENANCE_SCHEMA_VERSION,
         "release_id": str(manifest.get("release_id", "")),
         "tested_code_commit": str(provenance.get("tested_code_commit", "") or ""),
         "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
         "artifact_storage_commit": storage_commit,
-        "gate_snapshot_commit": gate_snapshot_commit,
+        "gate_snapshot_commit": snapshot_commit,
         "verified_at": verified_at or datetime.now(timezone.utc).isoformat(),
+        "scientific_release_digest": str(manifest.get("release_digest", "") or ""),
     }
+    sidecar["storage_metadata_digest"] = storage_metadata_digest(sidecar)
     (bundle_dir / STORAGE_PROVENANCE_NAME).write_text(json.dumps(sidecar, indent=2) + "\n")
-    manifest["storage_metadata_digest"] = storage_metadata_digest(sidecar)
+    manifest["artifact_storage_commit"] = storage_commit
+    manifest["gate_snapshot_commit"] = snapshot_commit
+    manifest["storage_metadata_digest"] = sidecar["storage_metadata_digest"]
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     return sidecar
 
@@ -199,6 +216,11 @@ def build_release_manifest() -> dict[str, Any]:
 
     Requires a passing §33 reproduction manifest: a release without a
     demonstrated reproduction is not certifiable.
+
+    FP-001: storage identity lives at the manifest top level (kept in
+    sync with the STORAGE_PROVENANCE.json sidecar), never embedded in
+    the scientific provenance record — at build time the storage commit
+    is still pending, so it starts as ``None``.
     """
     reproduction_path = RESULTS_DIR / "reproduction" / "reproduction_manifest.json"
     if not reproduction_path.exists():
@@ -241,6 +263,8 @@ def build_release_manifest() -> dict[str, Any]:
             "manifest": binding["annotation_manifest"],
         },
         "components": components,
+        "artifact_storage_commit": None,
+        "gate_snapshot_commit": None,
         "status": "active",
         "superseded_by": "",
     }
@@ -258,20 +282,22 @@ def build_release_manifest() -> dict[str, Any]:
 def validate_release_bundle(bundle_dir: Path, *, allow_pending_storage: bool = False) -> list[str]:
     """Recompute every component hash recorded in a bundle's manifest.
 
-    PR-003: schema 1.1 bundles additionally require non-empty top-level
-    ``study_version``/``protocol_version`` matching the nested provenance
-    record, complete provenance lineage (including a non-empty
-    ``artifact_storage_commit``), and a reproducible
-    ``storage_metadata_digest`` when the sidecar is present.
-    ``allow_pending_storage`` exempts the storage-commit requirement for
-    bundles validated immediately after creation, before the commit that
-    stores them exists.
+    PR-003 / FP-001: schema 1.1 bundles additionally require non-empty
+    top-level ``study_version``/``protocol_version`` matching the nested
+    provenance record, complete generation lineage, and — unless
+    ``allow_pending_storage`` — a real top-level ``artifact_storage_commit``
+    (empty strings are never valid; ``null``/absent is the pending form).
+    When the STORAGE_PROVENANCE.json sidecar is present it must agree
+    with the manifest on release identity, generation commits, storage
+    commit, scientific digest and storage metadata digest.
     """
     findings: list[str] = []
     manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
     if not manifest_path.exists():
         return [f"{bundle_dir.name}: bundle_manifest.json missing"]
     manifest = _load_json(manifest_path)
+    provenance = manifest.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
 
     for field in ("release_id", "study_version", "provenance", "corpus", "annotations"):
         if field not in manifest:
@@ -302,6 +328,25 @@ def validate_release_bundle(bundle_dir: Path, *, allow_pending_storage: bool = F
         recorded = str(manifest.get("storage_metadata_digest", "") or "")
         if recorded and recorded != storage_metadata_digest(sidecar):
             findings.append(f"{bundle_dir.name}: storage_metadata_digest not reproducible")
+        # FP-001: the strict storage-record synchronization only applies to
+        # schema-1.1 sidecars; historical 1.0 sidecars keep the old rules.
+        if str(sidecar.get("schema_version", "")) == STORAGE_PROVENANCE_SCHEMA_VERSION:
+            for field in ("tested_code_commit", "artifact_generation_commit"):
+                if str(sidecar.get(field, "") or "") != str(provenance.get(field, "") or ""):
+                    findings.append(f"{bundle_dir.name}: sidecar {field} != provenance.{field}")
+            for field in ("artifact_storage_commit", "gate_snapshot_commit"):
+                sidecar_value = str(sidecar.get(field, "") or "")
+                manifest_value = str(manifest.get(field, "") or "")
+                if sidecar_value != manifest_value:
+                    findings.append(f"{bundle_dir.name}: top-level {field} != sidecar.{field}")
+            if (
+                not allow_pending_storage
+                and not str(sidecar.get("artifact_storage_commit", "") or "").strip()
+            ):
+                findings.append(f"{bundle_dir.name}: sidecar artifact_storage_commit pending")
+            scientific = str(sidecar.get("scientific_release_digest", "") or "")
+            if scientific and digest and scientific != digest:
+                findings.append(f"{bundle_dir.name}: sidecar scientific_release_digest mismatch")
 
     for rel, component in manifest.get("components", {}).items():
         path = bundle_dir / rel
@@ -318,7 +363,13 @@ def _validate_bundle_provenance_fields(
     manifest: dict[str, Any],
     allow_pending_storage: bool,
 ) -> list[str]:
-    """PR-003: strict provenance completeness for schema 1.1 bundles."""
+    """PR-003 / FP-002: strict provenance completeness for schema 1.1 bundles.
+
+    Generation lineage must be complete in the nested provenance record;
+    the storage commit is a top-level/sidecar concern — an empty-string
+    embedding is never valid, ``null``/absent is the pending form and a
+    non-empty value must match the top-level record.
+    """
     findings: list[str] = []
     provenance = manifest.get("provenance")
     provenance = provenance if isinstance(provenance, dict) else {}
@@ -330,11 +381,19 @@ def _validate_bundle_provenance_fields(
         elif str(provenance.get(field, "") or "") != manifest.get(field):
             findings.append(f"{bundle_name}: top-level {field} != provenance.{field}")
 
-    if (
-        not allow_pending_storage
-        and not str(provenance.get("artifact_storage_commit", "") or "").strip()
-    ):
-        findings.append(f"{bundle_name}: empty provenance.artifact_storage_commit")
+    embedded_storage = provenance.get("artifact_storage_commit", None)
+    if isinstance(embedded_storage, str):
+        if not embedded_storage.strip():
+            if not allow_pending_storage:
+                findings.append(f"{bundle_name}: empty provenance.artifact_storage_commit")
+        elif (
+            "artifact_storage_commit" in manifest
+            and str(manifest.get("artifact_storage_commit") or "") != embedded_storage
+        ):
+            # A missing top-level key is the legacy pre-FP-001 shape and is
+            # tolerated until the bundle is superseded; a present key must
+            # agree with the embedding.
+            findings.append(f"{bundle_name}: provenance.artifact_storage_commit != top-level")
     for field in (
         "tested_code_commit",
         "artifact_generation_commit",
@@ -364,6 +423,9 @@ def validate_bundle_at_storage_commit(
     with byte-identical content, and the bundle manifest itself must exist
     there.  The manifest is compared by presence only: the sidecar digest
     field is legitimately added after the storage commit.
+    FP-001: storage identity is read from the manifest top level first
+    (synced with the STORAGE_PROVENANCE.json sidecar), falling back to
+    the embedded provenance only for legacy bundles.
     """
     findings: list[str] = []
     if manifest is None:
@@ -373,7 +435,11 @@ def validate_bundle_at_storage_commit(
         manifest = _load_json(manifest_path)
     provenance = manifest.get("provenance")
     provenance = provenance if isinstance(provenance, dict) else {}
-    commit = storage_commit or str(provenance.get("artifact_storage_commit", "") or "")
+    commit = (
+        storage_commit
+        or str(manifest.get("artifact_storage_commit") or "")
+        or str(provenance.get("artifact_storage_commit", "") or "")
+    )
     if not commit or not COMMIT_RE.match(commit):
         return [f"{bundle_dir.name}: storage commit missing or invalid: {commit!r}"]
     try:
