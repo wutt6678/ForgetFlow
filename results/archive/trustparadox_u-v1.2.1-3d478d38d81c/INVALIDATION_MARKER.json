@@ -1,0 +1,9 @@
+{
+  "status": "superseded",
+  "superseded_by": "trustparadox_u-v1.2.1-bb80497b320a",
+  "reason": [
+    "FP-004 completion: study_manifest.json gained a top-level study_version field required by the cross-manifest version checks, changing a bundle component's bytes (provenance metadata only).",
+    "FP-014: artifacts regenerated at commit a45ab5a under the FP-001..FP-010 provenance model; replay run_id propagation into trial_key fields changes component bytes although every metric and Table 1-6 value is unchanged.",
+    "Supersedes trustparadox_u-v1.2.1-3d478d38d81c, which itself superseded trustparadox_u-v1.2.1-0bf24dc6d3a7 during FP-014."
+  ]
+}
