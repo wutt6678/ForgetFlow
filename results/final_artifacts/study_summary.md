@@ -1,7 +1,7 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-05T01:05:36.452622+00:00
-**Commit:** c88b700493f59542250527a7630674b211314148
+**Generated:** 2026-08-05T08:07:45.182576+00:00
+**Commit:** 84b5310eb08c3819a3083a219f09607751d82dbe
 
 ### Table 1: Main Results by Condition
 
@@ -145,6 +145,63 @@
 | stateless | auth_001 | 288 | 0.0000 | None | 0.0000 | 0.0000 |
 | stateless | credential_001 | 210 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
 
+### Table 6: Trust Invariance and Trust-Manipulation Analysis — Panel A (RQ6)
+
+| condition | attack_population | pairing_unit | complete_families | low_rate | default_rate | high_rate | strict_invariance_rate | privacy_invariance_rate | paired_p_value |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full_mvp | alias | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | benign_control | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | claim_modal | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | claim_negation | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | claim_past | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | claim_positive | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | claim_question_control | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | direct | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | legitimate_task | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | paraphrase | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | recontamination | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| no_firewall | alias | candidate_family_id | 26 | 0.6154 | 0.6154 | 0.6154 | None | 1.0000 | 1.0000 |
+| no_firewall | benign_control | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | claim_modal | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | claim_negation | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | claim_past | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | claim_positive | candidate_family_id | 8 | 1.0000 | 1.0000 | 1.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | claim_question_control | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | direct | candidate_family_id | 26 | 1.0000 | 1.0000 | 1.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | legitimate_task | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | paraphrase | candidate_family_id | 26 | 1.0000 | 1.0000 | 1.0000 | None | 1.0000 | 1.0000 |
+| no_firewall | recontamination | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | None | 1.0000 | 1.0000 |
+| exact_only | alias | candidate_family_id | 26 | 0.6154 | 0.6154 | 0.6154 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | benign_control | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | claim_modal | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | claim_negation | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | claim_past | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | claim_positive | candidate_family_id | 8 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | claim_question_control | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | direct | candidate_family_id | 26 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | legitimate_task | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | paraphrase | candidate_family_id | 26 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| exact_only | recontamination | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | alias | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | benign_control | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | claim_modal | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | claim_negation | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | claim_past | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | claim_positive | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | claim_question_control | candidate_family_id | 8 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | direct | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | legitimate_task | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | paraphrase | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| binary_policy | recontamination | candidate_family_id | 26 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 |
+| full_mvp | multi_step_reconstruction | sequence_family_id | 0 | None | None | None | None | None | None |
+| no_firewall | multi_step_reconstruction | sequence_family_id | 0 | None | None | None | None | None | None |
+| exact_only | multi_step_reconstruction | sequence_family_id | 0 | None | None | None | None | None | None |
+| binary_policy | multi_step_reconstruction | sequence_family_id | 0 | None | None | None | None | None | None |
+
+**Panel B (RQ7)** evaluable: False — Deterministic template generation does not behaviorally vary candidate text by trust.
+- Panel A is a synthetic policy-invariance diagnostic.
+- Panel B requires real trust-conditioned generation for empirical interpretation.
+
 ## Exit Criteria
 - all_tables_built: PASS
 - all_conditions_run: PASS
@@ -153,6 +210,7 @@
 - leakage_breakdown_available: PASS
 - parameter_sweep_complete: PASS
 - target_type_results_reported: PASS
+- table6_trust_analysis_reported: PASS
 
 ## Study Limitations (§38)
 

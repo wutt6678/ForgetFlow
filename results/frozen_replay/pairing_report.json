@@ -1,5 +1,47 @@
 {
   "pairing_key": "candidate_id",
+  "cross_trust_pairing_keys": {
+    "single_message": "candidate_family_id",
+    "sequence": "sequence_family_id"
+  },
+  "family_coverage_by_condition": {
+    "binary_policy": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "exact_only": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "full_mvp": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "no_claim_detection": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "no_embedding": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "no_firewall": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "no_monitoring": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "one_time_monitoring": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    },
+    "stateless": {
+      "candidate_families": 196,
+      "sequence_families": 26
+    }
+  },
   "baseline_condition": "no_firewall",
   "legitimate_candidates_by_condition": {
     "no_firewall": 156,

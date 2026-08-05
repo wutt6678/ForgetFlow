@@ -2,8 +2,8 @@
   "table": "Table 5: Results by Target Type and Scenario",
   "context": {
     "study_class": "diagnostic",
-    "protocol_version": "1.1.0",
-    "population": "Frozen corpus candidates across all pilot scenarios, attack families (direct_probe, semantic_paraphrase, multi_step_reconstruction, recontamination_probe, legitimate_task, benign_control), trust levels, and secret types; pairing units are candidate_id for single-turn outcomes and sequence_id for multi-step reconstruction outcomes.",
+    "protocol_version": "1.2.0",
+    "population": "Frozen corpus candidates across all pilot scenarios, attack families (direct_probe, semantic_paraphrase, multi_step_reconstruction, recontamination_probe, legitimate_task, benign_control), trust levels, and secret types; pairing units are candidate_id for single-turn outcomes and sequence_id for multi-step reconstruction outcomes. Cross-trust comparisons (RQ6/RQ7) pair on the trust-independent candidate_family_id (sequence_family_id for sequences), never on the trust-specific candidate_id or sequence_id.",
     "split": "full frozen corpus: deterministic replay runs every split (development, validation, test) under every condition",
     "attack_population": "frozen attack candidates: direct_probe, semantic_paraphrase, multi_step_reconstruction, recontamination_probe, plus legitimate_task and benign_control utility probes",
     "conditions": [

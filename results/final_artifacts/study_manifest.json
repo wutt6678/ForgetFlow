@@ -2,7 +2,7 @@
   "schema_version": "2.0.0",
   "study_name": "TrustParadox-U Primary Study",
   "study_class": "diagnostic",
-  "protocol_version": "1.1.0",
+  "protocol_version": "1.2.0",
   "table_question_map": {
     "table1_main_results": [
       "RQ1",
@@ -26,23 +26,29 @@
     ],
     "table5_target_type_results": [
       "RQ1"
+    ],
+    "table6_trust_analysis": [
+      "RQ6",
+      "RQ7"
     ]
   },
-  "repository_commit": "c88b700493f59542250527a7630674b211314148",
+  "repository_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
   "provenance": {
-    "tested_code_commit": "c88b700493f59542250527a7630674b211314148",
-    "artifact_generation_commit": "c88b700493f59542250527a7630674b211314148",
+    "tested_code_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
+    "artifact_generation_commit": "84b5310eb08c3819a3083a219f09607751d82dbe",
     "repository_clean": true,
-    "workflow_run_id": "",
-    "workflow_attempt": "",
-    "generated_at": "2026-08-05T01:05:36.443501+00:00",
-    "artifact_generation_tree": "e93601e5df72a3639f7d27fbb2958a4b73fa6153c3dc0d3df00f64fc0f67aa91",
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "protocol_version": "1.2.0",
+    "study_version": "1.2.0",
+    "generated_at": "2026-08-05T08:07:45.173174+00:00",
+    "artifact_generation_tree": "a46a10cdb104968d90ede6e70cc7d2a4df91c6b06343a639aacf530143a784a9",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-05T01:05:36.452622+00:00",
+  "generated_at": "2026-08-05T08:07:45.182576+00:00",
   "corpus": {
-    "corpus_hash": "a9953e744a18693891f0ed34b64be0c7211d5b30ebe15da1b4aac21337191e95",
+    "corpus_hash": "33f426f3c1422c75f13b865e057c3ad8c71519a6b132f588229004b745ef834d",
     "total_candidates": 768,
     "scenarios": [
       "attribute_001",
@@ -100,6 +106,15 @@
     "table5_target_type_results": {
       "title": "Table 5: Results by Target Type and Scenario",
       "num_rows": 27
+    },
+    "table6_trust_analysis": {
+      "title": "Table 6: Trust Invariance and Trust-Manipulation Analysis",
+      "questions": [
+        "RQ6",
+        "RQ7"
+      ],
+      "panel_a_rows": 48,
+      "panel_b_evaluable": false
     }
   },
   "conditions": [
@@ -132,7 +147,8 @@
     "paired_statistics_available": true,
     "leakage_breakdown_available": true,
     "parameter_sweep_complete": true,
-    "target_type_results_reported": true
+    "target_type_results_reported": true,
+    "table6_trust_analysis_reported": true
   },
   "certification": "see research_valid_gate.json for the research-valid verdict"
 }
