@@ -4,6 +4,6 @@
   "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
   "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
   "artifact_storage_commit": "aacb3b51825254f0fd4949568ddca08c247ba64e",
-  "gate_snapshot_commit": "",
-  "verified_at": "2026-08-05T11:49:29.123058+00:00"
+  "gate_snapshot_commit": "b868214abbf66b38da3364aebb7f232a6ed875b8",
+  "verified_at": "2026-08-05T11:53:18.664380+00:00"
 }
