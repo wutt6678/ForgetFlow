@@ -802,6 +802,10 @@ def build_trial_episode(
     metadata["secret_variant_id"] = target_spec.secret_variant_id
     metadata["permitted_residual_set"] = list(target_spec.permitted_residuals)
     metadata["scenario_public_strings"] = list(base_episode.expected.permitted_strings)
+    # SC-001/SC-002: trust-independent family identities flow through the
+    # trial episode so downstream artifacts can pair on family IDs.
+    metadata["candidate_family_id"] = getattr(candidate, "candidate_family_id", "")
+    metadata["sequence_family_id"] = getattr(candidate, "sequence_family_id", "")
 
     trial_episode = TrustParadoxEpisode(
         episode_id=f"{base_episode.scenario_id}::trial::{candidate.candidate_id}",
@@ -963,6 +967,8 @@ def _failure_record(unit: TrialUnit, reason: str) -> dict[str, Any]:
         "attack_type": rep.attack_type,
         "target_forget_ids": list(rep.target_forget_ids),
         "sequence_id": rep.sequence_id,
+        "candidate_family_id": getattr(rep, "candidate_family_id", ""),
+        "sequence_family_id": getattr(rep, "sequence_family_id", ""),
         "reason": reason,
     }
 
@@ -1032,6 +1038,10 @@ def run_condition(
                 )
             result.metadata["secret_variant_id"] = candidate.secret_variant_id
             result.metadata["canonical_target"] = spec.canonical_target
+            # SC-001/SC-002: trust-independent family identities for
+            # cross-trust pairing in downstream artifacts.
+            result.metadata["candidate_family_id"] = getattr(candidate, "candidate_family_id", "")
+            result.metadata["sequence_family_id"] = getattr(candidate, "sequence_family_id", "")
             # FF92-015: trial artifacts attribute every turn to its condition.
             result.metadata["condition_id"] = condition_name
             results.append(result)

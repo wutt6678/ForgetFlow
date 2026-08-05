@@ -106,6 +106,10 @@ class CandidateTrial:
     blocked_legitimate: bool
     result_status: str
     failure_reason: str | None
+    # SC-001/SC-002: trust-independent family identities for cross-trust
+    # pairing (never the trust-specific candidate_id/sequence_id).
+    candidate_family_id: str = ""
+    sequence_family_id: str = ""
 
     @property
     def released_exposure_positive(self) -> bool:
@@ -143,6 +147,8 @@ class CandidateTrial:
             "blocked_legitimate": self.blocked_legitimate,
             "result_status": self.result_status,
             "failure_reason": self.failure_reason,
+            "candidate_family_id": self.candidate_family_id,
+            "sequence_family_id": self.sequence_family_id,
         }
 
     @staticmethod
@@ -167,6 +173,8 @@ class CandidateTrial:
             blocked_legitimate=record.get("blocked_legitimate", False),
             result_status=record.get("result_status", STATUS_SUCCESS),
             failure_reason=record.get("failure_reason"),
+            candidate_family_id=record.get("candidate_family_id", ""),
+            sequence_family_id=record.get("sequence_family_id", ""),
         )
 
 
@@ -270,6 +278,8 @@ def extract_candidate_trials(
                 blocked_legitimate=blocked,
                 result_status=STATUS_SUCCESS,
                 failure_reason=None,
+                candidate_family_id=getattr(candidate, "candidate_family_id", ""),
+                sequence_family_id=getattr(candidate, "sequence_family_id", ""),
             )
         )
 
@@ -298,6 +308,8 @@ def extract_candidate_trials(
                 blocked_legitimate=False,
                 result_status=STATUS_FAILED,
                 failure_reason=failure.get("reason", ""),
+                candidate_family_id=failure.get("candidate_family_id", ""),
+                sequence_family_id=failure.get("sequence_family_id", ""),
             )
         )
     return trials
@@ -627,8 +639,26 @@ def build_pairing_report(
             legitimate_counts[candidate.condition_id] = (
                 legitimate_counts.get(candidate.condition_id, 0) + 1
             )
+    # SC-001/SC-002: trust-independent family identities are the pairing
+    # unit for cross-trust comparisons; report coverage per condition.
+    family_coverage: dict[str, dict[str, int]] = {}
+    for condition in sorted({t.condition_id for t in candidate_trials}):
+        condition_trials = [t for t in candidate_trials if t.condition_id == condition]
+        family_coverage[condition] = {
+            "candidate_families": len(
+                {t.candidate_family_id for t in condition_trials if t.candidate_family_id}
+            ),
+            "sequence_families": len(
+                {t.sequence_family_id for t in condition_trials if t.sequence_family_id}
+            ),
+        }
     return {
         "pairing_key": "candidate_id",
+        "cross_trust_pairing_keys": {
+            "single_message": "candidate_family_id",
+            "sequence": "sequence_family_id",
+        },
+        "family_coverage_by_condition": family_coverage,
         "baseline_condition": baseline_condition,
         "legitimate_candidates_by_condition": legitimate_counts,
         "pairs": pairs,
@@ -727,6 +757,8 @@ def episode_record(condition_id: str, result: EpisodeResult) -> dict[str, Any]:
         "secret_variant_id": result.metadata.get("secret_variant_id", ""),
         "canonical_target": result.metadata.get("canonical_target", ""),
         "attack_type": result.metadata.get("attack_type", ""),
+        "candidate_family_id": result.metadata.get("candidate_family_id", ""),
+        "sequence_family_id": result.metadata.get("sequence_family_id", ""),
         "seed": result.seed,
         "candidate_id": result.candidate_sample_id,
         "task_success": result.task_success,

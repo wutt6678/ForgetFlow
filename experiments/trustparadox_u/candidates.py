@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -303,6 +305,23 @@ class FrozenCandidate:
     corpus_version: str = "1.0"
     # Target forget IDs for exposure tracking
     target_forget_ids: tuple[str, ...] = ()
+    # SC-001/SC-002: trust-independent family identities.  A family groups
+    # the candidates/sequences that differ only in trust level, so cross-
+    # trust comparisons pair on the family ID, never on the trust-specific
+    # candidate_id/sequence_id.
+    candidate_family_id: str = ""
+    sequence_family_id: str = ""
+    # SC-003: content identity.  content_hash covers this record's
+    # normalized text; family_content_hash is shared by every member of a
+    # fixed-content family.  trust_conditioned_generation is True only when
+    # the text was behaviorally conditioned on the trust label.
+    content_hash: str = ""
+    family_content_hash: str = ""
+    trust_conditioned_generation: bool = False
+    # SC-001: explicit generation replicate within one family/trust cell.
+    # Duplicate family/trust members are rejected unless this field
+    # distinguishes them.
+    generation_replicate: int = 0
 
 
 # Lookup key type for FrozenCandidateIndex
@@ -344,12 +363,14 @@ class FrozenCandidateIndex:
     candidates: tuple[FrozenCandidate, ...]
     _lookup: dict[FrozenLookupKey, FrozenCandidate] = field(default_factory=dict)
     _by_id: dict[str, FrozenCandidate] = field(default_factory=dict)
+    _by_family: dict[tuple[str, str, int], FrozenCandidate] = field(default_factory=dict)
     corpus_hash: str = ""
 
     def __post_init__(self) -> None:
         # Build lookup structures (frozen=False for __post_init__ mutation)
         object.__setattr__(self, "_lookup", {})
         object.__setattr__(self, "_by_id", {})
+        object.__setattr__(self, "_by_family", {})
         for c in self.candidates:
             # Index by candidate_id
             if c.candidate_id in self._by_id:
@@ -363,6 +384,19 @@ class FrozenCandidateIndex:
                     f"(candidates {self._lookup[key].candidate_id!r} and {c.candidate_id!r})"
                 )
             self._lookup[key] = c
+            # SC-001: one candidate per family/trust cell unless an explicit
+            # generation replicate distinguishes the members.
+            if c.candidate_family_id:
+                family_key = (c.candidate_family_id, c.trust_level, c.generation_replicate)
+                if family_key in self._by_family:
+                    raise ValueError(
+                        f"Duplicate family/trust member: family "
+                        f"{c.candidate_family_id!r} trust {c.trust_level!r} replicate "
+                        f"{c.generation_replicate} already held by "
+                        f"{self._by_family[family_key].candidate_id!r} "
+                        f"(candidate {c.candidate_id!r})"
+                    )
+                self._by_family[family_key] = c
         # Compute corpus hash if not provided
         if not self.corpus_hash:
             object.__setattr__(self, "corpus_hash", _compute_frozen_corpus_hash(self.candidates))
@@ -453,6 +487,8 @@ def frozen_candidate_hash_record(c: FrozenCandidate) -> dict[str, Any]:
 
     Includes every identity field, the candidate text, sequence structure,
     target forget ids, and generation provenance. Timestamps are excluded.
+    SC-001/SC-002/SC-003: the family identities and content hashes are
+    scientific content, so they are hashed with the corpus.
     """
     return {
         "candidate_id": c.candidate_id,
@@ -472,6 +508,12 @@ def frozen_candidate_hash_record(c: FrozenCandidate) -> dict[str, Any]:
         "generation_temperature": c.generation_temperature,
         "generation_prompt_hash": c.generation_prompt_hash,
         "corpus_version": c.corpus_version,
+        "candidate_family_id": c.candidate_family_id,
+        "sequence_family_id": c.sequence_family_id,
+        "content_hash": c.content_hash,
+        "family_content_hash": c.family_content_hash,
+        "trust_conditioned_generation": c.trust_conditioned_generation,
+        "generation_replicate": c.generation_replicate,
     }
 
 
@@ -482,6 +524,128 @@ def _compute_frozen_corpus_hash(candidates: tuple[FrozenCandidate, ...]) -> str:
     provenance), not candidate IDs alone.
     """
     return canonical_jsonl_hash([frozen_candidate_hash_record(c) for c in candidates])
+
+
+# ---------------------------------------------------------------------------
+# SC-003: normalized content hashing
+# ---------------------------------------------------------------------------
+
+
+def normalize_candidate_text(text: str) -> str:
+    """SC-003: frozen normalization applied before content hashing.
+
+    Rules (fixed for all corpus versions that report content hashes):
+
+    - Unicode NFC normalization (one canonical form per codepoint);
+    - line endings normalized to ``\\n`` (CRLF/CR collapsed);
+    - leading/trailing whitespace removed;
+    - punctuation, word order and case are preserved exactly.
+
+    Internal whitespace is untouched: two texts differing only by an
+    internal space are different contents.
+    """
+    normalized = unicodedata.normalize("NFC", text)
+    normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.strip()
+
+
+def candidate_content_hash(text: str) -> str:
+    """SC-003: SHA-256 of the normalized candidate text."""
+    return hashlib.sha256(normalize_candidate_text(text).encode("utf-8")).hexdigest()
+
+
+def family_content_hash_for_steps(steps: Sequence[tuple[int, str]]) -> str:
+    """SC-003: shared family hash for a multi-step sequence family.
+
+    Steps are hashed as an ordered (step_index, normalized text) structure
+    so the family hash covers step content and step positions together.
+    """
+    payload = [
+        {"step_index": index, "normalized_text": normalize_candidate_text(text)}
+        for index, text in sorted(steps)
+    ]
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# SC-002: family identity hierarchy validation
+# ---------------------------------------------------------------------------
+
+
+# Identity hierarchy: sequence_family_id > sequence_id >
+# candidate_family_id > candidate_id.  Cross-trust pairing may only use
+# the most specific family identity that is present.
+def pairing_identity(c: FrozenCandidate) -> tuple[str, str]:
+    """Return (kind, identity) of the strongest pairing identity present."""
+    if c.sequence_family_id:
+        return ("sequence_family_id", c.sequence_family_id)
+    if c.sequence_id:
+        return ("sequence_id", c.sequence_id)
+    if c.candidate_family_id:
+        return ("candidate_family_id", c.candidate_family_id)
+    return ("candidate_id", c.candidate_id)
+
+
+def validate_family_identity(candidates: Sequence[FrozenCandidate]) -> None:
+    """SC-001/SC-002: validate family identities across the corpus.
+
+    Per candidate family: every member shares scenario, secret variant,
+    attack type and sample index, and the family ID encodes exactly those
+    fields.  Per sequence family: every member shares scenario, secret
+    variant, attack type, step count and the exact set of step positions.
+    Raises ValueError on any violation.
+    """
+    by_candidate_family: dict[str, list[FrozenCandidate]] = {}
+    by_sequence_family: dict[str, list[FrozenCandidate]] = {}
+    for c in candidates:
+        if c.candidate_family_id:
+            by_candidate_family.setdefault(c.candidate_family_id, []).append(c)
+        if c.sequence_family_id:
+            by_sequence_family.setdefault(c.sequence_family_id, []).append(c)
+
+    for family_id, members in sorted(by_candidate_family.items()):
+        first = members[0]
+        expected = (
+            f"cf_{first.scenario_id}_{first.secret_variant_id}_"
+            f"{first.attack_type}_{first.sample_index:03d}"
+        )
+        if family_id != expected:
+            raise ValueError(
+                f"candidate_family_id {family_id!r} does not encode its "
+                f"identity fields (expected {expected!r})"
+            )
+        for member in members:
+            if (
+                member.scenario_id != first.scenario_id
+                or member.secret_variant_id != first.secret_variant_id
+                or member.attack_type != first.attack_type
+                or member.sample_index != first.sample_index
+            ):
+                raise ValueError(
+                    f"candidate family {family_id!r} mixes identity fields: "
+                    f"{member.candidate_id!r} differs from {first.candidate_id!r}"
+                )
+
+    for family_id, members in sorted(by_sequence_family.items()):
+        first = members[0]
+        step_positions = {m.sequence_step_index for m in members}
+        for member in members:
+            if (
+                member.scenario_id != first.scenario_id
+                or member.secret_variant_id != first.secret_variant_id
+                or member.attack_type != first.attack_type
+                or member.sequence_step_count != first.sequence_step_count
+            ):
+                raise ValueError(
+                    f"sequence family {family_id!r} mixes identity fields: "
+                    f"{member.candidate_id!r} differs from {first.candidate_id!r}"
+                )
+        if step_positions != set(range(first.sequence_step_count)):
+            raise ValueError(
+                f"sequence family {family_id!r} does not cover step positions "
+                f"0..{first.sequence_step_count - 1} exactly (got {sorted(step_positions)})"
+            )
 
 
 def load_frozen_corpus(corpus_path: str | Path) -> FrozenCandidateIndex:
@@ -539,6 +703,14 @@ def load_frozen_corpus(corpus_path: str | Path) -> FrozenCandidateIndex:
                     generation_prompt_hash=record.get("generation_prompt_hash", ""),
                     corpus_version=record.get("corpus_version", "1.0"),
                     target_forget_ids=target_fids,
+                    candidate_family_id=record.get("candidate_family_id", ""),
+                    sequence_family_id=record.get("sequence_family_id", ""),
+                    content_hash=record.get("content_hash", ""),
+                    family_content_hash=record.get("family_content_hash", ""),
+                    trust_conditioned_generation=bool(
+                        record.get("trust_conditioned_generation", False)
+                    ),
+                    generation_replicate=int(record.get("generation_replicate", 0)),
                 )
             )
 

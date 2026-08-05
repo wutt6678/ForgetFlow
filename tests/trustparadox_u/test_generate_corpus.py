@@ -337,6 +337,14 @@ class TestCorpusManifest:
                         "generation_temperature": float(rec.get("generation_temperature", 0.0)),
                         "generation_prompt_hash": rec.get("generation_prompt_hash", ""),
                         "corpus_version": rec.get("corpus_version", "1.0"),
+                        "candidate_family_id": rec.get("candidate_family_id", ""),
+                        "sequence_family_id": rec.get("sequence_family_id", ""),
+                        "content_hash": rec.get("content_hash", ""),
+                        "family_content_hash": rec.get("family_content_hash", ""),
+                        "trust_conditioned_generation": rec.get(
+                            "trust_conditioned_generation", False
+                        ),
+                        "generation_replicate": rec.get("generation_replicate", 0),
                     }
                 )
         assert canonical_jsonl_hash(records) == manifest["corpus_sha256"]

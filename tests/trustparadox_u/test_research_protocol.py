@@ -85,7 +85,12 @@ class TestTableMapping:
             "table3_parameter_sensitivity",
             "table4_statistical_comparisons",
             "table5_target_type_results",
+            "table6_trust_analysis",
         }
+
+    def test_table6_maps_to_rq6_and_rq7(self) -> None:
+        # SC-004/SC-012: Table 6 covers both trust questions.
+        assert TABLE_QUESTION_MAP["table6_trust_analysis"] == ("RQ6", "RQ7")
 
     def test_no_table_maps_to_zero_questions(self) -> None:
         for table, qids in TABLE_QUESTION_MAP.items():

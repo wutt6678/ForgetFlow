@@ -31,8 +31,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 from experiments.trustparadox_u.candidates import (  # noqa: E402
     FrozenCandidate,
     FrozenTargetSpec,
+    candidate_content_hash,
     canonical_jsonl_hash,
+    family_content_hash_for_steps,
     frozen_candidate_hash_record,
+    validate_family_identity,
 )
 from marble.firewall.normalization import text_contains_canonical_value  # noqa: E402
 
@@ -765,7 +768,7 @@ def _prompt_hash_for(scenario_type: str, trust_level: str) -> str:
 
 
 def generate_candidates(
-    corpus_version: str = "2.0",
+    corpus_version: str = "2.1",
     generation_model: str = "deterministic_template",
     generation_temperature: float = 0.0,
 ) -> list[FrozenCandidate]:
@@ -775,10 +778,17 @@ def generate_candidates(
     step; every step of a sequence shares one sequence_id (including the
     trust level) and covers step indices 0..n-1 exactly.
 
+    SC-001/SC-002/SC-003: every record also carries trust-independent
+    family identities (candidate_family_id / sequence_family_id) and
+    normalized content hashes. Template generation does not condition
+    text on the trust label, so trust_conditioned_generation is False
+    and each fixed-content family shares one family_content_hash.
+
     Returns a list of FrozenCandidate records.
     """
     candidates: list[FrozenCandidate] = []
     sample_counter: dict[str, int] = {}
+    sequence_counter: dict[str, int] = {}
 
     for scenario_id, scenario_def in sorted(SCENARIO_DEFINITIONS.items()):
         scenario_type = _get_scenario_type(scenario_id)
@@ -805,6 +815,19 @@ def generate_candidates(
                         suffix = "fact" if attack_type == "compositional_inference" else "frag"
                         sequence_id = f"seq_{scenario_id}_{sv_id}_{trust_level}_{suffix}"
                         step_count = len(steps)
+                        # SC-002: trust-independent sequence family.  The
+                        # per-trust counter aligns across trust levels
+                        # because the loop is deterministic per trust.
+                        seq_key = f"{scenario_id}|{sv_id}|{trust_level}|{attack_type}|seq"
+                        sequence_counter[seq_key] = sequence_counter.get(seq_key, 0) + 1
+                        seq_index = sequence_counter[seq_key] - 1
+                        sequence_family_id = (
+                            f"sf_{scenario_id}_{sv_id}_{attack_type}_{seq_index:03d}"
+                        )
+                        # SC-003: family hash over ordered step contents.
+                        family_hash = family_content_hash_for_steps(
+                            [(step_index, text) for step_index, (_s, _r, text) in enumerate(steps)]
+                        )
                         for step_index, (sender, recipient, text) in enumerate(steps):
                             candidates.append(
                                 FrozenCandidate(
@@ -828,6 +851,10 @@ def generate_candidates(
                                     generation_prompt_hash=prompt_hash,
                                     corpus_version=corpus_version,
                                     target_forget_ids=tuple(forget_ids),
+                                    sequence_family_id=sequence_family_id,
+                                    content_hash=candidate_content_hash(text),
+                                    family_content_hash=family_hash,
+                                    trust_conditioned_generation=False,
                                 )
                             )
                         continue
@@ -841,6 +868,15 @@ def generate_candidates(
                     key = f"{scenario_id}|{sv_id}|{trust_level}|{attack_type}"
                     sample_counter[key] = sample_counter.get(key, 0) + 1
                     sample_index = sample_counter[key] - 1
+
+                    # SC-001: trust-independent candidate family.  The
+                    # per-trust sample_index values align across trust
+                    # levels, so one family ID groups the three members.
+                    candidate_family_id = (
+                        f"cf_{scenario_id}_{sv_id}_{attack_type}_{sample_index:03d}"
+                    )
+                    # SC-003: fixed-content family -> shared content hash.
+                    content_hash = candidate_content_hash(candidate_text)
 
                     candidates.append(
                         FrozenCandidate(
@@ -861,9 +897,14 @@ def generate_candidates(
                             generation_prompt_hash=prompt_hash,
                             corpus_version=corpus_version,
                             target_forget_ids=tuple(forget_ids),
+                            candidate_family_id=candidate_family_id,
+                            content_hash=content_hash,
+                            family_content_hash=content_hash,
+                            trust_conditioned_generation=False,
                         )
                     )
 
+    validate_family_identity(candidates)
     return candidates
 
 
@@ -1405,7 +1446,7 @@ def main() -> int:
     # Build manifest
     target_specs = build_target_specs()
     manifest = build_corpus_manifest(
-        candidates, splits, repository_commit, corpus_version="2.0", target_specs=target_specs
+        candidates, splits, repository_commit, corpus_version="2.1", target_specs=target_specs
     )
 
     # Write corpus
