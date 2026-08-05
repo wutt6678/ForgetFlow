@@ -195,8 +195,8 @@
     ]
   },
   "provenance": {
-    "tested_code_commit": "3c605188cf924d64bf5c7f48fff11c941c523547",
-    "artifact_generation_commit": "3c605188cf924d64bf5c7f48fff11c941c523547",
+    "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+    "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
@@ -204,8 +204,12 @@
     "protocol_version": "1.2.0",
     "study_version": "1.2.1",
     "generated_at": "2026-08-05T11:13:51.075591+00:00",
-    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
+    "artifact_generation_tree": "ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
-    "artifact_storage_commit": ""
+    "artifact_storage_commit": null,
+    "storage_provenance": {
+      "source": "STORAGE_PROVENANCE.json",
+      "authoritative": true
+    }
   }
 }

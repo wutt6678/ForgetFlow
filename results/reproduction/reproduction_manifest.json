@@ -6,29 +6,33 @@
     "33"
   ],
   "study_version": "1.2.1",
-  "protocol_version": "",
-  "generated_at": "2026-08-05T11:28:14.103594+00:00",
+  "protocol_version": "1.2.0",
+  "generated_at": "2026-08-05T17:06:20.580544+00:00",
   "provenance": {
-    "tested_code_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
-    "artifact_generation_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+    "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+    "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "certification_source": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.1",
-    "generated_at": "2026-08-05T11:27:50.905845+00:00",
-    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
+    "generated_at": "2026-08-05T17:05:57.358704+00:00",
+    "artifact_generation_tree": "ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
-    "artifact_storage_commit": ""
+    "artifact_storage_commit": null,
+    "storage_provenance": {
+      "source": "STORAGE_PROVENANCE.json",
+      "authoritative": true
+    }
   },
   "environment": {
     "python": "3.11.15",
     "executable": "/home/ecs-user/.conda/envs/forgetflow/bin/python",
-    "repository_commit": "9faba3630d7fa03b46d7c7ac401cab8a0855be4a",
+    "repository_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
     "source_files_clean": true,
     "worktree_fully_clean": true,
-    "artifact_generation_tree": "c74549234eaf4e0448acc8a785e4eaaf6014d6b1cfd974d9e5c4d02a3f59ee5a",
+    "artifact_generation_tree": "ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228"
   },
   "inputs": {
@@ -52,7 +56,7 @@
       "annotation_model": "",
       "study_class": "diagnostic"
     },
-    "protocol_version": "",
+    "protocol_version": "1.2.0",
     "study_version": "1.2.1"
   },
   "steps": [
@@ -60,7 +64,7 @@
       "module": "experiments.trustparadox_u.frozen_replay",
       "description": "run the declared condition matrix",
       "returncode": 0,
-      "duration_seconds": 7.47,
+      "duration_seconds": 7.462,
       "passed": true,
       "output_tail": "Exit criterion: PASSED (all conditions produced results)"
     },
@@ -68,7 +72,7 @@
       "module": "experiments.trustparadox_u.leakage_analysis",
       "description": "leakage analysis over trial artifacts",
       "returncode": 0,
-      "duration_seconds": 0.237,
+      "duration_seconds": 0.236,
       "passed": true,
       "output_tail": "Validation: all FF92-016 checks passed"
     },
@@ -76,7 +80,7 @@
       "module": "experiments.trustparadox_u.paired_statistics",
       "description": "paired statistical comparisons",
       "returncode": 0,
-      "duration_seconds": 12.483,
+      "duration_seconds": 12.519,
       "passed": true,
       "output_tail": "  no_monitoring vs one_time_monitoring (false_block): n=156 rd=0.0 p=1.0000"
     },
@@ -84,7 +88,7 @@
       "module": "experiments.trustparadox_u.trust_analysis",
       "description": "trust invariance and trust-manipulation analysis (Table 6)",
       "returncode": 0,
-      "duration_seconds": 2.043,
+      "duration_seconds": 2.013,
       "passed": true,
       "output_tail": "  Written to /home/ecs-user/ForgetFlow/results/trust_analysis"
     },
@@ -92,7 +96,7 @@
       "module": "experiments.trustparadox_u.final_artifacts",
       "description": "final tables and study manifest",
       "returncode": 0,
-      "duration_seconds": 0.323,
+      "duration_seconds": 0.359,
       "passed": true,
       "output_tail": "Exit criterion: PASSED (tables built: 6/6)"
     },
@@ -100,7 +104,7 @@
       "module": "experiments.trustparadox_u.failure_examples",
       "description": "curated failure examples and decision traces",
       "returncode": 0,
-      "duration_seconds": 0.356,
+      "duration_seconds": 0.347,
       "passed": true,
       "output_tail": "Wrote 12 failure examples to /home/ecs-user/ForgetFlow/results/failure_examples/failure_examples.json"
     }
@@ -122,26 +126,26 @@
     ]
   },
   "artifacts": {
-    "frozen_replay/run_manifest.json": "589929698add2b32c8254db807b573803c396a16dfa1154e0079487005508f7b",
-    "frozen_replay/candidate_trials.jsonl": "376685d58da0136c73126b1ffaeee1343d8c5e0c8830b7c6c1ad7a3eaf4fd983",
-    "frozen_replay/reconstruction_trials.jsonl": "34c9b32200cc781a2686ef019ab74a96d2a49f0c2e8ecc0dddf22e3050079029",
-    "frozen_replay/recontamination_trials.jsonl": "1efff6f5d8f0040c05a8a35d65d51eaa8fb22ac502924455f8a26a7d24d63bde",
+    "frozen_replay/run_manifest.json": "39c4b3fe4ae34e0593cca3256de1522f01035935dd4c09845b65a6ade4ec2432",
+    "frozen_replay/candidate_trials.jsonl": "047881a4145d5af1ec83b66775cc9051c324a1e5e8e3bb1bc78fd4af66844fb1",
+    "frozen_replay/reconstruction_trials.jsonl": "91981de0ce446c8ff5d7db83d42f705de5077bc6e367254f785ead7ba1e9b778",
+    "frozen_replay/recontamination_trials.jsonl": "f26e9a83098d5d0ccb088fff6d0591112d3b3fa9d658159718fd8c8e2ddece1b",
     "frozen_replay/utility_trials.jsonl": "cb221706a0f1b20cc1043f6bc7bc0c86c13a0114b02fe81ea386e416e6b0ca92",
     "frozen_replay/resolved_conditions.json": "905d2a3803ab07060bf3c158dac9a8296180b9015d37781e540045655a77c431",
     "frozen_replay/metrics_by_condition.json": "b5a429d803db15355ed223c62129939dee8b90102a3e801b1a974ce152871832",
-    "leakage_analysis/leakage_analysis.json": "e7992b0d485376055a76e62f9b672705169ef6c1dacdbde4c9558737b683e79c",
-    "paired_statistics/paired_statistics.json": "0c750b2ec110daf645bfae9dce8612a62ec1996a56141ce975e67ac63bb60057",
-    "trust_analysis/trust_analysis.json": "15c3a3bfa1850366833453fb4e2a1eb814466ceb32a7997d9a20bf5bb9e76b0b",
+    "leakage_analysis/leakage_analysis.json": "77f858585045fc4785f293769ddf8691c8c542072e64304c319c6f333840c833",
+    "paired_statistics/paired_statistics.json": "069d16c48c10abfd7aebf634d6b63d252c6570425121244833ce09ee98d1229d",
+    "trust_analysis/trust_analysis.json": "993ff4d72f501ada28b59cc56d79ac6c45759bc5113ad1322909c3f553b8734d",
     "trust_analysis/pairing_audit.json": "56faf0129b9e75731c49da8851c58d8d5eceee9aeaa8e01c07864472d0ffcade",
-    "final_artifacts/study_manifest.json": "310af6153b79e2d89afde7fa8c0de6aaaf84f95dcc9fb7afaa3f50228f009b8d",
-    "final_artifacts/study_summary.md": "f6af432d10096a6887beef1ad48459910a84445f9114bdeb64fe088c246148df",
+    "final_artifacts/study_manifest.json": "06f475fb4fc66e421b5a6d62eb6aa4bb9cd2c2bdea658b14d02b35186a4214c2",
+    "final_artifacts/study_summary.md": "0a72c94d6c7d4890893a5fb9a8364b5fd8c34e5818bdcbdb516fbe04ec13a414",
     "final_artifacts/table1_main_results.json": "97520570aa87cf5c772fbac8465caf1c69d96192b7e3e4f37306b96eff1bc944",
     "final_artifacts/table2_leakage_breakdown.json": "a8783b9c20d7f391e414ff513b6f4d79fbb468b007a6931ae88e3863ba98a43b",
     "final_artifacts/table3_parameter_sensitivity.json": "929359e392287565f7e7379f1cb5ebb271353d4351b811e0ccce7a40767806a1",
     "final_artifacts/table4_statistical_comparisons.json": "ce6ed18661d5613915a099df09e043ec1c2d594d84c7c51f99a1589f0022db56",
     "final_artifacts/table5_target_type_results.json": "b859b05bcc248e6b3457531e05ea6658dd0d549866abac75759f0406953f73c8",
     "final_artifacts/table6_trust_analysis.json": "8b7ae7ee5e8de08df6889187bf509de69c967659eb061f7851c717a3de3a0d95",
-    "failure_examples/failure_examples.json": "73786ba77dc03ccb0d8c67e760e6ffece633cd042fc13e9585267241fd39a7f9"
+    "failure_examples/failure_examples.json": "2870460afd5641e33b21c5babf1830f48bc48762b7ffbcb187993438a362c33a"
   },
   "passed": true
 }

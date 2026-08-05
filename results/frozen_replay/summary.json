@@ -1,5 +1,5 @@
 {
-  "run_id": "frozen_replay_9faba36",
+  "run_id": "frozen_replay_1172866",
   "conditions": {
     "no_firewall": {
       "condition_name": "no_firewall",
@@ -58,7 +58,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.5689034999959404,
+      "elapsed_seconds": 0.5741514879919123,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -119,7 +119,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.4302847910003038,
+      "elapsed_seconds": 0.4211731589748524,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -180,7 +180,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.810802035004599,
+      "elapsed_seconds": 0.8134371459891554,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -241,7 +241,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.7213714020035695,
+      "elapsed_seconds": 0.7268142579996493,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -302,7 +302,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.8089707420003833,
+      "elapsed_seconds": 0.8104610320006032,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -363,7 +363,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6750191059982171,
+      "elapsed_seconds": 0.6739620880107395,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -424,7 +424,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.7951629950111965,
+      "elapsed_seconds": 0.7974012669874355,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -485,7 +485,7 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.6574625609937357,
+      "elapsed_seconds": 0.655152381019434,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     },
@@ -546,11 +546,11 @@
           "evaluable": false
         }
       },
-      "elapsed_seconds": 0.5672744259936735,
+      "elapsed_seconds": 0.5591883559827693,
       "failed_candidate_count": 0,
       "failed_candidate_ids": []
     }
   },
   "baseline_condition": "no_firewall",
-  "generated_at": "2026-08-05T11:27:58.451372+00:00"
+  "generated_at": "2026-08-05T17:06:04.896926+00:00"
 }
