@@ -7,23 +7,23 @@
   "research_valid": false,
   "synthetic_benchmark_valid": true,
   "all_passed": false,
-  "repository_commit": "22dc333223bd2a69d0ad747b0b4b61c3907d2c27",
+  "repository_commit": "32a560d28421cbb040f55697f91d54a9b86a3211",
   "provenance": {
-    "tested_code_commit": "22dc333223bd2a69d0ad747b0b4b61c3907d2c27",
-    "artifact_generation_commit": "22dc333223bd2a69d0ad747b0b4b61c3907d2c27",
+    "tested_code_commit": "32a560d28421cbb040f55697f91d54a9b86a3211",
+    "artifact_generation_commit": "32a560d28421cbb040f55697f91d54a9b86a3211",
     "repository_clean": true,
     "workflow_run_id": "",
     "workflow_attempt": "",
-    "generated_at": "2026-08-05T00:44:47.223089+00:00",
-    "artifact_generation_tree": "4d795e773c7727d7baafd49b264122b8e5817b95b35fbbfd5328d01120f20c87",
+    "generated_at": "2026-08-05T01:07:42.299099+00:00",
+    "artifact_generation_tree": "e93601e5df72a3639f7d27fbb2958a4b73fa6153c3dc0d3df00f64fc0f67aa91",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": ""
   },
-  "generated_at": "2026-08-05T00:44:47.231868+00:00",
+  "generated_at": "2026-08-05T01:07:42.307850+00:00",
   "gates": {
     "repository_provenance": {
       "passed": true,
-      "repository_commit": "22dc333223bd2a69d0ad747b0b4b61c3907d2c27",
+      "repository_commit": "32a560d28421cbb040f55697f91d54a9b86a3211",
       "findings": []
     },
     "no_invalidated_artifacts": {
@@ -110,14 +110,14 @@
     "reproduction_manifest": {
       "passed": true,
       "study_version": "1.1.0",
-      "num_artifacts": 16,
+      "num_artifacts": 17,
       "findings": []
     },
     "release_bundles": {
       "passed": true,
       "releases": 1,
       "active": [
-        "trustparadox_u-v1.1.0-a658ef28a32d"
+        "trustparadox_u-v1.1.0-e7c1579eee3e"
       ],
       "findings": []
     },
@@ -133,6 +133,12 @@
       "total": 7,
       "findings": []
     },
+    "failure_examples": {
+      "passed": true,
+      "num_categories": 6,
+      "num_examples": 12,
+      "findings": []
+    },
     "empirical_study_design": {
       "passed": false,
       "study_class": "diagnostic",
@@ -140,7 +146,7 @@
     },
     "tests_pass": {
       "passed": true,
-      "output": "1841 passed, 4 skipped in 11.61s"
+      "output": "1859 passed, 4 skipped in 14.37s"
     },
     "static_checks": {
       "passed": true,
