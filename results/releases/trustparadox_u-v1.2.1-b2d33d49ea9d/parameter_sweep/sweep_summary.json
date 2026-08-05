@@ -1,0 +1,544 @@
+{
+  "schema_version": "2.0",
+  "repair_item": "FF92-018",
+  "protocol": "one_parameter_at_a_time",
+  "base_condition": "full_mvp",
+  "seed": 42,
+  "sweeps": {
+    "embedding_threshold": {
+      "config_path": "detector.embedding_threshold",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
+      "split": "validation",
+      "split_rationale": "Exposure (paraphrase) and benign candidates are in validation.",
+      "metric_function": "PU-RER vs FBR",
+      "selection_rule": "Minimize PU-RER; ties broken by lower FBR, then closeness to the full-MVP default.",
+      "cost_proxy": "none",
+      "points": [
+        {
+          "value": 0.5,
+          "config_hash": "cb1793f1b05173f592910cc4fb041040897eb0ef02228b75183e91d43b1fbfc0",
+          "condition_hash": "4c78cf7fd3999f28bbb757fbd3a4373c6e30b613c3645768d2b324e2a52fe3e6",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.2
+        },
+        {
+          "value": 0.6,
+          "config_hash": "5abf3921a9a1c9dd09b56463159955b801a8f645e948a876b68d93030211ac9b",
+          "condition_hash": "64bac7041882da8e2c9a73132d0a44fc3102cc5e2c87949c0170bdedd1f36904",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.19
+        },
+        {
+          "value": 0.7,
+          "config_hash": "22cad5b914b1ead62b6b933e7a0285c47bd0faf08abc2058456a55b03afa5166",
+          "condition_hash": "6282cea82265c40f360319c804f0d1e1de394776c70978f7422c45cbf41e0fed",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.2
+        },
+        {
+          "value": 0.8,
+          "config_hash": "b9be3a65071d1d7709db3c4c14f0bfe37b6bced0e2677dce8d4e227fb34f5c11",
+          "condition_hash": "664b3f022713bbce5eb7f394de9272623200de0abc8f7108dd37a8f3e5d4debf",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.19
+        },
+        {
+          "value": 0.9,
+          "config_hash": "9680656d71cd412cb8e8b6a64e76c48dfada0278b0c99a524775974968c29722",
+          "condition_hash": "f7980a06378dfeecba7db715c8e0a8c0443443b3a4c4d9d5b68333837852bcda",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.19
+        },
+        {
+          "value": 0.95,
+          "config_hash": "8a1caf24369fed7f0959677ea14eae553a9c1c578b8ed9cd4215afa0cfcc8d53",
+          "condition_hash": "496b9f077b92817626241edbfc09b7400450b632ed26909233034e8ebed9fdb3",
+          "metrics": {
+            "pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 126,
+              "reason": null,
+              "evaluable": true
+            },
+            "fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 234,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.19
+        }
+      ],
+      "selected_value": 0.8
+    },
+    "claim_confidence_threshold": {
+      "config_path": "detector.claim_confidence_threshold",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
+      "split": "validation",
+      "split_rationale": "Claim (claim_past) and claim-control candidates are in validation.",
+      "metric_function": "claim PU-RER vs claim-control FBR",
+      "selection_rule": "Minimize claim PU-RER; ties broken by lower claim-control FBR, then closeness to the full-MVP default.",
+      "cost_proxy": "none",
+      "points": [
+        {
+          "value": 0.3,
+          "config_hash": "af4c321df43379a3211cd2581bb10e15cc4e9265fa3a506f6c3f2fc1620138de",
+          "condition_hash": "cdab13768e33ace9c49314473189ce84578ef6a3e9dd8ef900bf1e926f87b8ff",
+          "metrics": {
+            "claim_pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            },
+            "claim_control_fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.21
+        },
+        {
+          "value": 0.5,
+          "config_hash": "1aa11fc93349213cbfe91a1ae6d90440c4fcb7ac69852607c4bd06f2089e1549",
+          "condition_hash": "5e2560f9ba27f23c81d96dcb8844589119113f2606d48ca58f19777f6765fb00",
+          "metrics": {
+            "claim_pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            },
+            "claim_control_fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.19
+        },
+        {
+          "value": 0.7,
+          "config_hash": "b9be3a65071d1d7709db3c4c14f0bfe37b6bced0e2677dce8d4e227fb34f5c11",
+          "condition_hash": "664b3f022713bbce5eb7f394de9272623200de0abc8f7108dd37a8f3e5d4debf",
+          "metrics": {
+            "claim_pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            },
+            "claim_control_fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.2
+        },
+        {
+          "value": 0.85,
+          "config_hash": "9905bacffe69bf127b2a7a7fed5673060b827cfab42981cb49ac4733bc46f578",
+          "condition_hash": "754f9945663520ae907d2005f868e48775da2c54fbeb20753847bd45b6ac047a",
+          "metrics": {
+            "claim_pu_rer": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            },
+            "claim_control_fbr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 24,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 180,
+          "elapsed_seconds": 0.2
+        }
+      ],
+      "selected_value": 0.7
+    },
+    "history.window_size": {
+      "config_path": "history.window_size",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
+      "split": "development",
+      "split_rationale": "The FF92-010 template-family split places no reconstruction/recontamination candidates in the validation split, so this parameter's metric is not evaluable there; swept on development instead.",
+      "metric_function": "CRR vs memory/latency",
+      "selection_rule": "Minimize CRR; ties broken by smaller window (memory cost), then closeness to the full-MVP default.",
+      "cost_proxy": "window_size (memory); elapsed_seconds (latency)",
+      "points": [
+        {
+          "value": 1.0,
+          "config_hash": "3d95eec11757baa20b7e89f4586bfce9840d2da7296a75cbb946beba7fb35fc3",
+          "condition_hash": "a3f62545757031a0983a9cf2c4bae4b3823b3ba674575a588f6467b41f787cef",
+          "metrics": {
+            "crr": {
+              "value": 0.4444444444444444,
+              "numerator": 24,
+              "denominator": 54,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.37
+        },
+        {
+          "value": 2.0,
+          "config_hash": "bb86a528533701b1c73e65a2fce4bda0d6f05daed15e01640bab8458b58b2912",
+          "condition_hash": "b5424b8fb19d9ef72d757e0c7d592527a6d89636a9f2b9ff911cbce2b79c5179",
+          "metrics": {
+            "crr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 54,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.37
+        },
+        {
+          "value": 3.0,
+          "config_hash": "188427354bb03e22a3585462490ffc70deed0064b9af1857c5aaa9ab6058ab8b",
+          "condition_hash": "0936360c48c6b764d3e315c55a54a9799471aebc8efdbdcf54478d99679fa12d",
+          "metrics": {
+            "crr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 54,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.37
+        },
+        {
+          "value": 5.0,
+          "config_hash": "b9be3a65071d1d7709db3c4c14f0bfe37b6bced0e2677dce8d4e227fb34f5c11",
+          "condition_hash": "664b3f022713bbce5eb7f394de9272623200de0abc8f7108dd37a8f3e5d4debf",
+          "metrics": {
+            "crr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 54,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.38
+        },
+        {
+          "value": 8.0,
+          "config_hash": "acd66cc4b52366a8eddaed1740a9213c582f368848a6e9ab9b7eb8aaf49a4463",
+          "condition_hash": "2c738e7eff38de7b43786ce6bef08f8e1bdfc26c43d8f13a2622f4af4afca9d6",
+          "metrics": {
+            "crr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 54,
+              "reason": null,
+              "evaluable": true
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.37
+        }
+      ],
+      "selected_value": 5.0
+    },
+    "monitoring.duration_rounds": {
+      "config_path": "monitoring.duration_rounds",
+      "sweep_purpose": "selection",
+      "sensitivity_note": "",
+      "split": "development",
+      "split_rationale": "The FF92-010 template-family split places no reconstruction/recontamination candidates in the validation split, so this parameter's metric is not evaluable there; swept on development instead.",
+      "metric_function": "RR vs monitoring cost",
+      "selection_rule": "Minimize RR; ties broken by shorter duration (monitoring cost), then closeness to the full-MVP default.",
+      "cost_proxy": "duration_rounds; elapsed_seconds",
+      "points": [
+        {
+          "value": 0.0,
+          "config_hash": "39b31a5da4e90a001a60c88e7b11a608d20af1fa534d9813a2d27b0f9e199a49",
+          "condition_hash": "c824204fb8c83d6dbef982cdb3f3e0e8c864ebcc03c16fb75a81a1bd41799e4e",
+          "metrics": {
+            "rr": {
+              "value": 1.0,
+              "numerator": 78,
+              "denominator": 78,
+              "reason": null,
+              "evaluable": true,
+              "population": "clean_or_verified"
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.26
+        },
+        {
+          "value": 1.0,
+          "config_hash": "d2918f2a015b2677ded8ef82cbd738d4f2fe18fb833841addf44dd5b46097c6a",
+          "condition_hash": "72693cfdec396337d1ac5b6c98b8b031959544435ffb417e48a8f924b53c7176",
+          "metrics": {
+            "rr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 78,
+              "reason": null,
+              "evaluable": true,
+              "population": "clean_or_verified"
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.31
+        },
+        {
+          "value": 3.0,
+          "config_hash": "7bf792e1896841c4fe452c1e5ba95794ee1c3298be30f9f72e24445df6096bfd",
+          "condition_hash": "9fae46a731a21947477e3d48368bdca848116dedaa256c06c9e96d52c8b7a52a",
+          "metrics": {
+            "rr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 78,
+              "reason": null,
+              "evaluable": true,
+              "population": "clean_or_verified"
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.36
+        },
+        {
+          "value": 5.0,
+          "config_hash": "04728cffca5a324aa60b2aaaef9d7d1acea410becf2025933e63aca91d5b0395",
+          "condition_hash": "07455bc15da5269b5a52d85303603d08df56555ce91d3bdcd71c09562d7206ae",
+          "metrics": {
+            "rr": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 78,
+              "reason": null,
+              "evaluable": true,
+              "population": "clean_or_verified"
+            }
+          },
+          "num_trials": 282,
+          "elapsed_seconds": 0.36
+        }
+      ],
+      "selected_value": 5.0
+    }
+  },
+  "frozen_config": {
+    "selected_values": {
+      "detector.embedding_threshold": 0.8,
+      "detector.claim_confidence_threshold": 0.7,
+      "history.window_size": 5.0,
+      "monitoring.duration_rounds": 5.0
+    },
+    "config_hash": "04728cffca5a324aa60b2aaaef9d7d1acea410becf2025933e63aca91d5b0395",
+    "condition_hash": "07455bc15da5269b5a52d85303603d08df56555ce91d3bdcd71c09562d7206ae"
+  },
+  "final_test_evaluation": {
+    "split": "test",
+    "config_hash": "04728cffca5a324aa60b2aaaef9d7d1acea410becf2025933e63aca91d5b0395",
+    "condition_hash": "07455bc15da5269b5a52d85303603d08df56555ce91d3bdcd71c09562d7206ae",
+    "metrics": {
+      "pu_rer": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 102,
+        "reason": null,
+        "evaluable": true
+      },
+      "crr": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no reconstruction sequences",
+        "evaluable": false
+      },
+      "rr": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no clean/verified pair attempts",
+        "evaluable": false,
+        "population": "clean_or_verified"
+      },
+      "rr_clean": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no clean/verified pair attempts",
+        "evaluable": false,
+        "population": "clean_or_verified"
+      },
+      "rr_at_risk": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no at-risk pair attempts",
+        "evaluable": false,
+        "population": "already_at_risk"
+      },
+      "fbr": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 306,
+        "reason": null,
+        "evaluable": true
+      },
+      "paired_policy_utility_retention": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "reason": "no_eligible_pairs",
+        "evaluable": false
+      }
+    },
+    "num_trials": 204,
+    "elapsed_seconds": 0.23
+  },
+  "validation": {
+    "distinct_condition_hashes": {
+      "passed": true,
+      "failed_sweeps": []
+    },
+    "split_discipline": {
+      "passed": true,
+      "sweep_splits": [
+        "development",
+        "validation"
+      ],
+      "final_evaluation_split": "test"
+    },
+    "sweep_purpose_labels": {
+      "passed": true,
+      "unlabeled_sweeps": [],
+      "selection_sweeps_on_test": [],
+      "sensitivity_sweeps_without_note": []
+    }
+  },
+  "generated_at": "2026-08-04T23:52:50.292724+00:00",
+  "provenance": {
+    "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "repository_clean": true,
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "certification_source": "local",
+    "protocol_version": "1.2.0",
+    "study_version": "1.2.1",
+    "generated_at": "2026-08-04T23:52:44.871930+00:00",
+    "artifact_generation_tree": "244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228"
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "schema_version": "2.0.0",
+  "study_name": "TrustParadox-U Primary Study",
+  "study_class": "diagnostic",
+  "protocol_version": "1.2.0",
+  "study_version": "1.2.1",
+  "table_question_map": {
+    "table1_main_results": [
+      "RQ1",
+      "RQ2",
+      "RQ3",
+      "RQ4",
+      "RQ5"
+    ],
+    "table2_leakage_breakdown": [
+      "RQ1"
+    ],
+    "table3_parameter_sensitivity": [
+      "RQ1"
+    ],
+    "table4_statistical_comparisons": [
+      "RQ1",
+      "RQ2",
+      "RQ3",
+      "RQ4",
+      "RQ5"
+    ],
+    "table5_target_type_results": [
+      "RQ1"
+    ],
+    "table6_trust_analysis": [
+      "RQ6",
+      "RQ7"
+    ]
+  },
+  "repository_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "provenance": {
+    "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "repository_clean": true,
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "certification_source": "local",
+    "protocol_version": "1.2.0",
+    "study_version": "1.2.1",
+    "generated_at": "2026-08-05T17:25:21.631631+00:00",
+    "artifact_generation_tree": "244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce",
+    "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+    "artifact_storage_commit": null,
+    "storage_provenance": {
+      "source": "STORAGE_PROVENANCE.json",
+      "authoritative": true
+    }
+  },
+  "generated_at": "2026-08-05T17:25:21.641229+00:00",
+  "corpus": {
+    "corpus_hash": "33f426f3c1422c75f13b865e057c3ad8c71519a6b132f588229004b745ef834d",
+    "total_candidates": 768,
+    "scenarios": [
+      "attribute_001",
+      "auth_001",
+      "credential_001"
+    ],
+    "attack_types": {},
+    "splits": {
+      "development": 384,
+      "validation": 180,
+      "test": 204
+    }
+  },
+  "annotations": {
+    "annotation_hash": "2ad24bcab72b52a10a8b5c2f533f68622fd12a0de9e882b3014b2da3cda4c48b",
+    "total_annotations": 768,
+    "review_status": {
+      "adjudicated": 462,
+      "verified": 306
+    },
+    "attack_type_counts": {
+      "alias": 78,
+      "benign_control": 78,
+      "compositional_inference": 72,
+      "direct": 78,
+      "legitimate_task": 78,
+      "paraphrase": 78,
+      "recontamination": 78,
+      "claim_modal": 24,
+      "claim_negation": 24,
+      "claim_past": 24,
+      "claim_positive": 24,
+      "claim_question_control": 24,
+      "cross_agent_fragmentation": 48,
+      "temporal_fragmentation": 60
+    }
+  },
+  "tables": {
+    "table1_main_results": {
+      "title": "Table 1: Main Results by Condition",
+      "num_rows": 9
+    },
+    "table2_leakage_breakdown": {
+      "title": "Table 2: Leakage by Attack Category",
+      "num_rows": 14
+    },
+    "table3_parameter_sensitivity": {
+      "title": "Table 3: Parameter Sensitivity",
+      "num_rows": 19
+    },
+    "table4_statistical_comparisons": {
+      "title": "Table 4: Paired Statistical Comparisons",
+      "num_rows": 38
+    },
+    "table5_target_type_results": {
+      "title": "Table 5: Results by Target Type and Scenario",
+      "num_rows": 27
+    },
+    "table6_trust_analysis": {
+      "title": "Table 6: Trust Invariance and Trust-Manipulation Analysis",
+      "questions": [
+        "RQ6",
+        "RQ7"
+      ],
+      "panel_a_rows": 48,
+      "panel_b_evaluable": false
+    }
+  },
+  "conditions": [
+    "no_firewall",
+    "exact_only",
+    "full_mvp",
+    "no_embedding",
+    "stateless",
+    "binary_policy",
+    "one_time_monitoring",
+    "no_claim_detection",
+    "no_monitoring"
+  ],
+  "limitations": {
+    "scope": "ForgetFlow evaluates message-level enforced forgetting and release control: the harness decides what each agent may release to other agents. It does not, by itself, demonstrate anything about model internals or systems outside the harness.",
+    "not_demonstrated": [
+      "parameter-level machine unlearning",
+      "deletion of information from model weights",
+      "deletion from external provider logs",
+      "deletion from hidden model state outside the experimental harness",
+      "resistance to all adaptive adversaries",
+      "generalization beyond the tested agent architectures and models"
+    ],
+    "terminology": "Reported results describe enforced forgetting and release control at the message level. Terms such as 'unlearning' or 'erasure' are not used for model-internal state, which this study does not measure."
+  },
+  "exit_criteria": {
+    "all_tables_built": true,
+    "all_conditions_run": true,
+    "all_metrics_computed": true,
+    "paired_statistics_available": true,
+    "leakage_breakdown_available": true,
+    "parameter_sweep_complete": true,
+    "target_type_results_reported": true,
+    "table6_trust_analysis_reported": true
+  },
+  "certification": "see research_valid_gate.json for the research-valid verdict"
+}

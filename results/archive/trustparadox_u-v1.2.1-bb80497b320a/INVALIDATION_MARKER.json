@@ -1,0 +1,9 @@
+{
+  "status": "superseded",
+  "superseded_by": "trustparadox_u-v1.2.1-b2d33d49ea9d",
+  "reason": [
+    "FP-010: frozen_threshold_manifest.json and sweep_summary.json provenance normalized to the a45ab5a generation record (commit + generation tree), changing two bundle component bytes (provenance metadata only; scientific values unchanged).",
+    "Restores cross-artifact generation-record agreement required by the FP-001..FP-010 provenance model acceptance criteria.",
+    "Supersedes trustparadox_u-v1.2.1-bb80497b320a during FP-014."
+  ]
+}
