@@ -3,6 +3,7 @@
   "study_name": "TrustParadox-U Primary Study",
   "study_class": "diagnostic",
   "protocol_version": "1.2.0",
+  "study_version": "1.2.1",
   "table_question_map": {
     "table1_main_results": [
       "RQ1",
@@ -32,18 +33,18 @@
       "RQ7"
     ]
   },
-  "repository_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+  "repository_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
   "provenance": {
-    "tested_code_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
-    "artifact_generation_commit": "1172866a62c93ec7d04241a37966276dd31acd8c",
+    "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
     "certification_source": "local",
     "protocol_version": "1.2.0",
     "study_version": "1.2.1",
-    "generated_at": "2026-08-05T17:06:20.047348+00:00",
-    "artifact_generation_tree": "ee800b1ba2fec270b66fee735dd0517145544dd09be317e14ef738761e30cefa",
+    "generated_at": "2026-08-05T17:25:21.631631+00:00",
+    "artifact_generation_tree": "244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": null,
     "storage_provenance": {
@@ -51,7 +52,7 @@
       "authoritative": true
     }
   },
-  "generated_at": "2026-08-05T17:06:20.058803+00:00",
+  "generated_at": "2026-08-05T17:25:21.641229+00:00",
   "corpus": {
     "corpus_hash": "33f426f3c1422c75f13b865e057c3ad8c71519a6b132f588229004b745ef834d",
     "total_candidates": 768,
