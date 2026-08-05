@@ -43,7 +43,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 # Bump whenever a frozen decision changes or a rerun follows code or
 # protocol changes (§29: reruns create a new study version).
-STUDY_VERSION = "1.2.0"
+STUDY_VERSION = "1.2.1"
 
 MANIFEST_SCHEMA_VERSION = "1.0"
 
