@@ -16,6 +16,14 @@ new release.  Building a new release supersedes the previous active
 one: the old bundle moves to ``results/archive/<release_id>/`` with an
 invalidation marker, so superseded studies stay auditable but can never
 be mistaken for the current release.
+
+GE-016 certification sequence (documented in doc/REPRODUCIBILITY.md):
+(1) generate scientific artifacts, (2) build the immutable scientific
+release, (3) commit the scientific release, (4) run passing gate
+evidence, (5) commit the gate evidence, (6) finalize the storage
+sidecar with the gate-evidence commit and its digest, (7) run the
+storage certification (``FINAL_STORAGE_CERTIFICATION.json``), and
+(8) never rewrite scientific artifacts or gate evidence afterwards.
 """
 
 from __future__ import annotations

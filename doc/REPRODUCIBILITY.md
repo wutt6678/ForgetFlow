@@ -268,28 +268,50 @@ generation fields to be synchronized across every manifest.
 
 ### Storage identity
 
-The sidecar is the sole authoritative storage record:
+The sidecar is the sole authoritative storage record (schema 1.2):
 
 | Field | Meaning |
 | --- | --- |
 | `artifact_storage_commit` | the commit that stored the exact bundle bytes |
-| `gate_snapshot_commit` | the commit that stored the research-valid gate result |
+| `gate_evidence_commit` | the commit that stored the certifying gate result |
+| `gate_evidence_sha256` | SHA-256 of the gate result's historical bytes |
+| `gate_snapshot_commit` | deprecated alias of `gate_evidence_commit`; when both are present they must be equal |
 | `storage_metadata_digest` | digest of the sidecar's own lineage content |
 | `scientific_release_digest` | the scientific content digest of the release |
 
+The gate-evidence digest is computed over the exact bytes of
+`results/final_artifacts/research_valid_gate.json` at the
+`gate_evidence_commit`, as read from git history
+(`git show <gate_evidence_commit>:results/final_artifacts/research_valid_gate.json`).
+
 Git ancestry is verified from history, never from timestamps:
-generation → storage → gate snapshot → review commit, and the exact
+generation → storage → gate evidence → review commit, and the exact
 bundle must exist byte-identically at `artifact_storage_commit`.  The
 bundle manifest echoes the storage identity at its top level; both copies
 must agree with the sidecar.
 
 ### Digest model
 
+Three digests bind the release together:
+
 - `scientific_release_digest` hashes study version, corpus/annotation
   hashes, and every component's SHA-256.  Storage metadata is never a
-  component, so sidecar updates can never change it.
+  component, so sidecar or certification updates can never change it.
 - `storage_metadata_digest` hashes the sidecar lineage fields (excluding
   `verified_at` bookkeeping and the digest field itself).
+- `gate_evidence_sha256` pins the historical gate result byte-for-byte:
+  the sidecar's digest must equal the SHA-256 of the gate result bytes
+  stored at the `gate_evidence_commit`.
+
+### Gate-evidence validity (GE-001..GE-017)
+
+A gate-evidence commit is valid only when the historical gate result
+itself contains the required passing research status and supporting gate
+evidence.  The certification therefore loads the gate result from git
+history and checks it semantically — file existence alone never
+certifies.  A commit whose historical gate result reports a failed
+research status or failing tests can never certify a release, even when
+it is a real ancestor of HEAD.
 
 ### Local versus CI certification
 
@@ -299,13 +321,37 @@ artifacts on the local machine; it is **not** GitHub Actions evidence.
 CI certification requires numeric `workflow_run_id` / `workflow_attempt`
 identity.  A local run is never labeled as CI evidence, and vice versa.
 
+### Certification sequence
+
+The full certification chain follows eight steps, always in order:
+
+1. Generate the scientific artifacts on a clean tree (commit-first flow).
+2. Build the immutable scientific release bundle from those artifacts.
+3. Commit the scientific release (`artifact_storage_commit`).
+4. Run the gate and obtain passing gate evidence for that release.
+5. Commit the gate evidence (`gate_evidence_commit`).
+6. Finalize the storage sidecar with the gate-evidence commit and its
+   digest, then re-audit (`storage_metadata_digest` updates;
+   `scientific_release_digest` does not).
+7. Run the storage certification, which writes
+   `FINAL_STORAGE_CERTIFICATION.json` into the bundle — a durable,
+   non-self-referential record of the full lineage.
+8. Do not rewrite the scientific artifacts or the gate evidence; any
+   change requires a new release through steps 1–7.
+
+The certification record itself is storage metadata: it is never a
+bundle component and can never alter the scientific digest or release
+identity.  A researcher can reconstruct the chain from the sidecar and
+`FINAL_STORAGE_CERTIFICATION.json` alone, without reading source code.
+
 ### Release immutability
 
 - Scientific files inside a release are immutable; changing any of them
   changes the scientific digest and therefore the release identity.
 - Storage metadata may be finalized in the sidecar after the storage
-  commit (e.g. recording `gate_snapshot_commit`) without forking the
-  release — that is exactly what the two-digest model permits.
+  commit (e.g. recording `gate_evidence_commit` and
+  `gate_evidence_sha256`) without forking the release — that is exactly
+  what the three-digest model permits.
 - Archived releases (`results/archive/`) are never modified; their
   `INVALIDATION_MARKER.json` stays intact.
 - Supersession produces a **new release ID** only when scientific
