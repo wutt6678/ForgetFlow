@@ -208,12 +208,13 @@ def test_sidecar_missing_gate_commit_fails_after_finalization(commits: dict[str,
             artifact_generation_commit=commits["head"],
         ),
     )
-    sidecar = _sidecar_record(manifest, gate_snapshot_commit="")
+    # GE-001: both the evidence commit and its deprecated alias empty.
+    sidecar = _sidecar_record(manifest, gate_evidence_commit="", gate_snapshot_commit="")
     finalized = storage_provenance_findings(sidecar, require_gate_snapshot=True)
-    assert "storage_provenance_field_empty: gate_snapshot_commit" in finalized
-    # Before finalization the pending gate snapshot commit is tolerated.
+    assert "storage_provenance_field_empty: gate_evidence_commit" in finalized
+    # Before finalization the pending gate-evidence commit is tolerated.
     pending = storage_provenance_findings(sidecar, require_gate_snapshot=False)
-    assert "storage_provenance_field_empty: gate_snapshot_commit" not in pending
+    assert "storage_provenance_field_empty: gate_evidence_commit" not in pending
 
 
 # ---------------------------------------------------------------------------

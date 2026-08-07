@@ -63,11 +63,28 @@ Generation fields (``GENERATION_PROVENANCE_FIELDS``):
 
 Storage fields (``STORAGE_PROVENANCE_FIELDS``) live in the sidecar:
 ``release_id``, ``tested_code_commit``, ``artifact_generation_commit``,
-``artifact_storage_commit``, ``gate_snapshot_commit``, ``verified_at``,
+``artifact_storage_commit``, ``gate_evidence_commit``, ``verified_at``,
 plus the ``scientific_release_digest`` / ``storage_metadata_digest``
 two-digest scheme (PR-005).  The sidecar is storage metadata: it is
 excluded from the scientific release digest, so updating it never forks
 a release.
+
+Gate evidence (GE-001..GE-008)
+-------------------------------
+``gate_evidence_commit`` is the immutable Git commit containing the
+*exact gate result that certified the release* at the declared
+research-status tier — not merely a commit that happens to contain a
+gate file.  A failed or stale gate result can never serve as gate
+evidence: ``gate_evidence_findings`` validates the historical record's
+status, test/static evidence, substantive gates, generation provenance
+and release binding.  ``gate_snapshot_commit`` remains a deprecated
+alias; schema 1.2+ sidecars must keep both fields identical.
+``gate_evidence_sha256`` is the SHA-256 of the exact bytes of
+``git show <gate_evidence_commit>:results/final_artifacts/research_valid_gate.json``
+(historical git content, never the working tree), so the sidecar is
+cryptographically bound to the certifying gate bytes.  Both fields
+participate in ``storage_metadata_digest`` but never in the scientific
+release digest.
 """
 
 from __future__ import annotations
@@ -124,11 +141,46 @@ STORAGE_PROVENANCE_FIELDS: tuple[str, ...] = (
     "tested_code_commit",
     "artifact_generation_commit",
     "artifact_storage_commit",
-    "gate_snapshot_commit",
+    "gate_evidence_commit",
     "verified_at",
 )
 STORAGE_SIDECAR_NAME = "STORAGE_PROVENANCE.json"
 STORAGE_REFERENCE_KEY = "storage_provenance"
+
+# GE-001: ``gate_snapshot_commit`` is the deprecated schema-1.1 alias of
+# ``gate_evidence_commit``; schema 1.2+ sidecars must keep them identical.
+GATE_SNAPSHOT_ALIAS_FIELD = "gate_snapshot_commit"
+GATE_EVIDENCE_COMMIT_FIELD = "gate_evidence_commit"
+# GE-002: SHA-256 over the exact historical gate bytes at the evidence
+# commit (``gate_evidence_bytes``), recorded in the sidecar.
+GATE_EVIDENCE_SHA256_FIELD = "gate_evidence_sha256"
+GATE_EVIDENCE_FILE_REL = "results/final_artifacts/research_valid_gate.json"
+
+# GE-006: substantive gates the historical gate evidence must show as
+# passed.  ``release_storage_provenance`` is deliberately excluded:
+# certifying that gate is what the evidence itself supports, and making
+# the evidence depend on a storage field only knowable after the gate
+# commit exists would be circular.
+GATE_EVIDENCE_REQUIRED_GATES: tuple[str, ...] = (
+    "repository_provenance",
+    "no_invalidated_artifacts",
+    "research_protocol",
+    "corpus_valid",
+    "annotations_valid",
+    "conditions_valid",
+    "replay_complete",
+    "metrics_recompute",
+    "leakage_analysis_valid",
+    "statistical_analysis_valid",
+    "trust_analysis",
+    "parameter_sweep_complete",
+    "frozen_threshold_manifest",
+    "reproduction_manifest",
+    "release_bundles",
+    "deterministic_reproducibility_validation",
+    "final_artifacts",
+    "failure_examples",
+)
 
 # FP-010: scientific artifacts must never embed an empty-string storage
 # commit — the field is either absent/null plus a sidecar reference, or
@@ -136,6 +188,7 @@ STORAGE_REFERENCE_KEY = "storage_provenance"
 STORAGE_COMMIT_FIELDS: tuple[str, ...] = (
     "artifact_storage_commit",
     "gate_snapshot_commit",
+    "gate_evidence_commit",
 )
 
 # Source paths hashed into the generation tree: everything that can change
@@ -168,7 +221,7 @@ STORAGE_SYNC_FIELDS: tuple[str, ...] = (
     "tested_code_commit",
     "artifact_generation_commit",
     "artifact_storage_commit",
-    "gate_snapshot_commit",
+    "gate_evidence_commit",
     "scientific_release_digest",
     "storage_metadata_digest",
 )
@@ -359,6 +412,285 @@ def commit_is_ancestor(ancestor: str, descendant: str) -> bool:
     return result.returncode == 0
 
 
+# ---------------------------------------------------------------------------
+# GE-002..GE-008: historical gate evidence
+# ---------------------------------------------------------------------------
+
+
+class GateEvidenceError(ValueError):
+    """GE-003: historical gate evidence could not be loaded.
+
+    ``code`` is one of ``gate_evidence_commit_invalid``,
+    ``gate_evidence_file_missing``, ``gate_evidence_file_empty`` or
+    ``gate_evidence_json_invalid``.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def _resolve_gate_evidence_commit(commit: str) -> str:
+    """Full SHA of ``commit``; raises ``gate_evidence_commit_invalid``."""
+    value = str(commit or "").strip()
+    if not value or not COMMIT_RE.match(value):
+        raise GateEvidenceError(
+            "gate_evidence_commit_invalid", f"unresolvable gate-evidence commit: {commit!r}"
+        )
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{value}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+        )
+    except Exception as exc:
+        raise GateEvidenceError(
+            "gate_evidence_commit_invalid", f"git failed to resolve {value!r}: {exc}"
+        ) from exc
+    if result.returncode != 0 or not result.stdout.strip():
+        raise GateEvidenceError(
+            "gate_evidence_commit_invalid", f"git cannot resolve gate-evidence commit {value!r}"
+        )
+    return result.stdout.strip()
+
+
+def gate_evidence_bytes(commit: str) -> bytes:
+    """GE-002: exact historical gate bytes at ``commit``.
+
+    Reads ``git show <commit>:results/final_artifacts/research_valid_gate.json``
+    — never the current working-tree copy — so the digest identifies the
+    gate result exactly as it was committed.
+    """
+    resolved = _resolve_gate_evidence_commit(commit)
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{resolved}:{GATE_EVIDENCE_FILE_REL}"],
+            capture_output=True,
+            cwd=_PROJECT_ROOT,
+        )
+    except Exception as exc:
+        raise GateEvidenceError(
+            "gate_evidence_file_missing", f"git show failed for {resolved}: {exc}"
+        ) from exc
+    if result.returncode != 0:
+        raise GateEvidenceError(
+            "gate_evidence_file_missing",
+            f"{GATE_EVIDENCE_FILE_REL} does not exist at gate-evidence commit {resolved}",
+        )
+    if not result.stdout:
+        raise GateEvidenceError(
+            "gate_evidence_file_empty",
+            f"{GATE_EVIDENCE_FILE_REL} is empty at gate-evidence commit {resolved}",
+        )
+    return result.stdout
+
+
+def gate_evidence_sha256(commit: str) -> str:
+    """GE-002: SHA-256 of the exact historical gate bytes at ``commit``."""
+    return hashlib.sha256(gate_evidence_bytes(commit)).hexdigest()
+
+
+def load_gate_evidence_at_commit(commit: str) -> dict[str, Any]:
+    """GE-003: load and parse the historical gate result at ``commit``.
+
+    Returns ``{"commit": <full sha>, "record": <parsed gate>, "raw":
+    <exact bytes>, "sha256": <hex digest>}``.  Raises
+    ``GateEvidenceError`` with one of the GE-003 failure codes when the
+    commit is unresolvable, the file is missing or empty, or the bytes
+    are not a JSON object.  Validation always uses historical git
+    content, never the current file.
+    """
+    resolved = _resolve_gate_evidence_commit(commit)
+    raw = gate_evidence_bytes(resolved)
+    try:
+        record = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GateEvidenceError(
+            "gate_evidence_json_invalid",
+            f"gate result at {resolved} is not valid JSON: {exc}",
+        ) from exc
+    if not isinstance(record, dict):
+        raise GateEvidenceError(
+            "gate_evidence_json_invalid",
+            f"gate result at {resolved} is not a JSON object",
+        )
+    return {
+        "commit": resolved,
+        "record": record,
+        "raw": raw,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def gate_evidence_findings(
+    historical_gate: dict[str, Any],
+    *,
+    sidecar: dict[str, Any],
+    bundle_manifest: dict[str, Any],
+    study_class: str,
+    required_status: str | None = None,
+) -> list[str]:
+    """GE-004..GE-008: findings when gate evidence does not certify.
+
+    ``historical_gate`` is the parsed gate record loaded from the
+    evidence commit; ``sidecar`` is the release's authoritative storage
+    record and ``bundle_manifest`` the release bundle manifest.  An
+    empty list means the historical gate genuinely certifies the release
+    at ``required_status`` (default: ``synthetic_benchmark_valid``).
+
+    - GE-004: the study class must match and the research status must
+      meet the required tier (``research_status_at_least``); the verdict
+      must equal the recorded status; the ``synthetic_benchmark_valid``
+      and ``research_valid`` flags must be consistent with it.  A tier
+      above the study-class ceiling (e.g. empirical status for a
+      diagnostic study) never satisfies the minimum.
+    - GE-005: the historical ``tests_pass`` and ``static_checks`` gates
+      must be present and passed — ``not_run`` never passes.
+    - GE-006: every ``GATE_EVIDENCE_REQUIRED_GATES`` entry must have
+      passed in the historical gate.
+    - GE-007: generation provenance must match the release exactly
+      (tested/generation commits, generation tree, protocol/study
+      versions, environment lock, study class).
+    - GE-008: when the historical gate records ``release_id`` /
+      ``scientific_release_digest`` they must match the sidecar; older
+      gate schemas bind indirectly through the GE-007 comparisons.
+    """
+    from experiments.trustparadox_u.status import (
+        EMPIRICAL_REPLAY_VALID,
+        STUDY_CLASS_DIAGNOSTIC,
+        SYNTHETIC_BENCHMARK_VALID,
+        research_status_at_least,
+    )
+
+    minimum = required_status if required_status is not None else SYNTHETIC_BENCHMARK_VALID
+    findings: list[str] = []
+
+    # GE-004 / GE-007: study class.
+    evidence_class = str(historical_gate.get("study_class", "") or "")
+    if evidence_class != study_class:
+        findings.append(
+            f"gate_evidence_study_class_mismatch: evidence={evidence_class!r} "
+            f"release={study_class!r}"
+        )
+
+    # GE-004: research status, verdict and boolean flags.
+    status = str(historical_gate.get("research_status", "") or "")
+    verdict = str(historical_gate.get("verdict", "") or "")
+    if not research_status_at_least(status, minimum):
+        findings.append(
+            f"gate_evidence_status_insufficient: research_status={status!r} "
+            f"required={minimum!r}"
+        )
+    elif research_status_at_least(status, EMPIRICAL_REPLAY_VALID) and research_status_at_least(
+        SYNTHETIC_BENCHMARK_VALID, minimum
+    ):
+        # A higher tier satisfies the minimum only when compatible with
+        # the declared study class; diagnostic studies are capped at
+        # synthetic_benchmark_valid, so an empirical tier there is stale
+        # or forged evidence, never a stronger certification.
+        if study_class == STUDY_CLASS_DIAGNOSTIC:
+            findings.append(
+                f"gate_evidence_status_insufficient: research_status={status!r} "
+                f"incompatible with study_class={study_class!r}"
+            )
+    if verdict != status:
+        findings.append(f"gate_evidence_verdict_mismatch: verdict={verdict!r} status={status!r}")
+    synthetic_expected = research_status_at_least(status, SYNTHETIC_BENCHMARK_VALID)
+    if bool(historical_gate.get("synthetic_benchmark_valid")) != synthetic_expected:
+        findings.append(
+            f"gate_evidence_status_insufficient: synthetic_benchmark_valid="
+            f"{historical_gate.get('synthetic_benchmark_valid')!r} inconsistent with "
+            f"research_status={status!r}"
+        )
+    research_expected = research_status_at_least(status, EMPIRICAL_REPLAY_VALID)
+    if bool(historical_gate.get("research_valid")) != research_expected:
+        findings.append(
+            f"gate_evidence_status_insufficient: research_valid="
+            f"{historical_gate.get('research_valid')!r} inconsistent with "
+            f"research_status={status!r}"
+        )
+
+    # GE-005: passing test and static-analysis evidence.
+    gates = historical_gate.get("gates")
+    gates = gates if isinstance(gates, dict) else {}
+    for name, missing_code, failed_code in (
+        ("tests_pass", "gate_evidence_test_gate_missing", "gate_evidence_tests_not_passed"),
+        (
+            "static_checks",
+            "gate_evidence_static_gate_missing",
+            "gate_evidence_static_checks_not_passed",
+        ),
+    ):
+        entry = gates.get(name)
+        if not isinstance(entry, dict):
+            findings.append(missing_code)
+            continue
+        if entry.get("not_run"):
+            findings.append(f"{failed_code}: {name}=not_run")
+        elif entry.get("passed") is not True:
+            findings.append(f"{failed_code}: {name}={entry.get('passed')!r}")
+
+    # GE-006: required substantive gates (release_storage_provenance
+    # excluded — the evidence is what certifies it, never the reverse).
+    for name in GATE_EVIDENCE_REQUIRED_GATES:
+        entry = gates.get(name)
+        if not isinstance(entry, dict) or entry.get("passed") is not True:
+            findings.append(f"gate_evidence_substantive_gate_failed:{name}")
+
+    # GE-007: generation provenance must match the release exactly.
+    for gate_field, sidecar_field, code in (
+        (
+            "tested_code_commit",
+            "tested_code_commit",
+            "gate_evidence_tested_commit_mismatch",
+        ),
+        (
+            "artifact_generation_commit",
+            "artifact_generation_commit",
+            "gate_evidence_generation_commit_mismatch",
+        ),
+    ):
+        evidence_value = str(historical_gate.get(gate_field, "") or "")
+        release_value = str(sidecar.get(sidecar_field, "") or "")
+        if evidence_value != release_value or not evidence_value:
+            findings.append(f"{code}: evidence={evidence_value!r} release={release_value!r}")
+    evidence_prov = historical_gate.get("provenance")
+    evidence_prov = evidence_prov if isinstance(evidence_prov, dict) else {}
+    manifest_prov = bundle_manifest.get("provenance")
+    manifest_prov = manifest_prov if isinstance(manifest_prov, dict) else {}
+    for field, code in (
+        ("artifact_generation_tree", "gate_evidence_generation_tree_mismatch"),
+        ("protocol_version", "gate_evidence_protocol_version_mismatch"),
+        ("study_version", "gate_evidence_study_version_mismatch"),
+        ("environment_lock_hash", "gate_evidence_environment_lock_mismatch"),
+    ):
+        evidence_value = str(evidence_prov.get(field, "") or "")
+        release_value = str(manifest_prov.get(field, "") or "")
+        if evidence_value != release_value or not evidence_value:
+            findings.append(
+                f"{code}: {field} evidence={evidence_value!r} release={release_value!r}"
+            )
+
+    # GE-008: direct release binding when the gate schema records it.
+    if "release_id" in historical_gate and str(historical_gate.get("release_id", "") or "") != str(
+        sidecar.get("release_id", "") or ""
+    ):
+        findings.append(
+            f"gate_evidence_release_id_mismatch: evidence="
+            f"{historical_gate.get('release_id')!r} release={sidecar.get('release_id')!r}"
+        )
+    if "scientific_release_digest" in historical_gate and str(
+        historical_gate.get("scientific_release_digest", "") or ""
+    ) != str(sidecar.get("scientific_release_digest", "") or ""):
+        findings.append(
+            "gate_evidence_scientific_digest_mismatch: evidence="
+            f"{historical_gate.get('scientific_release_digest')!r} "
+            f"release={sidecar.get('scientific_release_digest')!r}"
+        )
+    return findings
+
+
 def storage_provenance_reference() -> dict[str, Any]:
     """FP-001: the canonical sidecar pointer carried by generation records.
 
@@ -449,36 +781,87 @@ def generation_provenance_findings(record: dict[str, Any]) -> list[str]:
     return findings
 
 
+def gate_evidence_commit_of(record: dict[str, Any]) -> str:
+    """GE-001: the effective gate-evidence commit of a sidecar record.
+
+    ``gate_evidence_commit`` is primary; schema-1.1 sidecars that only
+    carry the deprecated ``gate_snapshot_commit`` alias resolve to it.
+    Returns the empty string when neither field is populated.
+    """
+    commit = str(record.get(GATE_EVIDENCE_COMMIT_FIELD, "") or "").strip()
+    if not commit:
+        commit = str(record.get(GATE_SNAPSHOT_ALIAS_FIELD, "") or "").strip()
+    return commit
+
+
 def storage_provenance_findings(
     record: dict[str, Any],
     *,
     require_gate_snapshot: bool = True,
+    require_gate_evidence: bool = False,
 ) -> list[str]:
-    """FP-002: findings for an incomplete storage provenance sidecar.
+    """FP-002 / GE-001: findings for an incomplete storage provenance sidecar.
 
     Every ``STORAGE_PROVENANCE_FIELDS`` entry must be present and a
-    non-empty string — no empty strings anywhere.  The gate snapshot
+    non-empty string — no empty strings anywhere.  The gate-evidence
     commit may be pending (``null``/empty) only before the sidecar is
-    finalized, which callers opt into with ``require_gate_snapshot=False``.
-    The two digest fields are recommended; when present they must be
-    non-empty.
+    finalized, which callers opt into with ``require_gate_snapshot=False``
+    (the name is historical: it covers both the evidence commit and its
+    deprecated alias).  ``require_gate_evidence=True`` additionally
+    requires the GE-002 ``gate_evidence_sha256`` digest.  The two digest
+    fields are recommended; when present they must be non-empty.
+
+    GE-001 schema 1.2+ compatibility: when the deprecated
+    ``gate_snapshot_commit`` alias coexists with ``gate_evidence_commit``
+    the two must name the same commit, and a ``schema_version`` — when
+    recorded — must be a non-empty string.
     """
     findings: list[str] = []
+    pending_fields = {GATE_EVIDENCE_COMMIT_FIELD, GATE_SNAPSHOT_ALIAS_FIELD}
     for field in STORAGE_PROVENANCE_FIELDS:
         if field not in record:
+            if (
+                field == GATE_EVIDENCE_COMMIT_FIELD
+                and str(record.get(GATE_SNAPSHOT_ALIAS_FIELD, "") or "").strip()
+            ):
+                # GE-001 compatibility: a schema-1.1 sidecar that records
+                # only the deprecated alias is complete; schema 1.2+
+                # sidecars must carry the primary field itself.
+                continue
             findings.append(f"storage_provenance_field_missing: {field}")
             continue
         value = record[field]
-        if field == "gate_snapshot_commit" and not require_gate_snapshot:
+        if field in pending_fields and not require_gate_snapshot:
             if value is not None and str(value).strip() != "" and not COMMIT_RE.match(str(value)):
                 findings.append(f"storage_provenance_field_invalid: {field}")
             continue
         if value is None or str(value).strip() == "":
+            if (
+                field == GATE_EVIDENCE_COMMIT_FIELD
+                and str(record.get(GATE_SNAPSHOT_ALIAS_FIELD, "") or "").strip()
+            ):
+                continue  # the alias still identifies the evidence
             findings.append(f"storage_provenance_field_empty: {field}")
+    digest = record.get(GATE_EVIDENCE_SHA256_FIELD)
+    if require_gate_evidence:
+        if digest is None or str(digest).strip() == "":
+            findings.append(f"storage_provenance_field_empty: {GATE_EVIDENCE_SHA256_FIELD}")
+    elif digest is not None and str(digest).strip() == "":
+        findings.append(f"storage_provenance_field_empty: {GATE_EVIDENCE_SHA256_FIELD}")
     for field in ("scientific_release_digest", "storage_metadata_digest"):
         value = record.get(field)
         if value is not None and str(value).strip() == "":
             findings.append(f"storage_provenance_field_empty: {field}")
+    schema_version = record.get("schema_version")
+    if schema_version is not None and str(schema_version).strip() == "":
+        findings.append("storage_provenance_field_empty: schema_version")
+    snapshot = str(record.get(GATE_SNAPSHOT_ALIAS_FIELD, "") or "").strip()
+    evidence = str(record.get(GATE_EVIDENCE_COMMIT_FIELD, "") or "").strip()
+    if snapshot and evidence and snapshot != evidence:
+        findings.append(
+            f"gate_snapshot_alias_mismatch: {GATE_SNAPSHOT_ALIAS_FIELD}={snapshot!r} "
+            f"!= {GATE_EVIDENCE_COMMIT_FIELD}={evidence!r}"
+        )
     return findings
 
 
