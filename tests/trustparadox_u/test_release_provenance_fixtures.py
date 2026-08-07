@@ -18,10 +18,15 @@ from typing import Any
 
 import pytest
 
-from experiments.trustparadox_u import release_bundle, research_valid_gate
+from experiments.trustparadox_u import artifact_provenance, release_bundle, research_valid_gate
 from experiments.trustparadox_u.artifact_provenance import (
+    GATE_EVIDENCE_REQUIRED_GATES,
     STORAGE_REFERENCE_KEY,
+    GateEvidenceError,
+    gate_evidence_findings,
+    gate_evidence_sha256,
     generation_provenance_findings,
+    load_gate_evidence_at_commit,
     storage_provenance_findings,
     validate_release_lineage,
     validate_storage_reference,
@@ -41,6 +46,12 @@ from experiments.trustparadox_u.reproduce import (
     _check_version_agreement,
 )
 from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION
+from experiments.trustparadox_u.status import (
+    EMPIRICAL_REPLAY_VALID,
+    STUDY_CLASS_DIAGNOSTIC,
+    STUDY_CLASS_EMPIRICAL_REPLAY,
+    SYNTHETIC_BENCHMARK_VALID,
+)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -407,3 +418,293 @@ def test_no_active_release_fails(fixture_releases: Path) -> None:
     result = research_valid_gate.check_release_storage_provenance()
     assert not result["passed"]
     assert any("no_active_release" in str(f) for f in result["findings"])
+
+
+# ---------------------------------------------------------------------------
+# Gate-evidence certification fixtures (GE-012)
+# ---------------------------------------------------------------------------
+
+# Real historical gate-evidence commits: the passing certification and the
+# failed gate that the pre-GE sidecar wrongly referenced.
+_PASSING_EVIDENCE_COMMIT = "9acdd652a2204572e829662f1712546b25184731"
+_FAILED_EVIDENCE_COMMIT = "77d53d2edee0a4743650c9311a3b99c8eec0c5dc"
+
+
+def _passing_evidence_gate(**overrides: Any) -> dict[str, Any]:
+    """A self-consistent passing historical gate record (fixture)."""
+    gates: dict[str, Any] = {name: {"passed": True} for name in GATE_EVIDENCE_REQUIRED_GATES}
+    gates["tests_pass"] = {"passed": True}
+    gates["static_checks"] = {"passed": True}
+    record: dict[str, Any] = {
+        "study_class": STUDY_CLASS_DIAGNOSTIC,
+        "verdict": SYNTHETIC_BENCHMARK_VALID,
+        "research_status": SYNTHETIC_BENCHMARK_VALID,
+        "synthetic_benchmark_valid": True,
+        "research_valid": False,
+        "tested_code_commit": "a" * 40,
+        "artifact_generation_commit": "a" * 40,
+        "provenance": {
+            "artifact_generation_tree": "t" * 64,
+            "protocol_version": PROTOCOL_VERSION,
+            "study_version": STUDY_VERSION,
+            "environment_lock_hash": "e" * 64,
+            "workflow_run_id": "local",
+            "workflow_attempt": "local",
+            "certification_source": "local",
+        },
+        "gates": gates,
+    }
+    record.update(overrides)
+    return record
+
+
+def _evidence_context() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Bundle manifest + sidecar whose lineage matches the default gate."""
+    manifest = _fixture_manifest(
+        "fixture-release-000000000000",
+        _generation_record(tested_code_commit="a" * 40, artifact_generation_commit="a" * 40),
+    )
+    return manifest, _sidecar_record(manifest)
+
+
+def _evidence_findings(gate: dict[str, Any]) -> list[str]:
+    manifest, sidecar = _evidence_context()
+    return gate_evidence_findings(
+        gate,
+        sidecar=sidecar,
+        bundle_manifest=manifest,
+        study_class=STUDY_CLASS_DIAGNOSTIC,
+    )
+
+
+# --- valid evidence fixtures ------------------------------------------------
+
+
+def test_valid_evidence_passing_synthetic_gate() -> None:
+    assert _evidence_findings(_passing_evidence_gate()) == []
+
+
+def test_valid_evidence_local_certification() -> None:
+    gate = _passing_evidence_gate()
+    assert gate["provenance"]["certification_source"] == "local"
+    assert _evidence_findings(gate) == []
+
+
+def test_valid_evidence_ci_certification() -> None:
+    gate = _passing_evidence_gate()
+    gate["provenance"].update(
+        {"workflow_run_id": "12345", "workflow_attempt": "2", "certification_source": "ci"}
+    )
+    assert _evidence_findings(gate) == []
+
+
+def test_valid_higher_tier_satisfies_lower_minimum() -> None:
+    # A higher tier satisfies a lower minimum when the study class permits.
+    gate = _passing_evidence_gate(
+        study_class=STUDY_CLASS_EMPIRICAL_REPLAY,
+        verdict=EMPIRICAL_REPLAY_VALID,
+        research_status=EMPIRICAL_REPLAY_VALID,
+        research_valid=True,
+    )
+    manifest, sidecar = _evidence_context()
+    assert (
+        gate_evidence_findings(
+            gate,
+            sidecar=sidecar,
+            bundle_manifest=manifest,
+            study_class=STUDY_CLASS_EMPIRICAL_REPLAY,
+            required_status=SYNTHETIC_BENCHMARK_VALID,
+        )
+        == []
+    )
+    # Diagnostic studies are capped at synthetic: an empirical tier there
+    # is stale or forged evidence, never a stronger certification.
+    forged = _passing_evidence_gate(
+        verdict=EMPIRICAL_REPLAY_VALID,
+        research_status=EMPIRICAL_REPLAY_VALID,
+        research_valid=True,
+    )
+    assert any(
+        f.startswith("gate_evidence_status_insufficient") for f in _evidence_findings(forged)
+    )
+
+
+# --- invalid evidence fixtures: certification semantics ---------------------
+
+
+def test_invalid_evidence_research_status_diagnostic() -> None:
+    gate = _passing_evidence_gate(
+        verdict="diagnostic", research_status="diagnostic", synthetic_benchmark_valid=False
+    )
+    assert any(f.startswith("gate_evidence_status_insufficient") for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_synthetic_flag_false() -> None:
+    gate = _passing_evidence_gate(synthetic_benchmark_valid=False)
+    assert any(f.startswith("gate_evidence_status_insufficient") for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_tests_failed() -> None:
+    gate = _passing_evidence_gate()
+    gate["gates"]["tests_pass"] = {"passed": False}
+    assert any("gate_evidence_tests_not_passed" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_tests_not_run() -> None:
+    gate = _passing_evidence_gate()
+    gate["gates"]["tests_pass"] = {"not_run": True}
+    assert any(
+        "gate_evidence_tests_not_passed: tests_pass=not_run" in f for f in _evidence_findings(gate)
+    )
+
+
+def test_invalid_evidence_static_checks_failed() -> None:
+    gate = _passing_evidence_gate()
+    gate["gates"]["static_checks"] = {"passed": False}
+    assert any("gate_evidence_static_checks_not_passed" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_substantive_gate_failed() -> None:
+    gate = _passing_evidence_gate()
+    gate["gates"]["corpus_valid"] = {"passed": False}
+    assert "gate_evidence_substantive_gate_failed:corpus_valid" in _evidence_findings(gate)
+
+
+def test_invalid_evidence_tested_commit_mismatch() -> None:
+    gate = _passing_evidence_gate(tested_code_commit="b" * 40)
+    assert any("gate_evidence_tested_commit_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_generation_commit_mismatch() -> None:
+    gate = _passing_evidence_gate(artifact_generation_commit="b" * 40)
+    assert any("gate_evidence_generation_commit_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_generation_tree_mismatch() -> None:
+    gate = _passing_evidence_gate()
+    gate["provenance"]["artifact_generation_tree"] = "u" * 64
+    assert any("gate_evidence_generation_tree_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_protocol_mismatch() -> None:
+    gate = _passing_evidence_gate()
+    gate["provenance"]["protocol_version"] = "0.0.1"
+    assert any("gate_evidence_protocol_version_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_study_version_mismatch() -> None:
+    gate = _passing_evidence_gate()
+    gate["provenance"]["study_version"] = "9.9.9"
+    assert any("gate_evidence_study_version_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_environment_lock_mismatch() -> None:
+    gate = _passing_evidence_gate()
+    gate["provenance"]["environment_lock_hash"] = "f" * 64
+    assert any("gate_evidence_environment_lock_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_from_another_release() -> None:
+    gate = _passing_evidence_gate(release_id="some-other-release")
+    assert any("gate_evidence_release_id_mismatch" in f for f in _evidence_findings(gate))
+
+
+def test_invalid_evidence_scientific_digest_mismatch() -> None:
+    gate = _passing_evidence_gate(scientific_release_digest="d" * 64)
+    assert any("gate_evidence_scientific_digest_mismatch" in f for f in _evidence_findings(gate))
+
+
+# --- invalid evidence fixtures: git-level failure modes ---------------------
+
+
+@pytest.fixture(scope="module")
+def detached_commit() -> str:
+    """GE-012: a real commit that is NOT an ancestor of HEAD.
+
+    ``commit-tree`` reuses HEAD's tree (so the gate file exists there with
+    identical bytes) under a new parentless commit, which is reachable by
+    sha but never an ancestor of the review commit.
+    """
+    return _git("commit-tree", "HEAD^{tree}", "-m", "GE-012 fixture: detached gate-evidence commit")
+
+
+def test_invalid_evidence_missing_gate_file(commits: dict[str, str]) -> None:
+    # The root commit predates the gate result file entirely.
+    with pytest.raises(GateEvidenceError) as excinfo:
+        load_gate_evidence_at_commit(commits["root"])
+    assert excinfo.value.code == "gate_evidence_file_missing"
+
+
+def test_invalid_evidence_malformed_json(
+    commits: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(artifact_provenance, "gate_evidence_bytes", lambda commit: b"{oops")
+    with pytest.raises(GateEvidenceError) as excinfo:
+        load_gate_evidence_at_commit(commits["head"])
+    assert excinfo.value.code == "gate_evidence_json_invalid"
+    # Valid JSON that is not an object never certifies either.
+    monkeypatch.setattr(artifact_provenance, "gate_evidence_bytes", lambda commit: b"[1, 2]")
+    with pytest.raises(GateEvidenceError) as excinfo:
+        load_gate_evidence_at_commit(commits["head"])
+    assert excinfo.value.code == "gate_evidence_json_invalid"
+
+
+def test_invalid_evidence_wrong_digest(fixture_releases: Path, commits: dict[str, str]) -> None:
+    _write_fixture_release(
+        fixture_releases,
+        commits,
+        snapshot=_PASSING_EVIDENCE_COMMIT,
+        sidecar_overrides={"gate_evidence_sha256": "f" * 64},
+    )
+    result = research_valid_gate.check_release_storage_provenance()
+    assert not result["passed"]
+    assert any("gate_evidence_digest_mismatch" in str(f) for f in result["findings"])
+
+
+def test_invalid_evidence_failed_historical_gate_rejected(
+    fixture_releases: Path, commits: dict[str, str]
+) -> None:
+    # 77d53d2 is a real FAILED gate: referencing it must never certify.
+    _write_fixture_release(
+        fixture_releases,
+        commits,
+        snapshot=_FAILED_EVIDENCE_COMMIT,
+        sidecar_overrides={"gate_evidence_sha256": gate_evidence_sha256(_FAILED_EVIDENCE_COMMIT)},
+    )
+    result = research_valid_gate.check_release_storage_provenance()
+    assert not result["passed"]
+    assert any("gate_evidence_status_insufficient" in str(f) for f in result["findings"])
+    assert any("gate_evidence_tests_not_passed" in str(f) for f in result["findings"])
+
+
+def test_invalid_evidence_not_ancestor_of_current(
+    fixture_releases: Path, commits: dict[str, str], detached_commit: str
+) -> None:
+    _write_fixture_release(
+        fixture_releases,
+        commits,
+        generation=commits["older"],
+        storage=commits["older"],
+        snapshot=detached_commit,
+        sidecar_overrides={"gate_evidence_sha256": gate_evidence_sha256(detached_commit)},
+    )
+    result = research_valid_gate.check_release_storage_provenance()
+    assert not result["passed"]
+    assert any("gate_snapshot_not_ancestor_of_review_commit" in str(f) for f in result["findings"])
+
+
+def test_invalid_sidecar_missing_gate_evidence_digest(commits: dict[str, str]) -> None:
+    manifest = _fixture_manifest(
+        "rel",
+        _generation_record(
+            tested_code_commit=commits["head"], artifact_generation_commit=commits["head"]
+        ),
+    )
+    sidecar = _sidecar_record(manifest)
+    assert "storage_provenance_field_empty: gate_evidence_sha256" in storage_provenance_findings(
+        sidecar, require_gate_evidence=True
+    )
+    assert (
+        "storage_provenance_field_empty: gate_evidence_sha256"
+        not in storage_provenance_findings(sidecar, require_gate_evidence=False)
+    )

@@ -22,8 +22,12 @@ import pytest
 
 from experiments.trustparadox_u.artifact_provenance import (
     COMMIT_RE,
+    GATE_EVIDENCE_REQUIRED_GATES,
     commit_is_ancestor,
+    gate_evidence_commit_of,
+    gate_evidence_findings,
     generation_provenance_findings,
+    load_gate_evidence_at_commit,
     storage_provenance_findings,
     validate_release_provenance_consistency,
     validate_storage_record_consistency,
@@ -43,21 +47,16 @@ from experiments.trustparadox_u.research_valid_gate import (
     FINAL_DIR,
     REPLAY_DIR,
     RESULTS_DIR,
+    _study_class_from_artifacts,
 )
 
 # FP-011 acceptance: the FP-014 provenance-only regeneration has landed;
 # the live release now follows the FP-001..FP-010 model end-to-end.
 
-_GATE_RESULT_REL = str((FINAL_DIR / "research_valid_gate.json").relative_to(_PROJECT_ROOT))
-
 
 def _load_json(path: Path) -> dict[str, Any]:
     data: dict[str, Any] = json.loads(path.read_text())
     return data
-
-
-def _git_returncode(*args: str) -> int:
-    return subprocess.run(["git", *args], capture_output=True, cwd=_PROJECT_ROOT).returncode
 
 
 @pytest.fixture(scope="module")
@@ -146,15 +145,58 @@ def test_storage_consistency_manifest_sidecar(
     assert str(manifest.get("artifact_storage_commit") or "") == storage
 
 
-def test_gate_snapshot_commit_contains_gate_file(
+def test_gate_evidence_certifies_release(
     active_release: tuple[Path, dict[str, Any], dict[str, Any]],
 ) -> None:
-    _, _, sidecar = active_release
-    snapshot = str(sidecar.get("gate_snapshot_commit", "") or "")
-    assert snapshot and COMMIT_RE.match(snapshot)
+    """GE-011: the referenced historical gate must actually certify the release.
+
+    Existence of the gate file at the referenced commit is never enough:
+    the exact historical bytes must match the sidecar's GE-002 digest,
+    and the recorded gate must have passed with a sufficient research
+    tier, passing test/static evidence, every required substantive gate,
+    and the exact generation lineage of this release.  The test fails on
+    a failed historical gate reference and passes only when the
+    referenced gate genuinely certifies the release.
+    """
+    _, manifest, sidecar = active_release
+    evidence = gate_evidence_commit_of(sidecar)
+    assert evidence and COMMIT_RE.match(evidence)
+    loaded = load_gate_evidence_at_commit(evidence)
+    gate = loaded["record"]
+
+    # GE-002: the sidecar digest binds the exact historical bytes.
+    assert str(sidecar.get("gate_evidence_sha256", "") or "") == loaded["sha256"]
+
+    # GE-004/GE-005: certification semantics.
+    assert gate["synthetic_benchmark_valid"] is True
+    assert gate["research_valid"] is False
+    assert gate["research_status"] == "synthetic_benchmark_valid"
+    assert gate["gates"]["tests_pass"]["passed"] is True
+    assert gate["gates"]["static_checks"]["passed"] is True
+
+    # GE-006: every required substantive gate passed in the evidence.
+    for name in GATE_EVIDENCE_REQUIRED_GATES:
+        entry = gate["gates"].get(name)
+        assert isinstance(entry, dict) and entry.get("passed") is True, f"evidence gate {name}"
+
+    # GE-007: release identity — the evidence certifies THIS release.
+    assert gate["tested_code_commit"] == sidecar["tested_code_commit"]
+    assert gate["artifact_generation_commit"] == sidecar["artifact_generation_commit"]
     assert (
-        _git_returncode("show", f"{snapshot}:{_GATE_RESULT_REL}") == 0
-    ), f"gate result file missing at gate_snapshot_commit {snapshot}"
+        gate_evidence_findings(
+            gate,
+            sidecar=sidecar,
+            bundle_manifest=manifest,
+            study_class=_study_class_from_artifacts(),
+        )
+        == []
+    )
+
+    # Ancestry: generation -> storage -> gate evidence -> review commit.
+    current = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=_PROJECT_ROOT
+    ).stdout.strip()
+    assert commit_is_ancestor(evidence, current)
 
 
 def test_ancestry_generation_storage_gate_snapshot(
