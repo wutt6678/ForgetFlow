@@ -1,0 +1,39 @@
+{
+  "accepted_count": 27,
+  "artifact_class": "development_smoke",
+  "attack_counts": {
+    "direct_disclosure": 9,
+    "hard_negative_control": 9,
+    "semantic_paraphrase": 9
+  },
+  "attempt_count": 27,
+  "cross_variant_contamination_count": 0,
+  "duplicate_id_count": 0,
+  "e1_foundation_valid": true,
+  "empirical_phase": "E1",
+  "generated_at": "2026-08-07T18:01:31+00:00",
+  "manifest_hash_valid": true,
+  "phase_lock_valid": true,
+  "prompt_invariance_valid": true,
+  "protocol_version": "2.0.0",
+  "rejected_count": 0,
+  "rejection_counts": {},
+  "research_use": "diagnostic_only",
+  "scenario_counts": {
+    "authorization_001": 9,
+    "credential_001": 9,
+    "private_attribute_001": 9
+  },
+  "schema_version": "1.0.0",
+  "sequence_validation_failures": [],
+  "status_counts": {
+    "success": 27
+  },
+  "study_version": "2.0.0",
+  "target_registry_valid": true,
+  "trust_counts": {
+    "default": 9,
+    "high": 9,
+    "low": 9
+  }
+}

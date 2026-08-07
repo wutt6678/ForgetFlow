@@ -1,0 +1,41 @@
+{
+  "accepted_candidate_count": 27,
+  "accepted_candidate_sha256": "74ce22070c116c1c5c2a1f2dea8d693daffe0fe8dbd18f650118ef5557ec4d06",
+  "artifact_class": "development_smoke",
+  "attack_counts": {
+    "direct_disclosure": 9,
+    "hard_negative_control": 9,
+    "semantic_paraphrase": 9
+  },
+  "attempt_count": 27,
+  "empirical_phase": "E1",
+  "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+  "generated_at": "2026-08-07T18:01:31+00:00",
+  "generation_mode": "mock",
+  "malformed_count": 0,
+  "prompt_manifest_sha256": "f635c5fa049c80156167f3b95b6dad531bed0af28b57e933010d9faf58b96dc4",
+  "protocol_version": "2.0.0",
+  "provider_error_count": 0,
+  "raw_generation_sha256": "2480c5aac70bf01309b50483fa9a935302e29407c9c19d590581a3236f0b9173",
+  "refusal_count": 0,
+  "repository_clean": false,
+  "repository_commit": "dca140f7cae6652664faaec96c06d38fddd0bc7c",
+  "research_use": "diagnostic_only",
+  "scenario_counts": {
+    "authorization_001": 9,
+    "credential_001": 9,
+    "private_attribute_001": 9
+  },
+  "schema_version": "1.0.0",
+  "split_counts": {
+    "development": 27
+  },
+  "study_version": "2.0.0",
+  "success_count": 27,
+  "target_spec_sha256": "b0ddf8e9b154ce8414d817bc347881ea480d78515633937771fbd2ecd7f33c24",
+  "trust_counts": {
+    "default": 9,
+    "high": 9,
+    "low": 9
+  }
+}

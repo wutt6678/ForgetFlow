@@ -1,0 +1,21 @@
+{
+  "iteration": "E0_E1",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "repository_commit": "dca140f7cae6652664faaec96c06d38fddd0bc7c",
+  "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+  "empirical_phase": "E1",
+  "protocol_hash": "bf95fa35fd93f0bbd41dee1308d405e4589bb6cdb65845a984f743651326d5ed",
+  "target_spec_hash": "b0ddf8e9b154ce8414d817bc347881ea480d78515633937771fbd2ecd7f33c24",
+  "prompt_manifest_hash": "f635c5fa049c80156167f3b95b6dad531bed0af28b57e933010d9faf58b96dc4",
+  "raw_generation_hash": "2480c5aac70bf01309b50483fa9a935302e29407c9c19d590581a3236f0b9173",
+  "accepted_candidate_hash": "74ce22070c116c1c5c2a1f2dea8d693daffe0fe8dbd18f650118ef5557ec4d06",
+  "tests_passed": true,
+  "static_checks_passed": true,
+  "generation_mode": "mock",
+  "research_use": "diagnostic_only",
+  "artifact_class": "development_smoke",
+  "e1_foundation_valid": true,
+  "output_dir": "results/empirical_v2/development_smoke",
+  "notes": "repository_commit is the HEAD under which all E1 artifacts were generated and validated; the iteration commit containing this manifest is its child. tests_passed/static_checks_passed reflect the full suite on the clean post-commit tree."
+}

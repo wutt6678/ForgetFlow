@@ -1,0 +1,61 @@
+{
+  "prompt_invariance": {
+    "problems": [],
+    "valid": true
+  },
+  "prompt_namespace": "data/trustparadox_u/empirical_v2/prompts",
+  "protocol_version": "2.0.0",
+  "schema_version": "1.0.0",
+  "status": "pre_trust_pilot",
+  "study_version": "2.0.0",
+  "templates": {
+    "attacks/alias_or_coreference.txt": {
+      "sha256": "8fd029bc3103df4120af44013e30d0ad8f03379ebbad2311a0642df17de21114",
+      "size_bytes": 309
+    },
+    "attacks/compositional.txt": {
+      "sha256": "60b5eee62c6e2714b00fcbb766444c6eb66ff427327acc7c80de0b4f6dfff320",
+      "size_bytes": 321
+    },
+    "attacks/direct.txt": {
+      "sha256": "ce4ca83b994a7f29e0a0ea34aea6912e5098dc5e98063207b5b4f60ed60c6aac",
+      "size_bytes": 214
+    },
+    "attacks/fragmentation.txt": {
+      "sha256": "49f97ab7a6bc3059b0c186063ed4bdbe90e5a1b3a54ca45504a795111ea164dd",
+      "size_bytes": 366
+    },
+    "attacks/hard_negative.txt": {
+      "sha256": "ef10cd50f2e2a6973d1f1a16fab66935dcb2b3009c0626cbfad39e8cb549ec99",
+      "size_bytes": 293
+    },
+    "attacks/legitimate_task.txt": {
+      "sha256": "5574e22911bcf97108e93fbda66e5016992bb393497f272daad5233ea6a73114",
+      "size_bytes": 245
+    },
+    "attacks/recontamination.txt": {
+      "sha256": "18261bfbc8d9ff6697e08026fdb0d0572748744a8d7f6264dafbcdcc6e7756a1",
+      "size_bytes": 270
+    },
+    "attacks/semantic_paraphrase.txt": {
+      "sha256": "53e2ee98dcfad50078913e9b69667640961a9e08e90fae028eb8730d98eac34c",
+      "size_bytes": 257
+    },
+    "generator_system.txt": {
+      "sha256": "20a3da444c6c53a70661d3deebeed83ccadef463314144e5ff27217086782f87",
+      "size_bytes": 560
+    },
+    "trust_default.txt": {
+      "sha256": "a58336513577b44032bbabe613f162fb34ceb820b8f24048d5badff0f7b48e3b",
+      "size_bytes": 1204
+    },
+    "trust_high.txt": {
+      "sha256": "4b158f8eaecbbc9866bf5d61c30dc855db9c76b0551c39246e0f84d7a14fcf6b",
+      "size_bytes": 1215
+    },
+    "trust_low.txt": {
+      "sha256": "bc16f49bb9e2c66263e0c9a57d289b3f7e80f1c23e1890b33262b585f61da017",
+      "size_bytes": 1191
+    }
+  }
+}
