@@ -876,21 +876,33 @@ def _commit_exists(commit: str) -> bool:
 
 
 def check_release_storage_provenance() -> dict[str, Any]:
-    """FP-006..FP-009: authoritative storage lineage of the active release.
+    """FP-006..FP-009 + GE-010: authoritative storage lineage of the release.
 
     Bundle files existing on disk is not enough: this gate validates the
     STORAGE_PROVENANCE.json sidecar schema, the git ancestry
-    generation -> storage -> gate snapshot -> review commit, the exact
+    generation -> storage -> gate evidence -> review commit, the exact
     bundle bytes at the storage commit, recomputes the scientific and
     storage-metadata digests, and synchronizes the generation provenance
     of every scientific manifest.  Storage-owned fields are compared
     separately between the bundle manifest, the sidecar and the gate
     snapshot's storage reference.
+
+    GE-010: existence of a gate file is never certification.  The gate
+    loads the historical gate result at the sidecar's gate-evidence
+    commit straight from git, verifies its SHA-256 against
+    ``gate_evidence_sha256``, and validates that the historical record
+    actually certifies this release: research-status tier, test/static
+    evidence, substantive gates, generation provenance and release
+    binding (``gate_evidence_findings``).
     """
     from experiments.trustparadox_u.artifact_provenance import (
         COMMIT_RE,
+        GateEvidenceError,
         commit_is_ancestor,
+        gate_evidence_commit_of,
+        gate_evidence_findings,
         generation_provenance_findings,
+        load_gate_evidence_at_commit,
         storage_provenance_findings,
         validate_release_lineage,
         validate_release_provenance_consistency,
@@ -913,6 +925,11 @@ def check_release_storage_provenance() -> dict[str, Any]:
         "artifact_generation_commit": "",
         "artifact_storage_commit": "",
         "gate_snapshot_commit": "",
+        "gate_evidence_commit": "",
+        "gate_evidence_sha256": "",
+        "gate_evidence_status": "",
+        "gate_evidence_tests_passed": False,
+        "gate_evidence_static_checks_passed": False,
         "scientific_release_digest": "",
         "storage_metadata_digest": "",
         "findings": [],
@@ -952,6 +969,9 @@ def check_release_storage_provenance() -> dict[str, Any]:
     generation = str(sidecar.get("artifact_generation_commit", "") or "")
     storage = str(sidecar.get("artifact_storage_commit", "") or "")
     snapshot = str(sidecar.get("gate_snapshot_commit", "") or "")
+    # GE-001: the evidence commit is primary; schema-1.1 sidecars that
+    # only carry the deprecated alias resolve to it.
+    evidence = gate_evidence_commit_of(sidecar) if sidecar else ""
     summary.update(
         {
             "release_id": release_id,
@@ -959,6 +979,8 @@ def check_release_storage_provenance() -> dict[str, Any]:
             "artifact_generation_commit": generation,
             "artifact_storage_commit": storage,
             "gate_snapshot_commit": snapshot,
+            "gate_evidence_commit": evidence,
+            "gate_evidence_sha256": str(sidecar.get("gate_evidence_sha256", "") or ""),
             "scientific_release_digest": str(sidecar.get("scientific_release_digest", "") or ""),
             "storage_metadata_digest": str(sidecar.get("storage_metadata_digest", "") or ""),
         }
@@ -970,7 +992,11 @@ def check_release_storage_provenance() -> dict[str, Any]:
                 f"storage_sidecar_release_id_mismatch: "
                 f"sidecar={sidecar.get('release_id')!r} manifest={release_id!r}"
             )
-        findings.extend(storage_provenance_findings(sidecar, require_gate_snapshot=True))
+        findings.extend(
+            storage_provenance_findings(
+                sidecar, require_gate_snapshot=True, require_gate_evidence=True
+            )
+        )
         if tested and generation and tested != generation:
             findings.append(
                 f"storage_sidecar_generation_mismatch: "
@@ -995,26 +1021,80 @@ def check_release_storage_provenance() -> dict[str, Any]:
             findings.append(
                 f"generation_not_ancestor_of_storage: generation={generation!r} storage={storage!r}"
             )
-    if storage and snapshot and COMMIT_RE.match(storage) and COMMIT_RE.match(snapshot):
-        if not commit_is_ancestor(storage, snapshot):
-            findings.append(
-                f"storage_not_ancestor_of_gate_snapshot: storage={storage!r} snapshot={snapshot!r}"
-            )
+    # GE-001: alias and primary field must name the same evidence commit.
+    if snapshot and evidence and snapshot != evidence:
+        findings.append(
+            f"gate_snapshot_alias_mismatch: gate_snapshot_commit={snapshot!r} "
+            f"!= gate_evidence_commit={evidence!r}"
+        )
     current = _current_commit().removesuffix("-dirty")
-    if snapshot and COMMIT_RE.match(snapshot) and _commit_exists(snapshot):
-        if COMMIT_RE.match(current) and not commit_is_ancestor(snapshot, current):
+    if storage and evidence and COMMIT_RE.match(storage) and COMMIT_RE.match(evidence):
+        if not commit_is_ancestor(storage, evidence):
+            findings.append(
+                f"storage_not_ancestor_of_gate_snapshot: storage={storage!r} evidence={evidence!r}"
+            )
+    if evidence and COMMIT_RE.match(evidence) and _commit_exists(evidence):
+        if COMMIT_RE.match(current) and not commit_is_ancestor(evidence, current):
             findings.append(
                 f"gate_snapshot_not_ancestor_of_review_commit: "
-                f"snapshot={snapshot!r} current={current!r}"
+                f"evidence={evidence!r} current={current!r}"
             )
-        gate_rel = str((FINAL_DIR / "research_valid_gate.json").relative_to(_PROJECT_ROOT))
-        blob = subprocess.run(
-            ["git", "show", f"{snapshot}:{gate_rel}"],
-            capture_output=True,
-            cwd=_PROJECT_ROOT,
-        )
-        if blob.returncode != 0:
-            findings.append(f"gate_file_missing_at_snapshot_commit: {snapshot}:{gate_rel}")
+
+    # GE-010: the historical gate evidence must certify this release.
+    if sidecar:
+        if not evidence:
+            findings.append("gate_evidence_commit_invalid: '' (empty)")
+        else:
+            try:
+                loaded = load_gate_evidence_at_commit(evidence)
+            except GateEvidenceError as exc:
+                loaded = None
+                findings.append(f"{exc.code}: {evidence!r}")
+            if loaded is not None:
+                recorded_sha = str(sidecar.get("gate_evidence_sha256", "") or "")
+                if recorded_sha != str(loaded["sha256"]):
+                    findings.append(
+                        f"gate_evidence_digest_mismatch: sidecar={recorded_sha!r} "
+                        f"git={loaded['sha256']!r}"
+                    )
+                historical = loaded["record"]
+                summary["gate_evidence_status"] = str(historical.get("research_status", "") or "")
+                evidence_gates = historical.get("gates")
+                evidence_gates = evidence_gates if isinstance(evidence_gates, dict) else {}
+                summary["gate_evidence_tests_passed"] = bool(
+                    isinstance(evidence_gates.get("tests_pass"), dict)
+                    and evidence_gates["tests_pass"].get("passed") is True
+                )
+                summary["gate_evidence_static_checks_passed"] = bool(
+                    isinstance(evidence_gates.get("static_checks"), dict)
+                    and evidence_gates["static_checks"].get("passed") is True
+                )
+                for finding in gate_evidence_findings(
+                    historical,
+                    sidecar=sidecar,
+                    bundle_manifest=manifest,
+                    study_class=_study_class_from_artifacts(),
+                ):
+                    code = finding.partition(":")[0]
+                    if code in (
+                        "gate_evidence_release_id_mismatch",
+                        "gate_evidence_scientific_digest_mismatch",
+                    ):
+                        findings.append(f"gate_evidence_release_mismatch: {finding}")
+                    elif code in (
+                        "gate_evidence_study_class_mismatch",
+                        "gate_evidence_tested_commit_mismatch",
+                        "gate_evidence_generation_commit_mismatch",
+                        "gate_evidence_generation_tree_mismatch",
+                        "gate_evidence_protocol_version_mismatch",
+                        "gate_evidence_study_version_mismatch",
+                        "gate_evidence_environment_lock_mismatch",
+                    ):
+                        findings.append(f"gate_evidence_generation_mismatch: {finding}")
+                    elif code == "gate_evidence_verdict_mismatch":
+                        findings.append(f"gate_evidence_status_insufficient: {finding}")
+                    else:
+                        findings.append(finding)
 
     # FP-009: the exact bundle bytes must exist at the storage commit.
     if storage and COMMIT_RE.match(storage):
@@ -1063,7 +1143,10 @@ def check_release_storage_provenance() -> dict[str, Any]:
     findings.extend(
         f"gate_snapshot: {finding}" for finding in validate_storage_reference(gate_snapshot)
     )
-    for field in ("artifact_storage_commit", "gate_snapshot_commit"):
+    # FP-010/GE-009: storage identity is unknowable at gate-execution
+    # time — an embedded value must either be pending (null/empty) or
+    # agree with the authoritative sidecar.
+    for field in ("artifact_storage_commit", "gate_snapshot_commit", "gate_evidence_commit"):
         embedded = gate_snapshot.get(field)
         if embedded not in (None, "") and str(embedded) != str(sidecar.get(field, "") or ""):
             findings.append(f"stale_embedded_storage_commit: gate_snapshot.{field}={embedded!r}")
@@ -1526,6 +1609,34 @@ def _generation_provenance_record() -> dict[str, Any]:
     )
 
 
+def _active_release_binding() -> dict[str, str] | None:
+    """GE-008: the release a gate snapshot directly binds to, if any.
+
+    Returns ``release_id`` and ``scientific_release_digest`` of the
+    unique active release so future gate snapshots carry direct release
+    binding; older schemas bind indirectly through the GE-007 generation
+    comparisons, so absence is tolerated by ``gate_evidence_findings``.
+    """
+    from experiments.trustparadox_u.release_bundle import (
+        BUNDLE_MANIFEST_NAME,
+        release_digest,
+        release_dirs,
+    )
+
+    active = [
+        bundle_dir
+        for bundle_dir in release_dirs()
+        if _load_json(bundle_dir / BUNDLE_MANIFEST_NAME).get("status") == "active"
+    ]
+    if len(active) != 1:
+        return None
+    manifest = _load_json(active[0] / BUNDLE_MANIFEST_NAME)
+    return {
+        "release_id": str(manifest.get("release_id", active[0].name)),
+        "scientific_release_digest": release_digest(manifest),
+    }
+
+
 def run_research_valid_gate() -> dict[str, Any]:
     """Run all gate checks and produce the staged research status (§31)."""
     from experiments.trustparadox_u.artifact_provenance import (
@@ -1573,7 +1684,7 @@ def run_research_valid_gate() -> dict[str, Any]:
     # artifacts — never one rebuilt from the gate's own checkout.
     provenance = _generation_provenance_record()
     execution_commit = _current_commit()
-    return {
+    result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "gate_name": "research_valid",
         "study_class": study_class,
@@ -1606,6 +1717,12 @@ def run_research_valid_gate() -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "gates": gates,
     }
+    # GE-008: direct release binding when an active release exists.
+    binding = _active_release_binding()
+    if binding is not None:
+        result["release_id"] = binding["release_id"]
+        result["scientific_release_digest"] = binding["scientific_release_digest"]
+    return result
 
 
 # ---------------------------------------------------------------------------

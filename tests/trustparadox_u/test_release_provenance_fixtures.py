@@ -257,7 +257,8 @@ def test_gate_snapshot_before_storage_fails(
 def test_gate_file_absent_at_gate_snapshot_fails(
     fixture_releases: Path, commits: dict[str, str]
 ) -> None:
-    # The root commit predates the gate result file entirely.
+    # GE-010: the root commit predates the gate result file entirely, so
+    # the gate-evidence commit cannot certify the release.
     _write_fixture_release(
         fixture_releases,
         commits,
@@ -267,7 +268,7 @@ def test_gate_file_absent_at_gate_snapshot_fails(
     )
     result = research_valid_gate.check_release_storage_provenance()
     assert not result["passed"]
-    assert any("gate_file_missing_at_snapshot_commit" in str(f) for f in result["findings"])
+    assert any("gate_evidence_file_missing" in str(f) for f in result["findings"])
 
 
 # ---------------------------------------------------------------------------

@@ -169,13 +169,15 @@ def write_storage_provenance(
     *,
     artifact_storage_commit: str = "",
     gate_snapshot_commit: str = "",
+    gate_evidence_commit: str = "",
+    gate_evidence_sha256: str = "",
     verified_at: str | None = None,
 ) -> dict[str, Any]:
-    """FP-001: audit a release's lineage and store the authoritative sidecar.
+    """FP-001 / GE-009: audit a release's lineage and store the sidecar.
 
     Writes ``STORAGE_PROVENANCE.json`` next to the bundle manifest and
     syncs the storage identity (``artifact_storage_commit``,
-    ``gate_snapshot_commit``, ``storage_metadata_digest``) into the
+    ``gate_evidence_commit``, ``storage_metadata_digest``) into the
     manifest's top level.  The sidecar itself carries the full storage
     record — ``STORAGE_PROVENANCE_FIELDS`` plus the scientific release
     digest and its own ``storage_metadata_digest`` — and is the sole
@@ -183,7 +185,16 @@ def write_storage_provenance(
     the audited lineage (git history), never from the current checkout:
     the sidecar records what *was* run and stored, not what is checked
     out now.  Updating the sidecar never touches the scientific digest.
+
+    GE-009 two-stage certification: Stage A writes the sidecar with the
+    storage fields pending and names the upcoming gate-evidence commit;
+    Stage B finalizes it once the evidence commit exists.  When
+    ``gate_evidence_commit`` is recorded without an explicit digest the
+    GE-002 ``gate_evidence_sha256`` is computed from the exact
+    historical gate bytes at that commit.
     """
+    from experiments.trustparadox_u.artifact_provenance import gate_evidence_sha256 as _sha
+
     manifest_path = bundle_dir / BUNDLE_MANIFEST_NAME
     if not manifest_path.exists():
         raise ReleaseError(f"bundle manifest missing: {manifest_path}")
@@ -191,21 +202,37 @@ def write_storage_provenance(
     provenance = manifest.get("provenance")
     provenance = provenance if isinstance(provenance, dict) else {}
     storage_commit = artifact_storage_commit or str(manifest.get("artifact_storage_commit") or "")
-    snapshot_commit = gate_snapshot_commit or str(manifest.get("gate_snapshot_commit") or "")
+    evidence_commit = (
+        gate_evidence_commit
+        or gate_snapshot_commit
+        or str(manifest.get("gate_evidence_commit") or "")
+        or str(manifest.get("gate_snapshot_commit") or "")
+    )
+    evidence_digest = gate_evidence_sha256
+    if not evidence_digest and evidence_commit:
+        try:
+            evidence_digest = _sha(evidence_commit)
+        except Exception:
+            evidence_digest = ""  # evidence commit pending (Stage A)
     sidecar: dict[str, Any] = {
         "schema_version": STORAGE_PROVENANCE_SCHEMA_VERSION,
         "release_id": str(manifest.get("release_id", "")),
         "tested_code_commit": str(provenance.get("tested_code_commit", "") or ""),
         "artifact_generation_commit": str(provenance.get("artifact_generation_commit", "") or ""),
         "artifact_storage_commit": storage_commit,
-        "gate_snapshot_commit": snapshot_commit,
+        # GE-001: the evidence commit is primary; the deprecated alias
+        # stays identical for schema compatibility.
+        "gate_evidence_commit": evidence_commit,
+        "gate_snapshot_commit": evidence_commit,
+        "gate_evidence_sha256": evidence_digest,
         "verified_at": verified_at or datetime.now(timezone.utc).isoformat(),
         "scientific_release_digest": str(manifest.get("release_digest", "") or ""),
     }
     sidecar["storage_metadata_digest"] = storage_metadata_digest(sidecar)
     (bundle_dir / STORAGE_PROVENANCE_NAME).write_text(json.dumps(sidecar, indent=2) + "\n")
     manifest["artifact_storage_commit"] = storage_commit
-    manifest["gate_snapshot_commit"] = snapshot_commit
+    manifest["gate_evidence_commit"] = evidence_commit
+    manifest["gate_snapshot_commit"] = evidence_commit
     manifest["storage_metadata_digest"] = sidecar["storage_metadata_digest"]
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     return sidecar
@@ -334,7 +361,11 @@ def validate_release_bundle(bundle_dir: Path, *, allow_pending_storage: bool = F
             for field in ("tested_code_commit", "artifact_generation_commit"):
                 if str(sidecar.get(field, "") or "") != str(provenance.get(field, "") or ""):
                     findings.append(f"{bundle_dir.name}: sidecar {field} != provenance.{field}")
-            for field in ("artifact_storage_commit", "gate_snapshot_commit"):
+            for field in (
+                "artifact_storage_commit",
+                "gate_evidence_commit",
+                "gate_snapshot_commit",
+            ):
                 sidecar_value = str(sidecar.get(field, "") or "")
                 manifest_value = str(manifest.get(field, "") or "")
                 if sidecar_value != manifest_value:
