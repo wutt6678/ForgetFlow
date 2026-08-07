@@ -23,6 +23,7 @@ from experiments.trustparadox_u.artifact_provenance import (
     GATE_EVIDENCE_REQUIRED_GATES,
     STORAGE_REFERENCE_KEY,
     GateEvidenceError,
+    gate_evidence_commit_of,
     gate_evidence_findings,
     gate_evidence_sha256,
     generation_provenance_findings,
@@ -34,11 +35,13 @@ from experiments.trustparadox_u.artifact_provenance import (
 from experiments.trustparadox_u.frozen_thresholds import STUDY_VERSION
 from experiments.trustparadox_u.release_bundle import (
     BUNDLE_MANIFEST_NAME,
+    FINAL_STORAGE_CERTIFICATION_NAME,
     STORAGE_PROVENANCE_NAME,
     release_digest,
     release_dirs,
     storage_metadata_digest,
     supersede_release,
+    write_final_storage_certification,
     write_storage_provenance,
 )
 from experiments.trustparadox_u.reproduce import (
@@ -708,3 +711,94 @@ def test_invalid_sidecar_missing_gate_evidence_digest(commits: dict[str, str]) -
         "storage_provenance_field_empty: gate_evidence_sha256"
         not in storage_provenance_findings(sidecar, require_gate_evidence=False)
     )
+
+
+# ---------------------------------------------------------------------------
+# Storage sidecar schema 1.2 (GE-013)
+# ---------------------------------------------------------------------------
+
+
+def test_write_storage_provenance_emits_schema_12(tmp_path: Path, commits: dict[str, str]) -> None:
+    """GE-013: freshly written sidecars carry evidence-binding schema 1.2."""
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    manifest = _fixture_manifest(
+        "schema-release",
+        _generation_record(
+            tested_code_commit=commits["head"],
+            artifact_generation_commit=commits["head"],
+        ),
+    )
+    manifest["release_digest"] = release_digest(manifest)
+    (bundle_dir / BUNDLE_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
+
+    write_storage_provenance(
+        bundle_dir,
+        artifact_storage_commit=commits["head"],
+        gate_evidence_commit=_PASSING_EVIDENCE_COMMIT,
+        verified_at="t1",
+    )
+    sidecar = json.loads((bundle_dir / STORAGE_PROVENANCE_NAME).read_text())
+    assert sidecar["schema_version"] == "1.2"
+    assert sidecar["gate_evidence_commit"] == _PASSING_EVIDENCE_COMMIT
+    # GE-001: the deprecated alias stays identical to the primary field.
+    assert sidecar["gate_snapshot_commit"] == _PASSING_EVIDENCE_COMMIT
+    # GE-002: the digest binds the exact historical gate bytes.
+    assert sidecar["gate_evidence_sha256"] == gate_evidence_sha256(_PASSING_EVIDENCE_COMMIT)
+    assert (
+        storage_provenance_findings(sidecar, require_gate_snapshot=True, require_gate_evidence=True)
+        == []
+    )
+
+
+def test_schema_11_sidecar_remains_readable(commits: dict[str, str]) -> None:
+    """GE-013: archived 1.1 sidecars stay auditable under their schema.
+
+    A 1.1 sidecar that records only the deprecated ``gate_snapshot_commit``
+    alias is still complete; it is never rewritten into 1.2 shape.
+    """
+    manifest = _fixture_manifest(
+        "rel",
+        _generation_record(
+            tested_code_commit=commits["head"], artifact_generation_commit=commits["head"]
+        ),
+    )
+    sidecar = _sidecar_record(manifest)
+    assert sidecar["schema_version"] == "1.1"
+    assert storage_provenance_findings(sidecar, require_gate_snapshot=True) == []
+    assert gate_evidence_commit_of(sidecar) == sidecar["gate_snapshot_commit"]
+
+
+# ---------------------------------------------------------------------------
+# Final storage certification record (GE-015)
+# ---------------------------------------------------------------------------
+
+
+def test_final_storage_certification_record(
+    fixture_releases: Path, commits: dict[str, str]
+) -> None:
+    """GE-015: durable certification metadata, excluded from the digest."""
+    bundle_dir = _write_fixture_release(
+        fixture_releases,
+        commits,
+        snapshot=_PASSING_EVIDENCE_COMMIT,
+        sidecar_overrides={"gate_evidence_sha256": gate_evidence_sha256(_PASSING_EVIDENCE_COMMIT)},
+    )
+    scientific = release_digest(json.loads((bundle_dir / BUNDLE_MANIFEST_NAME).read_text()))
+
+    record = write_final_storage_certification(
+        bundle_dir, passed=True, verified_at="2026-01-01T00:00:00+00:00"
+    )
+    sidecar = json.loads((bundle_dir / STORAGE_PROVENANCE_NAME).read_text())
+    stored = json.loads((bundle_dir / FINAL_STORAGE_CERTIFICATION_NAME).read_text())
+    assert stored == record
+    assert record["schema_version"] == "1.0"
+    assert record["release_id"] == sidecar["release_id"]
+    assert record["artifact_storage_commit"] == sidecar["artifact_storage_commit"]
+    assert record["gate_evidence_commit"] == _PASSING_EVIDENCE_COMMIT
+    assert record["gate_evidence_sha256"] == sidecar["gate_evidence_sha256"]
+    assert record["storage_metadata_digest"] == sidecar["storage_metadata_digest"]
+    assert record["passed"] is True
+
+    # Storage/certification metadata never enters the scientific digest.
+    assert release_digest(json.loads((bundle_dir / BUNDLE_MANIFEST_NAME).read_text())) == scientific

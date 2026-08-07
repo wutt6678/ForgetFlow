@@ -39,7 +39,14 @@ CORPUS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "frozen_corpus"
 SCHEMA_VERSION = "1.1"
 BUNDLE_MANIFEST_NAME = "bundle_manifest.json"
 STORAGE_PROVENANCE_NAME = "STORAGE_PROVENANCE.json"
-STORAGE_PROVENANCE_SCHEMA_VERSION = "1.1"
+# GE-013: schema 1.2 sidecars carry the gate-evidence binding fields
+# (``gate_evidence_commit`` primary, GE-002 ``gate_evidence_sha256``);
+# ``gate_snapshot_commit`` survives only as the deprecated legacy alias.
+# Archived 1.1 sidecars stay readable and are never rewritten.
+STORAGE_PROVENANCE_SCHEMA_VERSION = "1.2"
+# GE-015: durable, non-self-referential storage certification record.
+FINAL_STORAGE_CERTIFICATION_NAME = "FINAL_STORAGE_CERTIFICATION.json"
+FINAL_STORAGE_CERTIFICATION_SCHEMA_VERSION = "1.0"
 SUPERSEDED_MARKER_NAME = "INVALIDATION_MARKER.json"
 
 # PR-003 / FP-002: schema 1.1 bundles enforce complete, synchronized
@@ -238,6 +245,42 @@ def write_storage_provenance(
     return sidecar
 
 
+def write_final_storage_certification(
+    bundle_dir: Path,
+    *,
+    passed: bool,
+    verified_at: str | None = None,
+) -> dict[str, Any]:
+    """GE-015: write the durable final storage-certification record.
+
+    Stored next to the finalized ``STORAGE_PROVENANCE.json`` sidecar after
+    the GE-009 Stage-B storage provenance check has run, recording the
+    certification outcome without self-reference: every field is copied
+    from the already-finalized sidecar, so the record never names the
+    commit that contains itself.  It is storage/certification metadata
+    only — the scientific release digest covers the bundle manifest's
+    scientific content, so this record can never change it.
+    """
+    from experiments.trustparadox_u.artifact_provenance import gate_evidence_commit_of
+
+    sidecar_path = bundle_dir / STORAGE_PROVENANCE_NAME
+    if not sidecar_path.exists():
+        raise ReleaseError(f"storage sidecar missing: {sidecar_path}")
+    sidecar = _load_json(sidecar_path)
+    record: dict[str, Any] = {
+        "schema_version": FINAL_STORAGE_CERTIFICATION_SCHEMA_VERSION,
+        "release_id": str(sidecar.get("release_id", "")),
+        "artifact_storage_commit": str(sidecar.get("artifact_storage_commit", "") or ""),
+        "gate_evidence_commit": gate_evidence_commit_of(sidecar),
+        "gate_evidence_sha256": str(sidecar.get("gate_evidence_sha256", "") or ""),
+        "storage_metadata_digest": str(sidecar.get("storage_metadata_digest", "") or ""),
+        "passed": bool(passed),
+        "verified_at": verified_at or datetime.now(timezone.utc).isoformat(),
+    }
+    (bundle_dir / FINAL_STORAGE_CERTIFICATION_NAME).write_text(json.dumps(record, indent=2) + "\n")
+    return record
+
+
 def build_release_manifest() -> dict[str, Any]:
     """Assemble the manifest for the release implied by current artifacts.
 
@@ -355,9 +398,10 @@ def validate_release_bundle(bundle_dir: Path, *, allow_pending_storage: bool = F
         recorded = str(manifest.get("storage_metadata_digest", "") or "")
         if recorded and recorded != storage_metadata_digest(sidecar):
             findings.append(f"{bundle_dir.name}: storage_metadata_digest not reproducible")
-        # FP-001: the strict storage-record synchronization only applies to
-        # schema-1.1 sidecars; historical 1.0 sidecars keep the old rules.
-        if str(sidecar.get("schema_version", "")) == STORAGE_PROVENANCE_SCHEMA_VERSION:
+        # FP-001 / GE-013: strict storage-record synchronization applies to
+        # every non-legacy sidecar (1.1 and 1.2); historical 1.0 sidecars
+        # keep the old rules and archived releases are never rewritten.
+        if str(sidecar.get("schema_version", "")) not in _LEGACY_SCHEMA_VERSIONS:
             for field in ("tested_code_commit", "artifact_generation_commit"):
                 if str(sidecar.get(field, "") or "") != str(provenance.get(field, "") or ""):
                     findings.append(f"{bundle_dir.name}: sidecar {field} != provenance.{field}")
