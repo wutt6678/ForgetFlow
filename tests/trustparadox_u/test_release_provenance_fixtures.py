@@ -626,9 +626,20 @@ def detached_commit() -> str:
 
     ``commit-tree`` reuses HEAD's tree (so the gate file exists there with
     identical bytes) under a new parentless commit, which is reachable by
-    sha but never an ancestor of the review commit.
+    sha but never an ancestor of the review commit.  Per-command ``-c``
+    identity flags keep the fixture independent of any repository or
+    global git identity (CI runners configure neither).
     """
-    return _git("commit-tree", "HEAD^{tree}", "-m", "GE-012 fixture: detached gate-evidence commit")
+    return _git(
+        "-c",
+        "user.name=GE-012 fixture",
+        "-c",
+        "user.email=ge-012-fixture@localhost",
+        "commit-tree",
+        "HEAD^{tree}",
+        "-m",
+        "GE-012 fixture: detached gate-evidence commit",
+    )
 
 
 def test_invalid_evidence_missing_gate_file(commits: dict[str, str]) -> None:
