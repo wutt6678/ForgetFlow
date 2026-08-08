@@ -69,6 +69,8 @@ def run_connectivity_smoke(
     temperature: float = 0.7,
     max_tokens: int = 512,
     timeout: float = 60.0,
+    api_base: str | None = None,
+    api_key_env: str | None = None,
 ) -> dict:
     """Run 3-call connectivity smoke and return validation report."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -94,6 +96,8 @@ def run_connectivity_smoke(
         max_tokens=max_tokens,
         timeout_seconds=timeout,
         transport=transport,
+        api_base=api_base,
+        api_key_env=api_key_env,
     )
 
     # E2-006: 3 scenarios × default trust × 1 neutral attack.
@@ -238,6 +242,16 @@ def main() -> None:
         default=60.0,
         help="Request timeout in seconds (default: 60.0)",
     )
+    parser.add_argument(
+        "--api-base",
+        default=None,
+        help="API base URL for custom endpoints",
+    )
+    parser.add_argument(
+        "--api-key-env",
+        default=None,
+        help="Environment variable name containing the API key",
+    )
     args = parser.parse_args()
 
     report = run_connectivity_smoke(
@@ -248,6 +262,8 @@ def main() -> None:
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         timeout=args.timeout,
+        api_base=args.api_base,
+        api_key_env=args.api_key_env,
     )
 
     if report["passed"]:
