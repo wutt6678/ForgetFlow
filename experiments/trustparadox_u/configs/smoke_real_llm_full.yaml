@@ -7,7 +7,7 @@ run:
 
 models:
   chat_provider: litellm
-  chat_model: openai/qwen-plus
+  chat_model: openai/qwen3.7-plus
   chat_temperature: 0.0
   chat_max_tokens: 256
 
