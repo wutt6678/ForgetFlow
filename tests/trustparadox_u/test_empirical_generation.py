@@ -206,8 +206,8 @@ class TestReproducibility:
         assert target_spec_sha256() == target_spec_sha256()
         assert len(target_spec_sha256()) == 64
 
-    def test_prompt_manifest_status_is_pre_trust_pilot(self) -> None:
+    def test_prompt_manifest_status_is_frozen_post_pilot(self) -> None:
         manifest = build_prompt_manifest()
-        assert manifest["status"] == "pre_trust_pilot"
+        assert manifest["status"] == "frozen_post_pilot"
         assert manifest["prompt_invariance"] == {"valid": True, "problems": []}
         assert len(prompt_manifest_sha256(manifest)) == 64

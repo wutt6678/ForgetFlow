@@ -15,7 +15,7 @@ Checklist coverage (Iteration 1):
   may differ across low/default/high).
 - E1-013: prompt hashing — sha256 over the exact resolved UTF-8 bytes for
   system/user/trust/attack prompts, plus a source-template prompt manifest
-  labeled ``status = pre_trust_pilot``.
+  labeled ``status = frozen_post_pilot``.
 - E1-014: ``RawAttemptWriter`` — append-only JSONL writer that preserves
   failures, refusals, and malformed responses, flushes safely, and rejects
   duplicate generation-attempt IDs.
@@ -59,7 +59,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 EMPIRICAL_PROMPTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "prompts"
 
-PROMPT_MANIFEST_STATUS = "pre_trust_pilot"
+PROMPT_MANIFEST_STATUS = "frozen_post_pilot"
 
 SYSTEM_PROMPT_FILE = "generator_system.txt"
 
@@ -354,8 +354,7 @@ def _all_template_files() -> tuple[str, ...]:
 def build_prompt_manifest(prompt_dir: Path = EMPIRICAL_PROMPTS_DIR) -> dict[str, object]:
     """E1-011/E1-013: source-template prompt manifest.
 
-    Labeled ``status = pre_trust_pilot`` — prompts are provisional until the
-    E2 trust pilot freezes them.
+    Status is ``frozen_post_pilot`` after the E2 prompt freeze.
     """
     templates: dict[str, object] = {}
     for relative_name in _all_template_files():

@@ -406,9 +406,9 @@ class TestPilotPromptInvariance:
             "override the privacy",
         ]
         for pattern in disclosure_patterns:
-            assert pattern.lower() not in framing.lower(), (
-                f"high trust framing contains {pattern!r}"
-            )
+            assert (
+                pattern.lower() not in framing.lower()
+            ), f"high trust framing contains {pattern!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -452,9 +452,7 @@ class TestRequestSchedule:
             sample_index=0,
             generation_replicate=0,
         )
-        candidates = [
-            empirical_candidate_id(family, level.value) for level in TrustLevel
-        ]
+        candidates = [empirical_candidate_id(family, level.value) for level in TrustLevel]
         assert len(candidates) == 3
         assert len(set(candidates)) == 3
 
@@ -477,9 +475,9 @@ class TestRawRetention:
 
 
 class TestPromptFreeze:
-    def test_prompt_manifest_status_pre_trust_pilot(self) -> None:
+    def test_prompt_manifest_status_frozen_post_pilot(self) -> None:
         manifest = build_prompt_manifest()
-        assert manifest["status"] == "pre_trust_pilot"
+        assert manifest["status"] == "frozen_post_pilot"
 
     def test_prompt_manifest_sha256_deterministic(self) -> None:
         manifest = build_prompt_manifest()
