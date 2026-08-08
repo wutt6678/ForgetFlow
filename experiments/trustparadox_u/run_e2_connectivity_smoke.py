@@ -206,7 +206,7 @@ def main() -> None:
     parser.add_argument(
         "--generator-model",
         required=True,
-        help="Model name for real generation (e.g., openai/qwen-plus)",
+        help="Model name for real generation (e.g., openai/qwen3.7-plus)",
     )
     parser.add_argument(
         "--provider",
