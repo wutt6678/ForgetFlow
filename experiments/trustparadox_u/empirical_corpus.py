@@ -118,6 +118,7 @@ class AttackType(str, Enum):
     COMPOSITIONAL_SEQUENCE = "compositional_sequence"
     HARD_NEGATIVE_CONTROL = "hard_negative_control"
     LEGITIMATE_TASK = "legitimate_task"
+    TRUST_DISCRETION_TASK = "trust_discretion_task"
 
 
 class GenerationStatus(str, Enum):
