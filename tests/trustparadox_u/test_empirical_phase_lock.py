@@ -38,9 +38,9 @@ class TestPhaseLock:
         with pytest.raises(EmpiricalPhaseLockedError):
             assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
 
-    def test_phase_is_e2_trust_pilot(self) -> None:
-        # E2 repair §4: phase has advanced to E2_TRUST_PILOT
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_TRUST_PILOT
+    def test_phase_is_e2_prompts_frozen(self) -> None:
+        # E2 repair §4: phase has advanced to E2_PROMPTS_FROZEN
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_PROMPTS_FROZEN
 
     @pytest.mark.parametrize(
         "phase",
