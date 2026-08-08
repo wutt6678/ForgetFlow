@@ -298,7 +298,9 @@ def main() -> None:
         )
 
         config = create_default_pilot_config()
-        save_pilot_config(config)
+        # Save config into the output directory (gitignored) to avoid
+        # dirtying the tree before the clean-tree gate.
+        save_pilot_config(config, path=args.output_dir / "pilot_config.json")
 
     report = run_primary_pilot(
         config=config,
