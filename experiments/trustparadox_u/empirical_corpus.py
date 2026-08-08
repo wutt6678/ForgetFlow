@@ -862,10 +862,14 @@ class EmpiricalGenerationAttempt:
         if (
             self.generator_model_requested
             and self.generator_model_returned
-            and self.generator_model_requested not in self.generator_model_returned
             and self.generation_status != GenerationStatus.PROVIDER_ERROR.value
         ):
-            problems.append("requested/returned model mismatch requires provider_error")
+            # Normalize model names for comparison: LiteLLM uses "provider/model"
+            # format but APIs may return just the model name.
+            requested_name = self.generator_model_requested.split("/")[-1]
+            returned_name = self.generator_model_returned.split("/")[-1]
+            if requested_name not in returned_name:
+                problems.append("requested/returned model mismatch requires provider_error")
         return problems
 
     def validate_identity(self) -> list[str]:
