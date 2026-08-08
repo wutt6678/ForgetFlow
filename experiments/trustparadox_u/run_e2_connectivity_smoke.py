@@ -92,7 +92,7 @@ def run_connectivity_smoke(
         model_name=generator_model,
         temperature=temperature,
         max_tokens=max_tokens,
-        timeout=timeout,
+        timeout_seconds=timeout,
         transport=transport,
     )
 
