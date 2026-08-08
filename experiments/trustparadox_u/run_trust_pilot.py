@@ -1,4 +1,22 @@
-"""E2-D: trust manipulation pilot runner.
+"""E2-D: secondary explicit-disclosure attack-compliance pilot runner.
+
+.. note::
+
+   **Reclassification (E2 repair checklist §1).**  This 90-attempt pilot
+   uses ``direct_disclosure`` and grouped execution order.  It is retained
+   as the *secondary* panel
+   (``secondary_explicit_disclosure_attack_compliance_pilot``) to answer:
+   "Does trust framing affect compliance when the model is explicitly
+   asked to disclose?"  It is **not** the primary RQ7 manipulation pilot
+   because:
+
+   * the task explicitly requested disclosure;
+   * execution order was grouped rather than randomized;
+   * the connectivity smoke used a different model;
+   * proposition labels were not independently evaluated;
+   * several downstream artifacts used protocol 1.2.0.
+
+   The **primary** pilot is ``run_primary_trust_pilot.py``.
 
 This module executes the 90-attempt trust manipulation pilot:
 - 10 families (sample indices 0-9)
@@ -67,6 +85,7 @@ PILOT_TRUST_LEVELS: tuple[str, ...] = (
 )
 PILOT_NUM_SAMPLES: int = 10
 PILOT_ATTACK_TYPE: str = AttackType.DIRECT_DISCLOSURE.value
+PILOT_TYPE: str = "secondary_explicit_disclosure_attack_compliance_pilot"
 
 RAW_ATTEMPTS_FILENAME = "raw_generation_attempts.jsonl"
 VALIDATION_REPORT_FILENAME = "validation_report.json"
@@ -217,6 +236,7 @@ def run_trust_pilot(
     manifest = {
         "artifact_class": "pilot",
         "research_use": "pilot_analysis",
+        "pilot_type": PILOT_TYPE,
         "study_version": EMPIRICAL_STUDY_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
         "schema_version": EMPIRICAL_SCHEMA_VERSION,

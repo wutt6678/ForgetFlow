@@ -15,28 +15,20 @@ from pathlib import Path
 import pytest
 
 from experiments.trustparadox_u.empirical_corpus import (
-    EMPIRICAL_PHASE,
     EMPIRICAL_TARGET_REGISTRY,
     REPLAY_FAMILY_ID_FIELD,
     REPLAY_SEQUENCE_FAMILY_ID_FIELD,
     RESERVED_REPLAY_IDENTITY_FIELDS,
     AttackType,
     EmpiricalCleanTreeRequiredError,
-    EmpiricalGenerationAttempt,
-    EmpiricalPhase,
-    EmpiricalPhaseLockedError,
-    EmpiricalSplit,
     GenerationMode,
     GenerationStatus,
     TrustLevel,
     assert_clean_repository_tree,
     assert_replay_identity_unassigned,
-    empirical_candidate_family_id,
     empirical_candidate_id,
-    generation_attempt_id,
     generation_family_id,
     get_target_spec,
-    record_to_attempt,
 )
 from experiments.trustparadox_u.empirical_generation import (
     EMPIRICAL_PROMPTS_DIR,
@@ -46,18 +38,14 @@ from experiments.trustparadox_u.empirical_generation import (
     attempt_from_response,
     build_generation_request,
     build_prompt_manifest,
-    build_user_prompt,
     load_prompt_template,
     parse_prompt_sections,
     prompt_manifest_sha256,
-    resolve_prompt_bundle,
-    validate_trust_prompt_invariance,
 )
 from experiments.trustparadox_u.generate_empirical_corpus import (
     manifest_hashes_valid,
     run_generation,
 )
-
 
 _DEV_SPEC = get_target_spec("credential_v1")
 

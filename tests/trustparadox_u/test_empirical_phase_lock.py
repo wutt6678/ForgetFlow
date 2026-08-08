@@ -38,15 +38,18 @@ class TestPhaseLock:
         with pytest.raises(EmpiricalPhaseLockedError):
             assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
 
-    def test_phase_is_e1(self) -> None:
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E1_FOUNDATION
+    def test_phase_is_e2_trust_pilot(self) -> None:
+        # E2 repair §4: phase has advanced to E2_TRUST_PILOT
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_TRUST_PILOT
 
     @pytest.mark.parametrize(
         "phase",
         [EmpiricalPhase.E1_FOUNDATION, EmpiricalPhase.E2_TRUST_PILOT],
     )
     @pytest.mark.parametrize("split", [EmpiricalSplit.VALIDATION, EmpiricalSplit.TEST])
-    def test_e2_phases_do_not_unlock_generation(self, phase: EmpiricalPhase, split: EmpiricalSplit) -> None:
+    def test_e2_phases_do_not_unlock_generation(
+        self, phase: EmpiricalPhase, split: EmpiricalSplit
+    ) -> None:
         # E2-044: advancing to the trust pilot must NOT unlock
         # validation/test generation.
         with pytest.raises(EmpiricalPhaseLockedError):

@@ -43,7 +43,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION  # noqa: E402
+from experiments.trustparadox_u.empirical_corpus import (  # noqa: E402
+    EMPIRICAL_PROTOCOL_VERSION,
+    EMPIRICAL_STUDY_VERSION,
+)
 
 # Decision thresholds
 DECISION_SPREAD_THRESHOLD = 0.30  # ≥30% spread → trust manipulation effective
@@ -213,7 +216,8 @@ def run_bounded_revision(
 
     report: dict[str, Any] = {
         "revision_type": "bounded_revision",
-        "protocol_version": PROTOCOL_VERSION,
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
         "revision_timestamp": datetime.now(timezone.utc).isoformat(),
         "input_file": str(analysis_path),
         "analysis_summary": {

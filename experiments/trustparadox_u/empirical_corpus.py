@@ -50,12 +50,6 @@ class EmpiricalPhase(str, Enum):
     E3_CORPUS_GENERATION = "E3_CORPUS_GENERATION"
 
 
-# Current empirical phase.  E1_FOUNDATION, E2_TRUST_PILOT, and
-# E2_PROMPTS_FROZEN permit only development-split generation; only
-# E3_CORPUS_GENERATION (after an explicit transition) follows the frozen
-# protocol for validation/test.
-EMPIRICAL_PHASE = EmpiricalPhase.E1_FOUNDATION
-
 #: E2-042: authoritative phase file; an absent file means E1_FOUNDATION.
 EMPIRICAL_PHASE_FILE = (
     _PROJECT_ROOT
@@ -73,6 +67,14 @@ def load_empirical_phase(path: Path = EMPIRICAL_PHASE_FILE) -> EmpiricalPhase:
         return EmpiricalPhase.E1_FOUNDATION
     record = json.loads(path.read_text(encoding="utf-8"))
     return EmpiricalPhase(str(record["phase"]))
+
+
+# Current empirical phase — read from the authoritative phase file at
+# import time; an absent file means E1_FOUNDATION.  E1_FOUNDATION,
+# E2_TRUST_PILOT, and E2_PROMPTS_FROZEN permit only development-split
+# generation; only E3_CORPUS_GENERATION (after an explicit transition)
+# follows the frozen protocol for validation/test.
+EMPIRICAL_PHASE = load_empirical_phase()
 
 
 class EmpiricalCleanTreeRequiredError(RuntimeError):

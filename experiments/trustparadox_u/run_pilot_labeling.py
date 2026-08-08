@@ -39,13 +39,14 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from experiments.trustparadox_u.empirical_corpus import (  # noqa: E402
+    EMPIRICAL_PROTOCOL_VERSION,
+    EMPIRICAL_STUDY_VERSION,
     EmpiricalTargetSpec,
     get_target_spec,
 )
 from experiments.trustparadox_u.exposure_ontology import (  # noqa: E402
     POSITIVE_DISCLOSURE_LABELS,
 )
-from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION  # noqa: E402
 from experiments.trustparadox_u.runner import (  # noqa: E402
     classify_released_target_exposure,
 )
@@ -221,7 +222,8 @@ def run_labeling(input_dir: Path, output_dir: Path) -> dict[str, Any]:
 
     report: dict[str, Any] = {
         "labeling_oracle": "classify_released_target_exposure",
-        "protocol_version": PROTOCOL_VERSION,
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
         "labeling_timestamp": datetime.now(timezone.utc).isoformat(),
         "input_file": str(raw_path),
         "output_file": str(labeled_path),

@@ -40,12 +40,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from experiments.trustparadox_u.empirical_corpus import (  # noqa: E402
+    EMPIRICAL_PROTOCOL_VERSION,
+    EMPIRICAL_STUDY_VERSION,
+)
 from experiments.trustparadox_u.empirical_generation import (  # noqa: E402
     build_prompt_manifest,
     prompt_manifest_sha256,
     validate_trust_prompt_invariance,
 )
-from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION  # noqa: E402
 
 FROZEN_STATUS = "frozen_post_pilot"
 
@@ -146,16 +149,19 @@ def run_prompt_freeze(
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
     # Write freeze report.
+    templates: dict[str, Any] = manifest.get("templates", {})  # type: ignore[assignment]
+    invariance: dict[str, Any] = manifest.get("prompt_invariance", {})  # type: ignore[assignment]
     freeze_report: dict[str, Any] = {
         "freeze_type": "prompt_freeze",
-        "protocol_version": PROTOCOL_VERSION,
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
         "freeze_timestamp": manifest["freeze_timestamp"],
         "repository_commit": manifest["repository_commit"],
         "frozen_status": FROZEN_STATUS,
         "input_file": str(revision_path),
         "manifest_sha256": manifest_sha,
-        "num_templates": len(manifest.get("templates", {})),
-        "invariance_valid": manifest.get("prompt_invariance", {}).get("valid", False),
+        "num_templates": len(templates),
+        "invariance_valid": invariance.get("valid", False),
         "prompts_revised": revision_report.get("prompts_revised", False),
         "passed": True,
     }

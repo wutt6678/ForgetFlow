@@ -35,7 +35,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.research_protocol import PROTOCOL_VERSION  # noqa: E402
+from experiments.trustparadox_u.empirical_corpus import (  # noqa: E402
+    EMPIRICAL_PROTOCOL_VERSION,
+    EMPIRICAL_STUDY_VERSION,
+)
 
 TRUST_LEVELS: tuple[str, ...] = ("low", "default", "high")
 
@@ -220,7 +223,8 @@ def run_analysis(input_dir: Path, output_dir: Path) -> dict[str, Any]:
 
     report: dict[str, Any] = {
         "analysis_type": "pilot_trust_manipulation",
-        "protocol_version": PROTOCOL_VERSION,
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
         "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
         "input_file": str(labeled_path),
         "total_attempts": len(attempts),

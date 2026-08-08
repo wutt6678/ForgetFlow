@@ -59,11 +59,24 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 EMPIRICAL_PROMPTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "prompts"
 
+#: E2 repair §7: pilot-specific prompt namespace.
+PILOT_PROMPTS_DIR = EMPIRICAL_PROMPTS_DIR / "pilot"
+
 PROMPT_MANIFEST_STATUS = "frozen_post_pilot"
 
 SYSTEM_PROMPT_FILE = "generator_system.txt"
 
+#: E2 repair §7: primary pilot task template (discretion-based, no disclosure imperative).
+PRIMARY_TASK_FILE = "primary_task.txt"
+
 TRUST_PROMPT_FILES: Mapping[TrustLevel, str] = {
+    TrustLevel.LOW: "trust_low.txt",
+    TrustLevel.DEFAULT: "trust_default.txt",
+    TrustLevel.HIGH: "trust_high.txt",
+}
+
+#: E2 repair §7: pilot trust prompt files (pilot/ subdirectory).
+PILOT_TRUST_PROMPT_FILES: Mapping[TrustLevel, str] = {
     TrustLevel.LOW: "trust_low.txt",
     TrustLevel.DEFAULT: "trust_default.txt",
     TrustLevel.HIGH: "trust_high.txt",
@@ -82,8 +95,8 @@ ATTACK_TEMPLATE_FILES: Mapping[AttackType, str] = {
 
 TRUST_FRAMING_SECTION = "TRUST_FRAMING"
 
-# E1-012: every section except TRUST_FRAMING must be byte-identical across
-# the low/default/high trust templates.
+# E1-012: base trust prompts — every section except TRUST_FRAMING must be
+# byte-identical across the low/default/high trust templates.
 INVARIANT_TRUST_SECTIONS: tuple[str, ...] = (
     "FORGET_INSTRUCTION",
     "PRIVACY_PROHIBITION",
@@ -91,7 +104,22 @@ INVARIANT_TRUST_SECTIONS: tuple[str, ...] = (
     "RESPONSE_FORMAT",
 )
 
+# E2 repair §8: pilot trust prompts — includes TARGET_CONTEXT and PILOT_REQUEST
+# in addition to the base invariant sections.
+PILOT_INVARIANT_TRUST_SECTIONS: tuple[str, ...] = (
+    "FORGET_INSTRUCTION",
+    "PRIVACY_PROHIBITION",
+    "TARGET_CONTEXT",
+    "TASK_OBJECTIVE",
+    "PILOT_REQUEST",
+    "RESPONSE_FORMAT",
+)
+
 _REQUIRED_TRUST_SECTIONS: tuple[str, ...] = (TRUST_FRAMING_SECTION, *INVARIANT_TRUST_SECTIONS)
+_PILOT_REQUIRED_TRUST_SECTIONS: tuple[str, ...] = (
+    TRUST_FRAMING_SECTION,
+    *PILOT_INVARIANT_TRUST_SECTIONS,
+)
 
 # E0-011: no trust framing may instruct or encourage disclosure.
 _DISCLOSURE_IMPERATIVE_PATTERNS: tuple[str, ...] = (
@@ -198,6 +226,62 @@ def validate_trust_prompt_invariance(
             if re.search(pattern, framing, flags=re.IGNORECASE):
                 problems.append(
                     f"trust {level.value} framing contains disclosure imperative "
+                    f"matching {pattern!r}"
+                )
+    return problems
+
+
+def validate_pilot_prompt_invariance(
+    prompt_dir: Path = PILOT_PROMPTS_DIR,
+) -> list[str]:
+    """E2 repair §8: pilot trust prompts differ only in TRUST_FRAMING.
+
+    The pilot low/default/high templates must contain identical
+    TARGET_CONTEXT, FORGET_INSTRUCTION, PRIVACY_PROHIBITION,
+    TASK_OBJECTIVE, PILOT_REQUEST, and RESPONSE_FORMAT sections.
+    """
+    problems: list[str] = []
+    parsed: dict[TrustLevel, dict[str, str]] = {}
+    for trust_level, filename in PILOT_TRUST_PROMPT_FILES.items():
+        try:
+            text = load_prompt_template(filename, prompt_dir=prompt_dir)
+        except OSError as exc:
+            problems.append(f"cannot read {filename}: {exc}")
+            continue
+        sections = parse_prompt_sections(text)
+        parsed[trust_level] = sections
+        missing = [name for name in _PILOT_REQUIRED_TRUST_SECTIONS if name not in sections]
+        if missing:
+            problems.append(f"{filename}: missing sections {sorted(missing)}")
+        extra = [name for name in sections if name not in _PILOT_REQUIRED_TRUST_SECTIONS]
+        if extra:
+            problems.append(f"{filename}: unexpected sections {sorted(extra)}")
+
+    levels = sorted(level for level in parsed)
+    for section in PILOT_INVARIANT_TRUST_SECTIONS:
+        reference: str | None = None
+        for level in levels:
+            value = parsed[level].get(section)
+            if reference is None:
+                reference = value
+            elif value != reference:
+                problems.append(
+                    f"pilot section {section} differs between trust prompts "
+                    f"({levels[0].value} vs {level.value})"
+                )
+
+    framings = {level: parsed[level].get(TRUST_FRAMING_SECTION, "") for level in levels}
+    for i, level_a in enumerate(levels):
+        for level_b in levels[i + 1 :]:
+            if framings[level_a] == framings[level_b]:
+                problems.append(
+                    f"pilot TRUST_FRAMING identical for {level_a.value} and {level_b.value}"
+                )
+    for level, framing in framings.items():
+        for pattern in _DISCLOSURE_IMPERATIVE_PATTERNS:
+            if re.search(pattern, framing, flags=re.IGNORECASE):
+                problems.append(
+                    f"pilot trust {level.value} framing contains disclosure imperative "
                     f"matching {pattern!r}"
                 )
     return problems
@@ -475,6 +559,107 @@ def build_generation_request(
         sequence_step_index=sequence_step_index,
         sequence_step_count=sequence_step_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# E2 repair §5/§7: primary discretion-based trust pilot builder
+# ---------------------------------------------------------------------------
+
+#: E2 repair §5: primary pilot task identifier (discretion-based).
+PRIMARY_PILOT_ATTACK_TYPE = "trust_discretion_task"
+
+
+def build_pilot_user_prompt(
+    trust_level: str,
+    target_spec: EmpiricalTargetSpec,
+    *,
+    prompt_dir: Path = PILOT_PROMPTS_DIR,
+) -> tuple[str, str]:
+    """E2 repair §7: resolve the pilot user prompt from the pilot namespace.
+
+    Returns ``(user_prompt, trust_prompt)``.  The pilot trust prompt
+    already contains all required sections (TARGET_CONTEXT,
+    FORGET_INSTRUCTION, PRIVACY_PROHIBITION, TASK_OBJECTIVE,
+    PILOT_REQUEST, RESPONSE_FORMAT); no separate attack prompt is
+    appended — the primary task is discretion-based.
+    """
+    trust_template = load_prompt_template(
+        PILOT_TRUST_PROMPT_FILES[TrustLevel(trust_level)],
+        prompt_dir=prompt_dir,
+    )
+    trust_prompt = trust_template.format(forget_id=target_spec.forget_id)
+    user_prompt = trust_prompt
+    return user_prompt, trust_prompt
+
+
+def build_trust_pilot_request(
+    target_spec: EmpiricalTargetSpec,
+    trust_level: str,
+    sample_index: int,
+    *,
+    generation_replicate: int = 0,
+    temperature: float = 0.7,
+    prompt_dir: Path = PILOT_PROMPTS_DIR,
+) -> EmpiricalGenerationRequest:
+    """E2 repair §5/§7: build a primary discretion-based pilot request.
+
+    Uses the pilot/ prompt namespace and the trust_discretion_task
+    identifier.  Does NOT route through the generic direct_disclosure
+    attack builder.
+    """
+    system_prompt = load_system_prompt(prompt_dir=prompt_dir)
+    user_prompt, trust_prompt = build_pilot_user_prompt(
+        trust_level,
+        target_spec,
+        prompt_dir=prompt_dir,
+    )
+    return EmpiricalGenerationRequest(
+        target_spec=target_spec,
+        trust_level=trust_level,
+        attack_type=PRIMARY_PILOT_ATTACK_TYPE,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sender_id=target_spec.custodian_agent_id,
+        recipient_id=target_spec.default_recipient_id,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=temperature,
+    )
+
+
+def build_pilot_prompt_manifest(
+    prompt_dir: Path = PILOT_PROMPTS_DIR,
+) -> dict[str, object]:
+    """E2 repair §7/§13: prompt manifest for the pilot namespace.
+
+    Covers the system prompt, the three pilot trust prompts, and the
+    primary task template.
+    """
+    pilot_files = (
+        SYSTEM_PROMPT_FILE,
+        *PILOT_TRUST_PROMPT_FILES.values(),
+        PRIMARY_TASK_FILE,
+    )
+    templates: dict[str, object] = {}
+    for relative_name in pilot_files:
+        raw = (prompt_dir / relative_name).read_bytes()
+        templates[relative_name] = {
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "size_bytes": len(raw),
+        }
+    invariance_problems = validate_pilot_prompt_invariance(prompt_dir)
+    return {
+        "schema_version": EMPIRICAL_SCHEMA_VERSION,
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
+        "status": PROMPT_MANIFEST_STATUS,
+        "prompt_namespace": "data/trustparadox_u/empirical_v2/prompts/pilot",
+        "templates": templates,
+        "prompt_invariance": {
+            "valid": not invariance_problems,
+            "problems": invariance_problems,
+        },
+    }
 
 
 def _status_flags(status: GenerationStatus) -> tuple[bool, bool, bool]:

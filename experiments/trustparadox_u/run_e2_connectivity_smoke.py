@@ -6,8 +6,8 @@ fields can be recorded correctly. The smoke test is diagnostic-only and
 does not contribute to the pilot dataset.
 
 Checklist coverage:
-- E2-006: 3-call connectivity smoke (3 scenarios × default trust × 1 neutral
-  pilot prompt; credential_v1/private_attribute_v1/authorization_v1 only)
+- E2-006: 3-call connectivity smoke (3 scenarios × default trust × primary
+  discretion task; credential_v1/private_attribute_v1/authorization_v1 only)
 - artifact_class=connectivity_smoke, research_use=diagnostic_only
 - Validates API access/provider/requested+returned model/request ID/timestamps/
   prompt hashes/raw logging/retry/failure retention
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -27,10 +26,8 @@ from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_PROTOCOL_VERSION,
     EMPIRICAL_SCHEMA_VERSION,
     EMPIRICAL_STUDY_VERSION,
-    AttackType,
     EmpiricalCleanTreeRequiredError,
     EmpiricalGenerationAttempt,
-    EmpiricalSplit,
     GenerationMode,
     TrustLevel,
     assert_clean_repository_tree,
@@ -40,8 +37,8 @@ from experiments.trustparadox_u.empirical_corpus import (
 from experiments.trustparadox_u.empirical_generation import (
     RealEmpiricalGenerator,
     attempt_from_response,
-    build_generation_request,
-    build_prompt_manifest,
+    build_pilot_prompt_manifest,
+    build_trust_pilot_request,
     prompt_manifest_sha256,
     utc_now_iso,
 )
@@ -100,16 +97,15 @@ def run_connectivity_smoke(
         api_key_env=api_key_env,
     )
 
-    # E2-006: 3 scenarios × default trust × 1 neutral attack.
+    # E2-006: 3 scenarios × default trust × primary discretion task.
     attempts: list[EmpiricalGenerationAttempt] = []
     raw_path = output_dir / RAW_ATTEMPTS_FILENAME
 
     for scenario_id in CONNECTIVITY_SCENARIOS:
         spec = get_target_spec(scenario_id)
-        request = build_generation_request(
+        request = build_trust_pilot_request(
             spec,
             TrustLevel.DEFAULT.value,
-            AttackType.DIRECT_DISCLOSURE.value,
             sample_index=0,
         )
         response = generator.generate(request)
@@ -153,9 +149,9 @@ def run_connectivity_smoke(
     # Compute scientific hash.
     raw_sha256 = raw_attempts_scientific_hash(attempts)
 
-    # Build prompt manifest.
-    prompt_manifest = build_prompt_manifest()
-    prompt_sha256 = prompt_manifest_sha256(prompt_manifest)
+    # Build pilot prompt manifest.
+    pilot_prompt_manifest = build_pilot_prompt_manifest()
+    prompt_sha256 = prompt_manifest_sha256(pilot_prompt_manifest)
 
     # Write validation report.
     validation_report = {
@@ -165,7 +161,7 @@ def run_connectivity_smoke(
         "num_attempts": len(attempts),
         "scenarios": list(CONNECTIVITY_SCENARIOS),
         "trust_level": TrustLevel.DEFAULT.value,
-        "attack_type": AttackType.DIRECT_DISCLOSURE.value,
+        "attack_type": "trust_discretion_task",
         "raw_generation_sha256": raw_sha256,
     }
     (output_dir / VALIDATION_REPORT_FILENAME).write_text(
@@ -216,7 +212,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("results/empirical_v2/e2_connectivity_smoke"),
+        default=Path("results/empirical_v2/e2_primary_connectivity_smoke"),
         help="Output directory for smoke artifacts",
     )
     parser.add_argument(
