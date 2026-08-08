@@ -147,7 +147,7 @@ def run_connectivity_smoke(
             findings.append("generator_model_returned is None")
 
     # Compute scientific hash.
-    raw_sha256 = raw_attempts_scientific_hash(raw_path)
+    raw_sha256 = raw_attempts_scientific_hash(attempts)
 
     # Build prompt manifest.
     prompt_manifest = build_prompt_manifest()
