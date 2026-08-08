@@ -1,8 +1,10 @@
-"""E1-032: development-split lock tests.
+"""E1-032 / E2-044: development-split lock tests.
 
-While the empirical phase is E1, only development generation is permitted;
-validation/test generation must raise ``EmpiricalPhaseLockedError`` and the
-CLI must exit non-zero. No override flag may silently bypass the lock.
+Only ``E3_CORPUS_GENERATION`` may unlock non-development generation; in
+E1_FOUNDATION, E2_TRUST_PILOT, and E2_PROMPTS_FROZEN validation/test
+generation must raise ``EmpiricalPhaseLockedError`` and the CLI must exit
+non-zero. Unknown phase strings are rejected and no override flag may
+silently bypass the lock.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import pytest
 
 from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_PHASE,
+    EmpiricalPhase,
     EmpiricalPhaseLockedError,
     EmpiricalSplit,
     assert_generation_split_unlocked,
@@ -36,12 +39,43 @@ class TestPhaseLock:
             assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
 
     def test_phase_is_e1(self) -> None:
-        assert EMPIRICAL_PHASE == "E1"
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E1_FOUNDATION
 
-    def test_future_phase_unlocks_generation(self) -> None:
-        # Once the protocol phase advances, validation generation becomes
-        # permitted — the lock is phase-driven, not hard-coded forever.
-        assert_generation_split_unlocked(EmpiricalSplit.VALIDATION.value, phase="E2")
+    @pytest.mark.parametrize(
+        "phase",
+        [EmpiricalPhase.E1_FOUNDATION, EmpiricalPhase.E2_TRUST_PILOT],
+    )
+    @pytest.mark.parametrize("split", [EmpiricalSplit.VALIDATION, EmpiricalSplit.TEST])
+    def test_e2_phases_do_not_unlock_generation(self, phase: EmpiricalPhase, split: EmpiricalSplit) -> None:
+        # E2-044: advancing to the trust pilot must NOT unlock
+        # validation/test generation.
+        with pytest.raises(EmpiricalPhaseLockedError):
+            assert_generation_split_unlocked(split.value, phase=phase)
+
+    def test_prompts_frozen_phase_stays_locked(self) -> None:
+        with pytest.raises(EmpiricalPhaseLockedError):
+            assert_generation_split_unlocked(
+                EmpiricalSplit.VALIDATION.value, phase=EmpiricalPhase.E2_PROMPTS_FROZEN
+            )
+
+    def test_e2_phases_allow_development(self) -> None:
+        assert_generation_split_unlocked(
+            EmpiricalSplit.DEVELOPMENT.value, phase=EmpiricalPhase.E2_TRUST_PILOT
+        )
+        assert_generation_split_unlocked(
+            EmpiricalSplit.DEVELOPMENT.value, phase=EmpiricalPhase.E2_PROMPTS_FROZEN
+        )
+
+    @pytest.mark.parametrize("split", [EmpiricalSplit.DEVELOPMENT, EmpiricalSplit.VALIDATION])
+    def test_e3_corpus_generation_unlocks(self, split: EmpiricalSplit) -> None:
+        # Only the explicit E3 transition permits non-development splits
+        # (the test split additionally carries assert_test_split_locked).
+        assert_generation_split_unlocked(split.value, phase=EmpiricalPhase.E3_CORPUS_GENERATION)
+
+    def test_unknown_phase_string_is_rejected(self) -> None:
+        # No silent unlock via an unrecognized phase value.
+        with pytest.raises(ValueError):
+            assert_generation_split_unlocked(EmpiricalSplit.VALIDATION.value, phase="E2")
 
 
 class TestRunnerLock:

@@ -44,6 +44,7 @@ from experiments.trustparadox_u.empirical_corpus import (
     EmpiricalGenerationAttempt,
     EmpiricalSplit,
     EmpiricalTargetSpec,
+    GenerationMode,
     GenerationStatus,
     TrustLevel,
     accept_generation_attempt,
@@ -394,8 +395,15 @@ def _generate_unit(
             sequence_step_count=step_count,
         )
         response = generator.generate(request)
+        # E2-002: provider/transport/mode are recorded separately; the
+        # provider is never the generation mode ("mock"/"real").
         attempt = attempt_from_response(
-            request, response, generator_provider=generator.generation_mode
+            request,
+            response,
+            generator_provider=getattr(generator, "provider", GenerationMode.MOCK.value),
+            generation_mode=GenerationMode(generator.generation_mode).value,
+            transport=getattr(generator, "transport", None),
+            generator_model_requested=getattr(generator, "model_name", response.model_id),
         )
         raw_writer.write_attempt(attempt)
         unit_attempts.append(attempt)
@@ -454,6 +462,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--samples", type=int, default=1)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--generator-model", default=None)
+    parser.add_argument(
+        "--provider",
+        default="openai",
+        help="Serving provider recorded in attempt provenance (E2-002).",
+    )
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--api-base", default=None)
     parser.add_argument("--api-key-env", default=None)
@@ -489,7 +502,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("--generator-model is required for --mode real", file=sys.stderr)
             return 2
         generator = RealEmpiricalGenerator(
-            provider="litellm",
+            provider=args.provider,
             model_name=args.generator_model,
             temperature=args.temperature,
             api_base=args.api_base,

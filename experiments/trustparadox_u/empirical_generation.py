@@ -43,6 +43,7 @@ from experiments.trustparadox_u.empirical_corpus import (
     AttackType,
     EmpiricalGenerationAttempt,
     EmpiricalTargetSpec,
+    GenerationMode,
     GenerationStatus,
     TrustLevel,
     attempt_to_record,
@@ -491,8 +492,16 @@ def attempt_from_response(
     *,
     generator_provider: str,
     seed: int | None = None,
+    generation_mode: str = GenerationMode.MOCK.value,
+    transport: str | None = None,
+    generator_model_requested: str | None = None,
 ) -> EmpiricalGenerationAttempt:
-    """Assemble the retained raw-attempt record from a request/response pair."""
+    """Assemble the retained raw-attempt record from a request/response pair.
+
+    E2-002: provider, transport, generation mode, and the requested vs
+    returned model are recorded separately; ``generator_provider`` must
+    never be "real".
+    """
     spec = request.target_spec
     is_sequence = request.sequence_step_index is not None
     attempt_id = generation_attempt_id(
@@ -560,6 +569,10 @@ def attempt_from_response(
         request_id=response.request_id,
         retry_index=response.retry_index,
         generated_at=response.generated_at or utc_now_iso(),
+        generation_mode=GenerationMode(generation_mode).value,
+        transport=transport,
+        generator_model_requested=generator_model_requested,
+        generator_model_returned=response.model_id,
     )
 
 
@@ -680,8 +693,9 @@ class RealEmpiricalGenerator:
     api_key_env: str | None = None
     timeout_seconds: float = 60.0
     max_retries: int = 2
+    transport: str = "litellm"
 
-    generation_mode: str = field(default="real", init=False)
+    generation_mode: str = field(default=GenerationMode.REAL.value, init=False)
 
     def generate(
         self,

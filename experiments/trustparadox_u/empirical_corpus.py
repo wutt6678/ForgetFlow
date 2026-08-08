@@ -24,10 +24,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from enum import Enum
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # ---------------------------------------------------------------------------
 # Protocol constants
@@ -37,9 +41,43 @@ EMPIRICAL_SCHEMA_VERSION = "1.0.0"
 EMPIRICAL_PROTOCOL_VERSION = "2.0.0"
 EMPIRICAL_STUDY_VERSION = "2.0.0"
 
-# E1-021: current empirical phase.  While E1, validation/test generation is
-# locked; only development-split mock work is permitted.
-EMPIRICAL_PHASE = "E1"
+
+# E2-001: the empirical phase is a validated enum, never a free string.
+class EmpiricalPhase(str, Enum):
+    E1_FOUNDATION = "E1_FOUNDATION"
+    E2_TRUST_PILOT = "E2_TRUST_PILOT"
+    E2_PROMPTS_FROZEN = "E2_PROMPTS_FROZEN"
+    E3_CORPUS_GENERATION = "E3_CORPUS_GENERATION"
+
+
+# Current empirical phase.  E1_FOUNDATION, E2_TRUST_PILOT, and
+# E2_PROMPTS_FROZEN permit only development-split generation; only
+# E3_CORPUS_GENERATION (after an explicit transition) follows the frozen
+# protocol for validation/test.
+EMPIRICAL_PHASE = EmpiricalPhase.E1_FOUNDATION
+
+#: E2-042: authoritative phase file; an absent file means E1_FOUNDATION.
+EMPIRICAL_PHASE_FILE = (
+    _PROJECT_ROOT
+    / "data"
+    / "trustparadox_u"
+    / "empirical_v2"
+    / "manifests"
+    / "empirical_phase.json"
+)
+
+
+def load_empirical_phase(path: Path = EMPIRICAL_PHASE_FILE) -> EmpiricalPhase:
+    """Read the authoritative phase manifest; absent file means E1."""
+    if not path.exists():
+        return EmpiricalPhase.E1_FOUNDATION
+    record = json.loads(path.read_text(encoding="utf-8"))
+    return EmpiricalPhase(str(record["phase"]))
+
+
+class EmpiricalCleanTreeRequiredError(RuntimeError):
+    """E2-004: real-API generation requires a fully clean repository tree."""
+
 
 EMPIRICAL_SCENARIOS: tuple[str, ...] = (
     "credential_001",
@@ -89,6 +127,13 @@ class GenerationStatus(str, Enum):
     TIMEOUT = "timeout"
 
 
+class GenerationMode(str, Enum):
+    """E2-002: mock vs real generation — separate from the provider."""
+
+    MOCK = "mock"
+    REAL = "real"
+
+
 #: Sequence-bearing attack families (all steps are separate attempts).
 SEQUENCE_ATTACK_TYPES: frozenset[AttackType] = frozenset(
     {AttackType.FRAGMENTATION_SEQUENCE, AttackType.COMPOSITIONAL_SEQUENCE}
@@ -112,16 +157,33 @@ def _validated(enum_type: type[Enum], value: str, field_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def assert_generation_split_unlocked(split: str, phase: str = EMPIRICAL_PHASE) -> None:
-    """E1-021: reject non-development generation while the phase is E1.
+#: E2-001: phases in which only the development split may be generated.
+DEVELOPMENT_ONLY_PHASES: frozenset[EmpiricalPhase] = frozenset(
+    {
+        EmpiricalPhase.E1_FOUNDATION,
+        EmpiricalPhase.E2_TRUST_PILOT,
+        EmpiricalPhase.E2_PROMPTS_FROZEN,
+    }
+)
 
-    No override flag exists; advancing requires an explicit phase change
-    (E2 trust-prompt freeze first).
+
+def assert_generation_split_unlocked(
+    split: str, phase: str | EmpiricalPhase = EMPIRICAL_PHASE
+) -> None:
+    """E2-001: only E3_CORPUS_GENERATION unlocks non-development splits.
+
+    The trust pilot (E2_TRUST_PILOT) and the prompt freeze
+    (E2_PROMPTS_FROZEN) do NOT unlock validation/test generation.  Unknown
+    phase strings raise ValueError — no bypass flag exists; advancing
+    requires the explicit E3 transition.
     """
     split_value = EmpiricalSplit(split)
-    if phase == "E1" and split_value is not EmpiricalSplit.DEVELOPMENT:
+    phase_value = EmpiricalPhase(phase)
+    if phase_value in DEVELOPMENT_ONLY_PHASES and split_value is not EmpiricalSplit.DEVELOPMENT:
         raise EmpiricalPhaseLockedError(
-            f"{split_value.value} generation is not permitted before E2 " "trust-prompt freeze"
+            f"{split_value.value} generation is not permitted in phase "
+            f"{phase_value.value}; only {EmpiricalPhase.E3_CORPUS_GENERATION.value} "
+            "may follow the frozen protocol"
         )
 
 
@@ -246,6 +308,126 @@ def empirical_sequence_family_id(
 def empirical_sequence_id(sequence_family_id: str, trust_level: str) -> str:
     """E1-004: trust-specific sequence identity (pairs across trust)."""
     return f"{sequence_family_id}_{trust_level}"
+
+
+# ---------------------------------------------------------------------------
+# E2-003: generation/replay identity separation
+# ---------------------------------------------------------------------------
+#
+# ``generation_family_id`` is the trust-independent generation family:
+# scenario + secret variant + pilot prompt family + sample index +
+# replicate.  It is the documented alias of ``candidate_family_id`` —
+# a grouping key, NOT proof of identical content.  Content identity is
+# the per-candidate ``content_sha256``; replay identity is constructed
+# separately at replay time and is reserved (never assigned in E2).
+
+
+def generation_family_id(
+    *,
+    scenario_id: str,
+    secret_variant_id: str,
+    attack_type: str,
+    sample_index: int,
+    generation_replicate: int,
+    sequence_step_index: int | None = None,
+) -> str:
+    """E2-003: trust-independent generation family (alias of candidate family).
+
+    Low/default/high attempts for one task share this ID; sharing it does
+    not imply identical generated content, so RQ6-style pairing may not
+    rely on the generation family alone.
+    """
+    return empirical_candidate_family_id(
+        scenario_id=scenario_id,
+        secret_variant_id=secret_variant_id,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sequence_step_index=sequence_step_index,
+    )
+
+
+def generation_sequence_family_id(
+    *,
+    scenario_id: str,
+    secret_variant_id: str,
+    attack_type: str,
+    sample_index: int,
+    generation_replicate: int,
+) -> str:
+    """E2-003: trust-independent sequence generation family alias."""
+    return empirical_sequence_family_id(
+        scenario_id=scenario_id,
+        secret_variant_id=secret_variant_id,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+    )
+
+
+#: E2-003: replay identity fields — RESERVED, never assigned during E2.
+REPLAY_FAMILY_ID_FIELD = "replay_family_id"
+REPLAY_SEQUENCE_FAMILY_ID_FIELD = "replay_sequence_family_id"
+RESERVED_REPLAY_IDENTITY_FIELDS: frozenset[str] = frozenset(
+    {REPLAY_FAMILY_ID_FIELD, REPLAY_SEQUENCE_FAMILY_ID_FIELD}
+)
+
+
+def assert_replay_identity_unassigned(record: Mapping[str, object]) -> None:
+    """E2-003: replay identity must remain unassigned in generation records."""
+    for field_name in sorted(RESERVED_REPLAY_IDENTITY_FIELDS):
+        if record.get(field_name) is not None:
+            raise ValueError(f"{field_name} is reserved and must not be assigned in E2")
+
+
+# ---------------------------------------------------------------------------
+# E2-004: clean committed repository tree before any real API call
+# ---------------------------------------------------------------------------
+
+
+def repository_commit_sha(cwd: Path | None = None) -> str:
+    """Current HEAD commit of the repository at ``cwd`` (default: project)."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=cwd or _PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise EmpiricalCleanTreeRequiredError("cannot determine the repository commit")
+    return result.stdout.strip()
+
+
+def repository_porcelain_status(cwd: Path | None = None) -> str:
+    """Raw ``git status --porcelain`` output for the repository."""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=cwd or _PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise EmpiricalCleanTreeRequiredError("git status failed; tree state unknown")
+    return result.stdout
+
+
+def assert_clean_repository_tree(cwd: Path | None = None) -> str:
+    """E2-004: return the commit SHA only if the working tree is fully clean.
+
+    Any uncommitted path (including untracked artifacts) blocks real-API
+    generation; the caller records the returned commit plus
+    ``repository_clean = true``.
+    """
+    status = repository_porcelain_status(cwd)
+    if status.strip():
+        paths = sorted(line[3:].strip() for line in status.splitlines() if line.strip())
+        raise EmpiricalCleanTreeRequiredError(
+            "real-API generation requires a clean repository tree; "
+            "uncommitted paths: " + ", ".join(paths)
+        )
+    return repository_commit_sha(cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -598,6 +780,14 @@ class EmpiricalGenerationAttempt:
     retry_index: int
     generated_at: str
 
+    # E2-002 provenance (additive; E1 records receive these defaults on
+    # load).  ``generator_provider`` is the serving provider and must
+    # never be "real"; ``generation_mode`` carries the mock/real split.
+    generation_mode: str = GenerationMode.MOCK.value
+    transport: str | None = None
+    generator_model_requested: str | None = None
+    generator_model_returned: str | None = None
+
     @property
     def is_sequence_attempt(self) -> bool:
         return self.sequence_family_id is not None
@@ -658,6 +848,24 @@ class EmpiricalGenerationAttempt:
             problems.append("negative sample_index")
         if self.generation_replicate < 0:
             problems.append("negative generation_replicate")
+
+        # E2-002: provenance consistency.
+        try:
+            mode = GenerationMode(self.generation_mode)
+        except ValueError:
+            problems.append(f"invalid generation_mode: {self.generation_mode!r}")
+        else:
+            if mode is GenerationMode.REAL and not self.transport:
+                problems.append("real generation_mode requires a transport")
+        if self.generator_provider == GenerationMode.REAL.value:
+            problems.append("generator_provider must never be 'real' (E2-002)")
+        if (
+            self.generator_model_requested
+            and self.generator_model_returned
+            and self.generator_model_requested not in self.generator_model_returned
+            and self.generation_status != GenerationStatus.PROVIDER_ERROR.value
+        ):
+            problems.append("requested/returned model mismatch requires provider_error")
         return problems
 
     def validate_identity(self) -> list[str]:
@@ -735,7 +943,13 @@ def attempt_to_record(attempt: EmpiricalGenerationAttempt) -> dict[str, object]:
 
 
 def record_to_attempt(record: Mapping[str, object]) -> EmpiricalGenerationAttempt:
-    kwargs = {k: record[k] for k in EmpiricalGenerationAttempt.__dataclass_fields__}
+    # E2-002: additive provenance fields are optional so E1 records that
+    # predate them still round-trip; new fields keep their defaults.
+    kwargs = {
+        name: record[name]
+        for name in EmpiricalGenerationAttempt.__dataclass_fields__
+        if name in record
+    }
     return EmpiricalGenerationAttempt(**kwargs)  # type: ignore[arg-type]
 
 
