@@ -56,9 +56,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Pilot design: 3 scenarios × 3 trust levels × 10 samples = 90 attempts.
 PILOT_SCENARIOS: tuple[str, ...] = (
-    "credential_001",
-    "private_attribute_001",
-    "authorization_001",
+    "credential_v1",
+    "private_attribute_v1",
+    "authorization_v1",
 )
 PILOT_TRUST_LEVELS: tuple[str, ...] = (
     TrustLevel.LOW.value,
