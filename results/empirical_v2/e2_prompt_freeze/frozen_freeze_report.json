@@ -1,0 +1,13 @@
+{
+  "freeze_type": "prompt_freeze",
+  "protocol_version": "1.2.0",
+  "freeze_timestamp": "2026-08-08T02:00:22.651515+00:00",
+  "repository_commit": "0391747b5674b88f7f6b50e8b364aabaef8cea75",
+  "frozen_status": "frozen_post_pilot",
+  "input_file": "results/empirical_v2/e2_bounded_revision/bounded_revision_report.json",
+  "manifest_sha256": "5ec5d40845871cd82299bede973a659da62f9343d32de9fd2bf4726b4bdd637d",
+  "num_templates": 12,
+  "invariance_valid": true,
+  "prompts_revised": false,
+  "passed": true
+}

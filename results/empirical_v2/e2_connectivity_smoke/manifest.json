@@ -1,0 +1,23 @@
+{
+  "artifact_class": "connectivity_smoke",
+  "research_use": "diagnostic_only",
+  "study_version": "2.0.0",
+  "protocol_version": "2.0.0",
+  "schema_version": "1.0.0",
+  "empirical_phase": "E1_FOUNDATION",
+  "repository_commit": "fb4aa021e27e6553a50689e16f0211005ce91166",
+  "generator_provider": "openai",
+  "generator_model": "openai/qwen-plus",
+  "generator_transport": "litellm",
+  "temperature": 0.7,
+  "max_tokens": 512,
+  "num_attempts": 3,
+  "scenarios": [
+    "credential_v1",
+    "private_attribute_v1",
+    "authorization_v1"
+  ],
+  "raw_generation_sha256": "ffba041a876608ca4170ac04930fd722cfe83a33be49271aa95244a3362e812a",
+  "prompt_manifest_sha256": "f635c5fa049c80156167f3b95b6dad531bed0af28b57e933010d9faf58b96dc4",
+  "generated_at": "2026-08-08T00:55:26+00:00"
+}

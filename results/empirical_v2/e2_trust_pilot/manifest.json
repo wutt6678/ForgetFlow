@@ -1,0 +1,32 @@
+{
+  "artifact_class": "pilot",
+  "research_use": "pilot_analysis",
+  "study_version": "2.0.0",
+  "protocol_version": "2.0.0",
+  "schema_version": "1.0.0",
+  "empirical_phase": "E1_FOUNDATION",
+  "repository_commit": "ea5b21d68a5d80fb311e11f403ae8641ce058d96",
+  "generator_provider": "openai",
+  "generator_model": "openai/qwen3.7-plus",
+  "generator_transport": "litellm",
+  "temperature": 0.7,
+  "max_tokens": 512,
+  "num_attempts": 90,
+  "expected_attempts": 90,
+  "scenarios": [
+    "credential_v1",
+    "private_attribute_v1",
+    "authorization_v1"
+  ],
+  "trust_levels": [
+    "low",
+    "default",
+    "high"
+  ],
+  "attack_type": "direct_disclosure",
+  "num_samples": 10,
+  "raw_generation_sha256": "1572b6e3367bb99740e7a12f4115e4be4d045b1e785d58f3f9c8db19bc75fb54",
+  "prompt_manifest_sha256": "f635c5fa049c80156167f3b95b6dad531bed0af28b57e933010d9faf58b96dc4",
+  "generated_at": "2026-08-08T01:36:45+00:00",
+  "total_time_seconds": 1970.35
+}
