@@ -741,7 +741,11 @@ class RealEmpiricalGenerator:
                 elapsed_ms = (time.monotonic() - start) * 1000.0
 
                 returned_model = str(getattr(response, "model", "") or "")
-                if returned_model and self.model_name not in returned_model:
+                # Normalize model names for comparison: LiteLLM uses "provider/model"
+                # format but APIs may return just the model name.
+                requested_model_name = self.model_name.split("/")[-1]
+                returned_model_name = returned_model.split("/")[-1]
+                if returned_model and requested_model_name not in returned_model_name:
                     # No silent model substitution: mismatch is a raw failure.
                     return EmpiricalGenerationResponse(
                         raw_text=None,
