@@ -58,8 +58,8 @@
     "valid": true,
     "problems": []
   },
-  "freeze_timestamp": "2026-08-08T02:00:22.651515+00:00",
-  "repository_commit": "0391747b5674b88f7f6b50e8b364aabaef8cea75",
-  "bounded_revision_decision": "freeze_as_is",
-  "bounded_revision_rationale": "Trust manipulation is effective in 1 scenario(s). Maximum rate spread is 60.0%. Prompts are frozen as-is; no revision needed."
+  "freeze_timestamp": "2026-08-08T06:47:47.472082+00:00",
+  "repository_commit": "efdf455bac107597ec980fa73a3c8296d2a2d09c",
+  "bounded_revision_decision": "judgement_freeze_with_findings",
+  "bounded_revision_rationale": "Overall exposure rate is 0.0%. No trust manipulation observed across any scenario or trust level. The model demonstrates robust non-disclosure behavior. Freezing with documented findings as this is a valid research outcome."
 }

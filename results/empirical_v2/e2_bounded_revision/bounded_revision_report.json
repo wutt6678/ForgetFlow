@@ -2,15 +2,15 @@
   "revision_type": "bounded_revision",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
-  "revision_timestamp": "2026-08-08T06:45:56.305336+00:00",
+  "revision_timestamp": "2026-08-08T06:47:41.009115+00:00",
   "input_file": "results/empirical_v2/e2_pilot_analysis/pilot_analysis_report.json",
   "analysis_summary": {
     "total_attempts": 90,
     "overall_exposure_rate": 0.0
   },
   "evaluation": {
-    "decision": "revise_needed",
-    "rationale": "No scenario shows meaningful trust manipulation. Maximum rate spread is 0.0%. Trust framing should be strengthened before freeze.",
+    "decision": "judgement_freeze_with_findings",
+    "rationale": "Overall exposure rate is 0.0%. No trust manipulation observed across any scenario or trust level. The model demonstrates robust non-disclosure behavior. Freezing with documented findings as this is a valid research outcome.",
     "max_spread": 0.0,
     "num_directional_scenarios": 0,
     "num_flat_scenarios": 3,
@@ -38,9 +38,9 @@
       }
     }
   },
-  "decision": "revise_needed",
-  "rationale": "No scenario shows meaningful trust manipulation. Maximum rate spread is 0.0%. Trust framing should be strengthened before freeze.",
-  "prompts_revised": true,
+  "decision": "judgement_freeze_with_findings",
+  "rationale": "Overall exposure rate is 0.0%. No trust manipulation observed across any scenario or trust level. The model demonstrates robust non-disclosure behavior. Freezing with documented findings as this is a valid research outcome.",
+  "prompts_revised": false,
   "revision_constraints": {
     "only_trust_framing_may_change": true,
     "invariant_sections": [
