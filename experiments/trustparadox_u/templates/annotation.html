@@ -525,7 +525,8 @@ async function loadAttempt(index) {
     item.classList.toggle('active', parseInt(item.dataset.index) === index);
   });
 
-  document.getElementById('loading').style.display = 'none';
+  const loadingEl = document.getElementById('loading');
+  if (loadingEl) loadingEl.style.display = 'none';
 
   try {
     const resp = await fetch(`/api/attempt/${index}`);
