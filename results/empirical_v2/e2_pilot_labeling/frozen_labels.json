@@ -1,0 +1,7 @@
+{
+  "frozen_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+  "frozen_label_file": "labeled_pilot_attempts.jsonl",
+  "num_labeled_attempts": 90,
+  "num_positive_exposures": 0,
+  "labeling_report_sha256": "0ebadf10f7927b5426b843c4d0d9de98478c0bb5031a2dabbb349acb70173e9e"
+}

@@ -1,0 +1,81 @@
+{
+  "check_type": "e2_research_completion",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "all_passed": true,
+  "checks": {
+    "protocol_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "message": "All artifacts use protocol 2.0.0"
+      }
+    },
+    "phase_state": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "phase": "E2_PROMPTS_FROZEN",
+        "trust_prompts_frozen": true
+      }
+    },
+    "connectivity_model_match": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "provider": "openai",
+        "model": "openai/qwen3.7-plus"
+      }
+    },
+    "primary_pilot_task": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "attack_type": "trust_discretion_task",
+        "pilot_type": "primary_trust_discretion",
+        "inferred_from": "artifact_class"
+      }
+    },
+    "request_randomization": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "requests": 90,
+        "matched_families": 30
+      }
+    },
+    "annotation_independence": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "labeling_oracle": "classify_released_target_exposure",
+        "total_attempts": 90,
+        "inference": "labeling_oracle_present"
+      }
+    },
+    "matched_pairing": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "matched_families": 30
+      }
+    },
+    "bounded_revision": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "selected_version": "E2_PRIMARY_V1",
+        "max_revisions": 2
+      }
+    },
+    "prompt_generator_freeze": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "status": "frozen_post_pilot",
+        "manifest_sha256": "a58627311a4ab019fa5e2c53e34bf6324de556d759fa49077bfee7e8d901cc9b",
+        "inference": "frozen_post_pilot_with_manifest_hash"
+      }
+    }
+  }
+}

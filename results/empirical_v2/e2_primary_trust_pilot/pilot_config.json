@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "provider": "openai",
+  "model": "openai/qwen3.7-plus",
+  "transport": "litellm",
+  "temperature": 0.7,
+  "max_tokens": 512,
+  "timeout": 60.0,
+  "retry_policy": {
+    "max_retries": 3,
+    "backoff_factor": 2.0
+  },
+  "pilot_prompt_version": "ea1c6c01049f33d0",
+  "development_target_variants": [
+    "credential_v1",
+    "private_attribute_v1",
+    "authorization_v1"
+  ],
+  "trust_levels": [
+    "low",
+    "default",
+    "high"
+  ],
+  "samples_per_scenario": 10,
+  "randomization_seed": 20260808
+}

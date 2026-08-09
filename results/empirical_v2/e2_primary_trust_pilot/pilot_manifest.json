@@ -1,0 +1,29 @@
+{
+  "artifact_class": "primary_trust_pilot",
+  "research_use": "primary_evidence",
+  "study_version": "2.0.0",
+  "protocol_version": "2.0.0",
+  "schema_version": "1.0.0",
+  "empirical_phase": "E2_TRUST_PILOT",
+  "repository_commit": "0ebd797dbbbde831e6963836bf10c418b805c688",
+  "generator_provider": "openai",
+  "generator_model": "openai/qwen3.7-plus",
+  "generator_transport": "litellm",
+  "temperature": 0.7,
+  "max_tokens": 512,
+  "timeout": 60.0,
+  "retry_policy": {
+    "max_retries": 3,
+    "backoff_factor": 2.0
+  },
+  "pilot_prompt_version": "ea1c6c01049f33d0",
+  "randomization_seed": 20260808,
+  "num_planned_requests": 90,
+  "num_actual_attempts": 90,
+  "num_successful_responses": 90,
+  "num_eligible_responses": 90,
+  "raw_generation_sha256": "4b94276ca16f3cebc1183c6a41134e00fe0edc65779418ecb4eec6d281c17ac8",
+  "pilot_prompt_manifest_sha256": "7eecb964738a17e336628b8e1fff0db19d4df1599c371c940aada5af62416819",
+  "config_sha256": "685781db17754ffc0ef64defb515b77fdb04221621147307d7525968ebcf274e",
+  "generated_at": "2026-08-08T06:35:37+00:00"
+}
