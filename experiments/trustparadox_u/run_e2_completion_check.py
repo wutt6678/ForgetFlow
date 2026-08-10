@@ -41,6 +41,9 @@ from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_PHASE_FILE,
     EMPIRICAL_PROTOCOL_VERSION,
     EMPIRICAL_STUDY_VERSION,
+    EVALUATOR_MODEL_IDENTITY,
+    GENERATOR_MODEL_IDENTITY,
+    SECONDARY_EVALUATOR_MODEL_IDENTITY,
     EmpiricalPhase,
 )
 
@@ -233,6 +236,9 @@ _SECONDARY_REVIEW_QUEUE_PATH = (
     / "e2_primary_pilot_labels"
     / "secondary_review_queue.jsonl"
 )
+_SECONDARY_ANNOTATION_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "e2_secondary_annotation"
+_SECONDARY_RAW_RESPONSES_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_raw_responses.jsonl"
+_SECONDARY_PROMPT_MANIFEST_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_prompt_manifest.json"
 _PILOT_MANIFEST_PATH = (
     _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "pilot_manifest.json"
 )
@@ -2438,11 +2444,22 @@ def check_artifact_hash_binding(
 def check_secondary_annotation_integrity(
     secondary_review_path: Path | None = None,
     adjudication_log_path: Path | None = None,
+    *,
+    queue_path: Path | None = None,
+    raw_responses_path: Path | None = None,
+    prompt_manifest_path: Path | None = None,
 ) -> CheckResult:
-    """E2-A7-FIX-028: validate secondary annotation integrity.
+    """E2-A7-FIX-028/FIX-027: validate secondary annotation integrity.
 
     Refactored from check_real_review_integrity to avoid equating
     non-automated reviewer_id with real human annotator.
+
+    FIX-027 additions:
+    - Verify J2 != J1 and J2 != G (model family independence)
+    - Verify all required review cases are covered
+    - Verify all J2 request IDs are real (non-empty)
+    - Verify all J2 raw outputs are retained
+    - Verify secondary prompt hash is frozen
 
     For reviewer_type = independent_llm:
       require reviewer_id, reviewer_type, and that the record does NOT
@@ -2456,6 +2473,10 @@ def check_secondary_annotation_integrity(
     - LLM reviewer mislabeled as human
     - blank reviewer_id / reviewer_type
     - adjudicated=True with blank adjudicator fields
+    - J2 model same as J1 or G
+    - missing review cases
+    - empty J2 request IDs or raw outputs
+    - unfrozen prompt hash
     """
     if secondary_review_path is None:
         secondary_review_path = _SECONDARY_REVIEW_LABELS_PATH
@@ -2569,12 +2590,140 @@ def check_secondary_annotation_integrity(
                     },
                 )
 
+    # --- E2-A7-FIX-027: J2 model independence checks ---
+    # Verify J2 != J1 and J2 != G
+    if SECONDARY_EVALUATOR_MODEL_IDENTITY == EVALUATOR_MODEL_IDENTITY:
+        return CheckResult(
+            check_name="secondary_annotation_integrity",
+            passed=False,
+            failure_code="e2_j2_same_as_j1",
+            details={
+                "reason": f"J2 model {SECONDARY_EVALUATOR_MODEL_IDENTITY} "
+                f"must differ from J1 model {EVALUATOR_MODEL_IDENTITY}",
+            },
+        )
+    if SECONDARY_EVALUATOR_MODEL_IDENTITY == GENERATOR_MODEL_IDENTITY:
+        return CheckResult(
+            check_name="secondary_annotation_integrity",
+            passed=False,
+            failure_code="e2_j2_same_as_generator",
+            details={
+                "reason": f"J2 model {SECONDARY_EVALUATOR_MODEL_IDENTITY} "
+                f"must differ from generator G {GENERATOR_MODEL_IDENTITY}",
+            },
+        )
+
+    # --- E2-A7-FIX-027: Verify all required review cases covered ---
+    _queue_path = queue_path if queue_path is not None else _SECONDARY_REVIEW_QUEUE_PATH
+    queue_records: list[dict[str, Any]] = []
+    if _queue_path.exists():
+        with _queue_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                queue_records.append(json.loads(line))
+
+    reviewed_ids = {rec.get("generation_attempt_id") for rec in review_records}
+    queue_ids = {rec.get("generation_attempt_id") for rec in queue_records}
+    missing_ids = queue_ids - reviewed_ids
+    if missing_ids:
+        return CheckResult(
+            check_name="secondary_annotation_integrity",
+            passed=False,
+            failure_code="e2_missing_review_cases",
+            details={
+                "reason": f"{len(missing_ids)} queue cases not reviewed",
+                "missing_ids": sorted(missing_ids),
+            },
+        )
+
+    # --- E2-A7-FIX-027: Verify J2 request IDs and raw outputs ---
+    _raw_path = (
+        raw_responses_path if raw_responses_path is not None else _SECONDARY_RAW_RESPONSES_PATH
+    )
+    raw_responses: list[dict[str, Any]] = []
+    if _raw_path.exists():
+        with _raw_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                raw_responses.append(json.loads(line))
+
+    for rec in raw_responses:
+        status = rec.get("status", "")
+        request_id = rec.get("request_id", "")
+        raw_output = rec.get("raw_output", "")
+        # Successful evaluations must have real request IDs and raw outputs
+        if status == "success":
+            if not request_id:
+                return CheckResult(
+                    check_name="secondary_annotation_integrity",
+                    passed=False,
+                    failure_code="e2_missing_j2_request_id",
+                    details={
+                        "reason": "Successful J2 evaluation has empty request_id",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+            if not raw_output:
+                return CheckResult(
+                    check_name="secondary_annotation_integrity",
+                    passed=False,
+                    failure_code="e2_missing_j2_raw_output",
+                    details={
+                        "reason": "Successful J2 evaluation has empty raw_output",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+
+    # --- E2-A7-FIX-027: Verify secondary prompt hash frozen ---
+    _prompt_path = (
+        prompt_manifest_path
+        if prompt_manifest_path is not None
+        else _SECONDARY_PROMPT_MANIFEST_PATH
+    )
+    if _prompt_path.exists():
+        with _prompt_path.open(encoding="utf-8") as fh:
+            prompt_manifest = json.load(fh)
+        # Verify the manifest has prompt hashes
+        prompts = prompt_manifest.get("prompts", {})
+        if not prompts:
+            return CheckResult(
+                check_name="secondary_annotation_integrity",
+                passed=False,
+                failure_code="e2_empty_prompt_manifest",
+                details={
+                    "reason": "Secondary prompt manifest has no prompt entries",
+                },
+            )
+        # Verify each prompt file has a sha256 hash
+        for prompt_name, prompt_info in prompts.items():
+            if not prompt_info.get("sha256"):
+                return CheckResult(
+                    check_name="secondary_annotation_integrity",
+                    passed=False,
+                    failure_code="e2_unfrozen_prompt_hash",
+                    details={
+                        "reason": f"Prompt {prompt_name!r} has no sha256 hash",
+                    },
+                )
+
     return CheckResult(
         check_name="secondary_annotation_integrity",
         passed=True,
         details={
             "secondary_review_records": len(review_records),
             "adjudication_records": len(adj_records),
+            "j2_model": SECONDARY_EVALUATOR_MODEL_IDENTITY,
+            "j1_model": EVALUATOR_MODEL_IDENTITY,
+            "generator_model": GENERATOR_MODEL_IDENTITY,
+            "queue_cases": len(queue_records),
+            "raw_responses": len(raw_responses),
+            "prompt_manifest_entries": len(prompt_manifest.get("prompts", {}))
+            if _prompt_path.exists()
+            else 0,
         },
     )
 

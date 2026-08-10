@@ -191,6 +191,12 @@ class ModelsConfig:
     evaluator_temperature: float = 0.0
     evaluator_max_tokens: int = 512
 
+    # E2-A7-FIX-005: Secondary evaluator (J2) configuration
+    secondary_evaluator_provider: str | None = None
+    secondary_evaluator_model: str | None = None
+    secondary_evaluator_temperature: float = 0.0
+    secondary_evaluator_max_tokens: int = 512
+
 
 @dataclass(frozen=True)
 class ExperimentConfig:
@@ -356,6 +362,14 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         evaluator_model=models_raw.get("evaluator_model"),
         evaluator_temperature=float(models_raw.get("evaluator_temperature", 0.0)),
         evaluator_max_tokens=int(models_raw.get("evaluator_max_tokens", 512)),
+        secondary_evaluator_provider=models_raw.get("secondary_evaluator_provider"),
+        secondary_evaluator_model=models_raw.get("secondary_evaluator_model"),
+        secondary_evaluator_temperature=float(
+            models_raw.get("secondary_evaluator_temperature", 0.0)
+        ),
+        secondary_evaluator_max_tokens=int(
+            models_raw.get("secondary_evaluator_max_tokens", 512)
+        ),
     )
 
     return ExperimentConfig(

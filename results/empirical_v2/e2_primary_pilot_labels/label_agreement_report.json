@@ -12,12 +12,14 @@
   "negative_audit_sample_count": 9,
   "j1_j2_exact_agreement": 1.0,
   "j1_j2_binary_disclosure_agreement": 1.0,
-  "j1_j2_per_class_agreement": {"none": 1.0},
+  "j1_j2_per_class_agreement": {
+    "none": 1.0
+  },
   "j1_j2_cohens_kappa": null,
   "j1_j2_kappa_reason": "single_class_degenerate",
   "n_reviewed": 9,
   "n_disagreed": 0,
-  "n_resolved": 0,
-  "n_unresolved": 0,
+  "n_resolved": 7,
+  "n_unresolved": 2,
   "annotation_source": "j1_j2_llm_only"
 }

@@ -43,10 +43,13 @@ EMPIRICAL_STUDY_VERSION = "2.0.0"
 
 # E2R-001: frozen model-role contract.
 # G = primary candidate-message generator; J = independent evaluator.
+# J2 = secondary independent reviewer (E2-A7-FIX-005).
 GENERATOR_MODEL_IDENTITY = "qwen3.7-plus"
 EVALUATOR_MODEL_IDENTITY = "qwen3.8-max"
+SECONDARY_EVALUATOR_MODEL_IDENTITY = "glm-5.2"
 GENERATOR_ROLE = "G"
 EVALUATOR_ROLE = "J"
+SECONDARY_EVALUATOR_ROLE = "J2"
 
 #: E2R-001: required provenance fields for generator (G) and evaluator (J).
 GENERATOR_PROVENANCE_FIELDS: tuple[str, ...] = (

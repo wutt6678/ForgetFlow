@@ -1712,7 +1712,14 @@ class TestIterationGRegression:
             )
             + "\n"
         )
-        result = check_secondary_annotation_integrity(review_path, adj_path)
+        # FIX-027: provide matching queue so queue-coverage check passes
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+        )
         assert result.passed is True
 
     def test_fix029_valid_human_annotator_passes(self, tmp_path: Path) -> None:
@@ -1731,7 +1738,14 @@ class TestIterationGRegression:
             + "\n"
         )
         adj_path = tmp_path / "adjudication_log.jsonl"
-        result = check_secondary_annotation_integrity(review_path, adj_path)
+        # FIX-027: provide matching queue so queue-coverage check passes
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+        )
         assert result.passed is True
 
     def test_fix029_automated_audit_rejected(self, tmp_path: Path) -> None:
@@ -1851,7 +1865,14 @@ class TestIterationGRegression:
             )
             + "\n"
         )
-        result = check_secondary_annotation_integrity(review_path, adj_path)
+        # FIX-027: provide matching queue so queue-coverage check passes
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+        )
         assert result.passed is True
 
     def test_fix028_completed_adjudication_passes(self, tmp_path: Path) -> None:
@@ -1885,7 +1906,14 @@ class TestIterationGRegression:
             )
             + "\n"
         )
-        result = check_secondary_annotation_integrity(review_path, adj_path)
+        # FIX-027: provide matching queue so queue-coverage check passes
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+        )
         assert result.passed is True
 
     def test_fix028_count_completed_adjudications_blank_rows(self, tmp_path: Path) -> None:
@@ -2010,6 +2038,200 @@ class TestIterationGRegression:
 
         with pytest.raises(RuntimeError, match="not all completion checks passed"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
+
+    # --- E2-A7-FIX-027: J2 model independence ---
+
+    def test_fix027_j2_must_differ_from_j1(
+        self, tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:  # noqa: F821
+        """E2-A7-FIX-027: J2 same as J1 must fail."""
+
+        from experiments.trustparadox_u import run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "SECONDARY_EVALUATOR_MODEL_IDENTITY", "qwen3.8-max")
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_same_as_j1"
+
+    def test_fix027_j2_must_differ_from_generator(
+        self, tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:  # noqa: F821
+        """E2-A7-FIX-027: J2 same as generator G must fail."""
+
+        from experiments.trustparadox_u import run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "SECONDARY_EVALUATOR_MODEL_IDENTITY", "qwen3.7-plus")
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_same_as_generator"
+
+    def test_fix027_missing_queue_cases_fail(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-027: queue cases not covered by review must fail."""
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        # Queue has 2 cases but review only covers 1
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(
+            json.dumps({"generation_attempt_id": "test_001"})
+            + "\n"
+            + json.dumps({"generation_attempt_id": "test_002"})
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+        )
+        assert result.passed is False
+        assert result.failure_code == "e2_missing_review_cases"
+
+    def test_fix027_empty_request_id_fails(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-027: successful J2 with empty request_id must fail."""
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        # Raw response with success status but empty request_id
+        raw_path = tmp_path / "raw.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "request_id": "",
+                    "raw_output": "some output",
+                }
+            )
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+            raw_responses_path=raw_path,
+        )
+        assert result.passed is False
+        assert result.failure_code == "e2_missing_j2_request_id"
+
+    def test_fix027_empty_raw_output_fails(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-027: successful J2 with empty raw_output must fail."""
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        raw_path = tmp_path / "raw.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "request_id": "req_123",
+                    "raw_output": "",
+                }
+            )
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+            raw_responses_path=raw_path,
+        )
+        assert result.passed is False
+        assert result.failure_code == "e2_missing_j2_raw_output"
+
+    def test_fix027_unfrozen_prompt_hash_fails(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-027: prompt manifest without sha256 must fail."""
+        review_path = tmp_path / "review.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adj.jsonl"
+        adj_path.write_text("")
+        # Empty queue so queue-coverage check passes
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text("")
+        prompt_path = tmp_path / "prompt_manifest.json"
+        prompt_path.write_text(
+            json.dumps(
+                {
+                    "evaluator_role": "J2",
+                    "prompts": {"system.txt": {"sha256": ""}},
+                }
+            )
+        )
+        result = check_secondary_annotation_integrity(
+            review_path,
+            adj_path,
+            queue_path=queue_path,
+            prompt_manifest_path=prompt_path,
+        )
+        assert result.passed is False
+        assert result.failure_code == "e2_unfrozen_prompt_hash"
+
+    # --- E2-A7-FIX-010: agreement report has no human claims ---
+
+    def test_fix010_agreement_report_no_human_claims(self) -> None:
+        """E2-A7-FIX-010: agreement report uses J1-J2 language, not human."""
+        report_path = (
+            Path(__file__).resolve().parents[2]
+            / "results"
+            / "empirical_v2"
+            / "e2_primary_pilot_labels"
+            / "label_agreement_report.json"
+        )
+        if not report_path.exists():
+            import pytest
+
+            pytest.skip("agreement report not yet generated")
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        # Must have J1-J2 agreement fields
+        assert "j1_j2_exact_agreement" in report
+        assert "annotation_source" in report
+        assert report["annotation_source"] == "j1_j2_llm_only"
+        # Must NOT have human agreement claims
+        text = json.dumps(report).lower()
+        assert "human_agreement" not in text
+        assert "human agreement" not in text
 
 
 # =========================================================================

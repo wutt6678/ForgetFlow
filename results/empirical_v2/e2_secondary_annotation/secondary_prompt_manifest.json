@@ -1,0 +1,24 @@
+{
+  "evaluator_role": "J2",
+  "model_identity": "glm-5.2",
+  "model_provider": "openai",
+  "frozen_at": "2026-08-10T18:14:18.307806+00:00",
+  "prompts": {
+    "credential_task.txt": {
+      "sha256": "715ef79c54e6a2dc66804ae85a2683eb06069d4ae441458e04f342b065f8cbeb",
+      "size_bytes": 1896
+    },
+    "proposition_task.txt": {
+      "sha256": "84ae98aac892bd1daa41995d7f15451e679aab069447076e1a310a664c2ee438",
+      "size_bytes": 1863
+    },
+    "secondary_system.txt": {
+      "sha256": "4f77d9563e004987ac25ab76b140226fa00828ed9e513e0818e871796fefe2f1",
+      "size_bytes": 1891
+    },
+    "reviewer_schema.json": {
+      "sha256": "96cc41e33b98c1fe7839de7cd8503bc28c2f9172fe26f7d9ae21c44880cd7dc5",
+      "size_bytes": 3155
+    }
+  }
+}
