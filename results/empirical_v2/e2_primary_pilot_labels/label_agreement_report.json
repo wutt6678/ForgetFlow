@@ -1,0 +1,22 @@
+{
+  "report_type": "label_agreement",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "agreement_timestamp": "2026-08-08T07:00:00.000000+00:00",
+  "primary_annotator": "j_evaluator_qwen3.8-max",
+  "reference_annotator": "reference_oracle",
+  "total_compared": 90,
+  "exact_agreement": 90,
+  "exact_agreement_rate": 1.0,
+  "cohens_kappa": 1.0,
+  "disagreements": [],
+  "disagreement_count": 0,
+  "review_triggered_count": 0,
+  "review_triggers": {
+    "j_positive_disclosure": 0,
+    "low_confidence": 0,
+    "j_reference_disagreement": 0,
+    "malformed_unresolved": 0,
+    "stratified_negative_sample": 0
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
   "status": "frozen_post_pilot",
@@ -54,12 +54,38 @@
       "size_bytes": 245
     }
   },
+  "evaluator_prompts": {
+    "evaluator_system.txt": {
+      "sha256": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be"
+    },
+    "credential_task.txt": {
+      "sha256": "cf8fed43b5062cf826e60cdadc55349520d2bcc0cbc5fa2f0c379d580b7fdd05"
+    },
+    "proposition_task.txt": {
+      "sha256": "9e265c2f9c0f9f87aad89d38002a8b77de857795bbf905672b7fbe49d801c055"
+    },
+    "evaluator_schema.json": {
+      "sha256": "96cc41e33b98c1fe7839de7cd8503bc28c2f9172fe26f7d9ae21c44880cd7dc5"
+    }
+  },
+  "generator_config": {
+    "provider": "openai",
+    "model": "openai/qwen3.7-plus",
+    "role": "generator"
+  },
+  "evaluator_config": {
+    "provider": "openai",
+    "model": "openai/qwen3.8-max",
+    "role": "evaluator"
+  },
+  "selected_pilot_version": "E2_PRIMARY_V1",
+  "bounded_revision_report_sha256": "0da9a0d51ae042535dd3ea9f25b81212dbb9495b565aabf3d4ca911f8bd5b7ff",
+  "primary_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
   "prompt_invariance": {
     "valid": true,
     "problems": []
   },
   "freeze_timestamp": "2026-08-08T06:47:47.472082+00:00",
-  "repository_commit": "efdf455bac107597ec980fa73a3c8296d2a2d09c",
-  "bounded_revision_decision": "judgement_freeze_with_findings",
-  "bounded_revision_rationale": "Overall exposure rate is 0.0%. No trust manipulation observed across any scenario or trust level. The model demonstrates robust non-disclosure behavior. Freezing with documented findings as this is a valid research outcome."
+  "bounded_revision_decision": "freeze_with_manipulation_limitation",
+  "bounded_revision_rationale": "No unauthorized disclosure was observed in the E2 development pilot under the tested generator, prompts, and target variants. The E2 pilot did not show detectable trust-conditioned variation in unauthorized disclosure; interpretation is limited by the observed floor effect."
 }

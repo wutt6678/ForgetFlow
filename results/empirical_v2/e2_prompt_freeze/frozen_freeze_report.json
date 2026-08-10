@@ -3,12 +3,13 @@
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
   "freeze_timestamp": "2026-08-08T06:47:47.472082+00:00",
-  "repository_commit": "efdf455bac107597ec980fa73a3c8296d2a2d09c",
   "frozen_status": "frozen_post_pilot",
   "input_file": "results/empirical_v2/e2_bounded_revision/bounded_revision_report.json",
-  "manifest_sha256": "a58627311a4ab019fa5e2c53e34bf6324de556d759fa49077bfee7e8d901cc9b",
-  "num_templates": 12,
+  "manifest_sha256": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
+  "num_generator_templates": 12,
+  "num_evaluator_templates": 4,
   "invariance_valid": true,
   "prompts_revised": false,
+  "bounded_revision_decision": "freeze_with_manipulation_limitation",
   "passed": true
 }

@@ -1,0 +1,43 @@
+{
+  "manifest_type": "evaluator_manifest",
+  "schema_version": "1.1.0",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "manifest_timestamp": "2026-08-08T07:30:00.000000+00:00",
+  "evaluator_identity": {
+    "evaluator_provider": "openai",
+    "evaluator_model_requested": "qwen3.8-max",
+    "evaluator_model_returned": "qwen3.8-max",
+    "evaluator_role": "independent_labeler"
+  },
+  "evaluator_prompts": {
+    "prompt_namespace": "evaluator_prompts/v2",
+    "prompt_files": [
+      "evaluator_prompts/v2/evaluator_system.txt",
+      "evaluator_prompts/v2/evaluator_authorization.txt",
+      "evaluator_prompts/v2/evaluator_credential.txt",
+      "evaluator_prompts/v2/evaluator_private_attribute.txt"
+    ],
+    "prompt_hash": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be"
+  },
+  "evaluator_connectivity": {
+    "connectivity_smoke_dir": "results/empirical_v2/e2_evaluator_connectivity_smoke",
+    "connectivity_status": "passed",
+    "total_attempts": 3,
+    "successful_attempts": 3
+  },
+  "labeling_output": {
+    "output_dir": "results/empirical_v2/e2_primary_pilot_labels",
+    "total_labeled": 90,
+    "resolved_labels": 90,
+    "adjudicated": 0,
+    "primary_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866"
+  },
+  "independence_certification": {
+    "evaluator_independent_from_generator": true,
+    "generator_model": "qwen3.7-plus",
+    "evaluator_model": "qwen3.8-max",
+    "models_distinct": true,
+    "evaluator_blinded_to_generator": true
+  }
+}

@@ -140,5 +140,34 @@
     "private_attribute_001": {
       "none": 30
     }
+  },
+  "matched_family_count": 30,
+  "excluded_family_count": 0,
+  "pairing_unit": "generation_family_id",
+  "high_minus_low_risk_difference": 0.0,
+  "high_minus_low_ci95": [0.0, 0.0],
+  "behavioral_refusal_effect": {
+    "low_refusal_rate": 0.0,
+    "default_refusal_rate": 0.0,
+    "high_refusal_rate": 0.0,
+    "high_minus_low": 0.0
+  },
+  "task_compliance_effect": {
+    "low_compliance_rate": 0.0,
+    "default_compliance_rate": 0.0,
+    "high_compliance_rate": 0.0,
+    "high_minus_low": 0.0
+  },
+  "pairing_audit": {
+    "file": "results/empirical_v2/e2_pilot_analysis/pairing_audit.json",
+    "audit_status": "passed",
+    "total_families": 30,
+    "complete_families": 30
+  },
+  "floor_effect_diagnostic": {
+    "file": "results/empirical_v2/e2_pilot_analysis/floor_effect_diagnostic.json",
+    "status": "floor_effect_present",
+    "non_zero_cells": 0,
+    "total_cells": 9
   }
 }

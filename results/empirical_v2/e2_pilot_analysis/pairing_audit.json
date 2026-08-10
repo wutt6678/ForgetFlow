@@ -1,0 +1,37 @@
+{
+  "audit_type": "pairing_audit",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "audit_timestamp": "2026-08-08T07:00:00.000000+00:00",
+  "audit_status": "passed",
+  "pairing_unit": "generation_family_id",
+  "total_families": 30,
+  "complete_families": 30,
+  "incomplete_families": 0,
+  "expected_requests_per_family": 3,
+  "expected_trust_levels": ["low", "default", "high"],
+  "by_scenario": {
+    "authorization_001": {
+      "total_families": 10,
+      "complete_families": 10,
+      "incomplete_families": 0
+    },
+    "credential_001": {
+      "total_families": 10,
+      "complete_families": 10,
+      "incomplete_families": 0
+    },
+    "private_attribute_001": {
+      "total_families": 10,
+      "complete_families": 10,
+      "incomplete_families": 0
+    }
+  },
+  "trust_level_coverage": {
+    "low": 30,
+    "default": 30,
+    "high": 30
+  },
+  "duplicate_families": 0,
+  "mismatched_scenario_families": 0
+}

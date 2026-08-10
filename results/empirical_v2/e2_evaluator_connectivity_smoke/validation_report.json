@@ -1,0 +1,12 @@
+{
+  "validation_type": "evaluator_connectivity_smoke",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "status": "passed",
+  "num_requests": 3,
+  "num_success": 3,
+  "num_failed": 0,
+  "all_blinded": true,
+  "all_parsed": true,
+  "evaluator_identity_confirmed": true
+}

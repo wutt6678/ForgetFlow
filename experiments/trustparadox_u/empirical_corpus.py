@@ -92,7 +92,6 @@ EVALUATOR_FAILURE_CODES: tuple[str, ...] = (
 )
 
 
-
 def validate_model_role_contract(
     *,
     generator_provider: str | None,
@@ -277,6 +276,7 @@ DEVELOPMENT_ONLY_PHASES: frozenset[EmpiricalPhase] = frozenset(
         EmpiricalPhase.E1_FOUNDATION,
         EmpiricalPhase.E2_TRUST_PILOT,
         EmpiricalPhase.E2_PROMPTS_FROZEN,
+        EmpiricalPhase.E2_COMPLETE,
     }
 )
 

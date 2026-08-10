@@ -30,6 +30,7 @@ Checklist coverage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,7 @@ from typing import Any
 
 from experiments.trustparadox_u.empirical_corpus import (
     E2_RESEARCH_STATUS,
+    EMPIRICAL_PHASE_FILE,
     EMPIRICAL_PROTOCOL_VERSION,
     EMPIRICAL_STUDY_VERSION,
     EmpiricalPhase,
@@ -134,7 +136,13 @@ def check_protocol_consistency(artifacts: dict[str, Any]) -> CheckResult:
 
 
 def check_phase_state(phase_file: dict[str, Any] | None) -> CheckResult:
-    """E2 repair §42: check phase state."""
+    """E2 repair §42 / E2R-036: check phase state.
+
+    Accepts E2_PROMPTS_FROZEN (pre-completion) or E2_COMPLETE (post-completion).
+    E2_PROMPTS_FROZEN requires full_corpus_generation_authorized=false.
+    E2_COMPLETE requires full_corpus_generation_authorized=true and additional
+    freeze fields (evaluator_frozen, independent_labels_frozen).
+    """
     if phase_file is None:
         return CheckResult(
             check_name="phase_state",
@@ -143,12 +151,55 @@ def check_phase_state(phase_file: dict[str, Any] | None) -> CheckResult:
         )
 
     phase = phase_file.get("phase")
+
+    # E2R-036: accept E2_COMPLETE as the post-completion valid state.
+    if phase == EmpiricalPhase.E2_COMPLETE.value:
+        if not phase_file.get("trust_prompts_frozen"):
+            return CheckResult(
+                check_name="phase_state",
+                passed=False,
+                failure_code="trust_prompts_not_frozen",
+            )
+        if not phase_file.get("evaluator_frozen"):
+            return CheckResult(
+                check_name="phase_state",
+                passed=False,
+                failure_code="evaluator_not_frozen",
+            )
+        if not phase_file.get("independent_labels_frozen"):
+            return CheckResult(
+                check_name="phase_state",
+                passed=False,
+                failure_code="independent_labels_not_frozen",
+            )
+        if not phase_file.get("full_corpus_generation_authorized"):
+            return CheckResult(
+                check_name="phase_state",
+                passed=False,
+                failure_code="full_corpus_not_authorized",
+            )
+        return CheckResult(
+            check_name="phase_state",
+            passed=True,
+            details={
+                "phase": phase,
+                "trust_prompts_frozen": True,
+                "evaluator_frozen": True,
+                "independent_labels_frozen": True,
+                "full_corpus_generation_authorized": True,
+            },
+        )
+
+    # Pre-completion: must be E2_PROMPTS_FROZEN.
     if phase != EmpiricalPhase.E2_PROMPTS_FROZEN.value:
         return CheckResult(
             check_name="phase_state",
             passed=False,
             failure_code="empirical_phase_not_frozen",
-            details={"expected": EmpiricalPhase.E2_PROMPTS_FROZEN.value, "found": phase},
+            details={
+                "expected": EmpiricalPhase.E2_PROMPTS_FROZEN.value,
+                "found": phase,
+            },
         )
 
     if not phase_file.get("trust_prompts_frozen"):
@@ -1052,3 +1103,83 @@ def save_completion_report(report: CompletionReport) -> None:
         json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _sha256_file(path: Path) -> str | None:
+    """Return SHA-256 hex digest of a file, or None if missing."""
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def transition_to_e2_complete(
+    report: CompletionReport,
+    *,
+    phase_file_path: Path = EMPIRICAL_PHASE_FILE,
+) -> dict[str, Any]:
+    """E2R-036: transition phase from E2_PROMPTS_FROZEN to E2_COMPLETE.
+
+    Only permitted when all checks in the completion report have passed.
+    Writes the updated phase file with schema_version 1.1.0, all freeze
+    flags, and hash bindings to key artifacts.
+
+    Returns the new phase file contents as a dict.
+
+    Raises:
+        RuntimeError: If not all checks passed or current phase is not
+            E2_PROMPTS_FROZEN.
+    """
+    if not report.all_passed:
+        raise RuntimeError(
+            "Cannot transition to E2_COMPLETE: not all completion checks passed"
+        )
+
+    # Read current phase file.
+    if not phase_file_path.exists():
+        raise RuntimeError("Phase file does not exist")
+    current = json.loads(phase_file_path.read_text(encoding="utf-8"))
+    if current.get("phase") != EmpiricalPhase.E2_PROMPTS_FROZEN.value:
+        raise RuntimeError(
+            f"Cannot transition: current phase is {current.get('phase')!r}, "
+            f"expected {EmpiricalPhase.E2_PROMPTS_FROZEN.value!r}"
+        )
+
+    # Compute artifact hashes for binding.
+    project_root = phase_file_path.parents[3]
+    completion_hash = _sha256_file(
+        project_root / "results" / "empirical_v2" / "e2_completion"
+        / "e2_research_completion_report.json"
+    )
+    manifest_hash = _sha256_file(
+        project_root / "results" / "empirical_v2" / "e2_prompt_freeze"
+        / "frozen_prompt_manifest.json"
+    )
+    label_hash = _sha256_file(
+        project_root / "results" / "empirical_v2" / "e2_pilot_labeling"
+        / "frozen_labels.json"
+    )
+    analysis_hash = _sha256_file(
+        project_root / "results" / "empirical_v2" / "e2_pilot_analysis"
+        / "pilot_analysis_report.json"
+    )
+
+    new_phase: dict[str, Any] = {
+        "schema_version": "1.1.0",
+        "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
+        "study_version": EMPIRICAL_STUDY_VERSION,
+        "phase": EmpiricalPhase.E2_COMPLETE.value,
+        "trust_prompts_frozen": True,
+        "evaluator_frozen": True,
+        "independent_labels_frozen": True,
+        "full_corpus_generation_authorized": True,
+        "e2_completion_report_sha256": completion_hash,
+        "frozen_prompt_manifest_sha256": manifest_hash,
+        "primary_label_sha256": label_hash,
+        "pilot_analysis_sha256": analysis_hash,
+    }
+
+    phase_file_path.write_text(
+        json.dumps(new_phase, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return new_phase

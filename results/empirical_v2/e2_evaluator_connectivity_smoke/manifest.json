@@ -1,0 +1,16 @@
+{
+  "connectivity_type": "evaluator_smoke",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "evaluator_provider": "openai",
+  "evaluator_model_requested": "qwen3.8-max",
+  "evaluator_model_returned": "qwen3.8-max",
+  "transport": "chat",
+  "timestamp": "2026-08-08T06:40:00.000000+00:00",
+  "num_requests": 3,
+  "num_success": 3,
+  "num_failed": 0,
+  "all_blinded": true,
+  "all_parsed": true,
+  "status": "passed"
+}

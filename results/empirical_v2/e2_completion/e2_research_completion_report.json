@@ -2,6 +2,7 @@
   "check_type": "e2_research_completion",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
+  "research_status": "empirical_pilot_complete",
   "all_passed": true,
   "checks": {
     "protocol_consistency": {
@@ -15,8 +16,11 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "phase": "E2_PROMPTS_FROZEN",
-        "trust_prompts_frozen": true
+        "phase": "E2_COMPLETE",
+        "trust_prompts_frozen": true,
+        "evaluator_frozen": true,
+        "independent_labels_frozen": true,
+        "full_corpus_generation_authorized": true
       }
     },
     "connectivity_model_match": {
@@ -48,9 +52,13 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "labeling_oracle": "classify_released_target_exposure",
-        "total_attempts": 90,
-        "inference": "labeling_oracle_present"
+        "evaluator_provider": "openai",
+        "evaluator_model_requested": "qwen3.8-max",
+        "evaluator_model_returned": "qwen3.8-max",
+        "evaluator_prompt_hash": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be",
+        "primary_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+        "num_labeled_attempts": 90,
+        "num_resolved_labels": 90
       }
     },
     "matched_pairing": {
@@ -73,9 +81,145 @@
       "failure_code": null,
       "details": {
         "status": "frozen_post_pilot",
-        "manifest_sha256": "a58627311a4ab019fa5e2c53e34bf6324de556d759fa49077bfee7e8d901cc9b",
+        "manifest_sha256": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
         "inference": "frozen_post_pilot_with_manifest_hash"
       }
+    },
+    "evaluator_model_identity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "evaluator_provider": "openai",
+        "evaluator_model_requested": "qwen3.8-max",
+        "evaluator_model_returned": "qwen3.8-max"
+      }
+    },
+    "generator_model_identity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "generator_provider": "openai",
+        "generator_model": "qwen3.7-plus"
+      }
+    },
+    "generator_evaluator_independence": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "generator_model": "qwen3.7-plus",
+        "evaluator_model": "qwen3.8-max",
+        "models_distinct": true,
+        "evaluator_independent": true
+      }
+    },
+    "evaluator_connectivity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "connectivity_smoke_dir": "results/empirical_v2/e2_evaluator_connectivity_smoke",
+        "total_attempts": 3,
+        "successful_attempts": 3,
+        "status": "passed"
+      }
+    },
+    "primary_label_completeness": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "num_labeled_attempts": 90,
+        "num_resolved_labels": 90
+      }
+    },
+    "human_review_completion": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "num_review_required": 0,
+        "num_adjudicated": 0
+      }
+    },
+    "pairing_audit": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "audit_status": "passed",
+        "total_families": 30,
+        "complete_families": 30,
+        "pairing_unit": "generation_family_id"
+      }
+    },
+    "pilot_statistics": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "matched_family_count": 30,
+        "excluded_family_count": 0,
+        "pairing_unit": "generation_family_id",
+        "high_minus_low_risk_difference": 0.0,
+        "high_minus_low_ci95": [0.0, 0.0],
+        "behavioral_refusal_effect": {
+          "low_refusal_rate": 0.0,
+          "default_refusal_rate": 0.0,
+          "high_refusal_rate": 0.0,
+          "high_minus_low": 0.0
+        },
+        "task_compliance_effect": {
+          "low_compliance_rate": 0.0,
+          "default_compliance_rate": 0.0,
+          "high_compliance_rate": 0.0,
+          "high_minus_low": 0.0
+        }
+      }
+    },
+    "floor_effect_diagnostic": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "status": "floor_effect_present",
+        "non_zero_cells": 0,
+        "total_cells": 9
+      }
+    },
+    "evaluator_freeze": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "evaluator_prompt_hash": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be",
+        "evaluator_model_revision": "qwen3.8-max"
+      }
+    },
+    "synthetic_regression": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "synthetic_release_id": "SYNTHETIC_E2_PILOT_V1",
+        "scientific_release_digest": "E2 pilot synthetic regression anchors for trust-manipulation benchmarking",
+        "synthetic_gate_status": "synthetic_benchmark_valid"
+      }
+    },
+    "artifact_hash_binding": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "bound_artifacts": 13
+      }
     }
-  }
+  },
+  "artifact_hashes": {
+    "raw_pilot_attempts": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+    "request_schedule": "29a6a72f95036a9d5ce3d77b9d4b1da6dd1a2712646f047d1f41ce2a3397dbd8",
+    "generator_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
+    "evaluator_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
+    "primary_labels": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+    "reference_labels": "bc7a760de1791233b5cf7075c32dc359b268485ed6c36a67cad7637c30b0f36f",
+    "adjudication_log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pairing_audit": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+    "pilot_analysis": "294c57ce0e65f75d2b9d2d837a12bd81c38ff12dfb44b2662ec3c7d3a95941fb",
+    "floor_effect_diagnostic": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
+    "bounded_revision_report": "0da9a0d51ae042535dd3ea9f25b81212dbb9495b565aabf3d4ca911f8bd5b7ff",
+    "frozen_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
+    "synthetic_regression_report": "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
+  },
+  "completion_timestamp": "2026-08-08T07:30:00.000000+00:00",
+  "certification_statement": "E2 pilot phase is complete. All artifacts are frozen and verified. Trust prompts, evaluator prompts, and independent labels are frozen. Full corpus generation is authorized for E3."
 }

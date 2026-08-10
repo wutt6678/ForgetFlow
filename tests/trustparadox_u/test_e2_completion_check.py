@@ -1,9 +1,13 @@
-"""Tests for E2 completion checker (E2 repair §40-51, E2R-021-025, E2R-034/035)."""
+"""Tests for E2 completion checker (E2 repair §40-51, E2R-021-025, E2R-034/035, E2R-036/037)."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from experiments.trustparadox_u.empirical_corpus import EmpiricalPhase
 from experiments.trustparadox_u.run_e2_completion_check import (
+    CompletionReport,
     check_annotation_independence,
     check_artifact_hash_binding,
     check_bounded_revision,
@@ -24,6 +28,7 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_statistics,
     check_synthetic_regression,
     run_completion_check,
+    transition_to_e2_complete,
 )
 
 
@@ -595,3 +600,113 @@ class TestRunCompletionCheck:
         assert len(report.checks) == 20
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 13
+
+
+class TestPhaseStateE2Complete:
+    """Tests for E2_COMPLETE phase state (E2R-036)."""
+
+    def test_passes_with_e2_complete(self) -> None:
+        """E2_COMPLETE with all freeze flags passes."""
+        phase_file = {
+            "schema_version": "1.1.0",
+            "phase": EmpiricalPhase.E2_COMPLETE.value,
+            "trust_prompts_frozen": True,
+            "evaluator_frozen": True,
+            "independent_labels_frozen": True,
+            "full_corpus_generation_authorized": True,
+        }
+        result = check_phase_state(phase_file)
+        assert result.passed is True
+        assert result.details["evaluator_frozen"] is True
+
+    def test_fails_e2_complete_without_evaluator_frozen(self) -> None:
+        phase_file = {
+            "phase": EmpiricalPhase.E2_COMPLETE.value,
+            "trust_prompts_frozen": True,
+            "evaluator_frozen": False,
+            "independent_labels_frozen": True,
+            "full_corpus_generation_authorized": True,
+        }
+        result = check_phase_state(phase_file)
+        assert result.passed is False
+        assert result.failure_code == "evaluator_not_frozen"
+
+    def test_fails_e2_complete_without_labels_frozen(self) -> None:
+        phase_file = {
+            "phase": EmpiricalPhase.E2_COMPLETE.value,
+            "trust_prompts_frozen": True,
+            "evaluator_frozen": True,
+            "independent_labels_frozen": False,
+            "full_corpus_generation_authorized": True,
+        }
+        result = check_phase_state(phase_file)
+        assert result.passed is False
+        assert result.failure_code == "independent_labels_not_frozen"
+
+    def test_fails_e2_complete_without_authorization(self) -> None:
+        phase_file = {
+            "phase": EmpiricalPhase.E2_COMPLETE.value,
+            "trust_prompts_frozen": True,
+            "evaluator_frozen": True,
+            "independent_labels_frozen": True,
+            "full_corpus_generation_authorized": False,
+        }
+        result = check_phase_state(phase_file)
+        assert result.passed is False
+        assert result.failure_code == "full_corpus_not_authorized"
+
+
+class TestTransitionToE2Complete:
+    """Tests for transition_to_e2_complete() (E2R-036)."""
+
+    def test_transition_writes_e2_complete(self, tmp_path: Path) -> None:
+        """Transition writes E2_COMPLETE with all required fields."""
+        phase_file = tmp_path / "data" / "trustparadox_u" / "empirical_v2" / "manifests" / "empirical_phase.json"
+        phase_file.parent.mkdir(parents=True)
+        phase_file.write_text(json.dumps({
+            "schema_version": "1.0.0",
+            "protocol_version": "2.0.0",
+            "study_version": "2.0.0",
+            "phase": "E2_PROMPTS_FROZEN",
+            "trust_prompts_frozen": True,
+            "full_corpus_generation_authorized": False,
+        }))
+
+        report = CompletionReport()
+        report.all_passed = True
+
+        new_phase = transition_to_e2_complete(report, phase_file_path=phase_file)
+        assert new_phase["phase"] == "E2_COMPLETE"
+        assert new_phase["schema_version"] == "1.1.0"
+        assert new_phase["trust_prompts_frozen"] is True
+        assert new_phase["evaluator_frozen"] is True
+        assert new_phase["independent_labels_frozen"] is True
+        assert new_phase["full_corpus_generation_authorized"] is True
+
+        # Verify file was written
+        written = json.loads(phase_file.read_text())
+        assert written["phase"] == "E2_COMPLETE"
+
+    def test_transition_fails_when_checks_not_passed(self, tmp_path: Path) -> None:
+        """Transition raises if not all checks passed."""
+        phase_file = tmp_path / "phase.json"
+        phase_file.write_text(json.dumps({"phase": "E2_PROMPTS_FROZEN"}))
+
+        report = CompletionReport()
+        report.all_passed = False
+
+        import pytest
+        with pytest.raises(RuntimeError, match="not all completion checks passed"):
+            transition_to_e2_complete(report, phase_file_path=phase_file)
+
+    def test_transition_fails_with_wrong_phase(self, tmp_path: Path) -> None:
+        """Transition raises if current phase is not E2_PROMPTS_FROZEN."""
+        phase_file = tmp_path / "phase.json"
+        phase_file.write_text(json.dumps({"phase": "E2_TRUST_PILOT"}))
+
+        report = CompletionReport()
+        report.all_passed = True
+
+        import pytest
+        with pytest.raises(RuntimeError, match="current phase is"):
+            transition_to_e2_complete(report, phase_file_path=phase_file)
