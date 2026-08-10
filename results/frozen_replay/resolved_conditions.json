@@ -50,7 +50,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -106,7 +110,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -162,7 +170,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -218,7 +230,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -274,7 +290,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -330,7 +350,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": false,
     "schema_version": "1.0.0"
@@ -386,7 +410,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -442,7 +470,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
@@ -498,7 +530,11 @@
       "chat_max_tokens": 256,
       "provider_pinning": true,
       "secret_safe_logging": true,
-      "cache_invalidation_mode": "on_forget"
+      "cache_invalidation_mode": "on_forget",
+      "evaluator_provider": null,
+      "evaluator_model": null,
+      "evaluator_temperature": 0.0,
+      "evaluator_max_tokens": 512
     },
     "firewall_enabled": true,
     "schema_version": "1.0.0"
