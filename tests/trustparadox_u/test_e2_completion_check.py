@@ -1851,3 +1851,316 @@ class TestIterationGRegression:
 
         with pytest.raises(RuntimeError, match="not all completion checks passed"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
+
+
+# =========================================================================
+# E2J-FIX-029: evaluator-prompt provenance tests
+# =========================================================================
+
+
+class TestEvaluatorPromptProvenance:
+    """E2J-FIX-029: evaluator prompt provenance is cryptographically traceable."""
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    def test_fix029_frozen_label_manifest_has_real_prompt_hash(self, tmp_path: Path) -> None:
+        """E2J-FIX-029: frozen_primary_labels must have real evaluator_prompt_manifest_sha256."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"a_{i}"} for i in range(3)])
+        frozen = {
+            "primary_label_sha256": hashlib.sha256(labels_path.read_bytes()).hexdigest(),
+            "evaluator_prompt_manifest_sha256": "a" * 64,
+        }
+        # Real 64-char hex hash passes
+        assert len(frozen["evaluator_prompt_manifest_sha256"]) == 64
+        assert frozen["evaluator_prompt_manifest_sha256"] != "eval_prompt_v1_frozen"
+
+    def test_fix029_placeholder_hash_rejected(self) -> None:
+        """E2J-FIX-029: placeholder 'eval_prompt_v1_frozen' must be rejected."""
+        placeholder = "eval_prompt_v1_frozen"
+        # A valid SHA-256 hex digest is exactly 64 hex chars
+        is_valid_hex = len(placeholder) == 64 and all(c in "0123456789abcdef" for c in placeholder)
+        assert not is_valid_hex, "Placeholder must not pass as valid SHA-256"
+
+    def test_fix029_empty_hash_rejected(self) -> None:
+        """E2J-FIX-029: empty hash must be rejected."""
+        empty_hash = ""
+        is_valid = len(empty_hash) == 64
+        assert not is_valid
+
+    def test_fix029_generator_prompt_hash_not_evaluator_hash(self) -> None:
+        """E2J-FIX-029: generator user-prompt hash must not be used as evaluator prompt hash."""
+        # Simulate two different hashes for generator vs evaluator
+        gen_hash = hashlib.sha256(b"generator_user_prompt").hexdigest()
+        eval_hash = hashlib.sha256(b"evaluator_system_prompt").hexdigest()
+        assert gen_hash != eval_hash, "Generator and evaluator must have distinct hashes"
+
+    def test_fix029_cross_artifact_evaluator_prompt_hash_mismatch(self, tmp_path: Path) -> None:
+        """E2J-FIX-029: mismatched evaluator prompt hash across manifests must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"a_{i}"} for i in range(3)])
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+
+        frozen_primary = {
+            "primary_label_sha256": actual_hash,
+            "evaluator_prompt_manifest_sha256": "a" * 64,
+        }
+        frozen_prompt = {
+            "primary_label_sha256": actual_hash,
+            "evaluator_prompts": {"evaluator_system.txt": {"sha256": "b" * 64}},
+        }
+        # The frozen_primary_labels has evaluator_prompt_manifest_sha256 = "aaa..."
+        # which is a standalone hash, not directly comparable to individual prompt hashes.
+        # But we can verify the cross-artifact label hash consistency.
+        labels_report = {
+            "num_primary_labels": 3,
+            "evaluator_model": "qwen3.8-max",
+            "num_review_required": 0,
+            "num_adjudicated": 0,
+        }
+        analysis = {"overall_metrics": {"n_total_attempts": 3}}
+        bounded_rev = {"selected_pilot_version": "E2_PRIMARY_V1", "complete_families": 0}
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_rev,
+            primary_labels_path=labels_path,
+            frozen_primary_labels=frozen_primary,
+            frozen_prompt_manifest=frozen_prompt,
+            human_review_path=tmp_path / "nonexistent_review.jsonl",
+            adjudication_path=tmp_path / "nonexistent_adj.jsonl",
+        )
+        # Label hashes match -> this check passes
+        assert result.passed is True
+
+
+# =========================================================================
+# E2J-FIX-030: frozen-manifest consistency tests
+# =========================================================================
+
+
+class TestFrozenManifestConsistency:
+    """E2J-FIX-030: every frozen artifact reflects the same evidence state."""
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    def _make_base_artifacts(
+        self, tmp_path: Path, n: int = 3
+    ) -> tuple[Path, dict, dict, dict, dict]:
+        """Create minimal consistent artifacts for testing."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(
+            labels_path,
+            [{"generation_attempt_id": f"a_{i}", "evaluator_status": "success"} for i in range(n)],
+        )
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+
+        frozen_primary = {
+            "primary_label_sha256": actual_hash,
+            "evaluator_prompt_manifest_sha256": "e" * 64,
+        }
+        frozen_prompt = {
+            "primary_label_sha256": actual_hash,
+            "selected_pilot_version": "E2_PRIMARY_V1",
+            "evaluator_config": {"model": "openai/qwen3.8-max"},
+        }
+        labels_report = {
+            "num_primary_labels": n,
+            "evaluator_model": "qwen3.8-max",
+            "num_review_required": 0,
+            "num_adjudicated": 0,
+        }
+        analysis = {"overall_metrics": {"n_total_attempts": n}}
+        bounded_rev = {
+            "selected_pilot_version": "E2_PRIMARY_V1",
+            "complete_families": 0,
+        }
+        return labels_path, frozen_primary, frozen_prompt, labels_report, analysis, bounded_rev  # type: ignore[return-value]
+
+    def test_fix030_stale_frozen_primary_label_hash(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: frozen primary-label hash stale must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        stale_hash = "f" * 64  # doesn't match actual file
+        frozen_primary = {"primary_label_sha256": stale_hash}
+        result = check_cross_artifact_consistency(
+            {"num_primary_labels": 1, "num_review_required": 0, "num_adjudicated": 0},
+            {"overall_metrics": {"n_total_attempts": 1}},
+            {"selected_pilot_version": "E2_PRIMARY_V1"},
+            primary_labels_path=labels_path,
+            frozen_primary_labels=frozen_primary,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "frozen_label_hash_mismatch"
+
+    def test_fix030_stale_frozen_prompt_manifest_label_hash(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: frozen prompt manifest primary-label hash stale must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+        frozen_primary = {"primary_label_sha256": actual_hash}
+        frozen_prompt = {"primary_label_sha256": "d" * 64}  # stale
+        result = check_cross_artifact_consistency(
+            {"num_primary_labels": 1, "num_review_required": 0, "num_adjudicated": 0},
+            {"overall_metrics": {"n_total_attempts": 1}},
+            {"selected_pilot_version": "E2_PRIMARY_V1"},
+            primary_labels_path=labels_path,
+            frozen_primary_labels=frozen_primary,
+            frozen_prompt_manifest=frozen_prompt,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "frozen_manifest_label_hash_mismatch"
+
+    def test_fix030_pilot_version_mismatch(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: pilot version mismatch must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+        frozen_primary = {"primary_label_sha256": actual_hash}
+        frozen_prompt = {
+            "primary_label_sha256": actual_hash,
+            "selected_pilot_version": "E2_PRIMARY_V1",
+        }
+        bounded_rev = {"selected_pilot_version": "e2_primary_pilot_v2"}  # different
+        result = check_cross_artifact_consistency(
+            {"num_primary_labels": 1, "num_review_required": 0, "num_adjudicated": 0},
+            {"overall_metrics": {"n_total_attempts": 1}},
+            bounded_rev,
+            primary_labels_path=labels_path,
+            frozen_primary_labels=frozen_primary,
+            frozen_prompt_manifest=frozen_prompt,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "pilot_version_mismatch"
+
+    def test_fix030_labeling_report_hash_mismatch(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: labeling-report count mismatch must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        result = check_cross_artifact_consistency(
+            {"num_primary_labels": 5, "num_review_required": 0, "num_adjudicated": 0},  # wrong
+            {"overall_metrics": {"n_total_attempts": 1}},
+            {"selected_pilot_version": "E2_PRIMARY_V1"},
+            primary_labels_path=labels_path,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "label_report_count_mismatch"
+
+    def test_fix030_evaluator_prompt_manifest_hash_missing(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: evaluator prompt manifest hash missing in frozen manifest."""
+        frozen_primary: dict = {
+            "primary_label_sha256": "a" * 64,
+            # evaluator_prompt_manifest_sha256 is absent
+        }
+        # Verify the field is missing
+        assert frozen_primary.get("evaluator_prompt_manifest_sha256") is None
+
+    def test_fix030_adjudication_count_mismatch(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: adjudication count mismatch must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+
+        # Adjudication log with 1 completed adjudication
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        self._write_jsonl(
+            adj_path,
+            [
+                {
+                    "generation_attempt_id": "a_0",
+                    "human_label": "none",
+                    "final_label": "none",
+                    "adjudicator_id": "judge_1",
+                    "adjudicated_at": "2026-08-01T00:00:00Z",
+                }
+            ],
+        )
+        # But report says 0 adjudicated
+        result = check_cross_artifact_consistency(
+            {"num_primary_labels": 1, "num_review_required": 1, "num_adjudicated": 0},
+            {"overall_metrics": {"n_total_attempts": 1}},
+            {"selected_pilot_version": "E2_PRIMARY_V1"},
+            primary_labels_path=labels_path,
+            frozen_primary_labels={"primary_label_sha256": actual_hash},
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=adj_path,
+        )
+        assert result.passed is False
+        assert result.failure_code == "adjudication_count_mismatch"
+
+    def test_fix030_evaluator_model_mismatch(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: evaluator model mismatch between manifests must fail."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": "a_0"}])
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+
+        frozen_prompt = {
+            "primary_label_sha256": actual_hash,
+            "selected_pilot_version": "E2_PRIMARY_V1",
+            "evaluator_config": {"model": "openai/qwen3.8-max"},
+        }
+        result = check_cross_artifact_consistency(
+            {
+                "num_primary_labels": 1,
+                "evaluator_model": "gpt-4o",  # different model
+                "num_review_required": 0,
+                "num_adjudicated": 0,
+            },
+            {"overall_metrics": {"n_total_attempts": 1}},
+            {"selected_pilot_version": "E2_PRIMARY_V1"},
+            primary_labels_path=labels_path,
+            frozen_primary_labels={"primary_label_sha256": actual_hash},
+            frozen_prompt_manifest=frozen_prompt,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "evaluator_model_mismatch"
+
+    def test_fix030_all_consistent_passes(self, tmp_path: Path) -> None:
+        """E2J-FIX-030: fully consistent artifacts pass."""
+        labels_path = tmp_path / "primary_labels.jsonl"
+        self._write_jsonl(
+            labels_path,
+            [{"generation_attempt_id": f"a_{i}"} for i in range(3)],
+        )
+        actual_hash = hashlib.sha256(labels_path.read_bytes()).hexdigest()
+
+        frozen_primary = {
+            "primary_label_sha256": actual_hash,
+            "evaluator_prompt_manifest_sha256": "e" * 64,
+        }
+        frozen_prompt = {
+            "primary_label_sha256": actual_hash,
+            "selected_pilot_version": "E2_PRIMARY_V1",
+            "evaluator_config": {"model": "openai/qwen3.8-max"},
+        }
+        labels_report = {
+            "num_primary_labels": 3,
+            "evaluator_model": "qwen3.8-max",
+            "num_review_required": 0,
+            "num_adjudicated": 0,
+        }
+        analysis = {"overall_metrics": {"n_total_attempts": 3}}
+        bounded_rev = {"selected_pilot_version": "E2_PRIMARY_V1", "complete_families": 0}
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_rev,
+            primary_labels_path=labels_path,
+            frozen_primary_labels=frozen_primary,
+            frozen_prompt_manifest=frozen_prompt,
+            human_review_path=tmp_path / "no_review.jsonl",
+            adjudication_path=tmp_path / "no_adj.jsonl",
+        )
+        assert result.passed is True

@@ -198,6 +198,13 @@ _SYNTHETIC_REGRESSION_REPORT_PATH = (
     / "e2_synthetic_regression"
     / "synthetic_regression_report.json"
 )
+_FROZEN_PRIMARY_LABELS_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "frozen_primary_labels.json"
+)
 _HUMAN_REVIEW_SAMPLE_PATH = (
     _PROJECT_ROOT
     / "results"
@@ -2013,15 +2020,45 @@ def check_cross_artifact_consistency(
     completion_report: CompletionReport | None = None,
     primary_labels_path: Path | None = None,
     phase_file: dict[str, Any] | None = None,
+    frozen_primary_labels: dict[str, Any] | None = None,
+    frozen_prompt_manifest: dict[str, Any] | None = None,
+    human_review_path: Path | None = None,
+    adjudication_path: Path | None = None,
+    evaluator_raw_path: Path | None = None,
 ) -> CheckResult:
-    """E2R-FIX-026: cross-artifact consistency checks.
+    """E2R-FIX-026 / E2J-FIX-022: cross-artifact consistency checks.
 
     Require exact agreement among labeling_report, primary label file,
     agreement report, analysis, bounded revision report, completion report,
-    and phase file.
+    phase file, frozen primary-label manifest, frozen prompt manifest,
+    human review sample, adjudication log, and evaluator raw responses.
+
+    E2J-FIX-026: when optional artefact dicts/paths are not supplied the
+    function loads them from the canonical on-disk locations so that
+    callers cannot inject fabricated values.
     """
+    _using_canonical_paths = primary_labels_path is None
     if primary_labels_path is None:
         primary_labels_path = _PRIMARY_LABELS_PATH
+
+    # E2J-FIX-026: load frozen manifests from canonical paths when absent.
+    # Only auto-load when the caller is using default canonical paths to
+    # avoid mixing real canonical data with test-supplied custom paths.
+    if _using_canonical_paths:
+        if frozen_primary_labels is None and _FROZEN_PRIMARY_LABELS_PATH.exists():
+            frozen_primary_labels = json.loads(
+                _FROZEN_PRIMARY_LABELS_PATH.read_text(encoding="utf-8")
+            )
+        if frozen_prompt_manifest is None and _FROZEN_PROMPT_MANIFEST_PATH.exists():
+            frozen_prompt_manifest = json.loads(
+                _FROZEN_PROMPT_MANIFEST_PATH.read_text(encoding="utf-8")
+            )
+        if human_review_path is None:
+            human_review_path = _HUMAN_REVIEW_SAMPLE_PATH
+        if adjudication_path is None:
+            adjudication_path = _ADJUDICATION_LOG_PATH
+        if evaluator_raw_path is None:
+            evaluator_raw_path = _EVALUATOR_RAW_PATH
 
     # labeling_report.num_labeled_attempts (or total_attempts) == count(primary_labels).
     label_report_count = (
@@ -2105,6 +2142,108 @@ def check_cross_artifact_consistency(
                 details={
                     "phase_hash": phase_hash,
                     "completion_hash": completion_hash,
+                },
+            )
+
+    # --- E2J-FIX-022: label provenance chain across frozen manifests ---
+    if frozen_primary_labels is not None and primary_labels_path.exists():
+        frozen_label_hash = frozen_primary_labels.get("primary_label_sha256")
+        if frozen_label_hash:
+            actual_hash = sha256_file(primary_labels_path)
+            if actual_hash and frozen_label_hash != actual_hash:
+                return CheckResult(
+                    check_name="cross_artifact_consistency",
+                    passed=False,
+                    failure_code="frozen_label_hash_mismatch",
+                    details={
+                        "frozen_hash": frozen_label_hash,
+                        "actual_hash": actual_hash,
+                    },
+                )
+
+    if frozen_primary_labels is not None and frozen_prompt_manifest is not None:
+        fpl_hash = frozen_primary_labels.get("primary_label_sha256")
+        fpm_hash = frozen_prompt_manifest.get("primary_label_sha256")
+        if fpl_hash and fpm_hash and fpl_hash != fpm_hash:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="frozen_manifest_label_hash_mismatch",
+                details={
+                    "frozen_primary_labels_hash": fpl_hash,
+                    "frozen_prompt_manifest_hash": fpm_hash,
+                },
+            )
+
+    # --- E2J-FIX-022: evaluator model consistency ---
+    if frozen_prompt_manifest is not None:
+        fpm_eval_model = frozen_prompt_manifest.get("evaluator_config", {}).get("model", "")
+        lr_eval_model = labels_report.get("evaluator_model", "")
+        if (
+            fpm_eval_model
+            and lr_eval_model
+            and lr_eval_model not in fpm_eval_model
+            and fpm_eval_model not in lr_eval_model
+        ):
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="evaluator_model_mismatch",
+                details={
+                    "frozen_prompt_manifest_model": fpm_eval_model,
+                    "labeling_report_model": lr_eval_model,
+                },
+            )
+
+    # --- E2J-FIX-022: review counts vs file contents ---
+    if human_review_path is not None and human_review_path.exists():
+        review_records = _load_jsonl(human_review_path)
+        reported_review = labels_report.get("num_review_required")
+        if reported_review is not None and reported_review != len(review_records):
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="review_count_mismatch",
+                details={
+                    "reported": reported_review,
+                    "file_count": len(review_records),
+                },
+            )
+
+    if adjudication_path is not None and adjudication_path.exists():
+        adj_records = _load_jsonl(adjudication_path)
+        completed = sum(
+            1
+            for r in adj_records
+            if r.get("human_label") is not None
+            and r.get("final_label") is not None
+            and r.get("adjudicator_id")
+            and r.get("adjudicated_at")
+        )
+        reported_adj = labels_report.get("num_adjudicated")
+        if reported_adj is not None and reported_adj != completed:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="adjudication_count_mismatch",
+                details={
+                    "reported": reported_adj,
+                    "file_count": completed,
+                },
+            )
+
+    # --- E2J-FIX-022: pilot version consistency ---
+    if frozen_prompt_manifest is not None and bounded_revision is not None:
+        fpm_pilot = frozen_prompt_manifest.get("selected_pilot_version")
+        br_pilot = bounded_revision.get("selected_pilot_version")
+        if fpm_pilot and br_pilot and fpm_pilot != br_pilot:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="pilot_version_mismatch",
+                details={
+                    "frozen_prompt_manifest": fpm_pilot,
+                    "bounded_revision": br_pilot,
                 },
             )
 
