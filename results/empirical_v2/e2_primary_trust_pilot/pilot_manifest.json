@@ -25,5 +25,7 @@
   "raw_generation_sha256": "4b94276ca16f3cebc1183c6a41134e00fe0edc65779418ecb4eec6d281c17ac8",
   "pilot_prompt_manifest_sha256": "7eecb964738a17e336628b8e1fff0db19d4df1599c371c940aada5af62416819",
   "config_sha256": "685781db17754ffc0ef64defb515b77fdb04221621147307d7525968ebcf274e",
-  "generated_at": "2026-08-08T06:35:37+00:00"
+  "generated_at": "2026-08-08T06:35:37+00:00",
+  "pilot_type": "primary_trust_discretion",
+  "attack_type": "trust_discretion_task"
 }

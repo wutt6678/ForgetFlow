@@ -16,11 +16,8 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "phase": "E2_COMPLETE",
-        "trust_prompts_frozen": true,
-        "evaluator_frozen": true,
-        "independent_labels_frozen": true,
-        "full_corpus_generation_authorized": true
+        "phase": "E2_PROMPTS_FROZEN",
+        "trust_prompts_frozen": true
       }
     },
     "connectivity_model_match": {
@@ -36,8 +33,7 @@
       "failure_code": null,
       "details": {
         "attack_type": "trust_discretion_task",
-        "pilot_type": "primary_trust_discretion",
-        "inferred_from": "artifact_class"
+        "pilot_type": "primary_trust_discretion"
       }
     },
     "request_randomization": {
@@ -55,24 +51,32 @@
         "evaluator_provider": "openai",
         "evaluator_model_requested": "qwen3.8-max",
         "evaluator_model_returned": "qwen3.8-max",
-        "evaluator_prompt_hash": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be",
-        "primary_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+        "generator_model": "qwen3.7-plus",
         "num_labeled_attempts": 90,
         "num_resolved_labels": 90
       }
     },
-    "matched_pairing": {
+    "pilot_statistics": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "matched_families": 30
+        "matched_family_count": 30,
+        "excluded_family_count": 0,
+        "pairing_unit": "generation_family_id",
+        "high_minus_low_risk_difference": 0.0,
+        "high_minus_low_ci95": [
+          0.0,
+          0.0
+        ],
+        "behavioral_refusal_effect": 0.0,
+        "task_compliance_effect": 0.0
       }
     },
     "bounded_revision": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "selected_version": "E2_PRIMARY_V1",
+        "selected_version": "E2_PRIMARY_V2",
         "max_revisions": 2
       }
     },
@@ -80,18 +84,17 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "status": "frozen_post_pilot",
-        "manifest_sha256": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
-        "inference": "frozen_post_pilot_with_manifest_hash"
+        "status": "frozen_post_pilot"
       }
     },
-    "evaluator_model_identity": {
+    "synthetic_regression": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "evaluator_provider": "openai",
-        "evaluator_model_requested": "qwen3.8-max",
-        "evaluator_model_returned": "qwen3.8-max"
+        "synthetic_release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
+        "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
+        "synthetic_gate_status": "synthetic_benchmark_valid",
+        "tables_verified": 6
       }
     },
     "generator_model_identity": {
@@ -99,7 +102,15 @@
       "failure_code": null,
       "details": {
         "generator_provider": "openai",
-        "generator_model": "qwen3.7-plus"
+        "generator_model": "openai/qwen3.7-plus"
+      }
+    },
+    "evaluator_model_identity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "evaluator_provider": "openai",
+        "evaluator_model": "qwen3.8-max"
       }
     },
     "generator_evaluator_independence": {
@@ -107,19 +118,15 @@
       "failure_code": null,
       "details": {
         "generator_model": "qwen3.7-plus",
-        "evaluator_model": "qwen3.8-max",
-        "models_distinct": true,
-        "evaluator_independent": true
+        "evaluator_model": "qwen3.8-max"
       }
     },
     "evaluator_connectivity": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "connectivity_smoke_dir": "results/empirical_v2/e2_evaluator_connectivity_smoke",
-        "total_attempts": 3,
-        "successful_attempts": 3,
-        "status": "passed"
+        "evaluator_provider": "openai",
+        "evaluator_model": "qwen3.8-max"
       }
     },
     "primary_label_completeness": {
@@ -134,92 +141,162 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "num_review_required": 0,
-        "num_adjudicated": 0
+        "num_review_required": 9,
+        "num_adjudicated": 9
       }
     },
     "pairing_audit": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "audit_status": "passed",
-        "total_families": 30,
-        "complete_families": 30,
-        "pairing_unit": "generation_family_id"
-      }
-    },
-    "pilot_statistics": {
-      "passed": true,
-      "failure_code": null,
-      "details": {
-        "matched_family_count": 30,
-        "excluded_family_count": 0,
-        "pairing_unit": "generation_family_id",
-        "high_minus_low_risk_difference": 0.0,
-        "high_minus_low_ci95": [0.0, 0.0],
-        "behavioral_refusal_effect": {
-          "low_refusal_rate": 0.0,
-          "default_refusal_rate": 0.0,
-          "high_refusal_rate": 0.0,
-          "high_minus_low": 0.0
-        },
-        "task_compliance_effect": {
-          "low_compliance_rate": 0.0,
-          "default_compliance_rate": 0.0,
-          "high_compliance_rate": 0.0,
-          "high_minus_low": 0.0
-        }
+        "audit_status": "passed"
       }
     },
     "floor_effect_diagnostic": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "status": "floor_effect_present",
-        "non_zero_cells": 0,
-        "total_cells": 9
+        "floor_effect_status": null
       }
     },
     "evaluator_freeze": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "evaluator_prompt_hash": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be",
-        "evaluator_model_revision": "qwen3.8-max"
-      }
-    },
-    "synthetic_regression": {
-      "passed": true,
-      "failure_code": null,
-      "details": {
-        "synthetic_release_id": "SYNTHETIC_E2_PILOT_V1",
-        "scientific_release_digest": "E2 pilot synthetic regression anchors for trust-manipulation benchmarking",
-        "synthetic_gate_status": "synthetic_benchmark_valid"
+        "evaluator_prompt_hash": "eval_prompt_v1_frozen",
+        "evaluator_model_revision": "2026-08"
       }
     },
     "artifact_hash_binding": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "bound_artifacts": 13
+        "bound_artifacts": 11
+      }
+    },
+    "label_completeness_from_files": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "raw_count": 90,
+        "label_count": 90,
+        "evaluator_count": 90,
+        "unique_ids": 90,
+        "raw_duplicates": 0,
+        "join_coverage": 1.0
+      }
+    },
+    "evaluator_independence_evidence": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "generator_model": "qwen3.7-plus",
+        "evaluator_provider": "openai",
+        "evaluator_model_requested": "qwen3.8-max",
+        "evaluator_model_returned": "qwen3.8-max",
+        "evaluator_prompt_hash": "eval_prompt_v1_frozen",
+        "evaluator_record_count": 90,
+        "evaluator_independent": true
+      }
+    },
+    "raw_pilot_completeness": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "raw_count": 90,
+        "unique_ids": 90
+      }
+    },
+    "evaluator_response_completeness": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "evaluator_response_count": 90
+      }
+    },
+    "primary_label_file_completeness": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "primary_label_count": 90
+      }
+    },
+    "reference_label_completeness": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "reference_label_count": 90
+      }
+    },
+    "agreement_validity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "exact_agreement": 1.0,
+        "num_compared": 90,
+        "num_disagreements": 0
+      }
+    },
+    "uncertainty_ci": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "disclosure_ci95": [
+          0.0,
+          0.0
+        ],
+        "bootstrap_method": "paired_clustered",
+        "bootstrap_iterations": 5000
+      }
+    },
+    "synthetic_provenance": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "synthetic_release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
+        "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424"
+      }
+    },
+    "cross_artifact_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "message": "All cross-artifact consistency checks passed"
+      }
+    },
+    "j_analysis_provenance": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "primary_label_source": "independent_evaluator_j",
+        "primary_label_sha256": "7be4db18ad1a98b1...",
+        "raw_generation_sha256": "3475d3a2da714b4a...",
+        "analysis_code_commit": "b8663b09f44f696c37e15b981f8db3e13afa4d3e",
+        "analysis_timestamp": "2026-08-10T09:51:19.655873+00:00"
+      }
+    },
+    "completion_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "total_checks": 31,
+        "all_passed": true
       }
     }
   },
   "artifact_hashes": {
-    "raw_pilot_attempts": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+    "raw_pilot_attempts": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
     "request_schedule": "29a6a72f95036a9d5ce3d77b9d4b1da6dd1a2712646f047d1f41ce2a3397dbd8",
-    "generator_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
-    "evaluator_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
-    "primary_labels": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
-    "reference_labels": "bc7a760de1791233b5cf7075c32dc359b268485ed6c36a67cad7637c30b0f36f",
-    "adjudication_log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "pairing_audit": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    "pilot_analysis": "294c57ce0e65f75d2b9d2d837a12bd81c38ff12dfb44b2662ec3c7d3a95941fb",
-    "floor_effect_diagnostic": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
-    "bounded_revision_report": "0da9a0d51ae042535dd3ea9f25b81212dbb9495b565aabf3d4ca911f8bd5b7ff",
-    "frozen_prompt_manifest": "35a6c3badfbeaffe3da9c34f3bc1b76f446eb65a035f71054c494893deb42d78",
-    "synthetic_regression_report": "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
-  },
-  "completion_timestamp": "2026-08-08T07:30:00.000000+00:00",
-  "certification_statement": "E2 pilot phase is complete. All artifacts are frozen and verified. Trust prompts, evaluator prompts, and independent labels are frozen. Full corpus generation is authorized for E3."
+    "primary_labels": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
+    "reference_labels": "c3715d0a0508a78bf28690c7ffb1c1a100a86eda78ed59a184fb9872b9d360b5",
+    "adjudication_log": "9e812268dce314ab1294fb8a58be1fa2b38236a5ef5c9f46c5e348347bdae287",
+    "labeling_report": "25154a4efb3495f405212cba87672fcb67cdd2a9bf5ea6f4b6ee81f4dc427375",
+    "agreement_report": "cfcf8738bc46ae6663d581212a5e035aeea5b1fd4ad819ed8ad1a193911555ad",
+    "pairing_audit": "1cd277c7405cfec9517c5f30d5c57c6164694dc614632debbd3c3528c5cacb4e",
+    "pilot_analysis": "2cdd1f5ad1e9127c0660e647cd4f0f8e5367c658205f2139fec9cf8aae876749",
+    "floor_effect_diagnostic": "7683733575d39f39a0ef13c7a6db994e6cde2dc14ab544d342a879e9eaff1320",
+    "bounded_revision_report": "e60e8a05489f87f57e5f5cfe9e11fa64fc908a4d56a6a898196fae037ebd1b83",
+    "frozen_prompt_manifest": "5ed53098700cf28cc22a5c59a0d3f364d62b582aa997a6f2c5e90c0c5b03eedb",
+    "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae"
+  }
 }

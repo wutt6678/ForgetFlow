@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
-  "selected_pilot_version": "e2_primary_pilot_v2",
+  "selected_pilot_version": "E2_PRIMARY_V2",
   "decision": "freeze_with_manipulation_limitation",
   "decision_rule": "zero_disclosure_effect + partially_informative_secondary_endpoints",
   "disclosure_effect": 0.0,
@@ -18,5 +18,6 @@
     "Manipulation check is only partially informative; secondary endpoints show some differentiation but disclosure floor limits causal inference.",
     "Pilot contains 90 development attempts from a single generator model; results are sample-bounded and not generalizable."
   ],
-  "generated_at": "2026-08-10T09:51:19.654185+00:00"
+  "generated_at": "2026-08-10T09:51:19.654185+00:00",
+  "pilot_version": "e2_primary_pilot_v2"
 }

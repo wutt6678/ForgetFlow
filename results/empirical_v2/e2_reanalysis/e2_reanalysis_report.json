@@ -200,7 +200,8 @@
     "total_families": 30,
     "complete_families": 30,
     "incomplete_families": 0,
-    "excluded_families": 0
+    "excluded_families": 0,
+    "audit_status": "passed"
   },
   "floor_effect_diagnostic": {
     "schema_version": "1.0.0",
@@ -262,5 +263,17 @@
       }
     ]
   },
-  "generated_at": "2026-08-10T09:51:19.655882+00:00"
+  "generated_at": "2026-08-10T09:51:19.655882+00:00",
+  "pairing_complete": true,
+  "num_pairs": 30,
+  "matched_family_count": 30,
+  "excluded_family_count": 0,
+  "pairing_unit": "generation_family_id",
+  "high_minus_low_risk_difference": 0.0,
+  "high_minus_low_ci95": [
+    0.0,
+    0.0
+  ],
+  "behavioral_refusal_effect": 0.0,
+  "task_compliance_effect": 0.0
 }

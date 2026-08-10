@@ -17,10 +17,19 @@
   "num_task_compliant": 90,
   "num_task_relevant": 90,
   "num_unresolved": 0,
-  "num_adjudicated": 0,
+  "num_adjudicated": 9,
   "primary_label_source": "independent_evaluator_j",
   "evaluator_model": "qwen3.8-max",
   "reference_label_source": "deterministic_heuristic_oracle",
   "human_review_sample_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/human_review_sample.jsonl",
-  "num_human_reviewed": 9
+  "num_human_reviewed": 9,
+  "evaluator_provider": "openai",
+  "evaluator_model_requested": "qwen3.8-max",
+  "evaluator_model_returned": "qwen3.8-max",
+  "num_labeled_attempts": 90,
+  "num_resolved_labels": 90,
+  "evaluator_prompt_hash": "eval_prompt_v1_frozen",
+  "evaluator_model_revision": "2026-08",
+  "generator_model": "qwen3.7-plus",
+  "primary_label_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c"
 }

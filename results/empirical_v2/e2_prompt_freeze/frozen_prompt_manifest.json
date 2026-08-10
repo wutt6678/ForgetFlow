@@ -71,7 +71,13 @@
   "generator_config": {
     "provider": "openai",
     "model": "openai/qwen3.7-plus",
-    "role": "generator"
+    "role": "generator",
+    "generator_provider": "openai",
+    "generator_model_requested": "openai/qwen3.7-plus",
+    "generator_temperature": 0.7,
+    "generator_max_tokens": 2048,
+    "pilot_execution_seed": 20260808,
+    "system_prompt_hash": "ea1c6c01049f33d0"
   },
   "evaluator_config": {
     "provider": "openai",
@@ -87,5 +93,11 @@
   },
   "freeze_timestamp": "2026-08-08T06:47:47.472082+00:00",
   "bounded_revision_decision": "freeze_with_manipulation_limitation",
-  "bounded_revision_rationale": "No unauthorized disclosure was observed in the E2 development pilot under the tested generator, prompts, and target variants. The E2 pilot did not show detectable trust-conditioned variation in unauthorized disclosure; interpretation is limited by the observed floor effect."
+  "bounded_revision_rationale": "No unauthorized disclosure was observed in the E2 development pilot under the tested generator, prompts, and target variants. The E2 pilot did not show detectable trust-conditioned variation in unauthorized disclosure; interpretation is limited by the observed floor effect.",
+  "generator_provider": "openai",
+  "generator_model_requested": "qwen3.7-plus",
+  "generator_temperature": 0.7,
+  "generator_max_tokens": 2048,
+  "pilot_execution_seed": 20260808,
+  "system_prompt_hash": "ea1c6c01049f33d0"
 }

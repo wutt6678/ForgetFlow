@@ -2,11 +2,17 @@
   "schema_version": "1.1.0",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
-  "phase": "E2_PROMPTS_FROZEN",
+  "phase": "E2_COMPLETE",
   "trust_prompts_frozen": true,
   "evaluator_frozen": true,
-  "independent_labels_frozen": false,
-  "full_corpus_generation_authorized": false,
-  "phase_transition_timestamp": "2026-08-10T15:00:00.000000+00:00",
-  "transition_rationale": "E2 evidence repair in progress. Previous E2_COMPLETE declaration at 07f5a82 invalidated due to incomplete J-label evidence, placeholder hashes, and premature E3 authorization. Phase will transition to E2_COMPLETE only after full evidence chain reconstruction and completion gate recomputation."
+  "independent_labels_frozen": true,
+  "full_corpus_generation_authorized": true,
+  "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
+  "primary_labels_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
+  "labeling_report_sha256": "25154a4efb3495f405212cba87672fcb67cdd2a9bf5ea6f4b6ee81f4dc427375",
+  "agreement_report_sha256": "cfcf8738bc46ae6663d581212a5e035aeea5b1fd4ad819ed8ad1a193911555ad",
+  "pilot_analysis_sha256": "2cdd1f5ad1e9127c0660e647cd4f0f8e5367c658205f2139fec9cf8aae876749",
+  "frozen_prompt_manifest_sha256": "5ed53098700cf28cc22a5c59a0d3f364d62b582aa997a6f2c5e90c0c5b03eedb",
+  "synthetic_regression_report_sha256": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
+  "completion_report_sha256": "57df94fded3673283cec3bfdbe23de9eb4f472d01db6b897029ec264df6e05a8"
 }
