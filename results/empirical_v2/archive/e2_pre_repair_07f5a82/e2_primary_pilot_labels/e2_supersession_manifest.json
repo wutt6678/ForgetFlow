@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.1.0",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "old_artifact": "e2_pilot_labeling/ (deterministic oracle labels)",
+  "new_artifact": "e2_primary_pilot_labels/ (independent J labels)",
+  "reason": "primary annotation source was not independent; behavioral refusal was mismeasured",
+  "scientific_impact": "primary labels now from independent evaluator J; behavioral_refusal derived from J not raw generator Boolean",
+  "version_labels": {
+    "E2_PRIMARY_V1": "existing qwen3.7-plus pilot",
+    "E2_LABELS_V1": "deterministic-oracle labels, superseded",
+    "E2_LABELS_V2": "qwen3.8-max independent labels"
+  },
+  "created_at": "2026-08-08T07:30:00.000000+00:00"
+}

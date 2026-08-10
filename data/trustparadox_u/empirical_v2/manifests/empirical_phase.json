@@ -2,11 +2,11 @@
   "schema_version": "1.1.0",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
-  "phase": "E2_COMPLETE",
+  "phase": "E2_PROMPTS_FROZEN",
   "trust_prompts_frozen": true,
   "evaluator_frozen": true,
-  "independent_labels_frozen": true,
-  "full_corpus_generation_authorized": true,
-  "phase_transition_timestamp": "2026-08-08T07:30:00.000000+00:00",
-  "transition_rationale": "All E2 pilot artifacts are frozen and verified. Independent evaluator J has labeled all 90 attempts. Completion check passed all 20 checks."
+  "independent_labels_frozen": false,
+  "full_corpus_generation_authorized": false,
+  "phase_transition_timestamp": "2026-08-10T15:00:00.000000+00:00",
+  "transition_rationale": "E2 evidence repair in progress. Previous E2_COMPLETE declaration at 07f5a82 invalidated due to incomplete J-label evidence, placeholder hashes, and premature E3 authorization. Phase will transition to E2_COMPLETE only after full evidence chain reconstruction and completion gate recomputation."
 }

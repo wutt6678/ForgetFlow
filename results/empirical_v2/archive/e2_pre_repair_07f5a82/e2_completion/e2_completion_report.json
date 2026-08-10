@@ -1,0 +1,62 @@
+{
+  "check_type": "e2_completion",
+  "protocol_version": "1.2.0",
+  "check_timestamp": "2026-08-08T02:10:27.056557+00:00",
+  "all_passed": true,
+  "num_passed": 12,
+  "num_total": 12,
+  "checks": {
+    "E2-006_connectivity": {
+      "passed": true,
+      "description": "3-call connectivity smoke completed"
+    },
+    "E2-007_pilot_90_attempts": {
+      "passed": true,
+      "attempt_count": 90,
+      "description": "90-attempt pilot run"
+    },
+    "E2-009_raw_retention": {
+      "passed": true,
+      "description": "Raw retention for all attempts"
+    },
+    "E2-011_frozen_labeling": {
+      "passed": true,
+      "description": "Frozen oracle labeling"
+    },
+    "E2-014_trust_analysis": {
+      "passed": true,
+      "description": "Trust-manipulation analysis"
+    },
+    "E2-053_prompt_freeze": {
+      "passed": true,
+      "description": "Prompt freeze manifest"
+    },
+    "E2-008_prompt_invariance": {
+      "passed": true,
+      "description": "Prompt invariance (only TRUST_FRAMING differs)"
+    },
+    "E2-010_provenance": {
+      "passed": true,
+      "description": "Provenance completeness"
+    },
+    "E2-015_016_breakdown": {
+      "passed": true,
+      "num_scenarios": 3,
+      "num_directional": 3,
+      "description": "Per-scenario breakdown + directional checks"
+    },
+    "E2-053_frozen_status": {
+      "passed": true,
+      "status": "frozen_post_pilot",
+      "description": "Prompt manifest frozen status"
+    },
+    "E2-001_phase_lock": {
+      "passed": true,
+      "description": "Phase-lock enum (E2_PROMPTS_FROZEN)"
+    },
+    "E2-004_clean_tree": {
+      "passed": true,
+      "description": "Clean-tree gate function exists"
+    }
+  }
+}

@@ -11,5 +11,25 @@
     "E2_LABELS_V1": "deterministic-oracle labels, superseded",
     "E2_LABELS_V2": "qwen3.8-max independent labels"
   },
-  "created_at": "2026-08-08T07:30:00.000000+00:00"
+  "repair_supersession": {
+    "superseded_commit": "07f5a82707d6b32d9b7401a2582ec02a0ee20171",
+    "reason": "07f5a82 completion evidence invalidated",
+    "invalidated_artifacts": [
+      "labeling_report.json (claims 90 labels but only 3 exist)",
+      "frozen_primary_labels.json (labeling_report_sha256 = pending)",
+      "primary_labels.jsonl (only 3 records with old evaluator-smoke IDs)",
+      "evaluator_raw_responses.jsonl (only 3 responses)",
+      "e2_research_completion_report.json (placeholder hashes, wrong synthetic release)",
+      "synthetic_regression_report.json (placeholder hashes, wrong release ID)",
+      "pilot_analysis_report.json (references old oracle labeling artifact)"
+    ],
+    "preserved_artifacts": [
+      "raw_generation_attempts.jsonl (authoritative raw G pilot corpus, immutable)",
+      "raw_generation_manifest.json (frozen manifest with real SHA-256)",
+      "evaluator implementation code (empirical_evaluator.py)",
+      "prompt definitions"
+    ]
+  },
+  "created_at": "2026-08-08T07:30:00.000000+00:00",
+  "updated_at": "2026-08-10T15:00:00.000000+00:00"
 }

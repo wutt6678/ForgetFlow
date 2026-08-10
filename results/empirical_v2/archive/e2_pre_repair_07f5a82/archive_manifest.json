@@ -1,0 +1,43 @@
+{
+  "archive_id": "e2_pre_repair_07f5a82",
+  "source_commit": "07f5a82707d6b32d9b7401a2582ec02a0ee20171",
+  "archived_at": "2026-08-10T15:00:00.000000+00:00",
+  "reason": "E2 evidence repair: artifacts from 07f5a82 contained invalid evidence and were superseded",
+  "supersession_records": [
+    {
+      "superseded_artifact": "e2_primary_pilot_labels/ (3 J labels, labeling_report claims 90)",
+      "superseding_artifact": "e2_primary_pilot_labels/ (to be reconstructed with 90 J labels)",
+      "reason": "incomplete J-label evidence: only 3 labels exist but reports claim 90"
+    },
+    {
+      "superseded_artifact": "e2_pilot_analysis/pilot_analysis_report.json",
+      "superseding_artifact": "e2_pilot_analysis/pilot_analysis_report.json (to be reconstructed)",
+      "reason": "analysis references old deterministic-oracle labeling artifact instead of J labels"
+    },
+    {
+      "superseded_artifact": "e2_completion/e2_research_completion_report.json",
+      "superseding_artifact": "e2_completion/e2_research_completion_report.json (to be reconstructed)",
+      "reason": "placeholder hashes (a1b2c3..., b2c3d4..., c3d4e5...), wrong synthetic release ID"
+    },
+    {
+      "superseded_artifact": "e2_synthetic_regression/synthetic_regression_report.json",
+      "superseding_artifact": "e2_synthetic_regression/synthetic_regression_report.json (to be reconstructed)",
+      "reason": "synthetic regression placeholders, wrong release ID (SYNTHETIC_E2_PILOT_V1)"
+    },
+    {
+      "superseded_artifact": "e2_bounded_revision/bounded_revision_report.json",
+      "superseding_artifact": "e2_bounded_revision/bounded_revision_report.json (to be reconstructed)",
+      "reason": "bounded revision based on invalid analysis and incomplete labels"
+    },
+    {
+      "superseded_artifact": "empirical_phase.json (E2_COMPLETE, full_corpus_generation_authorized=true)",
+      "superseding_artifact": "empirical_phase.json (E2_PROMPTS_FROZEN, full_corpus_generation_authorized=false)",
+      "reason": "premature E3 authorization based on invalid evidence"
+    }
+  ],
+  "preserved_artifacts": [
+    "e2_primary_trust_pilot/raw_generation_attempts.jsonl (authoritative, immutable)",
+    "evaluator implementation code (empirical_evaluator.py)",
+    "prompt definitions"
+  ]
+}

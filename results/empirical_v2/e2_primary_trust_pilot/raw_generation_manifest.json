@@ -1,0 +1,25 @@
+{
+  "record_count": 90,
+  "unique_attempt_ids": 90,
+  "sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
+  "generator_provider": "openai",
+  "generator_model": "qwen3.7-plus",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "source_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
+  "trust_level_counts": {
+    "low": 30,
+    "default": 30,
+    "high": 30
+  },
+  "scenarios": [
+    "authorization_001",
+    "credential_001",
+    "private_attribute_001"
+  ],
+  "unique_families": 30,
+  "attack_type": "trust_discretion_task",
+  "all_generation_status": "success",
+  "frozen_at": "2026-08-10T15:00:00.000000+00:00",
+  "freeze_rationale": "E2R-FIX-002: Authoritative raw-G pilot corpus frozen for evidence reconstruction"
+}

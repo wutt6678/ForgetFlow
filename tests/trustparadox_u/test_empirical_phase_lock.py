@@ -38,9 +38,10 @@ class TestPhaseLock:
         with pytest.raises(EmpiricalPhaseLockedError):
             assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
 
-    def test_phase_is_e2_complete(self) -> None:
-        # E2R-036: phase has advanced to E2_COMPLETE
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_COMPLETE
+    def test_phase_is_e2_prompts_frozen_during_repair(self) -> None:
+        # E2R-FIX-001: phase locked back to E2_PROMPTS_FROZEN during evidence repair.
+        # After repair completion, this should be updated back to E2_COMPLETE.
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_PROMPTS_FROZEN
 
     @pytest.mark.parametrize(
         "phase",
