@@ -766,7 +766,7 @@ def generate_bounded_revision_report(
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
         "study_version": EMPIRICAL_STUDY_VERSION,
-        "selected_pilot_version": "e2_primary_pilot_v2",
+        "selected_pilot_version": "E2_PRIMARY_V1",
         "decision": decision,
         "decision_rule": decision_rule,
         "disclosure_effect": disc_effect,

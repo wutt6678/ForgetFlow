@@ -85,8 +85,8 @@
     "role": "evaluator"
   },
   "selected_pilot_version": "E2_PRIMARY_V1",
-  "bounded_revision_report_sha256": "0da9a0d51ae042535dd3ea9f25b81212dbb9495b565aabf3d4ca911f8bd5b7ff",
-  "primary_label_sha256": "45947f19e8fbf525a97f623d12703f9398ea6009bfa84c390950faeecb2a7866",
+  "bounded_revision_report_sha256": "cf244c12608d230229638a008aeb223a2f2ab4fe8b080e7f582054871d6a11ce",
+  "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "prompt_invariance": {
     "valid": true,
     "problems": []

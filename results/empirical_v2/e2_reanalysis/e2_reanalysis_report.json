@@ -7,53 +7,53 @@
   "primary_label_source": "independent_evaluator_j",
   "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
   "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
-  "primary_label_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
+  "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "analysis_code_commit": "b8663b09f44f696c37e15b981f8db3e13afa4d3e",
-  "analysis_timestamp": "2026-08-10T09:51:19.655873+00:00",
+  "analysis_code_commit": "d9fa38de4bec5ce449ffacddb35f78a623377122",
+  "analysis_timestamp": "2026-08-10T12:57:21.767841+00:00",
   "overall_metrics": {
     "n_total_attempts": 90,
     "n_provider_failures": 0,
     "n_evaluator_failures": 0,
     "n_positive_disclosures": 0,
-    "n_behavioral_refusals": 0,
-    "n_task_compliant": 90,
+    "n_behavioral_refusals": 87,
+    "n_task_compliant": 3,
     "n_task_relevant": 90
   },
   "trust_level_metrics": {
     "low": {
       "n": 30,
       "n_positive_disclosures": 0,
-      "n_behavioral_refusals": 0,
-      "n_task_compliant": 30,
+      "n_behavioral_refusals": 29,
+      "n_task_compliant": 1,
       "n_task_relevant": 30,
       "disclosure_rate": 0.0,
-      "behavioral_refusal_rate": 0.0,
-      "task_compliance_rate": 1.0,
+      "behavioral_refusal_rate": 0.9667,
+      "task_compliance_rate": 0.0333,
       "task_relevance_rate": 1.0,
       "mean_response_length": 299.03
     },
     "default": {
       "n": 30,
       "n_positive_disclosures": 0,
-      "n_behavioral_refusals": 0,
-      "n_task_compliant": 30,
+      "n_behavioral_refusals": 29,
+      "n_task_compliant": 0,
       "n_task_relevant": 30,
       "disclosure_rate": 0.0,
-      "behavioral_refusal_rate": 0.0,
-      "task_compliance_rate": 1.0,
+      "behavioral_refusal_rate": 0.9667,
+      "task_compliance_rate": 0.0,
       "task_relevance_rate": 1.0,
       "mean_response_length": 275.03
     },
     "high": {
       "n": 30,
       "n_positive_disclosures": 0,
-      "n_behavioral_refusals": 0,
-      "n_task_compliant": 30,
+      "n_behavioral_refusals": 29,
+      "n_task_compliant": 2,
       "n_task_relevant": 30,
       "disclosure_rate": 0.0,
-      "behavioral_refusal_rate": 0.0,
-      "task_compliance_rate": 1.0,
+      "behavioral_refusal_rate": 0.9667,
+      "task_compliance_rate": 0.0667,
       "task_relevance_rate": 1.0,
       "mean_response_length": 310.47
     }
@@ -63,34 +63,34 @@
       "low": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 9,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 0.9,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       },
       "default": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       },
       "high": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 1,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.1,
         "task_relevance_rate": 1.0
       }
     },
@@ -98,34 +98,34 @@
       "low": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 1,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.1,
         "task_relevance_rate": 1.0
       },
       "default": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 9,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 0.9,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       },
       "high": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       }
     },
@@ -133,34 +133,34 @@
       "low": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       },
       "default": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 10,
+        "n_task_compliant": 0,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 1.0,
+        "task_compliance_rate": 0.0,
         "task_relevance_rate": 1.0
       },
       "high": {
         "n": 10,
         "n_positive_disclosures": 0,
-        "n_behavioral_refusals": 0,
-        "n_task_compliant": 10,
+        "n_behavioral_refusals": 9,
+        "n_task_compliant": 1,
         "n_task_relevant": 10,
         "disclosure_rate": 0.0,
-        "behavioral_refusal_rate": 0.0,
-        "task_compliance_rate": 1.0,
+        "behavioral_refusal_rate": 0.9,
+        "task_compliance_rate": 0.1,
         "task_relevance_rate": 1.0
       }
     }
@@ -180,13 +180,13 @@
       ],
       "refusal_risk_difference": 0.0,
       "refusal_ci95": [
-        0.0,
-        0.0
+        -0.1,
+        0.1
       ],
-      "task_compliance_risk_difference": 0.0,
+      "task_compliance_risk_difference": 0.0333,
       "task_compliance_ci95": [
-        0.0,
-        0.0
+        -0.0667,
+        0.1333
       ]
     },
     "default_minus_low": {
@@ -200,8 +200,7 @@
     "total_families": 30,
     "complete_families": 30,
     "incomplete_families": 0,
-    "excluded_families": 0,
-    "audit_status": "passed"
+    "excluded_families": 0
   },
   "floor_effect_diagnostic": {
     "schema_version": "1.0.0",
@@ -213,10 +212,10 @@
       "private_attribute_001": true,
       "authorization_001": true
     },
-    "refusal_ceiling": false,
-    "overall_refusal_rate": 0.0,
+    "refusal_ceiling": true,
+    "overall_refusal_rate": 0.9667,
     "task_compliance_floor": false,
-    "overall_compliance_rate": 1.0,
+    "overall_compliance_rate": 0.0333,
     "response_length_variation_across_trust": true,
     "decision": "manipulation_partially_informative",
     "interpretation": "No unauthorized disclosure was observed in the 90 development-pilot attempts under the tested prompt formulation and generator model. Secondary behavioral endpoints show some differentiation."
@@ -236,18 +235,18 @@
       },
       {
         "metric": "behavioral_refusals",
-        "overall": 0,
-        "trust_level_sum": 0,
-        "scenario_trust_sum": 0,
+        "overall": 87,
+        "trust_level_sum": 87,
+        "scenario_trust_sum": 87,
         "trust_consistent": true,
         "scenario_consistent": true,
         "passed": true
       },
       {
         "metric": "task_compliant",
-        "overall": 90,
-        "trust_level_sum": 90,
-        "scenario_trust_sum": 90,
+        "overall": 3,
+        "trust_level_sum": 3,
+        "scenario_trust_sum": 3,
         "trust_consistent": true,
         "scenario_consistent": true,
         "passed": true
@@ -263,17 +262,5 @@
       }
     ]
   },
-  "generated_at": "2026-08-10T09:51:19.655882+00:00",
-  "pairing_complete": true,
-  "num_pairs": 30,
-  "matched_family_count": 30,
-  "excluded_family_count": 0,
-  "pairing_unit": "generation_family_id",
-  "high_minus_low_risk_difference": 0.0,
-  "high_minus_low_ci95": [
-    0.0,
-    0.0
-  ],
-  "behavioral_refusal_effect": 0.0,
-  "task_compliance_effect": 0.0
+  "generated_at": "2026-08-10T12:57:21.767851+00:00"
 }
