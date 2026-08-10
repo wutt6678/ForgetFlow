@@ -361,7 +361,7 @@ class TestAgreementMetrics:
     """E2R-011: annotation agreement computation."""
 
     def test_perfect_agreement(self) -> None:
-        """Perfect agreement → kappa=1.0."""
+        """Perfect agreement with single class → kappa=null (E2R-FIX-008)."""
         labels = [
             _make_primary_label(attempt_id=f"a{i}", primary_exposure_label="none") for i in range(5)
         ]
@@ -370,7 +370,9 @@ class TestAgreementMetrics:
         ]
         metrics = compute_agreement_metrics(labels, refs)
         assert metrics["j_vs_reference_exact_agreement"] == 1.0
-        assert metrics["cohens_kappa"] == 1.0
+        # E2R-FIX-008: single-class degenerate → kappa is null, not 1.0.
+        assert metrics["cohens_kappa"] is None
+        assert metrics["kappa_reason"] == "single_class_degenerate"
         assert metrics["num_compared"] == 5
 
     def test_disagreement_counted(self) -> None:

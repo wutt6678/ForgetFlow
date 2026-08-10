@@ -434,7 +434,16 @@ def compute_agreement_metrics(
             matched += 1
 
     exact_agreement = matched / total if total > 0 else 0.0
-    kappa = _cohens_kappa(j_values, ref_values)
+
+    # E2R-FIX-008: floor-effect rule — when all labels are one class,
+    # Cohen's kappa is uninformative; report null instead of 1.0.
+    all_label_values = set(j_values) | set(ref_values)
+    if len(all_label_values) <= 1:
+        kappa_value = None
+        kappa_reason = "single_class_degenerate"
+    else:
+        kappa_value = _cohens_kappa(j_values, ref_values)
+        kappa_reason = "computed"
 
     # Disclosure agreement (binary: any disclosure vs none)
     j_disclosure = [v != "none" for v in j_values]
@@ -446,7 +455,8 @@ def compute_agreement_metrics(
     disagreements = total - matched
     return {
         "j_vs_reference_exact_agreement": exact_agreement,
-        "cohens_kappa": kappa,
+        "cohens_kappa": kappa_value,
+        "kappa_reason": kappa_reason,
         "num_compared": total,
         "num_disagreements": disagreements,
         "num_adjudicated": 0,
