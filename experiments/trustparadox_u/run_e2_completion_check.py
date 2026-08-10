@@ -83,6 +83,20 @@ E2_ARTIFACT_PATHS: dict[str, Path] = {
         / "e2_primary_pilot_labels"
         / "adjudication_log.jsonl"
     ),
+    "secondary_review_queue": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "secondary_review_queue.jsonl"
+    ),
+    "secondary_review_labels": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "secondary_review_labels.jsonl"
+    ),
     "labeling_report": (
         _PROJECT_ROOT
         / "results"
@@ -205,12 +219,19 @@ _FROZEN_PRIMARY_LABELS_PATH = (
     / "e2_primary_pilot_labels"
     / "frozen_primary_labels.json"
 )
-_HUMAN_REVIEW_SAMPLE_PATH = (
+_SECONDARY_REVIEW_LABELS_PATH = (
     _PROJECT_ROOT
     / "results"
     / "empirical_v2"
     / "e2_primary_pilot_labels"
-    / "human_review_sample.jsonl"
+    / "secondary_review_labels.jsonl"
+)
+_SECONDARY_REVIEW_QUEUE_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "secondary_review_queue.jsonl"
 )
 _PILOT_MANIFEST_PATH = (
     _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "pilot_manifest.json"
@@ -1159,42 +1180,71 @@ def check_primary_label_completeness(labels_report: dict[str, Any]) -> CheckResu
     )
 
 
-def check_human_review_completion(labels_report: dict[str, Any]) -> CheckResult:
-    """E2R-034: check human review completion."""
-    review_required = labels_report.get("num_review_required")
-    adjudicated = labels_report.get("num_adjudicated")
+def check_secondary_annotation_completion(labels_report: dict[str, Any]) -> CheckResult:
+    """E2-A7-FIX-012: check secondary annotation completion.
 
-    if review_required is None or adjudicated is None:
-        # If no review was required, that's acceptable
-        if review_required == 0 or adjudicated == 0:
-            return CheckResult(
-                check_name="human_review_completion",
-                passed=True,
-                details={"num_review_required": 0, "num_adjudicated": 0},
-            )
+    Replaces the scientifically incorrect check_human_review_completion.
+    Requires:
+    - secondary_reviewed == review_required
+    - all disagreement cases resolved or explicitly unresolved under protocol
+
+    Nine reviewed agreements with zero adjudications PASS.
+    Missing secondary review FAILS.
+    Unresolved disagreements are counted explicitly.
+    """
+    review_required = labels_report.get("num_review_required")
+    secondary_reviewed = labels_report.get("num_secondary_reviewed")
+    disagreements = labels_report.get("num_disagreements", 0)
+    adjudicated = labels_report.get("num_adjudicated", 0)
+    unresolved = labels_report.get("num_unresolved", 0)
+
+    if review_required is None or review_required == 0:
+        # No secondary review was required — acceptable
         return CheckResult(
-            check_name="human_review_completion",
-            passed=False,
-            failure_code="human_review_metadata_missing",
+            check_name="secondary_annotation_completion",
+            passed=True,
+            details={"num_review_required": 0, "num_secondary_reviewed": 0},
         )
 
-    if review_required > 0 and adjudicated < review_required:
+    if secondary_reviewed is None:
         return CheckResult(
-            check_name="human_review_completion",
+            check_name="secondary_annotation_completion",
             passed=False,
-            failure_code="human_review_incomplete",
+            failure_code="secondary_annotation_metadata_missing",
+        )
+
+    if secondary_reviewed < review_required:
+        return CheckResult(
+            check_name="secondary_annotation_completion",
+            passed=False,
+            failure_code="secondary_annotation_incomplete",
             details={
                 "num_review_required": review_required,
-                "num_adjudicated": adjudicated,
+                "num_secondary_reviewed": secondary_reviewed,
+            },
+        )
+
+    # Check all disagreements are resolved
+    if unresolved > 0:
+        return CheckResult(
+            check_name="secondary_annotation_completion",
+            passed=False,
+            failure_code="secondary_annotation_unresolved_disagreements",
+            details={
+                "num_disagreements": disagreements,
+                "num_unresolved": unresolved,
             },
         )
 
     return CheckResult(
-        check_name="human_review_completion",
+        check_name="secondary_annotation_completion",
         passed=True,
         details={
             "num_review_required": review_required,
+            "num_secondary_reviewed": secondary_reviewed,
+            "num_disagreements": disagreements,
             "num_adjudicated": adjudicated,
+            "num_unresolved": unresolved,
         },
     )
 
@@ -2054,7 +2104,7 @@ def check_cross_artifact_consistency(
                 _FROZEN_PROMPT_MANIFEST_PATH.read_text(encoding="utf-8")
             )
         if human_review_path is None:
-            human_review_path = _HUMAN_REVIEW_SAMPLE_PATH
+            human_review_path = _SECONDARY_REVIEW_LABELS_PATH
         if adjudication_path is None:
             adjudication_path = _ADJUDICATION_LOG_PATH
         if evaluator_raw_path is None:
@@ -2385,31 +2435,39 @@ def check_artifact_hash_binding(
     )
 
 
-def check_real_review_integrity(
-    human_review_path: Path | None = None,
+def check_secondary_annotation_integrity(
+    secondary_review_path: Path | None = None,
     adjudication_log_path: Path | None = None,
 ) -> CheckResult:
-    """E2J-FIX-028: validate real-review integrity.
+    """E2-A7-FIX-028: validate secondary annotation integrity.
+
+    Refactored from check_real_review_integrity to avoid equating
+    non-automated reviewer_id with real human annotator.
+
+    For reviewer_type = independent_llm:
+      require reviewer_id, reviewer_type, and that the record does NOT
+      claim human annotation.
+    For reviewer_type = human_annotator:
+      require reviewer_id and manual annotation source evidence.
 
     Rejects:
-    - automated_audit reviewer_id (not a real human annotator)
-    - human_label copied by code without reviewer provenance
-    - blank adjudicator_id but record counted as adjudicated
-    - blank adjudicated_at but record counted as adjudicated
-
-    Allows:
-    - reviewed but not adjudicated (human agreed with J)
-    - completed adjudication with full metadata
+    - reviewer_type = independent_human_annotator without human evidence
+    - automated_audit reviewer_id
+    - LLM reviewer mislabeled as human
+    - blank reviewer_id / reviewer_type
+    - adjudicated=True with blank adjudicator fields
     """
-    if human_review_path is None:
-        human_review_path = _HUMAN_REVIEW_SAMPLE_PATH
+    if secondary_review_path is None:
+        secondary_review_path = _SECONDARY_REVIEW_LABELS_PATH
     if adjudication_log_path is None:
         adjudication_log_path = _ADJUDICATION_LOG_PATH
 
-    # --- Validate human review sample ---
-    if human_review_path.exists():
-        review_records: list[dict[str, Any]] = []
-        with human_review_path.open(encoding="utf-8") as fh:
+    _ALLOWED_REVIEWER_TYPES = {"independent_llm", "human_annotator"}
+
+    # --- Validate secondary review labels ---
+    review_records: list[dict[str, Any]] = []
+    if secondary_review_path.exists():
+        with secondary_review_path.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:
@@ -2418,21 +2476,24 @@ def check_real_review_integrity(
 
         for rec in review_records:
             reviewer_id = rec.get("reviewer_id", "")
-            # E2J-FIX-028: automated_audit is not a real human annotator.
+            reviewer_type = rec.get("reviewer_type", "")
+
+            # Reject automated_audit
             if reviewer_id == "automated_audit":
                 return CheckResult(
-                    check_name="real_review_integrity",
+                    check_name="secondary_annotation_integrity",
                     passed=False,
                     failure_code="e2_automated_audit_rejected",
                     details={
-                        "reason": "automated_audit is not a real human annotator",
+                        "reason": "automated_audit is not a valid reviewer",
                         "generation_attempt_id": rec.get("generation_attempt_id"),
                     },
                 )
-            # E2J-FIX-028: reviewer_id must be a real annotator identifier.
+
+            # Reject missing reviewer_id
             if not reviewer_id:
                 return CheckResult(
-                    check_name="real_review_integrity",
+                    check_name="secondary_annotation_integrity",
                     passed=False,
                     failure_code="e2_missing_reviewer_provenance",
                     details={
@@ -2441,9 +2502,35 @@ def check_real_review_integrity(
                     },
                 )
 
+            # Reject invalid reviewer_type
+            if reviewer_type not in _ALLOWED_REVIEWER_TYPES:
+                return CheckResult(
+                    check_name="secondary_annotation_integrity",
+                    passed=False,
+                    failure_code="e2_invalid_reviewer_type",
+                    details={
+                        "reason": f"reviewer_type {reviewer_type!r} is not in allowed set",
+                        "allowed": sorted(_ALLOWED_REVIEWER_TYPES),
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+
+            # For LLM reviewers: must NOT have human_label field
+            if reviewer_type == "independent_llm":
+                if "human_label" in rec:
+                    return CheckResult(
+                        check_name="secondary_annotation_integrity",
+                        passed=False,
+                        failure_code="e2_llm_reviewer_has_human_label",
+                        details={
+                            "reason": "LLM reviewer record contains 'human_label' field",
+                            "generation_attempt_id": rec.get("generation_attempt_id"),
+                        },
+                    )
+
     # --- Validate adjudication log ---
+    adj_records: list[dict[str, Any]] = []
     if adjudication_log_path.exists():
-        adj_records: list[dict[str, Any]] = []
         with adjudication_log_path.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
@@ -2456,10 +2543,10 @@ def check_real_review_integrity(
             adjudicator_id = rec.get("adjudicator_id", "")
             adjudicated_at = rec.get("adjudicated_at", "")
 
-            # E2J-FIX-028: if counted as adjudicated, adjudicator fields must be filled.
+            # If counted as adjudicated, adjudicator fields must be filled
             if adjudicated_flag and (not adjudicator_id or not adjudicated_at):
                 return CheckResult(
-                    check_name="real_review_integrity",
+                    check_name="secondary_annotation_integrity",
                     passed=False,
                     failure_code="e2_blank_adjudicator_counted_adjudicated",
                     details={
@@ -2470,10 +2557,10 @@ def check_real_review_integrity(
                     },
                 )
 
-            # E2J-FIX-028: if adjudicator_id is nonempty, adjudicated_at must also be present.
+            # If adjudicator_id is nonempty, adjudicated_at must also be present
             if adjudicator_id and not adjudicated_at:
                 return CheckResult(
-                    check_name="real_review_integrity",
+                    check_name="secondary_annotation_integrity",
                     passed=False,
                     failure_code="e2_incomplete_adjudication_metadata",
                     details={
@@ -2483,11 +2570,11 @@ def check_real_review_integrity(
                 )
 
     return CheckResult(
-        check_name="real_review_integrity",
+        check_name="secondary_annotation_integrity",
         passed=True,
         details={
-            "human_review_records": len(review_records) if human_review_path.exists() else 0,
-            "adjudication_records": len(adj_records) if adjudication_log_path.exists() else 0,
+            "secondary_review_records": len(review_records),
+            "adjudication_records": len(adj_records),
         },
     )
 
@@ -2558,7 +2645,7 @@ def run_completion_check(
     report.add_check(check_generator_evaluator_independence(labels_report))
     report.add_check(check_evaluator_connectivity(labels_report))
     report.add_check(check_primary_label_completeness(labels_report))
-    report.add_check(check_human_review_completion(labels_report))
+    report.add_check(check_secondary_annotation_completion(labels_report))
     report.add_check(check_pairing_audit(analysis))
     report.add_check(check_floor_effect_diagnostic(analysis))
     report.add_check(check_evaluator_freeze(labels_report))
@@ -2588,8 +2675,8 @@ def run_completion_check(
     # --- E2J-FIX-005: No-mock certification gate ---
     report.add_check(check_real_evaluator_evidence(evaluator_raw_responses))
 
-    # --- E2J-FIX-028: Real-review integrity ---
-    report.add_check(check_real_review_integrity())
+    # --- E2-A7-FIX-028: Secondary-annotation integrity ---
+    report.add_check(check_secondary_annotation_integrity())
 
     # --- E2R-FIX-026: Cross-artifact consistency ---
     report.add_check(
@@ -2718,6 +2805,22 @@ def transition_to_e2_complete(
         / "synthetic_regression_report.json"
     )
 
+    # E2-A7-FIX-013: bind secondary annotation artifacts.
+    secondary_review_queue_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "secondary_review_queue.jsonl"
+    )
+    secondary_review_labels_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "secondary_review_labels.jsonl"
+    )
+
     new_phase: dict[str, Any] = {
         "schema_version": "1.1.0",
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
@@ -2735,6 +2838,8 @@ def transition_to_e2_complete(
         "frozen_prompt_manifest_sha256": manifest_hash,
         "synthetic_regression_report_sha256": synthetic_regression_hash,
         "completion_report_sha256": completion_hash,
+        "secondary_review_queue_sha256": secondary_review_queue_hash,
+        "secondary_review_labels_sha256": secondary_review_labels_hash,
     }
 
     phase_file_path.write_text(

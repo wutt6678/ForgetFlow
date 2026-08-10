@@ -29,6 +29,12 @@
   "num_resolved_labels": 90,
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "reference_label_source": "deterministic_heuristic_oracle",
-  "human_review_queue_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/human_review_queue.jsonl",
-  "num_adjudicated": 9
+  "secondary_review_queue_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/secondary_review_queue.jsonl",
+  "secondary_review_labels_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/secondary_review_labels.jsonl",
+  "num_secondary_reviewed": 9,
+  "num_disagreements": 0,
+  "num_adjudication_required": 0,
+  "num_adjudicated": 0,
+  "num_unresolved": 0,
+  "secondary_reviewer_type": "independent_llm"
 }

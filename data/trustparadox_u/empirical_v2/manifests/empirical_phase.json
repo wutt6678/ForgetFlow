@@ -2,17 +2,9 @@
   "schema_version": "1.1.0",
   "protocol_version": "2.0.0",
   "study_version": "2.0.0",
-  "phase": "E2_COMPLETE",
+  "phase": "E2_PROMPTS_FROZEN",
   "trust_prompts_frozen": true,
   "evaluator_frozen": true,
-  "independent_labels_frozen": true,
-  "full_corpus_generation_authorized": true,
-  "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "primary_labels_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
-  "labeling_report_sha256": "cc71fbc061e9d60daaddcbb76f629f12dc29b8eba5f0be5a24f9943b955f1990",
-  "agreement_report_sha256": "cfcf8738bc46ae6663d581212a5e035aeea5b1fd4ad819ed8ad1a193911555ad",
-  "pilot_analysis_sha256": "8b828ce3088660d4cac139c1c3f58d458cb06b2334df99f864807f1f8f4b454a",
-  "frozen_prompt_manifest_sha256": "d0f8c373ea1f2bcbfd41de91dc6a0395b8562cd814806edaf32c734b7c2f437b",
-  "synthetic_regression_report_sha256": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
-  "completion_report_sha256": "22e3846264dec1f3a0b7e877ee3bae1764a6c1d3ee7f7a8eb0799c57de34c6ef"
+  "independent_labels_frozen": false,
+  "full_corpus_generation_authorized": false
 }

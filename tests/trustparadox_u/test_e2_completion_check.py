@@ -24,7 +24,6 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_floor_effect_diagnostic,
     check_generator_evaluator_independence,
     check_generator_freeze,
-    check_human_review_completion,
     check_j_analysis_provenance,
     check_label_completeness_from_files,
     check_model_consistency,
@@ -36,9 +35,10 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_protocol_consistency,
     check_raw_pilot_completeness,
     check_real_evaluator_evidence,
-    check_real_review_integrity,
     check_reference_label_completeness,
     check_schedule,
+    check_secondary_annotation_completion,
+    check_secondary_annotation_integrity,
     check_statistics,
     check_synthetic_provenance,
     check_synthetic_regression,
@@ -483,13 +483,16 @@ class TestAdditionalChecks:
         result = check_primary_label_completeness(labels_report)
         assert result.passed is True
 
-    def test_human_review_completion(self) -> None:
-        """Test human review completion check."""
+    def test_secondary_annotation_completion(self) -> None:
+        """E2-A7-FIX-012: test secondary annotation completion check."""
         labels_report = {
-            "num_review_required": 5,
-            "num_adjudicated": 5,
+            "num_review_required": 9,
+            "num_secondary_reviewed": 9,
+            "num_disagreements": 0,
+            "num_adjudicated": 0,
+            "num_unresolved": 0,
         }
-        result = check_human_review_completion(labels_report)
+        result = check_secondary_annotation_completion(labels_report)
         assert result.passed is True
 
     def test_pairing_audit(self) -> None:
@@ -561,7 +564,10 @@ class TestRunCompletionCheck:
             "num_labeled_attempts": 90,
             "num_resolved_labels": 90,
             "num_review_required": 0,
+            "num_secondary_reviewed": 0,
+            "num_disagreements": 0,
             "num_adjudicated": 0,
+            "num_unresolved": 0,
         }
         analysis = {
             "matched_family_count": 30,
@@ -640,8 +646,8 @@ class TestRunCompletionCheck:
             lambda *a, **kw: _pass("j_analysis_provenance"),
         )
         monkeypatch.setattr(
-            "experiments.trustparadox_u.run_e2_completion_check.check_real_review_integrity",
-            lambda *a, **kw: _pass("real_review_integrity"),
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_annotation_integrity",
+            lambda *a, **kw: _pass("secondary_annotation_integrity"),
         )
 
         report = run_completion_check(
@@ -1559,120 +1565,132 @@ class TestIterationGRegression:
         assert result.passed is False
         assert result.failure_code == "j_analysis_provenance_incomplete"
 
-    # --- FIX-032: Human-audit edge cases ---
+    # --- E2-A7-FIX-030: Secondary-annotation completion edge cases ---
 
-    def test_fix032_review_required_not_adjudicated(self) -> None:
-        """E2R-FIX-032: review required but not adjudicated must fail."""
-        labels_report = {"num_review_required": 5, "num_adjudicated": 3}
-        result = check_human_review_completion(labels_report)
+    def test_fix030_nine_reviewed_zero_disagreements_passes(self) -> None:
+        """E2-A7-FIX-030: 9 reviewed, 0 disagreements, 0 adjudicated -> PASS."""
+        labels_report = {
+            "num_review_required": 9,
+            "num_secondary_reviewed": 9,
+            "num_disagreements": 0,
+            "num_adjudicated": 0,
+            "num_unresolved": 0,
+        }
+        result = check_secondary_annotation_completion(labels_report)
+        assert result.passed is True
+
+    def test_fix030_nine_required_eight_reviewed_fails(self) -> None:
+        """E2-A7-FIX-030: 9 required, 8 reviewed -> FAIL."""
+        labels_report = {
+            "num_review_required": 9,
+            "num_secondary_reviewed": 8,
+            "num_disagreements": 0,
+            "num_adjudicated": 0,
+            "num_unresolved": 0,
+        }
+        result = check_secondary_annotation_completion(labels_report)
         assert result.passed is False
-        assert result.failure_code == "human_review_incomplete"
+        assert result.failure_code == "secondary_annotation_incomplete"
 
-    def test_fix032_no_review_required(self) -> None:
-        """E2R-FIX-032: no review required passes."""
-        labels_report = {"num_review_required": 0, "num_adjudicated": 0}
-        result = check_human_review_completion(labels_report)
+    def test_fix030_one_unresolved_disagreement_fails(self) -> None:
+        """E2-A7-FIX-030: 9 reviewed, 1 disagreement unresolved -> FAIL."""
+        labels_report = {
+            "num_review_required": 9,
+            "num_secondary_reviewed": 9,
+            "num_disagreements": 1,
+            "num_adjudicated": 0,
+            "num_unresolved": 1,
+        }
+        result = check_secondary_annotation_completion(labels_report)
+        assert result.passed is False
+        assert result.failure_code == "secondary_annotation_unresolved_disagreements"
+
+    def test_fix030_one_disagreement_resolved_passes(self) -> None:
+        """E2-A7-FIX-030: 9 reviewed, 1 disagreement resolved -> PASS."""
+        labels_report = {
+            "num_review_required": 9,
+            "num_secondary_reviewed": 9,
+            "num_disagreements": 1,
+            "num_adjudicated": 1,
+            "num_unresolved": 0,
+        }
+        result = check_secondary_annotation_completion(labels_report)
         assert result.passed is True
 
-    def test_fix032_all_adjudicated(self) -> None:
-        """E2R-FIX-032: all required adjudicated passes."""
-        labels_report = {"num_review_required": 5, "num_adjudicated": 5}
-        result = check_human_review_completion(labels_report)
+    def test_fix030_no_review_required_passes(self) -> None:
+        """E2-A7-FIX-030: no review required passes."""
+        labels_report = {
+            "num_review_required": 0,
+            "num_secondary_reviewed": 0,
+            "num_disagreements": 0,
+            "num_adjudicated": 0,
+            "num_unresolved": 0,
+        }
+        result = check_secondary_annotation_completion(labels_report)
         assert result.passed is True
 
-    # --- FIX-028: Real-review integrity tests ---
+    def test_fix030_missing_secondary_reviewed_field_fails(self) -> None:
+        """E2-A7-FIX-030: missing num_secondary_reviewed metadata -> FAIL."""
+        labels_report = {
+            "num_review_required": 9,
+        }
+        result = check_secondary_annotation_completion(labels_report)
+        assert result.passed is False
+        assert result.failure_code == "secondary_annotation_metadata_missing"
 
-    def test_fix028_automated_audit_rejected(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: automated_audit reviewer_id must fail."""
-        review_path = tmp_path / "human_review_sample.jsonl"
+    # --- E2-A7-FIX-029: Fake-human annotation regression tests ---
+
+    def test_fix029_invalid_reviewer_type_rejected(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: independent_human_annotator must be rejected."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
         review_path.write_text(
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "reviewer_id": "automated_audit",
-                    "human_label": "none",
+                    "reviewer_id": "fake_reviewer",
+                    "reviewer_type": "independent_human_annotator",
+                    "secondary_label": "none",
                     "j_label": "none",
                 }
             )
             + "\n"
         )
         adj_path = tmp_path / "adjudication_log.jsonl"
-        result = check_real_review_integrity(review_path, adj_path)
+        result = check_secondary_annotation_integrity(review_path, adj_path)
         assert result.passed is False
-        assert result.failure_code == "e2_automated_audit_rejected"
+        assert result.failure_code == "e2_invalid_reviewer_type"
 
-    def test_fix028_missing_reviewer_provenance(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: empty reviewer_id must fail (no provenance)."""
-        review_path = tmp_path / "human_review_sample.jsonl"
+    def test_fix029_llm_reviewer_with_human_label_rejected(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: LLM reviewer mislabeled human -> fail."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
         review_path.write_text(
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "reviewer_id": "",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
                     "human_label": "none",
+                    "secondary_label": "none",
+                    "j_label": "none",
                 }
             )
             + "\n"
         )
         adj_path = tmp_path / "adjudication_log.jsonl"
-        result = check_real_review_integrity(review_path, adj_path)
+        result = check_secondary_annotation_integrity(review_path, adj_path)
         assert result.passed is False
-        assert result.failure_code == "e2_missing_reviewer_provenance"
+        assert result.failure_code == "e2_llm_reviewer_has_human_label"
 
-    def test_fix028_blank_adjudicator_counted_adjudicated(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: adjudicated=True with blank adjudicator_id must fail."""
-        review_path = tmp_path / "human_review_sample.jsonl"
-        review_path.write_text("")
-        adj_path = tmp_path / "adjudication_log.jsonl"
-        adj_path.write_text(
-            json.dumps(
-                {
-                    "generation_attempt_id": "test_001",
-                    "adjudicator_id": "",
-                    "adjudicated_at": "",
-                    "adjudicated": True,
-                    "human_label": "none",
-                    "final_label": "none",
-                }
-            )
-            + "\n"
-        )
-        result = check_real_review_integrity(review_path, adj_path)
-        assert result.passed is False
-        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
-
-    def test_fix028_blank_adjudicated_at_counted_adjudicated(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: adjudicated=True with blank adjudicated_at must fail."""
-        review_path = tmp_path / "human_review_sample.jsonl"
-        review_path.write_text("")
-        adj_path = tmp_path / "adjudication_log.jsonl"
-        adj_path.write_text(
-            json.dumps(
-                {
-                    "generation_attempt_id": "test_001",
-                    "adjudicator_id": "real_adjudicator",
-                    "adjudicated_at": "",
-                    "adjudicated": True,
-                    "human_label": "none",
-                    "final_label": "none",
-                }
-            )
-            + "\n"
-        )
-        result = check_real_review_integrity(review_path, adj_path)
-        assert result.passed is False
-        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
-
-    def test_fix028_reviewed_not_adjudicated_allowed(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: reviewed but not adjudicated is allowed."""
-        review_path = tmp_path / "human_review_sample.jsonl"
+    def test_fix029_valid_j2_secondary_review_passes(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: valid J2 secondary review passes."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
         review_path.write_text(
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "reviewer_id": "real_reviewer",
-                    "reviewer_type": "independent_human_annotator",
-                    "human_label": "none",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                    "secondary_label": "none",
                     "j_label": "none",
                 }
             )
@@ -1687,25 +1705,165 @@ class TestIterationGRegression:
                     "adjudicated_at": "",
                     "adjudicated": False,
                     "reviewed": True,
-                    "human_label": "none",
+                    "secondary_label": "none",
+                    "final_label": "none",
+                    "resolution_status": "agreement",
+                }
+            )
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is True
+
+    def test_fix029_valid_human_annotator_passes(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: valid real-human imported annotation passes."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "human_annotator_1",
+                    "reviewer_type": "human_annotator",
+                    "secondary_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is True
+
+    def test_fix029_automated_audit_rejected(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: automated_audit reviewer_id must fail."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "automated_audit",
+                    "reviewer_type": "independent_llm",
+                    "secondary_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_automated_audit_rejected"
+
+    def test_fix029_missing_reviewer_provenance_rejected(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-029: missing annotation-source provenance -> fail."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "",
+                    "reviewer_type": "independent_llm",
+                    "secondary_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_missing_reviewer_provenance"
+
+    # --- E2-A7-FIX-028: Secondary-annotation integrity tests ---
+
+    def test_fix028_blank_adjudicator_counted_adjudicated(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-028: adjudicated=True with blank adjudicator_id must fail."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                    "adjudicated": True,
+                    "secondary_label": "none",
                     "final_label": "none",
                 }
             )
             + "\n"
         )
-        result = check_real_review_integrity(review_path, adj_path)
-        assert result.passed is True
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
 
-    def test_fix028_completed_adjudication_passes(self, tmp_path: Path) -> None:
-        """E2J-FIX-028: completed adjudication with full metadata passes."""
-        review_path = tmp_path / "human_review_sample.jsonl"
+    def test_fix028_blank_adjudicated_at_counted_adjudicated(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-028: adjudicated=True with blank adjudicated_at must fail."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "real_adjudicator",
+                    "adjudicated_at": "",
+                    "adjudicated": True,
+                    "secondary_label": "none",
+                    "final_label": "none",
+                }
+            )
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
+
+    def test_fix028_reviewed_not_adjudicated_allowed(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-028: reviewed but not adjudicated is allowed."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
         review_path.write_text(
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "reviewer_id": "real_reviewer",
-                    "reviewer_type": "independent_human_annotator",
-                    "human_label": "exact_value_disclosure",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                    "secondary_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                    "adjudicated": False,
+                    "reviewed": True,
+                    "secondary_label": "none",
+                    "final_label": "none",
+                    "resolution_status": "agreement",
+                }
+            )
+            + "\n"
+        )
+        result = check_secondary_annotation_integrity(review_path, adj_path)
+        assert result.passed is True
+
+    def test_fix028_completed_adjudication_passes(self, tmp_path: Path) -> None:
+        """E2-A7-FIX-028: completed adjudication with full metadata passes."""
+        review_path = tmp_path / "secondary_review_labels.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "j2_evaluator",
+                    "reviewer_type": "independent_llm",
+                    "secondary_label": "exact_value_disclosure",
                     "j_label": "none",
                 }
             )
@@ -1720,13 +1878,14 @@ class TestIterationGRegression:
                     "adjudicated_at": "2026-08-01T00:00:00Z",
                     "adjudicated": True,
                     "reviewed": True,
-                    "human_label": "exact_value_disclosure",
+                    "secondary_label": "exact_value_disclosure",
                     "final_label": "exact_value_disclosure",
+                    "resolution_status": "adjudicated",
                 }
             )
             + "\n"
         )
-        result = check_real_review_integrity(review_path, adj_path)
+        result = check_secondary_annotation_integrity(review_path, adj_path)
         assert result.passed is True
 
     def test_fix028_count_completed_adjudications_blank_rows(self, tmp_path: Path) -> None:
