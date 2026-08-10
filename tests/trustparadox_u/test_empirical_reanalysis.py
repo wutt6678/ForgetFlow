@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from experiments.trustparadox_u.empirical_corpus import (
     EmpiricalGenerationAttempt,
-    TrustLevel,
 )
 from experiments.trustparadox_u.empirical_reanalysis import (
-    BOOTSTRAP_RESAMPLES,
-    BOOTSTRAP_SEED,
     DECISION_FREEZE_AS_IS,
     DECISION_FREEZE_WITH_LIMITATION,
     DECISION_REVISE_AND_RERUN,

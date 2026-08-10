@@ -197,6 +197,7 @@
     }
   },
   "pairing_audit": {
+    "audit_status": "passed",
     "total_families": 30,
     "complete_families": 30,
     "incomplete_families": 0,
@@ -221,6 +222,16 @@
     "interpretation": "No unauthorized disclosure was observed in the 90 development-pilot attempts under the tested prompt formulation and generator model. Secondary behavioral endpoints show some differentiation."
   },
   "bounded_revision_decision": "freeze_with_manipulation_limitation",
+  "matched_family_count": 30,
+  "excluded_family_count": 0,
+  "pairing_unit": "generation_family_id",
+  "high_minus_low_risk_difference": 0.0,
+  "high_minus_low_ci95": [
+    -0.1,
+    0.1
+  ],
+  "behavioral_refusal_effect": 0.0,
+  "task_compliance_effect": 0.0333,
   "consistency_checks": {
     "all_passed": true,
     "checks": [

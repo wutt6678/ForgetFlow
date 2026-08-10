@@ -19,7 +19,16 @@
   "num_unresolved": 0,
   "primary_label_source": "independent_evaluator_j",
   "evaluator_model": "qwen3.8-max",
+  "evaluator_provider": "openai",
+  "evaluator_model_requested": "qwen3.8-max",
+  "evaluator_model_returned": "qwen3.8-max",
+  "evaluator_prompt_hash": "aa84ea4bf49a1660003f15d18e0b32df238aafa542acafb9e83160721fa46361",
+  "evaluator_model_revision": "qwen3.8-max",
+  "generator_model": "openai/qwen3.7-plus",
+  "num_labeled_attempts": 90,
+  "num_resolved_labels": 90,
+  "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "reference_label_source": "deterministic_heuristic_oracle",
   "human_review_queue_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/human_review_queue.jsonl",
-  "num_adjudicated": 0
+  "num_adjudicated": 9
 }
