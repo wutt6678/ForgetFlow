@@ -39,8 +39,10 @@ class TestPhaseLock:
             assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
 
     def test_phase_is_e2_complete_after_certification(self) -> None:
-        # E2J-FIX-036: phase transitioned to E2_COMPLETE after full certification.
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_COMPLETE
+        # E2B-FIX-001: phase re-locked to E2_PROMPTS_FROZEN during the final
+        # evidence-integrity repair; restored to E2_COMPLETE only by the
+        # programmatic recertification transition (E2B-FIX-043).
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_PROMPTS_FROZEN
 
     @pytest.mark.parametrize(
         "phase",
