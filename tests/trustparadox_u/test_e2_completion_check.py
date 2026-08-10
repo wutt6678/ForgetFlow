@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from experiments.trustparadox_u.empirical_corpus import EmpiricalPhase
 from experiments.trustparadox_u.run_e2_completion_check import (
     CheckResult,

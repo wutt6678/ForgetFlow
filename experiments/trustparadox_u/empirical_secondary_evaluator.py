@@ -20,34 +20,22 @@ from the primary evaluator module but loads J2-specific prompts.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
-import re
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from experiments.trustparadox_u.empirical_corpus import (
-    EMPIRICAL_PROTOCOL_VERSION,
-    EMPIRICAL_STUDY_VERSION,
-    GENERATOR_MODEL_IDENTITY,
     EVALUATOR_MODEL_IDENTITY,
+    GENERATOR_MODEL_IDENTITY,
     SECONDARY_EVALUATOR_MODEL_IDENTITY,
-    SECONDARY_EVALUATOR_ROLE,
 )
 from experiments.trustparadox_u.empirical_evaluator import (
-    EvaluatorRequest,
-    EVALUATOR_STATUSES,
-    PROHIBITED_EVALUATOR_FIELDS,
-    PRIMARY_EXPOSURE_LABELS,
-    REQUIRED_JUDGMENT_FIELDS,
-    BOOLEAN_JUDGMENT_FIELDS,
     EvaluatorParseError,
-    _extract_json_from_text,
+    EvaluatorRequest,
     parse_evaluator_output,
-    build_evaluator_request,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,9 +48,7 @@ SECONDARY_PROMPT_DIR = (
 )
 
 #: E2-A7-FIX-005: output directory for secondary annotation artifacts.
-SECONDARY_ANNOTATION_DIR = (
-    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_secondary_annotation"
-)
+SECONDARY_ANNOTATION_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "e2_secondary_annotation"
 
 #: E2-A7-FIX-005: J2 must be distinct from G and J1.
 assert SECONDARY_EVALUATOR_MODEL_IDENTITY != EVALUATOR_MODEL_IDENTITY, (
@@ -233,18 +219,24 @@ class SecondaryEvaluatorProvider:
                 self.last_request_id = request_id
 
                 if not raw_text.strip():
-                    return {
-                        "raw_output": "",
-                        "status": "empty",
-                        "model_returned": model_returned,
-                        "request_id": request_id,
-                        "latency_ms": elapsed_ms,
-                        "retries": retries_used,
-                        "parsed": None,
-                        "parse_error": "J2 evaluator returned empty response",
-                        "system_prompt_hash": sys_hash,
-                        "user_prompt_hash": usr_hash,
-                    }
+                    # E2B-FIX-004: empty output is retryable under the
+                    # frozen retry policy; only return "empty" once all
+                    # retries are exhausted.
+                    if attempt >= self.max_retries:
+                        return {
+                            "raw_output": "",
+                            "status": "empty",
+                            "model_returned": model_returned,
+                            "request_id": request_id,
+                            "latency_ms": elapsed_ms,
+                            "retries": retries_used,
+                            "parsed": None,
+                            "parse_error": "J2 evaluator returned empty response",
+                            "system_prompt_hash": sys_hash,
+                            "user_prompt_hash": usr_hash,
+                        }
+                    last_exc = ValueError("J2 evaluator returned empty response")
+                    continue
 
                 try:
                     parsed = parse_evaluator_output(raw_text, request.generation_attempt_id)

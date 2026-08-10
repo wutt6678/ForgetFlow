@@ -1,16 +1,21 @@
 {
+  "n_selected": 9,
+  "n_attempted": 9,
+  "n_successful": 9,
+  "n_failed": 0,
+  "n_compared": 9,
+  "n_agreed": 9,
+  "n_disagreed": 0,
+  "n_unresolved": 0,
   "j1_j2_exact_agreement": 1.0,
   "j1_j2_binary_disclosure_agreement": 1.0,
-  "j1_j2_per_class_agreement": {
+  "per_class_agreement": {
     "none": 1.0
   },
-  "j1_j2_cohens_kappa": null,
-  "j1_j2_kappa_reason": "single_class_degenerate",
-  "n_reviewed": 9,
-  "n_compared": 7,
-  "n_disagreed": 0,
-  "n_resolved": 7,
-  "n_unresolved": 2,
+  "cohens_kappa": null,
+  "kappa_reason": "single_class_degenerate",
+  "agreement_denominator_statement": "J1 and J2 agreed on 9/9 successfully audited cases.",
+  "n_resolved": 9,
   "annotation_source": "j1_j2_llm_only",
   "j2_model": "glm-5.2",
   "j2_provider": "openai"

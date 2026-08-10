@@ -2,7 +2,7 @@
   "evaluator_role": "J2",
   "model_identity": "glm-5.2",
   "model_provider": "openai",
-  "frozen_at": "2026-08-10T18:14:18.307806+00:00",
+  "frozen_at": "2026-08-10T22:19:45.188320+00:00",
   "prompts": {
     "credential_task.txt": {
       "sha256": "715ef79c54e6a2dc66804ae85a2683eb06069d4ae441458e04f342b065f8cbeb",

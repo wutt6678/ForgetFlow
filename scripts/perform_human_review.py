@@ -10,6 +10,17 @@ E2-A7-FIX-010: generates J1-J2 agreement report (no human agreement metrics).
 E2-A7-FIX-017: freezes J2 prompt manifest.
 E2-A7-FIX-035: computes secondary annotation agreement statistics.
 
+E2B (final evidence-integrity repair):
+E2B-FIX-003: --retry-failed reruns ONLY previously failed J2 cases.
+E2B-FIX-005: evaluator failure is never counted as a J1/J2 disagreement.
+E2B-FIX-006: no J1 fallback final_label for failed J2 evaluations.
+E2B-FIX-007: adjudication semantics (agreement / unresolved / failure).
+E2B-FIX-008: explicit secondary evaluator status fields on every record.
+E2B-FIX-009: completion requires 9 successful J2 evaluations.
+E2B-FIX-010..015: attempted/successful/failed accounting derived from files.
+E2B-FIX-018..021: ID equivalence and cross-artifact consistency validated
+    at generation time.
+
 This script:
 1. Loads the secondary_review_queue.jsonl (cases requiring review).
 2. For each case, loads the candidate text and target spec.
@@ -61,6 +72,10 @@ TARGET_SPECS_PATH = PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / 
 
 # --- Output paths (FIX-007/008) ---
 SECONDARY_ANNOTATION_DIR = PROJECT_ROOT / "results" / "empirical_v2" / "e2_secondary_annotation"
+RAW_RESPONSES_PATH = SECONDARY_ANNOTATION_DIR / "secondary_raw_responses.jsonl"
+
+# E2B-FIX-009: completion requires this many successful J2 evaluations.
+REQUIRED_SUCCESSFUL_EVALUATIONS = 9
 
 # E2-A7-FIX-003: truthful reviewer identification.
 REVIEWER_ID = "j2_evaluator"
@@ -153,28 +168,92 @@ def find_target_spec(
 # ---------------------------------------------------------------------------
 
 
+def load_successful_raw_responses() -> dict[str, dict]:
+    """E2B-FIX-003: load previously successful J2 raw responses.
+
+    Returns a dict keyed by generation_attempt_id of j2_result-shaped
+    dicts reconstructed from the persisted raw records.  Successful
+    evaluations are never re-run; their raw evidence is preserved
+    verbatim.  Non-successful records are discarded so their cases are
+    re-evaluated.
+    """
+    from experiments.trustparadox_u.empirical_evaluator import (
+        EvaluatorParseError,
+        parse_evaluator_output,
+    )
+
+    if not RAW_RESPONSES_PATH.exists():
+        return {}
+
+    retained: dict[str, dict] = {}
+    for record in load_jsonl(RAW_RESPONSES_PATH):
+        if record.get("status") != "success" or not record.get("raw_output", "").strip():
+            continue
+        aid = record["generation_attempt_id"]
+        parsed = record.get("parsed_output")
+        if parsed is None:
+            # Older artifacts predate parsed_output; re-derive it from the
+            # persisted raw_output using the frozen annotation schema.
+            try:
+                parsed = parse_evaluator_output(record["raw_output"], aid)
+            except EvaluatorParseError:
+                # Raw output no longer parses: treat as failed so the case
+                # is re-evaluated rather than trusted.
+                continue
+        retained[aid] = {
+            "raw_output": record["raw_output"],
+            "status": "success",
+            "model_returned": record.get("model_returned", ""),
+            "request_id": record.get("request_id", ""),
+            "latency_ms": record.get("latency_ms", 0.0),
+            "retries": record.get("retries", 0),
+            "parsed": parsed,
+            "parse_error": None,
+            "system_prompt_hash": record.get("system_prompt_hash", ""),
+            "user_prompt_hash": record.get("user_prompt_hash", ""),
+            "timestamp": record.get("timestamp", ""),
+        }
+    return retained
+
+
 def build_label_record(
     queue_record: dict,
     j2_result: dict,
 ) -> dict:
-    """E2-A7-FIX-008: build a secondary label record with full J2 provenance."""
-    parsed = j2_result.get("parsed")
+    """E2-A7-FIX-008 / E2B-FIX-005..008: secondary label record.
+
+    Semantics:
+    - J2 success + agrees with J1: resolution_status=agreement,
+      final_label = J1 = J2.
+    - J2 success + disagrees with J1: resolution_status=unresolved,
+      final_label=None (Option C: exclude from analysis).
+    - J2 evaluator failure (empty/malformed/provider/timeout):
+      resolution_status=unresolved, secondary_label=None,
+      final_label=None (E2B-FIX-006: never fall back to J1).
+    """
+    j2_status = j2_result.get("status", "")
+    evaluator_success = j2_status == "success"
+    parsed = j2_result.get("parsed") if evaluator_success else None
     secondary_label = parsed["primary_exposure_label"] if parsed else None
     secondary_confidence = parsed.get("confidence") if parsed else None
 
     j_label = queue_record["j_label"]
     agrees = secondary_label is not None and secondary_label == j_label
 
-    # E2-A7-FIX-009: disagreement resolution — Option C
-    if secondary_label is None:
+    if not evaluator_success:
+        # E2B-FIX-005/006: evaluator failure is NOT a disagreement and
+        # must never substitute J1 for missing J2 evidence.
         resolution_status = "unresolved"
-        final_label = j_label  # Fall back to J1 on parse failure
+        final_label = None
+        record_status = "evaluator_failure"
     elif agrees:
         resolution_status = "agreement"
         final_label = secondary_label
+        record_status = "audited"
     else:
         resolution_status = "unresolved"
         final_label = None  # Option C: exclude from analysis
+        record_status = "disagreed"
 
     return {
         "generation_attempt_id": queue_record["generation_attempt_id"],
@@ -193,78 +272,89 @@ def build_label_record(
         "review_reason": queue_record.get("review_reason", ""),
         "scenario": queue_record.get("scenario", ""),
         "trust_level": queue_record.get("trust_level", ""),
-        "status": "audited" if agrees else "disagreed",
+        "status": record_status,
         "resolution_status": resolution_status,
         "final_label": final_label,
+        # E2B-FIX-008: explicit evaluator-status fields.
+        "secondary_evaluator_status": j2_status,
+        "secondary_evaluator_success": evaluator_success,
+        "secondary_evaluator_error": j2_result.get("parse_error"),
+        "secondary_evaluator_retry_count": j2_result.get("retries", 0),
     }
 
 
 def build_adjudication_record(label_record: dict) -> dict:
-    """E2-A7-FIX-009/011: build adjudication record with disagreement resolution.
+    """E2B-FIX-007: adjudication record with correct semantics.
 
-    - If J1==J2: reviewed=true, adjudicated=false (no dispute to resolve).
-    - If J1!=J2: Option C — mark unresolved, exclude from analysis.
+    - J1==J2 (success): reviewed=true, adjudicated=false,
+      resolution_status=agreement, final_label=J1=J2.
+    - J1!=J2 (success): reviewed=true, adjudicated=false,
+      resolution_status=unresolved, final_label=null.
+    - J2 evaluator failure: evaluation_attempted=true, reviewed=false,
+      adjudicated=false, resolution_status=unresolved, final_label=null.
+    - A later J3/human resolution would set adjudicated=true,
+      resolution_status=resolved, final_label non-null, and non-empty
+      adjudicator_id/adjudicated_at.
     """
+    evaluator_success = label_record.get("secondary_evaluator_success", False)
     secondary_label = label_record["secondary_label"]
     j_label = label_record["j_label"]
     agrees = secondary_label is not None and secondary_label == j_label
 
-    if agrees:
-        return {
-            "generation_attempt_id": label_record["generation_attempt_id"],
-            "j_label": j_label,
-            "reference_label": label_record["reference_label"],
-            "secondary_label": secondary_label,
-            "final_label": secondary_label,
-            "reason_code": "",
-            "reviewer_type": label_record["reviewer_type"],
-            "reviewer_id": label_record["reviewer_id"],
-            "adjudicator_id": "",
-            "adjudicated_at": "",
-            "reviewed": True,
-            "adjudicated": False,
-            "resolution_status": "agreement",
-        }
+    if evaluator_success and agrees:
+        reason_code = ""
+        resolution_status = "agreement"
+        final_label = secondary_label
+    elif evaluator_success:
+        reason_code = "j1_j2_disagreement"
+        resolution_status = "unresolved"
+        final_label = None
     else:
-        # E2-A7-FIX-009 Option C: mark unresolved, exclude from analysis
-        return {
-            "generation_attempt_id": label_record["generation_attempt_id"],
-            "j_label": j_label,
-            "reference_label": label_record["reference_label"],
-            "secondary_label": secondary_label,
-            "final_label": None,
-            "reason_code": "j1_j2_disagreement",
-            "reviewer_type": label_record["reviewer_type"],
-            "reviewer_id": label_record["reviewer_id"],
-            "adjudicator_id": REVIEWER_ID,
-            "adjudicated_at": datetime.now(timezone.utc).isoformat(),
-            "reviewed": True,
-            "adjudicated": True,
-            "resolution_status": "unresolved",
-        }
+        # E2B-FIX-005: evaluator failure is distinct from disagreement.
+        reason_code = "j2_evaluator_failure"
+        resolution_status = "unresolved"
+        final_label = None
+
+    return {
+        "generation_attempt_id": label_record["generation_attempt_id"],
+        "j_label": j_label,
+        "reference_label": label_record["reference_label"],
+        "secondary_label": secondary_label,
+        "final_label": final_label,
+        "reason_code": reason_code,
+        "reviewer_type": label_record["reviewer_type"],
+        "reviewer_id": label_record["reviewer_id"],
+        "adjudicator_id": "",
+        "adjudicated_at": "",
+        "evaluation_attempted": True,
+        "reviewed": evaluator_success,
+        "adjudicated": False,
+        "resolution_status": resolution_status,
+    }
 
 
 def build_agreement_report(
     label_records: list[dict],
+    n_selected: int,
 ) -> dict[str, Any]:
-    """E2-A7-FIX-010/035: compute J1-J2 agreement statistics.
+    """E2B-FIX-014/015: J1-J2 agreement statistics from source records.
 
-    No human agreement metrics — only J1↔J2 exact agreement, Cohen's kappa,
-    per-class agreement, and binary disclosure agreement.
+    Counts separate attempted / successful / failed evaluations so the
+    agreement denominator is always "successfully audited cases", never
+    planned or attempted cases.  No human agreement metrics.
     """
-    n = len(label_records)
-    n_agree = 0
-    n_disagree = 0
-    n_unresolved = 0
+    n_attempted = len(label_records)
+    successful = [rec for rec in label_records if rec.get("secondary_evaluator_success")]
+    n_successful = len(successful)
+    n_failed = n_attempted - n_successful
+
     j1_labels: list[str] = []
     j2_labels: list[str] = []
-
-    for rec in label_records:
+    n_agree = 0
+    n_disagree = 0
+    for rec in successful:
         j1_label = rec["j_label"]
         j2_label = rec["secondary_label"]
-        if j2_label is None:
-            n_unresolved += 1
-            continue
         j1_labels.append(j1_label)
         j2_labels.append(j2_label)
         if j1_label == j2_label:
@@ -273,6 +363,7 @@ def build_agreement_report(
             n_disagree += 1
 
     n_compared = n_agree + n_disagree
+    n_unresolved = n_failed + n_disagree
     exact_agreement = n_agree / n_compared if n_compared > 0 else 0.0
 
     # Binary disclosure agreement
@@ -317,17 +408,34 @@ def build_agreement_report(
 
     n_resolved = sum(1 for rec in label_records if rec.get("resolution_status") == "agreement")
 
+    # E2B-FIX-015: state the denominator explicitly.
+    if n_failed == 0:
+        denominator_statement = (
+            f"J1 and J2 agreed on {n_agree}/{n_successful} successfully audited cases."
+        )
+    else:
+        denominator_statement = (
+            f"J1 and J2 agreed on {n_agree}/{n_successful} successfully evaluated "
+            f"cases; {n_failed}/{n_selected} planned audit cases remained "
+            f"unresolved because the J2 evaluation failed."
+        )
+
     return {
+        "n_selected": n_selected,
+        "n_attempted": n_attempted,
+        "n_successful": n_successful,
+        "n_failed": n_failed,
+        "n_compared": n_compared,
+        "n_agreed": n_agree,
+        "n_disagreed": n_disagree,
+        "n_unresolved": n_unresolved,
         "j1_j2_exact_agreement": exact_agreement,
         "j1_j2_binary_disclosure_agreement": binary_agreement,
-        "j1_j2_per_class_agreement": per_class,
-        "j1_j2_cohens_kappa": kappa,
-        "j1_j2_kappa_reason": kappa_reason,
-        "n_reviewed": n,
-        "n_compared": n_compared,
-        "n_disagreed": n_disagree,
+        "per_class_agreement": per_class,
+        "cohens_kappa": kappa,
+        "kappa_reason": kappa_reason,
+        "agreement_denominator_statement": denominator_statement,
         "n_resolved": n_resolved,
-        "n_unresolved": n_unresolved,
         "annotation_source": "j1_j2_llm_only",
         "j2_model": REVIEWER_MODEL_IDENTITY,
         "j2_provider": REVIEWER_PROVIDER,
@@ -343,8 +451,13 @@ def run_secondary_review(
     j2_model_name: str,
     j2_api_base: str | None,
     j2_api_key_env: str | None,
+    retry_failed: bool = False,
 ) -> dict[str, int]:
     """Run the full J2 secondary review pipeline.
+
+    E2B-FIX-003: with ``retry_failed`` set, previously successful J2
+    evaluations are reused verbatim from secondary_raw_responses.jsonl
+    and only failed cases are re-evaluated.
 
     Returns a summary dict with counts.
     """
@@ -371,12 +484,26 @@ def run_secondary_review(
     target_specs = load_target_specs()
     print(f"  {len(target_specs)} target specs loaded", flush=True)
 
+    # E2B-FIX-003: reuse previously successful evaluations in retry mode.
+    retained_results: dict[str, dict] = {}
+    if retry_failed:
+        retained_results = load_successful_raw_responses()
+        print(
+            f"  retry-failed mode: reusing {len(retained_results)} previously "
+            f"successful J2 evaluations; "
+            f"{len(queue) - len(retained_results)} case(s) will be re-evaluated",
+            flush=True,
+        )
+
     # Create J2 provider
+    # E2B-FIX-003: max_tokens is a transport cap only (not part of the
+    # frozen evaluation inputs); raised to 1024 because glm-5.2 rationale
+    # text truncated JSON at 512, matching the J1 relabeling scripts.
     j2_provider = SecondaryEvaluatorProvider(
         model_name=j2_model_name,
         provider=REVIEWER_PROVIDER,
         temperature=0.0,
-        max_tokens=512,
+        max_tokens=1024,
         api_base=j2_api_base,
         api_key_env=j2_api_key_env,
     )
@@ -422,26 +549,33 @@ def run_secondary_review(
             target_spec=target_spec,
         )
 
-        # Call J2
-        print(f"  Evaluating {aid}...", flush=True)
-        j2_result = j2_provider.evaluate(eval_request)
-        print(
-            f"    status={j2_result['status']}, " f"latency={j2_result['latency_ms']:.0f}ms",
-            flush=True,
-        )
+        # Call J2 (or reuse a previously successful evaluation)
+        if aid in retained_results:
+            print(f"  Reusing successful evaluation for {aid}", flush=True)
+            j2_result = retained_results[aid]
+        else:
+            print(f"  Evaluating {aid}...", flush=True)
+            j2_result = j2_provider.evaluate(eval_request)
+            print(
+                f"    status={j2_result['status']}, " f"latency={j2_result['latency_ms']:.0f}ms",
+                flush=True,
+            )
 
-        # Build raw response record (FIX-007)
+        # Build raw response record (FIX-007; E2B-FIX-016: parsed_output)
         raw_record = {
             "generation_attempt_id": aid,
             "raw_output": j2_result.get("raw_output", ""),
             "status": j2_result.get("status", ""),
+            "parsed_output": j2_result.get("parsed"),
             "model_returned": j2_result.get("model_returned", ""),
             "request_id": j2_result.get("request_id", ""),
             "latency_ms": j2_result.get("latency_ms", 0.0),
             "retries": j2_result.get("retries", 0),
             "system_prompt_hash": j2_result.get("system_prompt_hash", ""),
             "user_prompt_hash": j2_result.get("user_prompt_hash", ""),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            # E2B-FIX-003: preserve the original timestamp for reused
+            # evaluations so retained evidence is not rewritten.
+            "timestamp": j2_result.get("timestamp") or datetime.now(timezone.utc).isoformat(),
             "reviewer_id": REVIEWER_ID,
             "reviewer_type": REVIEWER_TYPE,
             "review_model": REVIEWER_MODEL_IDENTITY,
@@ -501,8 +635,8 @@ def run_secondary_review(
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
     print(f"  Wrote {len(adjudication_records)} adjudication records", flush=True)
 
-    # 6. secondary_annotation_agreement.json (FIX-035)
-    agreement = build_agreement_report(label_records)
+    # 6. secondary_annotation_agreement.json (E2B-FIX-014)
+    agreement = build_agreement_report(label_records, n_selected=len(queue))
     agreement_path = SECONDARY_ANNOTATION_DIR / "secondary_annotation_agreement.json"
     with agreement_path.open("w", encoding="utf-8") as fh:
         json.dump(agreement, fh, indent=2, ensure_ascii=False)
@@ -521,10 +655,14 @@ def run_secondary_review(
         {
             "j1_j2_exact_agreement": agreement["j1_j2_exact_agreement"],
             "j1_j2_binary_disclosure_agreement": agreement["j1_j2_binary_disclosure_agreement"],
-            "j1_j2_per_class_agreement": agreement["j1_j2_per_class_agreement"],
-            "j1_j2_cohens_kappa": agreement["j1_j2_cohens_kappa"],
-            "j1_j2_kappa_reason": agreement["j1_j2_kappa_reason"],
-            "n_reviewed": agreement["n_reviewed"],
+            "per_class_agreement": agreement["per_class_agreement"],
+            "cohens_kappa": agreement["cohens_kappa"],
+            "kappa_reason": agreement["kappa_reason"],
+            "agreement_denominator_statement": agreement["agreement_denominator_statement"],
+            "num_secondary_review_attempted": agreement["n_attempted"],
+            "num_secondary_review_successful": agreement["n_successful"],
+            "num_secondary_review_failed": agreement["n_failed"],
+            "n_reviewed": agreement["n_successful"],
             "n_disagreed": agreement["n_disagreed"],
             "n_resolved": agreement["n_resolved"],
             "n_unresolved": agreement["n_unresolved"],
@@ -557,6 +695,8 @@ def run_secondary_review(
     return {
         "num_reviewed": num_reviewed,
         "num_adjudicated": num_adjudicated,
+        "num_successful": agreement["n_successful"],
+        "num_failed": agreement["n_failed"],
         "num_disagreed": agreement["n_disagreed"],
         "num_unresolved": agreement["n_unresolved"],
     }
@@ -582,6 +722,14 @@ def main() -> None:
         default=None,
         help="Environment variable name for API key",
     )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help=(
+            "E2B-FIX-003: keep previously successful J2 raw responses and "
+            "re-evaluate only the failed cases"
+        ),
+    )
     args = parser.parse_args()
 
     # E2-A7-FIX-003: validate reviewer type before doing anything
@@ -591,10 +739,23 @@ def main() -> None:
         j2_model_name=args.j2_model,
         j2_api_base=args.api_base,
         j2_api_key_env=args.api_key_env,
+        retry_failed=args.retry_failed,
     )
 
     if summary["num_reviewed"] == 0:
         print("ERROR: No records were reviewed!", flush=True)
+        sys.exit(1)
+
+    # E2B-FIX-009: attempted review is not successful review; completion
+    # requires REQUIRED_SUCCESSFUL_EVALUATIONS successful J2 evaluations.
+    if summary["num_successful"] < REQUIRED_SUCCESSFUL_EVALUATIONS:
+        print(
+            f"ERROR: only {summary['num_successful']}/"
+            f"{REQUIRED_SUCCESSFUL_EVALUATIONS} J2 evaluations succeeded "
+            f"({summary['num_failed']} failed). Artifacts were written with "
+            f"honest failure accounting, but secondary review is incomplete.",
+            flush=True,
+        )
         sys.exit(1)
 
     print("\nAll J2 artifacts generated successfully.", flush=True)
