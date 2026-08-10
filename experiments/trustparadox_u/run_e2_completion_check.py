@@ -46,6 +46,96 @@ from experiments.trustparadox_u.empirical_corpus import (
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+#: E2R-FIX-016: canonical artifact path mapping for hash verification.
+E2_ARTIFACT_PATHS: dict[str, Path] = {
+    "raw_pilot_attempts": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_trust_pilot"
+        / "raw_generation_attempts.jsonl"
+    ),
+    "request_schedule": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_trust_pilot"
+        / "request_schedule.json"
+    ),
+    "primary_labels": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "primary_labels.jsonl"
+    ),
+    "reference_labels": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "reference_labels.jsonl"
+    ),
+    "adjudication_log": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "adjudication_log.jsonl"
+    ),
+    "labeling_report": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "labeling_report.json"
+    ),
+    "agreement_report": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "label_agreement_report.json"
+    ),
+    "pairing_audit": (
+        _PROJECT_ROOT / "results" / "empirical_v2" / "e2_reanalysis" / "e2_pairing_audit.json"
+    ),
+    "pilot_analysis": (
+        _PROJECT_ROOT / "results" / "empirical_v2" / "e2_reanalysis" / "e2_reanalysis_report.json"
+    ),
+    "floor_effect_diagnostic": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_reanalysis"
+        / "floor_effect_diagnostic.json"
+    ),
+    "bounded_revision_report": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_reanalysis"
+        / "bounded_revision_report.json"
+    ),
+    "frozen_prompt_manifest": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_prompt_freeze"
+        / "frozen_prompt_manifest.json"
+    ),
+    "synthetic_regression_report": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_synthetic_regression"
+        / "synthetic_regression_report.json"
+    ),
+}
+
+#: E2R-FIX-019/020: directory containing synthetic release bundles.
+RELEASES_DIR = _PROJECT_ROOT / "results" / "releases"
+
 #: E2 repair §51: completion report output directory.
 COMPLETION_OUTPUT_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "e2_completion"
 COMPLETION_REPORT_PATH = COMPLETION_OUTPUT_DIR / "e2_research_completion_report.json"
@@ -681,11 +771,42 @@ def check_generator_freeze(freeze_manifest: dict[str, Any]) -> CheckResult:
     )
 
 
-def check_synthetic_regression(synthetic_report: dict[str, Any] | None) -> CheckResult:
-    """E2R-025: check synthetic regression anchors.
+def _find_active_synthetic_release(
+    releases_dir: Path | None = None,
+) -> Path | None:
+    """E2R-FIX-020: find the active synthetic release directory."""
+    if releases_dir is None:
+        releases_dir = RELEASES_DIR
+    if not releases_dir.exists():
+        return None
+    for release_dir in sorted(releases_dir.iterdir()):
+        if not release_dir.is_dir():
+            continue
+        manifest_path = release_dir / "bundle_manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if manifest.get("status") == "active":
+            return release_dir
+    return None
 
-    Verify active synthetic release ID, scientific_release_digest,
-    Table 1-6 SHA-256, and synthetic gate status.
+
+def check_synthetic_regression(
+    synthetic_report: dict[str, Any] | None,
+    *,
+    releases_dir: Path | None = None,
+) -> CheckResult:
+    """E2R-FIX-019/020: check synthetic regression against actual release.
+
+    Verifies by loading the active release bundle manifest and comparing
+    release ID, scientific digest, Table 1-6 SHA-256, and gate status.
+
+    Args:
+        synthetic_report: The synthetic regression report dict.
+        releases_dir: Optional override for the releases directory (for testing).
     """
     if synthetic_report is None:
         return CheckResult(
@@ -694,52 +815,117 @@ def check_synthetic_regression(synthetic_report: dict[str, Any] | None) -> Check
             failure_code="synthetic_regression_report_missing",
         )
 
-    # Check synthetic release ID
-    release_id = synthetic_report.get("synthetic_release_id")
-    if not release_id:
+    # E2R-FIX-020: identify the active release from disk.
+    release_dir = _find_active_synthetic_release(releases_dir)
+    if release_dir is None:
         return CheckResult(
             check_name="synthetic_regression",
             passed=False,
-            failure_code="synthetic_release_id_missing",
+            failure_code="synthetic_active_release_not_found",
         )
 
-    # Check scientific release digest
-    release_digest = synthetic_report.get("scientific_release_digest")
-    if not release_digest:
+    # Load bundle manifest.
+    manifest_path = release_dir / "bundle_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
         return CheckResult(
             check_name="synthetic_regression",
             passed=False,
-            failure_code="synthetic_release_digest_missing",
+            failure_code="synthetic_bundle_manifest_unreadable",
         )
 
-    # Check Table 1-6 SHA-256
-    for table_num in range(1, 7):
-        table_hash = synthetic_report.get(f"table_{table_num}_sha256")
-        if not table_hash:
+    # Verify status == active.
+    if manifest.get("status") != "active":
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_release_not_active",
+            details={"status": manifest.get("status")},
+        )
+
+    # Compare release ID.
+    expected_release_id = manifest.get("release_id")
+    report_release_id = synthetic_report.get("synthetic_release_id")
+    if report_release_id != expected_release_id:
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_release_id_mismatch",
+            details={
+                "expected": expected_release_id,
+                "found": report_release_id,
+            },
+        )
+
+    # Compare scientific release digest.
+    expected_digest = manifest.get("scientific_release_digest")
+    report_digest = synthetic_report.get("scientific_release_digest")
+    if report_digest != expected_digest:
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_release_digest_mismatch",
+            details={
+                "expected": expected_digest,
+                "found": report_digest,
+            },
+        )
+
+    # Compare Table 1-6 SHA-256 from bundle manifest.
+    table_path_keys = {
+        1: "final_artifacts/table1_main_results.json",
+        2: "final_artifacts/table2_leakage_breakdown.json",
+        3: "final_artifacts/table3_parameter_sensitivity.json",
+        4: "final_artifacts/table4_statistical_comparisons.json",
+        5: "final_artifacts/table5_target_type_results.json",
+        6: "final_artifacts/table6_trust_analysis.json",
+    }
+    components = manifest.get("components", {})
+    for table_num, component_key in table_path_keys.items():
+        component = components.get(component_key, {})
+        expected_hash = component.get("sha256")
+        if not expected_hash:
             return CheckResult(
                 check_name="synthetic_regression",
                 passed=False,
                 failure_code="synthetic_table_hash_missing",
-                details={"table": table_num},
+                details={"table": table_num, "component": component_key},
+            )
+        report_hash = synthetic_report.get(f"table_{table_num}_sha256")
+        if report_hash != expected_hash:
+            return CheckResult(
+                check_name="synthetic_regression",
+                passed=False,
+                failure_code="synthetic_table_hash_mismatch",
+                details={
+                    "table": table_num,
+                    "expected": expected_hash,
+                    "found": report_hash,
+                },
             )
 
-    # Check synthetic gate status
+    # Check synthetic gate status.
     gate_status = synthetic_report.get("synthetic_gate_status")
     if gate_status != "synthetic_benchmark_valid":
         return CheckResult(
             check_name="synthetic_regression",
             passed=False,
             failure_code="synthetic_gate_invalid",
-            details={"expected": "synthetic_benchmark_valid", "found": gate_status},
+            details={
+                "expected": "synthetic_benchmark_valid",
+                "found": gate_status,
+            },
         )
 
     return CheckResult(
         check_name="synthetic_regression",
         passed=True,
         details={
-            "synthetic_release_id": release_id,
-            "scientific_release_digest": release_digest,
+            "synthetic_release_id": expected_release_id,
+            "scientific_release_digest": expected_digest,
             "synthetic_gate_status": gate_status,
+            "tables_verified": 6,
         },
     )
 
@@ -988,13 +1174,24 @@ def check_evaluator_freeze(labels_report: dict[str, Any]) -> CheckResult:
     )
 
 
-def check_artifact_hash_binding(artifact_hashes: dict[str, str | None]) -> CheckResult:
-    """E2R-035: check artifact hash binding."""
+def check_artifact_hash_binding(
+    expected_hashes: dict[str, str | None],
+    artifact_paths: dict[str, Path] | None = None,
+) -> CheckResult:
+    """E2R-FIX-016: verify artifact hashes by recomputing from files.
+
+    For each required artifact:
+    1. Confirm the file exists on disk.
+    2. Compute SHA-256 from actual file bytes.
+    3. Compare to the declared hash.
+    4. Report specific failure codes for each defect.
+    """
+    if artifact_paths is None:
+        artifact_paths = E2_ARTIFACT_PATHS
+
     required_artifacts = [
         "raw_pilot_attempts",
         "request_schedule",
-        "generator_prompt_manifest",
-        "evaluator_prompt_manifest",
         "primary_labels",
         "reference_labels",
         "adjudication_log",
@@ -1006,20 +1203,51 @@ def check_artifact_hash_binding(artifact_hashes: dict[str, str | None]) -> Check
         "synthetic_regression_report",
     ]
 
-    missing = [name for name in required_artifacts if not artifact_hashes.get(name)]
+    for name in required_artifacts:
+        expected = expected_hashes.get(name)
+        if not expected:
+            return CheckResult(
+                check_name="artifact_hash_binding",
+                passed=False,
+                failure_code="e2_artifact_hash_missing",
+                details={"artifact": name},
+            )
 
-    if missing:
-        return CheckResult(
-            check_name="artifact_hash_binding",
-            passed=False,
-            failure_code="artifact_hashes_incomplete",
-            details={"missing": missing},
-        )
+        path = artifact_paths.get(name)
+        if path is None or not path.exists():
+            return CheckResult(
+                check_name="artifact_hash_binding",
+                passed=False,
+                failure_code="e2_artifact_missing",
+                details={"artifact": name, "path": str(path) if path else None},
+            )
+
+        try:
+            actual = sha256_file(path)
+        except OSError:
+            return CheckResult(
+                check_name="artifact_hash_binding",
+                passed=False,
+                failure_code="e2_artifact_hash_unreadable",
+                details={"artifact": name, "path": str(path)},
+            )
+
+        if actual != expected:
+            return CheckResult(
+                check_name="artifact_hash_binding",
+                passed=False,
+                failure_code="e2_artifact_hash_mismatch",
+                details={
+                    "artifact": name,
+                    "expected": expected,
+                    "actual": actual,
+                },
+            )
 
     return CheckResult(
         check_name="artifact_hash_binding",
         passed=True,
-        details={"bound_artifacts": len(artifact_hashes)},
+        details={"bound_artifacts": len(required_artifacts)},
     )
 
 
@@ -1090,8 +1318,8 @@ def run_completion_check(
     report.add_check(check_floor_effect_diagnostic(analysis))
     report.add_check(check_evaluator_freeze(labels_report))
 
-    # E2R-035: Artifact hash binding check
-    report.add_check(check_artifact_hash_binding(artifact_hashes or {}))
+    # E2R-FIX-016: Artifact hash binding check recomputes from files.
+    report.add_check(check_artifact_hash_binding(artifact_hashes or {}, E2_ARTIFACT_PATHS))
 
     return report
 
@@ -1105,8 +1333,11 @@ def save_completion_report(report: CompletionReport) -> None:
     )
 
 
-def _sha256_file(path: Path) -> str | None:
-    """Return SHA-256 hex digest of a file, or None if missing."""
+def sha256_file(path: Path) -> str | None:
+    """E2R-FIX-015: canonical SHA-256 helper.
+
+    Return SHA-256 hex digest of a file, or None if missing.
+    """
     if not path.exists():
         return None
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -1130,9 +1361,7 @@ def transition_to_e2_complete(
             E2_PROMPTS_FROZEN.
     """
     if not report.all_passed:
-        raise RuntimeError(
-            "Cannot transition to E2_COMPLETE: not all completion checks passed"
-        )
+        raise RuntimeError("Cannot transition to E2_COMPLETE: not all completion checks passed")
 
     # Read current phase file.
     if not phase_file_path.exists():
@@ -1144,23 +1373,62 @@ def transition_to_e2_complete(
             f"expected {EmpiricalPhase.E2_PROMPTS_FROZEN.value!r}"
         )
 
-    # Compute artifact hashes for binding.
-    project_root = phase_file_path.parents[3]
-    completion_hash = _sha256_file(
-        project_root / "results" / "empirical_v2" / "e2_completion"
+    # E2R-FIX-021: use canonical project root, not phase-file depth.
+    project_root = _PROJECT_ROOT
+    completion_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_completion"
         / "e2_research_completion_report.json"
     )
-    manifest_hash = _sha256_file(
-        project_root / "results" / "empirical_v2" / "e2_prompt_freeze"
+    manifest_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_prompt_freeze"
         / "frozen_prompt_manifest.json"
     )
-    label_hash = _sha256_file(
-        project_root / "results" / "empirical_v2" / "e2_pilot_labeling"
-        / "frozen_labels.json"
+    # E2R-FIX-022: bind to the correct primary label artifact.
+    label_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "primary_labels.jsonl"
     )
-    analysis_hash = _sha256_file(
-        project_root / "results" / "empirical_v2" / "e2_pilot_analysis"
-        / "pilot_analysis_report.json"
+    analysis_hash = sha256_file(
+        project_root / "results" / "empirical_v2" / "e2_reanalysis" / "e2_reanalysis_report.json"
+    )
+
+    # E2R-FIX-022: bind all 8 required evidence hashes.
+    raw_gen_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_trust_pilot"
+        / "raw_generation_attempts.jsonl"
+    )
+    labeling_report_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "labeling_report.json"
+    )
+    agreement_report_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "label_agreement_report.json"
+    )
+    synthetic_regression_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_synthetic_regression"
+        / "synthetic_regression_report.json"
     )
 
     new_phase: dict[str, Any] = {
@@ -1172,10 +1440,14 @@ def transition_to_e2_complete(
         "evaluator_frozen": True,
         "independent_labels_frozen": True,
         "full_corpus_generation_authorized": True,
-        "e2_completion_report_sha256": completion_hash,
-        "frozen_prompt_manifest_sha256": manifest_hash,
-        "primary_label_sha256": label_hash,
+        "raw_generation_sha256": raw_gen_hash,
+        "primary_labels_sha256": label_hash,
+        "labeling_report_sha256": labeling_report_hash,
+        "agreement_report_sha256": agreement_report_hash,
         "pilot_analysis_sha256": analysis_hash,
+        "frozen_prompt_manifest_sha256": manifest_hash,
+        "synthetic_regression_report_sha256": synthetic_regression_hash,
+        "completion_report_sha256": completion_hash,
     }
 
     phase_file_path.write_text(

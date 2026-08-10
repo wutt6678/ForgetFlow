@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -364,13 +365,34 @@ class TestGeneratorFreeze:
 
 
 class TestSyntheticRegression:
-    """Tests for synthetic regression check (E2R-025)."""
+    """Tests for synthetic regression check (E2R-025 / E2R-FIX-019/020)."""
 
-    def test_passes_with_complete_report(self) -> None:
+    def _make_release_dir(self, tmp_path: Path) -> Path:
+        """Create a mock active release bundle in tmp_path."""
+        release_dir = tmp_path / "test-release-v1"
+        release_dir.mkdir()
+        manifest = {
+            "status": "active",
+            "release_id": "test-release-v1",
+            "scientific_release_digest": "abc123digest",
+            "components": {
+                "final_artifacts/table1_main_results.json": {"sha256": "hash1"},
+                "final_artifacts/table2_leakage_breakdown.json": {"sha256": "hash2"},
+                "final_artifacts/table3_parameter_sensitivity.json": {"sha256": "hash3"},
+                "final_artifacts/table4_statistical_comparisons.json": {"sha256": "hash4"},
+                "final_artifacts/table5_target_type_results.json": {"sha256": "hash5"},
+                "final_artifacts/table6_trust_analysis.json": {"sha256": "hash6"},
+            },
+        }
+        (release_dir / "bundle_manifest.json").write_text(json.dumps(manifest))
+        return tmp_path
+
+    def test_passes_with_complete_report(self, tmp_path: Path) -> None:
         """Test that check passes with complete synthetic regression report."""
+        releases_dir = self._make_release_dir(tmp_path)
         report = {
-            "synthetic_release_id": "synthetic_v1",
-            "scientific_release_digest": "sha256:abc123",
+            "synthetic_release_id": "test-release-v1",
+            "scientific_release_digest": "abc123digest",
             "table_1_sha256": "hash1",
             "table_2_sha256": "hash2",
             "table_3_sha256": "hash3",
@@ -379,7 +401,7 @@ class TestSyntheticRegression:
             "table_6_sha256": "hash6",
             "synthetic_gate_status": "synthetic_benchmark_valid",
         }
-        result = check_synthetic_regression(report)
+        result = check_synthetic_regression(report, releases_dir=releases_dir)
         assert result.passed is True
 
     def test_fails_with_missing_report(self) -> None:
@@ -388,11 +410,12 @@ class TestSyntheticRegression:
         assert result.passed is False
         assert result.failure_code == "synthetic_regression_report_missing"
 
-    def test_fails_with_invalid_gate_status(self) -> None:
+    def test_fails_with_invalid_gate_status(self, tmp_path: Path) -> None:
         """Test that check fails with invalid gate status."""
+        releases_dir = self._make_release_dir(tmp_path)
         report = {
-            "synthetic_release_id": "synthetic_v1",
-            "scientific_release_digest": "sha256:abc123",
+            "synthetic_release_id": "test-release-v1",
+            "scientific_release_digest": "abc123digest",
             "table_1_sha256": "hash1",
             "table_2_sha256": "hash2",
             "table_3_sha256": "hash3",
@@ -401,7 +424,7 @@ class TestSyntheticRegression:
             "table_6_sha256": "hash6",
             "synthetic_gate_status": "invalid",
         }
-        result = check_synthetic_regression(report)
+        result = check_synthetic_regression(report, releases_dir=releases_dir)
         assert result.passed is False
         assert result.failure_code == "synthetic_gate_invalid"
 
@@ -479,31 +502,38 @@ class TestAdditionalChecks:
         result = check_evaluator_freeze(labels_report)
         assert result.passed is True
 
-    def test_artifact_hash_binding(self) -> None:
-        """Test artifact hash binding check."""
-        artifact_hashes = {
-            "raw_pilot_attempts": "hash1",
-            "request_schedule": "hash2",
-            "generator_prompt_manifest": "hash3",
-            "evaluator_prompt_manifest": "hash4",
-            "primary_labels": "hash5",
-            "reference_labels": "hash6",
-            "adjudication_log": "hash7",
-            "pairing_audit": "hash8",
-            "pilot_analysis": "hash9",
-            "floor_effect_diagnostic": "hash10",
-            "bounded_revision_report": "hash11",
-            "frozen_prompt_manifest": "hash12",
-            "synthetic_regression_report": "hash13",
-        }
-        result = check_artifact_hash_binding(artifact_hashes)
+    def test_artifact_hash_binding(self, tmp_path: Path) -> None:
+        """Test artifact hash binding check with real files."""
+        # Create test files
+        artifact_names = [
+            "raw_pilot_attempts",
+            "request_schedule",
+            "primary_labels",
+            "reference_labels",
+            "adjudication_log",
+            "pairing_audit",
+            "pilot_analysis",
+            "floor_effect_diagnostic",
+            "bounded_revision_report",
+            "frozen_prompt_manifest",
+            "synthetic_regression_report",
+        ]
+        artifact_paths = {}
+        artifact_hashes = {}
+        for name in artifact_names:
+            path = tmp_path / f"{name}.json"
+            path.write_text(f"test content for {name}")
+            artifact_paths[name] = path
+            artifact_hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+        result = check_artifact_hash_binding(artifact_hashes, artifact_paths)
         assert result.passed is True
 
 
 class TestRunCompletionCheck:
     """Tests for complete completion check (E2R-034)."""
 
-    def test_run_completion_check_all_pass(self) -> None:
+    def test_run_completion_check_all_pass(self, monkeypatch) -> None:
         """Test that all checks pass with valid inputs."""
         labels_report = {
             "evaluator_provider": "aliyun",
@@ -532,8 +562,6 @@ class TestRunCompletionCheck:
         artifact_hashes = {
             "raw_pilot_attempts": "hash1",
             "request_schedule": "hash2",
-            "generator_prompt_manifest": "hash3",
-            "evaluator_prompt_manifest": "hash4",
             "primary_labels": "hash5",
             "reference_labels": "hash6",
             "adjudication_log": "hash7",
@@ -555,6 +583,19 @@ class TestRunCompletionCheck:
             "table_6_sha256": "hash6",
             "synthetic_gate_status": "synthetic_benchmark_valid",
         }
+
+        # Mock disk-dependent checks
+        from experiments.trustparadox_u.run_e2_completion_check import CheckResult
+
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_artifact_hash_binding",
+            lambda *args, **kwargs: CheckResult(check_name="artifact_hash_binding", passed=True),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_synthetic_regression",
+            lambda *args, **kwargs: CheckResult(check_name="synthetic_regression", passed=True),
+        )
+
         report = run_completion_check(
             artifacts={"manifest": {"protocol_version": "2.0.0", "study_version": "2.0.0"}},
             phase_file={
@@ -599,7 +640,7 @@ class TestRunCompletionCheck:
         assert report.all_passed is True
         assert len(report.checks) == 20
         assert report.research_status == "empirical_pilot_complete"
-        assert len(report.artifact_hashes) == 13
+        assert len(report.artifact_hashes) == 11
 
 
 class TestPhaseStateE2Complete:
@@ -661,16 +702,27 @@ class TestTransitionToE2Complete:
 
     def test_transition_writes_e2_complete(self, tmp_path: Path) -> None:
         """Transition writes E2_COMPLETE with all required fields."""
-        phase_file = tmp_path / "data" / "trustparadox_u" / "empirical_v2" / "manifests" / "empirical_phase.json"
+        phase_file = (
+            tmp_path
+            / "data"
+            / "trustparadox_u"
+            / "empirical_v2"
+            / "manifests"
+            / "empirical_phase.json"
+        )
         phase_file.parent.mkdir(parents=True)
-        phase_file.write_text(json.dumps({
-            "schema_version": "1.0.0",
-            "protocol_version": "2.0.0",
-            "study_version": "2.0.0",
-            "phase": "E2_PROMPTS_FROZEN",
-            "trust_prompts_frozen": True,
-            "full_corpus_generation_authorized": False,
-        }))
+        phase_file.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "protocol_version": "2.0.0",
+                    "study_version": "2.0.0",
+                    "phase": "E2_PROMPTS_FROZEN",
+                    "trust_prompts_frozen": True,
+                    "full_corpus_generation_authorized": False,
+                }
+            )
+        )
 
         report = CompletionReport()
         report.all_passed = True
@@ -696,6 +748,7 @@ class TestTransitionToE2Complete:
         report.all_passed = False
 
         import pytest
+
         with pytest.raises(RuntimeError, match="not all completion checks passed"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
 
@@ -708,5 +761,6 @@ class TestTransitionToE2Complete:
         report.all_passed = True
 
         import pytest
+
         with pytest.raises(RuntimeError, match="current phase is"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
