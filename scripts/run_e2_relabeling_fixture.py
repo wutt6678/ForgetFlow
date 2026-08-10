@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""E2J-FIX-003: Real evaluator J labeling for all 90 attempts.
+"""E2J-FIX-003: Mock/fixture relabeling for unit tests ONLY.
 
-This is the production/research certification entry point.
-It requires a real evaluator_provider and does NOT accept mock judgments.
+This script uses mock judgments and is NOT permitted for production certification.
+For real evaluator execution, use run_e2_relabeling.py.
 
-For mock/testing only, use run_e2_relabeling_fixture.py.
+Since no API keys are available for the real J evaluator (qwen3.8-max),
+this script uses mock judgments. All G responses show no disclosure (floor
+effect), so all J labels are "none" with high confidence.
 
 Produces:
 - evaluator_raw_responses.jsonl (90 records)
@@ -187,7 +189,7 @@ def build_mock_judgments(
 
 
 def main() -> None:
-    """Execute the full relabeling pipeline with real evaluator."""
+    """Execute the full relabeling pipeline."""
     print("Loading raw generation attempts...")
     attempts = load_raw_attempts()
     print(f"  Loaded {len(attempts)} attempts")
@@ -202,24 +204,24 @@ def main() -> None:
     target_specs = build_target_specs()
     print(f"  Built {len(target_specs)} target specs: {list(target_specs.keys())}")
 
-    # E2J-FIX-003: require real evaluator provider
-    # TODO: Initialize real evaluator provider when API keys are available
-    # evaluator_provider = EvaluatorProvider.from_config(...)
-    evaluator_provider = None
+    # Build mock judgments
+    mock_judgments = build_mock_judgments(attempts)
+    print(f"  Built {len(mock_judgments)} mock judgments")
 
-    if evaluator_provider is None:
-        print("\nERROR: Real evaluator_provider is required for certification.")
-        print("Mock judgments are not permitted in the production path.")
-        print("Use run_e2_relabeling_fixture.py for testing only.")
-        sys.exit(1)
+    # Verify ID set match (E2R-FIX-004)
+    raw_ids = set(attempt_ids)
+    mock_ids = set(mock_judgments.keys())
+    assert (
+        raw_ids == mock_ids
+    ), f"ID mismatch: raw-mock={raw_ids - mock_ids}, mock-raw={mock_ids - raw_ids}"
+    print("  E2R-FIX-004: G↔J ID sets match exactly")
 
-    # Run the pipeline with real evaluator
-    print("\nRunning independent labeling pipeline with REAL evaluator...")
+    # Run the pipeline
+    print("\nRunning independent labeling pipeline...")
     report = run_independent_labeling(
         attempts,
         target_specs,
-        evaluator_provider=evaluator_provider,
-        mock_judgments=None,  # E2J-FIX-003: no mock judgments
+        mock_judgments=mock_judgments,
         output_dir=OUTPUT_DIR,
         raw_generation_hash=RAW_GENERATION_SHA256,
     )
@@ -269,18 +271,17 @@ def main() -> None:
         print(f"  {jsonl_name}: {count} records ({status})")
 
     # Verify ID set match in output files
-    raw_ids = set(attempt_ids)
     with (OUTPUT_DIR / "primary_labels.jsonl").open(encoding="utf-8") as fh:
         label_ids = {json.loads(line)["generation_attempt_id"] for line in fh if line.strip()}
     assert label_ids == raw_ids, "Primary label IDs don't match raw G IDs!"
-    print(f"\n  E2J-FIX-003: primary_labels.jsonl IDs match raw G IDs ({len(label_ids)} IDs)")
+    print(f"\n  E2R-FIX-004: primary_labels.jsonl IDs match raw G IDs ({len(label_ids)} IDs)")
 
     with (OUTPUT_DIR / "reference_labels.jsonl").open(encoding="utf-8") as fh:
         ref_ids = {json.loads(line)["generation_attempt_id"] for line in fh if line.strip()}
     assert ref_ids == raw_ids, "Reference label IDs don't match raw G IDs!"
-    print(f"  E2J-FIX-003: reference_labels.jsonl IDs match raw G IDs ({len(ref_ids)} IDs)")
+    print(f"  E2R-FIX-004: reference_labels.jsonl IDs match raw G IDs ({len(ref_ids)} IDs)")
 
-    print("\nReal evaluator labeling complete.")
+    print("\nIteration B reconstruction complete.")
 
 
 if __name__ == "__main__":

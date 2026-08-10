@@ -1618,6 +1618,106 @@ def check_evaluator_response_completeness(
     )
 
 
+def check_real_evaluator_evidence(
+    evaluator_raw_responses: list[dict[str, Any]] | None = None,
+    evaluator_path: Path | None = None,
+) -> CheckResult:
+    """E2J-FIX-005: reject mock evaluator evidence.
+
+    Fail if any evaluator record contains:
+    - evaluator_provider == "mock"
+    - evaluator_transport == "mock"
+    - request_id/evaluator_request_id startswith "mock_"
+    - model_returned missing
+    """
+    # Load from parameter or file
+    records = evaluator_raw_responses
+    if records is None:
+        if evaluator_path is None:
+            evaluator_path = _EVALUATOR_RAW_PATH
+        if not evaluator_path.exists():
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="evaluator_raw_file_missing",
+            )
+        records = _load_jsonl(evaluator_path)
+
+    if not records:
+        return CheckResult(
+            check_name="real_evaluator_evidence",
+            passed=False,
+            failure_code="e2_real_evaluator_evidence_incomplete",
+            details={"reason": "no evaluator records found"},
+        )
+
+    # Check each record for mock markers
+    for i, record in enumerate(records):
+        # Check evaluator_provider
+        provider = record.get("evaluator_provider", "")
+        if provider == "mock":
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_mock_evaluator_detected",
+                details={
+                    "record_index": i,
+                    "field": "evaluator_provider",
+                    "value": provider,
+                },
+            )
+
+        # Check evaluator_transport
+        transport = record.get("evaluator_transport", "")
+        if transport == "mock":
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_mock_transport_detected",
+                details={
+                    "record_index": i,
+                    "field": "evaluator_transport",
+                    "value": transport,
+                },
+            )
+
+        # Check request_id (both naming conventions)
+        request_id = record.get("request_id", "") or record.get("evaluator_request_id", "")
+        if isinstance(request_id, str) and request_id.startswith("mock_"):
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_mock_request_id_detected",
+                details={
+                    "record_index": i,
+                    "field": "request_id",
+                    "value": request_id[:50],
+                },
+            )
+
+        # Check model_returned
+        model_returned = record.get("model_returned", "")
+        if not model_returned:
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_evaluator_returned_model_missing",
+                details={
+                    "record_index": i,
+                    "reason": "model_returned is missing or empty",
+                },
+            )
+
+    return CheckResult(
+        check_name="real_evaluator_evidence",
+        passed=True,
+        details={
+            "evaluator_record_count": len(records),
+            "all_records_real": True,
+        },
+    )
+
+
 def check_primary_label_file_completeness(
     labels_path: Path | None = None,
     expected_count: int = 90,
@@ -2175,6 +2275,9 @@ def run_completion_check(
     report.add_check(check_agreement_validity(agreement_report))
     report.add_check(check_uncertainty_ci(analysis))
     report.add_check(check_synthetic_provenance(synthetic_regression_report))
+
+    # --- E2J-FIX-005: No-mock certification gate ---
+    report.add_check(check_real_evaluator_evidence(evaluator_raw_responses))
 
     # --- E2R-FIX-026: Cross-artifact consistency ---
     report.add_check(

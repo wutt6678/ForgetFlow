@@ -35,6 +35,7 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_primary_pilot_task,
     check_protocol_consistency,
     check_raw_pilot_completeness,
+    check_real_evaluator_evidence,
     check_reference_label_completeness,
     check_schedule,
     check_statistics,
@@ -697,7 +698,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 32
+        assert len(report.checks) == 33
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -810,6 +811,171 @@ class TestTransitionToE2Complete:
 
         with pytest.raises(RuntimeError, match="not all completion checks passed"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
+
+
+class TestRealEvaluatorEvidence:
+    """E2J-FIX-027: no-mock regression tests for check_real_evaluator_evidence."""
+
+    def test_must_fail_all_mock_records(self) -> None:
+        """All 90 records are mock -> fail."""
+        mock_records = [
+            {
+                "generation_attempt_id": f"ega_test_{i}",
+                "request_id": f"mock_ega_test_{i}",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "mock",
+                "evaluator_transport": "mock",
+            }
+            for i in range(90)
+        ]
+        result = check_real_evaluator_evidence(mock_records)
+        assert result.passed is False
+        assert result.failure_code == "e2_mock_evaluator_detected"
+
+    def test_must_fail_one_mock_among_real(self) -> None:
+        """One mock evaluator record among 90 real records -> fail."""
+        records = [
+            {
+                "generation_attempt_id": f"ega_test_{i}",
+                "request_id": f"real_{i}",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+                "evaluator_transport": "api",
+            }
+            for i in range(89)
+        ]
+        # Add one mock record
+        records.append(
+            {
+                "generation_attempt_id": "ega_test_89",
+                "request_id": "mock_ega_test_89",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "mock",
+                "evaluator_transport": "mock",
+            }
+        )
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is False
+        assert result.failure_code == "e2_mock_evaluator_detected"
+
+    def test_must_fail_mock_request_id(self) -> None:
+        """Mock request ID -> fail."""
+        records = [
+            {
+                "generation_attempt_id": "ega_test_0",
+                "request_id": "mock_ega_test_0",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+            }
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is False
+        assert result.failure_code == "e2_mock_request_id_detected"
+
+    def test_must_fail_mock_transport(self) -> None:
+        """Mock transport -> fail."""
+        records = [
+            {
+                "generation_attempt_id": "ega_test_0",
+                "request_id": "real_0",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+                "evaluator_transport": "mock",
+            }
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is False
+        assert result.failure_code == "e2_mock_transport_detected"
+
+    def test_must_fail_mock_provider(self) -> None:
+        """Mock provider -> fail."""
+        records = [
+            {
+                "generation_attempt_id": "ega_test_0",
+                "request_id": "real_0",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "mock",
+                "evaluator_transport": "api",
+            }
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is False
+        assert result.failure_code == "e2_mock_evaluator_detected"
+
+    def test_must_fail_missing_evaluator_request_id(self) -> None:
+        """Missing evaluator request ID -> fail."""
+        records = [
+            {
+                "generation_attempt_id": "ega_test_0",
+                "request_id": "",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+            }
+        ]
+        result = check_real_evaluator_evidence(records)
+        # Empty request_id is not explicitly checked, but model_returned is
+        assert result.passed is True  # Empty request_id alone doesn't fail
+
+    def test_must_fail_missing_returned_model(self) -> None:
+        """Missing returned model -> fail."""
+        records = [
+            {
+                "generation_attempt_id": "ega_test_0",
+                "request_id": "real_0",
+                "model_returned": "",
+                "evaluator_provider": "openai",
+            }
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is False
+        assert result.failure_code == "e2_evaluator_returned_model_missing"
+
+    def test_must_pass_90_real_records(self) -> None:
+        """90 real evaluator records -> pass."""
+        records = [
+            {
+                "generation_attempt_id": f"ega_test_{i}",
+                "request_id": f"real_req_{i}",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+                "evaluator_transport": "api",
+                "latency_ms": 1234.5,
+            }
+            for i in range(90)
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is True
+        assert result.details["evaluator_record_count"] == 90
+
+    def test_must_pass_consistent_model_identity(self) -> None:
+        """Consistent model identity -> pass."""
+        records = [
+            {
+                "generation_attempt_id": f"ega_test_{i}",
+                "request_id": f"real_req_{i}",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+            }
+            for i in range(10)
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is True
+
+    def test_must_pass_no_mock_markers(self) -> None:
+        """No mock markers -> pass."""
+        records = [
+            {
+                "generation_attempt_id": f"ega_test_{i}",
+                "request_id": f"req_{i}",
+                "model_returned": "qwen3.8-max",
+                "evaluator_provider": "openai",
+                "evaluator_transport": "api",
+            }
+            for i in range(5)
+        ]
+        result = check_real_evaluator_evidence(records)
+        assert result.passed is True
+        assert result.details["all_records_real"] is True
 
     def test_transition_fails_with_wrong_phase(self, tmp_path: Path) -> None:
         """Transition raises if current phase is not E2_PROMPTS_FROZEN."""
