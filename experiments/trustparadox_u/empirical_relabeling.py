@@ -61,6 +61,7 @@ LABEL_AGREEMENT_REPORT_FILENAME = "label_agreement_report.json"
 FROZEN_PRIMARY_LABELS_FILENAME = "frozen_primary_labels.json"
 SUPERSESSION_MANIFEST_FILENAME = "e2_supersession_manifest.json"
 HUMAN_REVIEW_SAMPLE_FILENAME = "human_review_sample.jsonl"
+HUMAN_REVIEW_QUEUE_FILENAME = "human_review_queue.jsonl"
 
 #: Review-trigger reasons.
 REVIEW_J_POSITIVE = "j_positive_disclosure"
@@ -441,6 +442,34 @@ def _reference_exposure_label(ref: dict[str, Any] | None) -> str | None:
     if ref.get("unauthorized_disclosure"):
         return "semantic_disclosure"
     return "none"
+
+
+def count_completed_adjudications(path: Path) -> int:
+    """E2J-FIX-023: count records with completed adjudication.
+
+    A record counts as adjudicated only when ALL of:
+    - human_label is not null
+    - final_label is not null
+    - adjudicator_id is nonempty
+    - adjudicated_at is nonempty
+    """
+    if not path.exists():
+        return 0
+    count = 0
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            if (
+                record.get("human_label") is not None
+                and record.get("final_label") is not None
+                and record.get("adjudicator_id")
+                and record.get("adjudicated_at")
+            ):
+                count += 1
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -863,32 +892,36 @@ def run_independent_labeling(
     report["num_task_compliant"] = sum(1 for lb in primary_labels if lb.task_compliance)
     report["num_task_relevant"] = sum(1 for lb in primary_labels if lb.task_relevant)
     report["num_unresolved"] = sum(1 for lb in primary_labels if lb.evaluator_status != "success")
-    report["num_adjudicated"] = sum(1 for lb in primary_labels if lb.adjudicated)
+    # E2J-FIX-023: num_adjudicated derived from adjudication log file contents
+    # after human review step; initially 0 since adjudication log has blank fields.
+    report["num_adjudicated"] = 0
     report["primary_label_source"] = "independent_evaluator_j"
     report["evaluator_model"] = EVALUATOR_MODEL_IDENTITY
     report["reference_label_source"] = "deterministic_heuristic_oracle"
 
-    # ---- Step 8b: human review sample (E2R-FIX-007) ----
-    review_records: list[dict[str, Any]] = []
+    # ---- Step 8b: human review queue (E2J-FIX-009/011) ----
+    # E2J-FIX-011: produce a review queue instead of fabricating human judgments.
+    # The queue contains cases requiring independent review.
+    # A separate annotation step produces human_review_sample.jsonl.
+    review_queue: list[dict[str, Any]] = []
     for decision in review_decisions:
         if decision.review_required:
-            review_records.append(
+            review_queue.append(
                 {
                     "generation_attempt_id": decision.generation_attempt_id,
-                    "reviewer_id": "automated_audit",
-                    "blindness": "single_blind_j_label_visible",
-                    "review_timestamp": datetime.now(timezone.utc).isoformat(),
                     "j_label": decision.j_label,
                     "reference_label": decision.reference_label,
-                    "human_label": decision.j_label,
-                    "final_label": decision.j_label,
+                    "confidence": decision.confidence,
                     "reason_code": "|".join(decision.reasons),
+                    "queue_timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-    human_review_path = output_dir / HUMAN_REVIEW_SAMPLE_FILENAME
-    _write_jsonl(human_review_path, review_records)
-    report["human_review_sample_file"] = str(human_review_path)
-    report["num_human_reviewed"] = len(review_records)
+    queue_path = output_dir / HUMAN_REVIEW_QUEUE_FILENAME
+    _write_jsonl(queue_path, review_queue)
+    report["human_review_queue_file"] = str(queue_path)
+    report["num_review_required"] = len(review_queue)
+    # Note: human_review_sample.jsonl is produced by a separate annotation step
+    # (see scripts/perform_human_review.py), not fabricated here.
 
     # ---- Step 9: freeze labels (E2R-012 / E2R-FIX-009) ----
     # Write the labeling report first, then hash it for the frozen manifest.

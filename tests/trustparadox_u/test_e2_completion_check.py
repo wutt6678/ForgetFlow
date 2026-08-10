@@ -36,6 +36,7 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_protocol_consistency,
     check_raw_pilot_completeness,
     check_real_evaluator_evidence,
+    check_real_review_integrity,
     check_reference_label_completeness,
     check_schedule,
     check_statistics,
@@ -638,6 +639,10 @@ class TestRunCompletionCheck:
             "experiments.trustparadox_u.run_e2_completion_check.check_j_analysis_provenance",
             lambda *a, **kw: _pass("j_analysis_provenance"),
         )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_real_review_integrity",
+            lambda *a, **kw: _pass("real_review_integrity"),
+        )
 
         report = run_completion_check(
             artifacts={"manifest": {"protocol_version": "2.0.0", "study_version": "2.0.0"}},
@@ -701,7 +706,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 33
+        assert len(report.checks) == 34
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -1574,6 +1579,231 @@ class TestIterationGRegression:
         labels_report = {"num_review_required": 5, "num_adjudicated": 5}
         result = check_human_review_completion(labels_report)
         assert result.passed is True
+
+    # --- FIX-028: Real-review integrity tests ---
+
+    def test_fix028_automated_audit_rejected(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: automated_audit reviewer_id must fail."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "automated_audit",
+                    "human_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_automated_audit_rejected"
+
+    def test_fix028_missing_reviewer_provenance(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: empty reviewer_id must fail (no provenance)."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "",
+                    "human_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_missing_reviewer_provenance"
+
+    def test_fix028_blank_adjudicator_counted_adjudicated(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: adjudicated=True with blank adjudicator_id must fail."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                    "adjudicated": True,
+                    "human_label": "none",
+                    "final_label": "none",
+                }
+            )
+            + "\n"
+        )
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
+
+    def test_fix028_blank_adjudicated_at_counted_adjudicated(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: adjudicated=True with blank adjudicated_at must fail."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text("")
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "real_adjudicator",
+                    "adjudicated_at": "",
+                    "adjudicated": True,
+                    "human_label": "none",
+                    "final_label": "none",
+                }
+            )
+            + "\n"
+        )
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is False
+        assert result.failure_code == "e2_blank_adjudicator_counted_adjudicated"
+
+    def test_fix028_reviewed_not_adjudicated_allowed(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: reviewed but not adjudicated is allowed."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "real_reviewer",
+                    "reviewer_type": "independent_human_annotator",
+                    "human_label": "none",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                    "adjudicated": False,
+                    "reviewed": True,
+                    "human_label": "none",
+                    "final_label": "none",
+                }
+            )
+            + "\n"
+        )
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is True
+
+    def test_fix028_completed_adjudication_passes(self, tmp_path: Path) -> None:
+        """E2J-FIX-028: completed adjudication with full metadata passes."""
+        review_path = tmp_path / "human_review_sample.jsonl"
+        review_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "reviewer_id": "real_reviewer",
+                    "reviewer_type": "independent_human_annotator",
+                    "human_label": "exact_value_disclosure",
+                    "j_label": "none",
+                }
+            )
+            + "\n"
+        )
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "adjudicator_id": "senior_adjudicator",
+                    "adjudicated_at": "2026-08-01T00:00:00Z",
+                    "adjudicated": True,
+                    "reviewed": True,
+                    "human_label": "exact_value_disclosure",
+                    "final_label": "exact_value_disclosure",
+                }
+            )
+            + "\n"
+        )
+        result = check_real_review_integrity(review_path, adj_path)
+        assert result.passed is True
+
+    def test_fix028_count_completed_adjudications_blank_rows(self, tmp_path: Path) -> None:
+        """E2J-FIX-023/028: blank adjudication rows count as 0."""
+        from experiments.trustparadox_u.empirical_relabeling import count_completed_adjudications
+
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        adj_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "human_label": "none",
+                    "final_label": "none",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "generation_attempt_id": "test_002",
+                    "human_label": None,
+                    "final_label": "none",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+            )
+            + "\n"
+        )
+        assert count_completed_adjudications(adj_path) == 0
+
+    def test_fix028_count_completed_adjudications_mixed(self, tmp_path: Path) -> None:
+        """E2J-FIX-023/028: only fully completed rows count."""
+        from experiments.trustparadox_u.empirical_relabeling import count_completed_adjudications
+
+        adj_path = tmp_path / "adjudication_log.jsonl"
+        lines = [
+            # Reviewed but not adjudicated — should NOT count
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "human_label": "none",
+                    "final_label": "none",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+            ),
+            # Fully adjudicated — should count
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_002",
+                    "human_label": "exact_value_disclosure",
+                    "final_label": "exact_value_disclosure",
+                    "adjudicator_id": "senior_adjudicator",
+                    "adjudicated_at": "2026-08-01T00:00:00Z",
+                }
+            ),
+            # Missing human_label — should NOT count
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_003",
+                    "human_label": None,
+                    "final_label": "none",
+                    "adjudicator_id": "adjudicator_2",
+                    "adjudicated_at": "2026-08-01T01:00:00Z",
+                }
+            ),
+        ]
+        adj_path.write_text("\n".join(lines) + "\n")
+        assert count_completed_adjudications(adj_path) == 1
+
+    def test_fix028_count_completed_adjudications_missing_file(self, tmp_path: Path) -> None:
+        """E2J-FIX-023/028: missing file returns 0."""
+        from experiments.trustparadox_u.empirical_relabeling import count_completed_adjudications
+
+        adj_path = tmp_path / "nonexistent.jsonl"
+        assert count_completed_adjudications(adj_path) == 0
 
     # --- FIX-033: Synthetic-regression integration ---
 

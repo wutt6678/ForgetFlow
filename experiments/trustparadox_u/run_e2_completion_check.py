@@ -198,6 +198,13 @@ _SYNTHETIC_REGRESSION_REPORT_PATH = (
     / "e2_synthetic_regression"
     / "synthetic_regression_report.json"
 )
+_HUMAN_REVIEW_SAMPLE_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "human_review_sample.jsonl"
+)
 _PILOT_MANIFEST_PATH = (
     _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "pilot_manifest.json"
 )
@@ -2239,6 +2246,113 @@ def check_artifact_hash_binding(
     )
 
 
+def check_real_review_integrity(
+    human_review_path: Path | None = None,
+    adjudication_log_path: Path | None = None,
+) -> CheckResult:
+    """E2J-FIX-028: validate real-review integrity.
+
+    Rejects:
+    - automated_audit reviewer_id (not a real human annotator)
+    - human_label copied by code without reviewer provenance
+    - blank adjudicator_id but record counted as adjudicated
+    - blank adjudicated_at but record counted as adjudicated
+
+    Allows:
+    - reviewed but not adjudicated (human agreed with J)
+    - completed adjudication with full metadata
+    """
+    if human_review_path is None:
+        human_review_path = _HUMAN_REVIEW_SAMPLE_PATH
+    if adjudication_log_path is None:
+        adjudication_log_path = _ADJUDICATION_LOG_PATH
+
+    # --- Validate human review sample ---
+    if human_review_path.exists():
+        review_records: list[dict[str, Any]] = []
+        with human_review_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                review_records.append(json.loads(line))
+
+        for rec in review_records:
+            reviewer_id = rec.get("reviewer_id", "")
+            # E2J-FIX-028: automated_audit is not a real human annotator.
+            if reviewer_id == "automated_audit":
+                return CheckResult(
+                    check_name="real_review_integrity",
+                    passed=False,
+                    failure_code="e2_automated_audit_rejected",
+                    details={
+                        "reason": "automated_audit is not a real human annotator",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+            # E2J-FIX-028: reviewer_id must be a real annotator identifier.
+            if not reviewer_id:
+                return CheckResult(
+                    check_name="real_review_integrity",
+                    passed=False,
+                    failure_code="e2_missing_reviewer_provenance",
+                    details={
+                        "reason": "reviewer_id is empty — no reviewer provenance",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+
+    # --- Validate adjudication log ---
+    if adjudication_log_path.exists():
+        adj_records: list[dict[str, Any]] = []
+        with adjudication_log_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                adj_records.append(json.loads(line))
+
+        for rec in adj_records:
+            adjudicated_flag = rec.get("adjudicated", False)
+            adjudicator_id = rec.get("adjudicator_id", "")
+            adjudicated_at = rec.get("adjudicated_at", "")
+
+            # E2J-FIX-028: if counted as adjudicated, adjudicator fields must be filled.
+            if adjudicated_flag and (not adjudicator_id or not adjudicated_at):
+                return CheckResult(
+                    check_name="real_review_integrity",
+                    passed=False,
+                    failure_code="e2_blank_adjudicator_counted_adjudicated",
+                    details={
+                        "reason": "Record marked adjudicated=True but has blank adjudicator fields",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                        "adjudicator_id": adjudicator_id,
+                        "adjudicated_at": adjudicated_at,
+                    },
+                )
+
+            # E2J-FIX-028: if adjudicator_id is nonempty, adjudicated_at must also be present.
+            if adjudicator_id and not adjudicated_at:
+                return CheckResult(
+                    check_name="real_review_integrity",
+                    passed=False,
+                    failure_code="e2_incomplete_adjudication_metadata",
+                    details={
+                        "reason": "adjudicator_id present but adjudicated_at is blank",
+                        "generation_attempt_id": rec.get("generation_attempt_id"),
+                    },
+                )
+
+    return CheckResult(
+        check_name="real_review_integrity",
+        passed=True,
+        details={
+            "human_review_records": len(review_records) if human_review_path.exists() else 0,
+            "adjudication_records": len(adj_records) if adjudication_log_path.exists() else 0,
+        },
+    )
+
+
 def run_completion_check(
     *,
     artifacts: dict[str, Any],
@@ -2334,6 +2448,9 @@ def run_completion_check(
 
     # --- E2J-FIX-005: No-mock certification gate ---
     report.add_check(check_real_evaluator_evidence(evaluator_raw_responses))
+
+    # --- E2J-FIX-028: Real-review integrity ---
+    report.add_check(check_real_review_integrity())
 
     # --- E2R-FIX-026: Cross-artifact consistency ---
     report.add_check(

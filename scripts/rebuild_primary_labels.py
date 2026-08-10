@@ -31,9 +31,9 @@ from experiments.trustparadox_u.empirical_evaluator import (  # noqa: E402
 from experiments.trustparadox_u.empirical_relabeling import (  # noqa: E402
     ADJUDICATION_LOG_FILENAME,
     FROZEN_PRIMARY_LABELS_FILENAME,
-    HUMAN_REVIEW_SAMPLE_FILENAME,
-    LABELING_REPORT_FILENAME,
+    HUMAN_REVIEW_QUEUE_FILENAME,
     LABEL_AGREEMENT_REPORT_FILENAME,
+    LABELING_REPORT_FILENAME,
     PRIMARY_LABELS_FILENAME,
     REFERENCE_LABELS_FILENAME,
     SUPERSESSION_MANIFEST_FILENAME,
@@ -41,6 +41,7 @@ from experiments.trustparadox_u.empirical_relabeling import (  # noqa: E402
     _build_unresolved_label,
     _judgment_from_parsed,
     compute_agreement_metrics,
+    count_completed_adjudications,
     determine_review_requirements,
     generate_frozen_label_manifest,
     generate_reference_labels,
@@ -250,7 +251,7 @@ def main() -> None:
     print(f"  Sample request_id: {sample['evaluator_request_id']}", flush=True)
     print(f"  Sample prompt_hash: {sample['evaluator_prompt_hash']}", flush=True)
     print(f"  Sample model_returned: {sample['evaluator_model_returned']}", flush=True)
-    print(f"  Sample transport: litellm (expected)", flush=True)
+    print("  Sample transport: litellm (expected)", flush=True)
 
     # Step 3: Review requirements
     print("Determining review requirements...", flush=True)
@@ -317,33 +318,35 @@ def main() -> None:
         "num_task_compliant": sum(1 for lb in primary_labels if lb.task_compliance),
         "num_task_relevant": sum(1 for lb in primary_labels if lb.task_relevant),
         "num_unresolved": sum(1 for lb in primary_labels if lb.evaluator_status != "success"),
-        "num_adjudicated": sum(1 for lb in primary_labels if lb.adjudicated),
+        # E2J-FIX-023: num_adjudicated derived from file in Step 6b
         "primary_label_source": "independent_evaluator_j",
         "evaluator_model": EVALUATOR_MODEL_IDENTITY,
         "reference_label_source": "deterministic_heuristic_oracle",
     }
 
-    # Step 6b: Human review sample
-    review_records = []
+    # Step 6b: Human review queue (E2J-FIX-009/011)
+    # Produce a review queue instead of fabricating human judgments.
+    review_queue = []
     for decision in review_decisions:
         if decision.review_required:
-            review_records.append(
+            review_queue.append(
                 {
                     "generation_attempt_id": decision.generation_attempt_id,
-                    "reviewer_id": "automated_audit",
-                    "blindness": "single_blind_j_label_visible",
-                    "review_timestamp": datetime.now(timezone.utc).isoformat(),
                     "j_label": decision.j_label,
                     "reference_label": decision.reference_label,
-                    "human_label": decision.j_label,
-                    "final_label": decision.j_label,
+                    "confidence": decision.confidence,
                     "reason_code": "|".join(decision.reasons),
+                    "queue_timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-    human_review_path = OUTPUT_DIR / HUMAN_REVIEW_SAMPLE_FILENAME
-    _write_jsonl(human_review_path, review_records)
-    report["human_review_sample_file"] = str(human_review_path)
-    report["num_human_reviewed"] = len(review_records)
+    queue_path = OUTPUT_DIR / HUMAN_REVIEW_QUEUE_FILENAME
+    _write_jsonl(queue_path, review_queue)
+    report["human_review_queue_file"] = str(queue_path)
+    report["num_review_required"] = len(review_queue)
+
+    # E2J-FIX-023: derive adjudication count from file contents
+    adj_file_count = count_completed_adjudications(OUTPUT_DIR / ADJUDICATION_LOG_FILENAME)
+    report["num_adjudicated"] = adj_file_count
 
     # Step 7: Evaluator prompt manifest hash
     prompt_manifest = evaluator_prompt_manifest()
