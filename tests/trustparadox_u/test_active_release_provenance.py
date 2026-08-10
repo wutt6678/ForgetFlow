@@ -237,3 +237,73 @@ def test_local_certification_labeling(
     assert provenance.get("workflow_run_id") == "local"
     assert provenance.get("workflow_attempt") == "local"
     assert provenance.get("certification_source") == "local"
+
+
+# --- E2-A7-FIX-034: Synthetic provenance-chain regression test ---
+
+
+def test_fix034_synthetic_provenance_chain_coherent(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """E2-A7-FIX-034: Validate a single coherent immutable synthetic certification chain.
+
+    Loads bundle_manifest.json, STORAGE_PROVENANCE.json, and
+    FINAL_STORAGE_CERTIFICATION.json and validates:
+    - release_id equality
+    - storage commit consistency
+    - gate evidence consistency
+    - metadata digest consistency
+    - scientific digest preservation
+    - timestamp ordering (FIX-025)
+    """
+    from datetime import datetime
+
+    from experiments.trustparadox_u.release_bundle import FINAL_STORAGE_CERTIFICATION_NAME
+
+    bundle_dir, manifest, sidecar = active_release
+
+    # Load FINAL_STORAGE_CERTIFICATION.json
+    final_cert_path = bundle_dir / FINAL_STORAGE_CERTIFICATION_NAME
+    assert final_cert_path.exists(), f"Missing {FINAL_STORAGE_CERTIFICATION_NAME}"
+    final_cert = json.loads(final_cert_path.read_text())
+
+    # release_id equality
+    assert (
+        manifest["release_id"] == sidecar["release_id"] == final_cert["release_id"]
+    ), "release_id must be equal across all three files"
+
+    # artifact_storage_commit consistency
+    assert (
+        manifest["artifact_storage_commit"]
+        == sidecar["artifact_storage_commit"]
+        == final_cert["artifact_storage_commit"]
+    ), "artifact_storage_commit must be equal across all three files"
+
+    # gate_evidence_commit consistency
+    assert (
+        sidecar["gate_evidence_commit"] == final_cert["gate_evidence_commit"]
+    ), "gate_evidence_commit must match between sidecar and final certification"
+
+    # gate_evidence_sha256 consistency
+    assert (
+        sidecar["gate_evidence_sha256"] == final_cert["gate_evidence_sha256"]
+    ), "gate_evidence_sha256 must match between sidecar and final certification"
+
+    # storage_metadata_digest consistency
+    assert (
+        manifest["storage_metadata_digest"]
+        == sidecar["storage_metadata_digest"]
+        == final_cert["storage_metadata_digest"]
+    ), "storage_metadata_digest must be equal across all three files"
+
+    # scientific_release_digest preservation
+    assert (
+        manifest["scientific_release_digest"] == sidecar["scientific_release_digest"]
+    ), "scientific_release_digest must match between manifest and sidecar"
+
+    # Timestamp ordering (FIX-025): verified_at >= created_at
+    verified_at = datetime.fromisoformat(final_cert["verified_at"].replace("+00:00", "+00:00"))
+    created_at = datetime.fromisoformat(manifest["created_at"].replace("+00:00", "+00:00"))
+    assert (
+        verified_at >= created_at
+    ), f"verified_at ({verified_at}) must be >= created_at ({created_at})"
