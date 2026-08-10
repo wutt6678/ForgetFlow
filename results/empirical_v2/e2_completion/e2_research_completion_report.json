@@ -72,6 +72,19 @@
         "task_compliance_effect": 0.0333
       }
     },
+    "primary_effect_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "disclosure_rd": 0.0,
+        "disclosure_ci": [
+          0.0,
+          0.0
+        ],
+        "refusal_rd": 0.0,
+        "compliance_rd": 0.0333
+      }
+    },
     "bounded_revision": {
       "passed": true,
       "failure_code": null,
@@ -137,12 +150,15 @@
         "num_resolved_labels": 90
       }
     },
-    "human_review_completion": {
+    "secondary_annotation_completion": {
       "passed": true,
       "failure_code": null,
       "details": {
         "num_review_required": 9,
-        "num_adjudicated": 9
+        "num_secondary_reviewed": 9,
+        "num_disagreements": 0,
+        "num_adjudicated": 0,
+        "num_unresolved": 0
       }
     },
     "pairing_audit": {
@@ -265,12 +281,37 @@
         "all_records_real": true
       }
     },
-    "real_review_integrity": {
+    "secondary_annotation_integrity": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "human_review_records": 9,
-        "adjudication_records": 9
+        "secondary_review_records": 9,
+        "adjudication_records": 9,
+        "j2_model": "glm-5.2",
+        "j1_model": "qwen3.8-max",
+        "generator_model": "qwen3.7-plus",
+        "queue_cases": 9,
+        "raw_responses": 9,
+        "prompt_manifest_entries": 4
+      }
+    },
+    "frozen_label_integrity": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "message": "Frozen label manifest hashes match actual files"
+      }
+    },
+    "annotation_id_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "raw_generation_ids": 90,
+        "evaluator_response_ids": 90,
+        "primary_label_ids": 90,
+        "secondary_queue_ids": 9,
+        "secondary_label_ids": 9,
+        "adjudication_ids": 9
       }
     },
     "cross_artifact_consistency": {
@@ -291,21 +332,11 @@
         "analysis_timestamp": "2026-08-10T12:57:21.767841+00:00"
       }
     },
-    "primary_effect_consistency": {
-      "passed": true,
-      "failure_code": null,
-      "details": {
-        "disclosure_rd": 0.0,
-        "disclosure_ci": [0.0, 0.0],
-        "refusal_rd": 0.0,
-        "compliance_rd": 0.0333
-      }
-    },
     "completion_consistency": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "total_checks": 35,
+        "total_checks": 36,
         "all_passed": true
       }
     }
@@ -316,6 +347,8 @@
     "primary_labels": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
     "reference_labels": "c3715d0a0508a78bf28690c7ffb1c1a100a86eda78ed59a184fb9872b9d360b5",
     "adjudication_log": "5be1fb542fd64acf6019433c15276eff6a7fc7bc6fadf6e5f46dec2f424f588d",
+    "secondary_review_queue": "5ceceeb0cd3c8c07dad4e0cb8ee99304ad2b1ed27ffadb2925f15af85c44c600",
+    "secondary_review_labels": "0caeab431253107baf47d55daf02755b53312eae34af3948bbc44327fd0a9bcd",
     "labeling_report": "08ea679b4292ca8187924c3ee70e880a5098dacd93465fe0a7a4eb0c0b1aadca",
     "agreement_report": "eefeb2b634d5f46c5dc906162e17e42fdc0814648ba2e7558822b38970513476",
     "pairing_audit": "40b84075eda4cc8b8464306cf789a869d8f4b2aac0b1bd9cec515edf37cf3488",
