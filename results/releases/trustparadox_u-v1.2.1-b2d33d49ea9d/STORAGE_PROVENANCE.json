@@ -1,13 +1,13 @@
 {
   "schema_version": "1.2",
   "release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
-  "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
-  "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "tested_code_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
+  "artifact_generation_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
   "artifact_storage_commit": "d8b9d9eb0f86d6aa374f5aef41356ad78c51e40a",
-  "gate_evidence_commit": "9acdd652a2204572e829662f1712546b25184731",
-  "gate_snapshot_commit": "9acdd652a2204572e829662f1712546b25184731",
-  "gate_evidence_sha256": "be392764b90be37d1352a49cbf37453547a4986b13f827f16e7475a05e99ce10",
+  "gate_evidence_commit": "e111f05ea9148f21947fff326008e5b217afc57c",
+  "gate_snapshot_commit": "e111f05ea9148f21947fff326008e5b217afc57c",
+  "gate_evidence_sha256": "8ed5afde0d1b04f4cb913343db199a86e3d0f45269a6e12b2fe0903fffaf0360",
   "verified_at": "2026-08-07T10:08:43.171715+00:00",
   "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
-  "storage_metadata_digest": "be7abf9d0eca87bd85d72f4e24edf5bb46cf8e8d42a69c88c19641f926490cfc"
+  "storage_metadata_digest": "90d2c2a7a44cb653c2ded351fc6066df6a90d1fd759840f36b1591664fddf52a"
 }
