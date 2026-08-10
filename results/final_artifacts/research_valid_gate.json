@@ -9,16 +9,16 @@
   "all_passed": false,
   "gate_execution_commit": "21028fbe4fef7ce84a6fac9a1cdf1b57f52b5cd7",
   "gate_snapshot_commit": null,
-  "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
-  "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+  "tested_code_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
+  "artifact_generation_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
   "artifact_storage_commit": null,
   "storage_provenance": {
     "source": "STORAGE_PROVENANCE.json",
     "authoritative": true
   },
   "provenance": {
-    "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
-    "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+    "tested_code_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
+    "artifact_generation_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
     "repository_clean": true,
     "workflow_run_id": "local",
     "workflow_attempt": "local",
@@ -26,7 +26,7 @@
     "protocol_version": "1.2.0",
     "study_version": "1.2.1",
     "generated_at": "2026-08-05T17:25:21.631631+00:00",
-    "artifact_generation_tree": "244346970b2d916d8d8fb65877b78babcb9e0fed3fb8f8c88888c35e3d8457ce",
+    "artifact_generation_tree": "adf4be5d8a27945baf6f45a2455ef9f62b6d3e1925618ceb030dd3a9e2c5ffb6",
     "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
     "artifact_storage_commit": null,
     "storage_provenance": {
@@ -147,8 +147,8 @@
     "release_storage_provenance": {
       "passed": true,
       "release_id": "trustparadox_u-v1.2.1-b2d33d49ea9d",
-      "tested_code_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
-      "artifact_generation_commit": "a45ab5a613399ce20d44897d427b9c9eac1c1cc4",
+      "tested_code_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
+      "artifact_generation_commit": "0049c53b97eca1e7594b3337f06dbe041c8c43db",
       "artifact_storage_commit": "d8b9d9eb0f86d6aa374f5aef41356ad78c51e40a",
       "gate_snapshot_commit": "77d53d2edee0a4743650c9311a3b99c8eec0c5dc",
       "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
