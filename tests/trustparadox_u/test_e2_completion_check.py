@@ -8,26 +8,38 @@ from pathlib import Path
 
 from experiments.trustparadox_u.empirical_corpus import EmpiricalPhase
 from experiments.trustparadox_u.run_e2_completion_check import (
+    CheckResult,
     CompletionReport,
+    check_agreement_validity,
     check_annotation_independence,
     check_artifact_hash_binding,
     check_bounded_revision,
+    check_completion_consistency,
+    check_cross_artifact_consistency,
     check_evaluator_connectivity,
     check_evaluator_freeze,
+    check_evaluator_independence_evidence,
     check_evaluator_model_identity,
+    check_evaluator_response_completeness,
     check_floor_effect_diagnostic,
     check_generator_evaluator_independence,
     check_generator_freeze,
     check_human_review_completion,
+    check_label_completeness_from_files,
     check_model_consistency,
     check_pairing_audit,
     check_phase_state,
     check_primary_label_completeness,
+    check_primary_label_file_completeness,
     check_primary_pilot_task,
     check_protocol_consistency,
+    check_raw_pilot_completeness,
+    check_reference_label_completeness,
     check_schedule,
     check_statistics,
+    check_synthetic_provenance,
     check_synthetic_regression,
+    check_uncertainty_ci,
     run_completion_check,
     transition_to_e2_complete,
 )
@@ -584,16 +596,41 @@ class TestRunCompletionCheck:
             "synthetic_gate_status": "synthetic_benchmark_valid",
         }
 
-        # Mock disk-dependent checks
-        from experiments.trustparadox_u.run_e2_completion_check import CheckResult
+        # Mock disk-dependent checks.
+        def _pass(name: str) -> CheckResult:
+            return CheckResult(check_name=name, passed=True)
 
         monkeypatch.setattr(
             "experiments.trustparadox_u.run_e2_completion_check.check_artifact_hash_binding",
-            lambda *args, **kwargs: CheckResult(check_name="artifact_hash_binding", passed=True),
+            lambda *a, **kw: _pass("artifact_hash_binding"),
         )
         monkeypatch.setattr(
             "experiments.trustparadox_u.run_e2_completion_check.check_synthetic_regression",
-            lambda *args, **kwargs: CheckResult(check_name="synthetic_regression", passed=True),
+            lambda *a, **kw: _pass("synthetic_regression"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_label_completeness_from_files",
+            lambda *a, **kw: _pass("label_completeness_from_files"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_raw_pilot_completeness",
+            lambda *a, **kw: _pass("raw_pilot_completeness"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_evaluator_response_completeness",
+            lambda *a, **kw: _pass("evaluator_response_completeness"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_primary_label_file_completeness",
+            lambda *a, **kw: _pass("primary_label_file_completeness"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_reference_label_completeness",
+            lambda *a, **kw: _pass("reference_label_completeness"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_cross_artifact_consistency",
+            lambda *a, **kw: _pass("cross_artifact_consistency"),
         )
 
         report = run_completion_check(
@@ -636,9 +673,26 @@ class TestRunCompletionCheck:
             },
             synthetic_regression_report=synthetic_report,
             artifact_hashes=artifact_hashes,
+            agreement_report={
+                "j_vs_reference_exact_agreement": 1.0,
+                "num_compared": 90,
+                "num_disagreements": 0,
+            },
+            evaluator_raw_responses=[
+                {
+                    "generation_attempt_id": f"att_{i}",
+                    "model_returned": "qwen3.8-max",
+                    "parsed": {
+                        "primary_exposure_label": "high",
+                        "confidence": 0.9,
+                        "evaluator_status": "success",
+                    },
+                }
+                for i in range(90)
+            ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 20
+        assert len(report.checks) == 31
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -764,3 +818,298 @@ class TestTransitionToE2Complete:
 
         with pytest.raises(RuntimeError, match="current phase is"):
             transition_to_e2_complete(report, phase_file_path=phase_file)
+
+
+class TestIterationFFileBasedChecks:
+    """Tests for Iteration F file-based checks (E2R-FIX-017/018/025/026)."""
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        """Helper to write JSONL records to a file."""
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    def test_label_completeness_from_files_pass(self, tmp_path: Path) -> None:
+        """Test file-based label completeness passes with valid files."""
+        raw_path = tmp_path / "raw.jsonl"
+        labels_path = tmp_path / "labels.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        ids = [f"att_{i}" for i in range(90)]
+        self._write_jsonl(raw_path, [{"generation_attempt_id": id_} for id_ in ids])
+        self._write_jsonl(
+            labels_path,
+            [{"generation_attempt_id": id_, "evaluator_status": "success"} for id_ in ids],
+        )
+        self._write_jsonl(eval_path, [{"generation_attempt_id": id_} for id_ in ids])
+        result = check_label_completeness_from_files(raw_path, labels_path, eval_path)
+        assert result.passed is True
+        assert result.details["raw_count"] == 90
+
+    def test_label_completeness_from_files_missing_raw(self, tmp_path: Path) -> None:
+        """Test file-based label completeness fails when raw file missing."""
+        result = check_label_completeness_from_files(
+            tmp_path / "missing.jsonl",
+            tmp_path / "labels.jsonl",
+            tmp_path / "eval.jsonl",
+        )
+        assert result.passed is False
+        assert result.failure_code == "raw_generation_file_missing"
+
+    def test_label_completeness_from_files_wrong_count(self, tmp_path: Path) -> None:
+        """Test file-based label completeness fails with wrong count."""
+        raw_path = tmp_path / "raw.jsonl"
+        labels_path = tmp_path / "labels.jsonl"
+        eval_path = tmp_path / "eval.jsonl"
+        self._write_jsonl(raw_path, [{"generation_attempt_id": f"att_{i}"} for i in range(80)])
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"att_{i}"} for i in range(80)])
+        self._write_jsonl(eval_path, [{"generation_attempt_id": f"att_{i}"} for i in range(80)])
+        result = check_label_completeness_from_files(raw_path, labels_path, eval_path)
+        assert result.passed is False
+        assert result.failure_code == "raw_generation_count_mismatch"
+
+    def test_evaluator_independence_evidence_pass(self) -> None:
+        """Test evaluator independence evidence passes with valid data."""
+        labels_report = {
+            "generator_model": "qwen3.7-plus",
+            "evaluator_provider": "aliyun",
+            "evaluator_model_requested": "qwen3.8-max",
+            "evaluator_model_returned": "qwen3.8-max",
+            "evaluator_prompt_hash": "abc123",
+        }
+        evaluator_raw = [
+            {
+                "generation_attempt_id": f"att_{i}",
+                "model_returned": "qwen3.8-max",
+                "parsed": {
+                    "primary_exposure_label": "high",
+                    "confidence": 0.9,
+                    "evaluator_status": "success",
+                },
+            }
+            for i in range(90)
+        ]
+        result = check_evaluator_independence_evidence(labels_report, evaluator_raw)
+        assert result.passed is True
+        assert result.details["evaluator_independent"] is True
+
+    def test_evaluator_independence_evidence_same_model(self) -> None:
+        """Test evaluator independence fails when G == J."""
+        labels_report = {
+            "generator_model": "qwen3.7-plus",
+            "evaluator_provider": "aliyun",
+            "evaluator_model_requested": "qwen3.7-plus",
+            "evaluator_model_returned": "qwen3.7-plus",
+            "evaluator_prompt_hash": "abc123",
+        }
+        result = check_evaluator_independence_evidence(labels_report, [])
+        assert result.passed is False
+        assert result.failure_code == "evaluator_same_as_generator"
+
+    def test_evaluator_independence_evidence_payload_contamination(self) -> None:
+        """Test evaluator independence fails with forbidden keys."""
+        labels_report = {
+            "generator_model": "qwen3.7-plus",
+            "evaluator_provider": "aliyun",
+            "evaluator_model_requested": "qwen3.8-max",
+            "evaluator_model_returned": "qwen3.8-max",
+            "evaluator_prompt_hash": "abc123",
+        }
+        evaluator_raw = [
+            {
+                "generation_attempt_id": "att_0",
+                "model_returned": "qwen3.8-max",
+                "parsed": {
+                    "primary_exposure_label": "high",
+                    "confidence": 0.9,
+                    "evaluator_status": "success",
+                    "firewall_condition": True,
+                },
+            }
+        ]
+        result = check_evaluator_independence_evidence(labels_report, evaluator_raw)
+        assert result.passed is False
+        assert result.failure_code == "evaluator_payload_contamination"
+
+    def test_raw_pilot_completeness_pass(self, tmp_path: Path) -> None:
+        """Test raw pilot completeness passes with 90 records."""
+        raw_path = tmp_path / "raw.jsonl"
+        self._write_jsonl(
+            raw_path,
+            [
+                {"generation_attempt_id": f"att_{i}", "generation_status": "success"}
+                for i in range(90)
+            ],
+        )
+        result = check_raw_pilot_completeness(raw_path)
+        assert result.passed is True
+
+    def test_raw_pilot_completeness_missing(self, tmp_path: Path) -> None:
+        """Test raw pilot completeness fails when file missing."""
+        result = check_raw_pilot_completeness(tmp_path / "missing.jsonl")
+        assert result.passed is False
+        assert result.failure_code == "raw_generation_file_missing"
+
+    def test_evaluator_response_completeness_pass(self, tmp_path: Path) -> None:
+        """Test evaluator response completeness passes with 90 records."""
+        eval_path = tmp_path / "eval.jsonl"
+        self._write_jsonl(eval_path, [{"generation_attempt_id": f"att_{i}"} for i in range(90)])
+        result = check_evaluator_response_completeness(eval_path)
+        assert result.passed is True
+
+    def test_evaluator_response_completeness_wrong_count(self, tmp_path: Path) -> None:
+        """Test evaluator response completeness fails with wrong count."""
+        eval_path = tmp_path / "eval.jsonl"
+        self._write_jsonl(eval_path, [{"generation_attempt_id": f"att_{i}"} for i in range(50)])
+        result = check_evaluator_response_completeness(eval_path)
+        assert result.passed is False
+
+    def test_primary_label_file_completeness_pass(self, tmp_path: Path) -> None:
+        """Test primary label file completeness passes with 90 records."""
+        labels_path = tmp_path / "labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"att_{i}"} for i in range(90)])
+        result = check_primary_label_file_completeness(labels_path)
+        assert result.passed is True
+
+    def test_reference_label_completeness_pass(self, tmp_path: Path) -> None:
+        """Test reference label completeness passes with 90 records."""
+        ref_path = tmp_path / "ref.jsonl"
+        self._write_jsonl(ref_path, [{"generation_attempt_id": f"att_{i}"} for i in range(90)])
+        result = check_reference_label_completeness(ref_path)
+        assert result.passed is True
+
+    def test_agreement_validity_pass(self) -> None:
+        """Test agreement validity passes with perfect agreement."""
+        agreement = {
+            "j_vs_reference_exact_agreement": 1.0,
+            "num_compared": 90,
+            "num_disagreements": 0,
+        }
+        result = check_agreement_validity(agreement)
+        assert result.passed is True
+
+    def test_agreement_validity_missing_report(self) -> None:
+        """Test agreement validity fails with missing report."""
+        result = check_agreement_validity(None)
+        assert result.passed is False
+        assert result.failure_code == "agreement_report_missing"
+
+    def test_agreement_validity_wrong_count(self) -> None:
+        """Test agreement validity fails with wrong num_compared."""
+        agreement = {"j_vs_reference_exact_agreement": 1.0, "num_compared": 80}
+        result = check_agreement_validity(agreement)
+        assert result.passed is False
+        assert result.failure_code == "agreement_comparison_incomplete"
+
+    def test_uncertainty_ci_pass_paired(self) -> None:
+        """Test uncertainty CI passes with paired_effects."""
+        analysis = {
+            "paired_effects": {
+                "high_minus_low": {"disclosure_ci95": [0.05, 0.25]},
+                "bootstrap_method": "percentile",
+                "bootstrap_iterations": 1000,
+            }
+        }
+        result = check_uncertainty_ci(analysis)
+        assert result.passed is True
+
+    def test_uncertainty_ci_pass_direct(self) -> None:
+        """Test uncertainty CI passes with direct ci95 field."""
+        analysis = {"high_minus_low_ci95": [0.05, 0.25]}
+        result = check_uncertainty_ci(analysis)
+        assert result.passed is True
+
+    def test_uncertainty_ci_missing(self) -> None:
+        """Test uncertainty CI fails when missing."""
+        result = check_uncertainty_ci({})
+        assert result.passed is False
+        assert result.failure_code == "uncertainty_ci_missing"
+
+    def test_synthetic_provenance_pass(self) -> None:
+        """Test synthetic provenance passes with complete report."""
+        report = {
+            "synthetic_release_id": "v1",
+            "scientific_release_digest": "abc123",
+            "table_1_sha256": "h1",
+            "table_2_sha256": "h2",
+            "table_3_sha256": "h3",
+            "table_4_sha256": "h4",
+            "table_5_sha256": "h5",
+            "table_6_sha256": "h6",
+            "synthetic_gate_status": "synthetic_benchmark_valid",
+        }
+        result = check_synthetic_provenance(report)
+        assert result.passed is True
+
+    def test_synthetic_provenance_missing(self) -> None:
+        """Test synthetic provenance fails with missing report."""
+        result = check_synthetic_provenance(None)
+        assert result.passed is False
+        assert result.failure_code == "synthetic_regression_report_missing"
+
+    def test_synthetic_provenance_invalid_gate(self) -> None:
+        """Test synthetic provenance fails with invalid gate."""
+        report = {
+            "synthetic_release_id": "v1",
+            "scientific_release_digest": "abc123",
+            "table_1_sha256": "h1",
+            "table_2_sha256": "h2",
+            "table_3_sha256": "h3",
+            "table_4_sha256": "h4",
+            "table_5_sha256": "h5",
+            "table_6_sha256": "h6",
+            "synthetic_gate_status": "invalid",
+        }
+        result = check_synthetic_provenance(report)
+        assert result.passed is False
+        assert result.failure_code == "synthetic_gate_invalid"
+
+    def test_completion_consistency_pass(self) -> None:
+        """Test completion consistency passes with valid report."""
+        report = CompletionReport()
+        report.add_check(CheckResult(check_name="test_check", passed=True))
+        result = check_completion_consistency(report)
+        assert result.passed is True
+
+    def test_completion_consistency_empty(self) -> None:
+        """Test completion consistency fails with empty report."""
+        report = CompletionReport()
+        result = check_completion_consistency(report)
+        assert result.passed is False
+        assert result.failure_code == "completion_report_empty"
+
+    def test_cross_artifact_consistency_pass(self, tmp_path: Path) -> None:
+        """Test cross-artifact consistency passes with consistent data."""
+        labels_path = tmp_path / "labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"att_{i}"} for i in range(90)])
+        labels_report = {"num_primary_labels": 90}
+        analysis = {
+            "overall_metrics": {"n_total_attempts": 90},
+            "pairing_audit": {"complete_families": 30},
+        }
+        bounded_revision = {"complete_families": 30}
+        result = check_cross_artifact_consistency(
+            labels_report, analysis, bounded_revision, primary_labels_path=labels_path
+        )
+        assert result.passed is True
+
+    def test_cross_artifact_consistency_label_mismatch(self, tmp_path: Path) -> None:
+        """Test cross-artifact consistency fails with label count mismatch."""
+        labels_path = tmp_path / "labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"att_{i}"} for i in range(80)])
+        labels_report = {"num_primary_labels": 90}
+        result = check_cross_artifact_consistency(
+            labels_report, {}, {}, primary_labels_path=labels_path
+        )
+        assert result.passed is False
+        assert result.failure_code == "label_report_count_mismatch"
+
+    def test_cross_artifact_consistency_family_mismatch(self, tmp_path: Path) -> None:
+        """Test cross-artifact consistency fails with family count mismatch."""
+        labels_path = tmp_path / "labels.jsonl"
+        self._write_jsonl(labels_path, [{"generation_attempt_id": f"att_{i}"} for i in range(90)])
+        labels_report = {"num_primary_labels": 90}
+        analysis = {"pairing_audit": {"complete_families": 30}}
+        bounded_revision = {"complete_families": 25}
+        result = check_cross_artifact_consistency(
+            labels_report, analysis, bounded_revision, primary_labels_path=labels_path
+        )
+        assert result.passed is False
+        assert result.failure_code == "bounded_revision_family_mismatch"

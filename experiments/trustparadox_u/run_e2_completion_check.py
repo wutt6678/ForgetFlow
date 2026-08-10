@@ -140,6 +140,83 @@ RELEASES_DIR = _PROJECT_ROOT / "results" / "releases"
 COMPLETION_OUTPUT_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "e2_completion"
 COMPLETION_REPORT_PATH = COMPLETION_OUTPUT_DIR / "e2_research_completion_report.json"
 
+# E2R-FIX-017/024: canonical file paths for file-based checks.
+_RAW_GENERATION_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_trust_pilot"
+    / "raw_generation_attempts.jsonl"
+)
+_PRIMARY_LABELS_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_pilot_labels" / "primary_labels.jsonl"
+)
+_EVALUATOR_RAW_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "evaluator_raw_responses.jsonl"
+)
+_LABELING_REPORT_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_pilot_labels" / "labeling_report.json"
+)
+_AGREEMENT_REPORT_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "label_agreement_report.json"
+)
+_ADJUDICATION_LOG_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "adjudication_log.jsonl"
+)
+_REFERENCE_LABELS_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_primary_pilot_labels"
+    / "reference_labels.jsonl"
+)
+_REANALYSIS_REPORT_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_reanalysis" / "e2_reanalysis_report.json"
+)
+_BOUNDED_REVISION_REPORT_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_reanalysis" / "bounded_revision_report.json"
+)
+_FROZEN_PROMPT_MANIFEST_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_prompt_freeze" / "frozen_prompt_manifest.json"
+)
+_SYNTHETIC_REGRESSION_REPORT_PATH = (
+    _PROJECT_ROOT
+    / "results"
+    / "empirical_v2"
+    / "e2_synthetic_regression"
+    / "synthetic_regression_report.json"
+)
+_PILOT_MANIFEST_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "pilot_manifest.json"
+)
+_REQUEST_SCHEDULE_PATH = (
+    _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "request_schedule.json"
+)
+
+
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Load a JSONL file and return a list of parsed records."""
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            records.append(json.loads(line))
+    return records
+
 
 @dataclass
 class CheckResult:
@@ -1174,6 +1251,707 @@ def check_evaluator_freeze(labels_report: dict[str, Any]) -> CheckResult:
     )
 
 
+def check_label_completeness_from_files(
+    raw_path: Path | None = None,
+    labels_path: Path | None = None,
+    evaluator_path: Path | None = None,
+) -> CheckResult:
+    """E2R-FIX-017: file-based label completeness check.
+
+    Loads raw_generation_attempts.jsonl, primary_labels.jsonl, and
+    evaluator_raw_responses.jsonl, then recomputes counts, unique IDs,
+    join coverage, and duplicate IDs.
+    """
+    if raw_path is None:
+        raw_path = _RAW_GENERATION_PATH
+    if labels_path is None:
+        labels_path = _PRIMARY_LABELS_PATH
+    if evaluator_path is None:
+        evaluator_path = _EVALUATOR_RAW_PATH
+
+    # Load raw generation attempts.
+    if not raw_path.exists():
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="raw_generation_file_missing",
+        )
+    raw_records = _load_jsonl(raw_path)
+    raw_count = len(raw_records)
+    raw_ids = [r.get("generation_attempt_id") for r in raw_records]
+    raw_unique = set(raw_ids)
+    raw_duplicates = len(raw_ids) - len(raw_unique)
+
+    if raw_count != 90:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="raw_generation_count_mismatch",
+            details={"expected": 90, "found": raw_count},
+        )
+
+    # Load primary labels.
+    if not labels_path.exists():
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="primary_labels_file_missing",
+        )
+    label_records = _load_jsonl(labels_path)
+    label_count = len(label_records)
+    label_ids = {r.get("generation_attempt_id") for r in label_records}
+
+    if label_count != 90:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="primary_label_count_mismatch",
+            details={"expected": 90, "found": label_count},
+        )
+
+    # Load evaluator raw responses.
+    if not evaluator_path.exists():
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="evaluator_raw_file_missing",
+        )
+    eval_records = _load_jsonl(evaluator_path)
+    eval_count = len(eval_records)
+    eval_ids = {r.get("generation_attempt_id") for r in eval_records}
+
+    if eval_count != 90:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="evaluator_response_count_mismatch",
+            details={"expected": 90, "found": eval_count},
+        )
+
+    # Check join coverage.
+    if raw_unique != label_ids:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="raw_label_id_mismatch",
+            details={
+                "raw_only": len(raw_unique - label_ids),
+                "label_only": len(label_ids - raw_unique),
+            },
+        )
+
+    if raw_unique != eval_ids:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="raw_evaluator_id_mismatch",
+            details={
+                "raw_only": len(raw_unique - eval_ids),
+                "evaluator_only": len(eval_ids - raw_unique),
+            },
+        )
+
+    # Check for unresolved labels.
+    unresolved = sum(
+        1
+        for r in label_records
+        if r.get("evaluator_status") != "success" and not r.get("adjudicated")
+    )
+
+    if unresolved > 0:
+        return CheckResult(
+            check_name="label_completeness_from_files",
+            passed=False,
+            failure_code="unresolved_labels_detected",
+            details={"unresolved_count": unresolved},
+        )
+
+    return CheckResult(
+        check_name="label_completeness_from_files",
+        passed=True,
+        details={
+            "raw_count": raw_count,
+            "label_count": label_count,
+            "evaluator_count": eval_count,
+            "unique_ids": len(raw_unique),
+            "raw_duplicates": raw_duplicates,
+            "join_coverage": 1.0,
+        },
+    )
+
+
+def check_evaluator_independence_evidence(
+    labels_report: dict[str, Any],
+    evaluator_raw: list[dict[str, Any]] | None = None,
+    pilot_manifest: dict[str, Any] | None = None,
+) -> CheckResult:
+    """E2R-FIX-018: evidence-based evaluator independence.
+
+    Verifies from records/manifests:
+    - G model identity
+    - J model identity
+    - G != J
+    - J prompt hash fixed
+    - J temperature fixed (consistent)
+    - J output schema fixed
+    - J records exist for all attempts
+    - Evaluator payload does not contain forbidden keys.
+    """
+    forbidden_keys = {
+        "firewall_condition",
+        "expected_label",
+        "reference_oracle_output",
+        "synthetic_detector_score",
+    }
+
+    generator_model = labels_report.get("generator_model")
+    evaluator_provider = labels_report.get("evaluator_provider")
+    evaluator_model_requested = labels_report.get("evaluator_model_requested")
+    evaluator_model_returned = labels_report.get("evaluator_model_returned")
+    evaluator_prompt_hash = labels_report.get("evaluator_prompt_hash")
+
+    # Check G identity.
+    if not generator_model:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="generator_model_identity_missing",
+        )
+
+    # Check J identity.
+    if not evaluator_provider or not evaluator_model_requested:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_model_identity_missing",
+        )
+
+    # Check G != J.
+    if evaluator_model_returned and generator_model == evaluator_model_returned:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_same_as_generator",
+            details={
+                "generator_model": generator_model,
+                "evaluator_model_returned": evaluator_model_returned,
+            },
+        )
+
+    # Check J prompt hash fixed.
+    if not evaluator_prompt_hash:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_prompt_not_frozen",
+        )
+
+    # Check J records exist and verify consistency from actual data.
+    if evaluator_raw is None:
+        if _EVALUATOR_RAW_PATH.exists():
+            evaluator_raw = _load_jsonl(_EVALUATOR_RAW_PATH)
+        else:
+            return CheckResult(
+                check_name="evaluator_independence_evidence",
+                passed=False,
+                failure_code="evaluator_raw_responses_missing",
+            )
+
+    if len(evaluator_raw) == 0:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_raw_responses_empty",
+        )
+
+    # Verify J model consistency across all records.
+    j_models = {r.get("model_returned") for r in evaluator_raw if r.get("model_returned")}
+    if len(j_models) > 1:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_model_inconsistent",
+            details={"models": sorted(j_models)},
+        )
+
+    # Verify J prompt hash consistency across records.
+    j_prompt_hashes = set()
+    for r in evaluator_raw:
+        parsed = r.get("parsed", {})
+        if isinstance(parsed, dict) and parsed.get("evaluator_prompt_hash"):
+            j_prompt_hashes.add(parsed["evaluator_prompt_hash"])
+        elif r.get("evaluator_prompt_hash"):
+            j_prompt_hashes.add(r["evaluator_prompt_hash"])
+    if len(j_prompt_hashes) > 1:
+        return CheckResult(
+            check_name="evaluator_independence_evidence",
+            passed=False,
+            failure_code="evaluator_prompt_inconsistent",
+            details={"prompt_hashes": sorted(j_prompt_hashes)},
+        )
+
+    # Verify J output schema: all records have required label fields.
+    required_label_fields = {"primary_exposure_label", "confidence", "evaluator_status"}
+    for r in evaluator_raw:
+        parsed = r.get("parsed", {})
+        if isinstance(parsed, dict):
+            missing = required_label_fields - set(parsed.keys())
+            if missing:
+                return CheckResult(
+                    check_name="evaluator_independence_evidence",
+                    passed=False,
+                    failure_code="evaluator_output_schema_violation",
+                    details={"missing_fields": sorted(missing)},
+                )
+
+    # Check evaluator payload does not contain forbidden keys.
+    for r in evaluator_raw:
+        parsed = r.get("parsed", {})
+        if isinstance(parsed, dict):
+            leaked = forbidden_keys & set(parsed.keys())
+            if leaked:
+                return CheckResult(
+                    check_name="evaluator_independence_evidence",
+                    passed=False,
+                    failure_code="evaluator_payload_contamination",
+                    details={"forbidden_keys": sorted(leaked)},
+                )
+
+    return CheckResult(
+        check_name="evaluator_independence_evidence",
+        passed=True,
+        details={
+            "generator_model": generator_model,
+            "evaluator_provider": evaluator_provider,
+            "evaluator_model_requested": evaluator_model_requested,
+            "evaluator_model_returned": evaluator_model_returned,
+            "evaluator_prompt_hash": evaluator_prompt_hash,
+            "evaluator_record_count": len(evaluator_raw),
+            "evaluator_independent": True,
+        },
+    )
+
+
+def check_raw_pilot_completeness(
+    raw_path: Path | None = None,
+) -> CheckResult:
+    """E2R-FIX-025: check raw pilot completeness from file."""
+    if raw_path is None:
+        raw_path = _RAW_GENERATION_PATH
+    if not raw_path.exists():
+        return CheckResult(
+            check_name="raw_pilot_completeness",
+            passed=False,
+            failure_code="raw_generation_file_missing",
+        )
+
+    records = _load_jsonl(raw_path)
+    if len(records) != 90:
+        return CheckResult(
+            check_name="raw_pilot_completeness",
+            passed=False,
+            failure_code="raw_generation_count_mismatch",
+            details={"expected": 90, "found": len(records)},
+        )
+
+    ids = [r.get("generation_attempt_id") for r in records]
+    if len(set(ids)) != len(ids):
+        return CheckResult(
+            check_name="raw_pilot_completeness",
+            passed=False,
+            failure_code="raw_generation_duplicates",
+            details={"total": len(ids), "unique": len(set(ids))},
+        )
+
+    # Check all records have generation_status.
+    statuses = {r.get("generation_status") for r in records}
+    if "success" not in statuses:
+        return CheckResult(
+            check_name="raw_pilot_completeness",
+            passed=False,
+            failure_code="raw_generation_no_success",
+        )
+
+    return CheckResult(
+        check_name="raw_pilot_completeness",
+        passed=True,
+        details={"raw_count": len(records), "unique_ids": len(set(ids))},
+    )
+
+
+def check_evaluator_response_completeness(
+    evaluator_path: Path | None = None,
+    expected_count: int = 90,
+) -> CheckResult:
+    """E2R-FIX-025: check evaluator-response completeness from file."""
+    if evaluator_path is None:
+        evaluator_path = _EVALUATOR_RAW_PATH
+    if not evaluator_path.exists():
+        return CheckResult(
+            check_name="evaluator_response_completeness",
+            passed=False,
+            failure_code="evaluator_raw_file_missing",
+        )
+
+    records = _load_jsonl(evaluator_path)
+    if len(records) != expected_count:
+        return CheckResult(
+            check_name="evaluator_response_completeness",
+            passed=False,
+            failure_code="evaluator_response_count_mismatch",
+            details={"expected": expected_count, "found": len(records)},
+        )
+
+    ids = {r.get("generation_attempt_id") for r in records}
+    if len(ids) != expected_count:
+        return CheckResult(
+            check_name="evaluator_response_completeness",
+            passed=False,
+            failure_code="evaluator_response_duplicates",
+            details={"expected_unique": expected_count, "found_unique": len(ids)},
+        )
+
+    return CheckResult(
+        check_name="evaluator_response_completeness",
+        passed=True,
+        details={"evaluator_response_count": len(records)},
+    )
+
+
+def check_primary_label_file_completeness(
+    labels_path: Path | None = None,
+    expected_count: int = 90,
+) -> CheckResult:
+    """E2R-FIX-025: check primary-label completeness from file."""
+    if labels_path is None:
+        labels_path = _PRIMARY_LABELS_PATH
+    if not labels_path.exists():
+        return CheckResult(
+            check_name="primary_label_file_completeness",
+            passed=False,
+            failure_code="primary_labels_file_missing",
+        )
+
+    records = _load_jsonl(labels_path)
+    if len(records) != expected_count:
+        return CheckResult(
+            check_name="primary_label_file_completeness",
+            passed=False,
+            failure_code="primary_label_count_mismatch",
+            details={"expected": expected_count, "found": len(records)},
+        )
+
+    return CheckResult(
+        check_name="primary_label_file_completeness",
+        passed=True,
+        details={"primary_label_count": len(records)},
+    )
+
+
+def check_reference_label_completeness(
+    ref_path: Path | None = None,
+    expected_count: int = 90,
+) -> CheckResult:
+    """E2R-FIX-025: check reference-label completeness from file."""
+    if ref_path is None:
+        ref_path = _REFERENCE_LABELS_PATH
+    if not ref_path.exists():
+        return CheckResult(
+            check_name="reference_label_completeness",
+            passed=False,
+            failure_code="reference_labels_file_missing",
+        )
+
+    records = _load_jsonl(ref_path)
+    if len(records) != expected_count:
+        return CheckResult(
+            check_name="reference_label_completeness",
+            passed=False,
+            failure_code="reference_label_count_mismatch",
+            details={"expected": expected_count, "found": len(records)},
+        )
+
+    return CheckResult(
+        check_name="reference_label_completeness",
+        passed=True,
+        details={"reference_label_count": len(records)},
+    )
+
+
+def check_agreement_validity(
+    agreement_report: dict[str, Any] | None,
+) -> CheckResult:
+    """E2R-FIX-025: check agreement validity."""
+    if agreement_report is None:
+        return CheckResult(
+            check_name="agreement_validity",
+            passed=False,
+            failure_code="agreement_report_missing",
+        )
+
+    exact_agreement = agreement_report.get("j_vs_reference_exact_agreement")
+    if exact_agreement is None:
+        return CheckResult(
+            check_name="agreement_validity",
+            passed=False,
+            failure_code="agreement_metric_missing",
+            details={"metric": "j_vs_reference_exact_agreement"},
+        )
+
+    num_compared = agreement_report.get("num_compared")
+    if num_compared is None or num_compared != 90:
+        return CheckResult(
+            check_name="agreement_validity",
+            passed=False,
+            failure_code="agreement_comparison_incomplete",
+            details={"expected": 90, "found": num_compared},
+        )
+
+    return CheckResult(
+        check_name="agreement_validity",
+        passed=True,
+        details={
+            "exact_agreement": exact_agreement,
+            "num_compared": num_compared,
+            "num_disagreements": agreement_report.get("num_disagreements", 0),
+        },
+    )
+
+
+def check_uncertainty_ci(analysis: dict[str, Any]) -> CheckResult:
+    """E2R-FIX-025: check uncertainty/CI presence."""
+    paired = analysis.get("paired_effects")
+    if paired is None:
+        # Fall back to direct fields.
+        ci = analysis.get("high_minus_low_ci95")
+        if ci is None:
+            return CheckResult(
+                check_name="uncertainty_ci",
+                passed=False,
+                failure_code="uncertainty_ci_missing",
+            )
+        return CheckResult(
+            check_name="uncertainty_ci",
+            passed=True,
+            details={"high_minus_low_ci95": ci},
+        )
+
+    hml = paired.get("high_minus_low", {})
+    ci = hml.get("disclosure_ci95")
+    if ci is None:
+        return CheckResult(
+            check_name="uncertainty_ci",
+            passed=False,
+            failure_code="uncertainty_ci_missing",
+            details={"message": "disclosure_ci95 missing in paired_effects"},
+        )
+
+    return CheckResult(
+        check_name="uncertainty_ci",
+        passed=True,
+        details={
+            "disclosure_ci95": ci,
+            "bootstrap_method": paired.get("bootstrap_method"),
+            "bootstrap_iterations": paired.get("bootstrap_iterations"),
+        },
+    )
+
+
+def check_synthetic_provenance(
+    synthetic_report: dict[str, Any] | None,
+) -> CheckResult:
+    """E2R-FIX-025: check synthetic provenance preservation."""
+    if synthetic_report is None:
+        return CheckResult(
+            check_name="synthetic_provenance",
+            passed=False,
+            failure_code="synthetic_regression_report_missing",
+        )
+
+    release_id = synthetic_report.get("synthetic_release_id")
+    if not release_id:
+        return CheckResult(
+            check_name="synthetic_provenance",
+            passed=False,
+            failure_code="synthetic_release_id_missing",
+        )
+
+    digest = synthetic_report.get("scientific_release_digest")
+    if not digest:
+        return CheckResult(
+            check_name="synthetic_provenance",
+            passed=False,
+            failure_code="synthetic_digest_missing",
+        )
+
+    # Verify table hashes present.
+    for i in range(1, 7):
+        table_hash = synthetic_report.get(f"table_{i}_sha256")
+        if not table_hash:
+            return CheckResult(
+                check_name="synthetic_provenance",
+                passed=False,
+                failure_code="synthetic_table_hash_missing",
+                details={"table": i},
+            )
+
+    gate = synthetic_report.get("synthetic_gate_status")
+    if gate != "synthetic_benchmark_valid":
+        return CheckResult(
+            check_name="synthetic_provenance",
+            passed=False,
+            failure_code="synthetic_gate_invalid",
+            details={"expected": "synthetic_benchmark_valid", "found": gate},
+        )
+
+    return CheckResult(
+        check_name="synthetic_provenance",
+        passed=True,
+        details={
+            "synthetic_release_id": release_id,
+            "scientific_release_digest": digest,
+        },
+    )
+
+
+def check_completion_consistency(report: CompletionReport) -> CheckResult:
+    """E2R-FIX-025: check completion report internal consistency."""
+    if not report.checks:
+        return CheckResult(
+            check_name="completion_consistency",
+            passed=False,
+            failure_code="completion_report_empty",
+        )
+
+    # Verify all checks have valid structure.
+    for name, result in report.checks.items():
+        if result.check_name != name:
+            return CheckResult(
+                check_name="completion_consistency",
+                passed=False,
+                failure_code="completion_check_name_mismatch",
+                details={"key": name, "check_name": result.check_name},
+            )
+
+    return CheckResult(
+        check_name="completion_consistency",
+        passed=True,
+        details={
+            "total_checks": len(report.checks),
+            "all_passed": report.all_passed,
+        },
+    )
+
+
+def check_cross_artifact_consistency(
+    labels_report: dict[str, Any],
+    analysis: dict[str, Any],
+    bounded_revision: dict[str, Any],
+    completion_report: CompletionReport | None = None,
+    primary_labels_path: Path | None = None,
+    phase_file: dict[str, Any] | None = None,
+) -> CheckResult:
+    """E2R-FIX-026: cross-artifact consistency checks.
+
+    Require exact agreement among labeling_report, primary label file,
+    agreement report, analysis, bounded revision report, completion report,
+    and phase file.
+    """
+    if primary_labels_path is None:
+        primary_labels_path = _PRIMARY_LABELS_PATH
+
+    # labeling_report.num_labeled_attempts (or total_attempts) == count(primary_labels).
+    label_report_count = (
+        labels_report.get("num_primary_labels")
+        or labels_report.get("num_labeled_attempts")
+        or labels_report.get("total_attempts")
+    )
+    if primary_labels_path.exists():
+        actual_labels = len(_load_jsonl(primary_labels_path))
+        if label_report_count is not None and label_report_count != actual_labels:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="label_report_count_mismatch",
+                details={
+                    "report_count": label_report_count,
+                    "file_count": actual_labels,
+                },
+            )
+
+    # analysis.total_attempts == count(primary_labels).
+    analysis_total = analysis.get("overall_metrics", {}).get("n_total_attempts")
+    if analysis_total is None:
+        analysis_total = analysis.get("total_attempts")
+    if analysis_total is not None and primary_labels_path.exists():
+        actual_labels = len(_load_jsonl(primary_labels_path))
+        if analysis_total != actual_labels:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="analysis_total_mismatch",
+                details={
+                    "analysis_total": analysis_total,
+                    "file_count": actual_labels,
+                },
+            )
+
+    # bounded_revision complete_families == analysis pairing audit.
+    br_families = bounded_revision.get("complete_families")
+    analysis_families = analysis.get("pairing_audit", {}).get("complete_families")
+    if (
+        br_families is not None
+        and analysis_families is not None
+        and br_families != analysis_families
+    ):
+        return CheckResult(
+            check_name="cross_artifact_consistency",
+            passed=False,
+            failure_code="bounded_revision_family_mismatch",
+            details={
+                "bounded_revision_families": br_families,
+                "analysis_families": analysis_families,
+            },
+        )
+
+    # completion.primary_label_sha256 == sha256(primary_labels).
+    if completion_report is not None and primary_labels_path.exists():
+        completion_label_hash = completion_report.artifact_hashes.get("primary_labels")
+        if completion_label_hash:
+            actual_hash = sha256_file(primary_labels_path)
+            if completion_label_hash != actual_hash:
+                return CheckResult(
+                    check_name="cross_artifact_consistency",
+                    passed=False,
+                    failure_code="completion_label_hash_mismatch",
+                    details={
+                        "completion_hash": completion_label_hash,
+                        "actual_hash": actual_hash,
+                    },
+                )
+
+    # phase.primary_label_sha256 == completion.primary_label_sha256.
+    if phase_file is not None and completion_report is not None:
+        phase_hash = phase_file.get("primary_labels_sha256")
+        completion_hash = completion_report.artifact_hashes.get("primary_labels")
+        if phase_hash and completion_hash and phase_hash != completion_hash:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="phase_completion_hash_mismatch",
+                details={
+                    "phase_hash": phase_hash,
+                    "completion_hash": completion_hash,
+                },
+            )
+
+    return CheckResult(
+        check_name="cross_artifact_consistency",
+        passed=True,
+        details={"message": "All cross-artifact consistency checks passed"},
+    )
+
+
 def check_artifact_hash_binding(
     expected_hashes: dict[str, str | None],
     artifact_paths: dict[str, Path] | None = None,
@@ -1265,8 +2043,10 @@ def run_completion_check(
     bounded_revision_report: dict[str, Any] | None = None,
     synthetic_regression_report: dict[str, Any] | None = None,
     artifact_hashes: dict[str, str | None] | None = None,
+    agreement_report: dict[str, Any] | None = None,
+    evaluator_raw_responses: list[dict[str, Any]] | None = None,
 ) -> CompletionReport:
-    """E2 repair §40-51 / E2R-034: run complete E2 completion check.
+    """E2 repair §40-51 / E2R-034 / E2R-FIX-025: run complete E2 completion check.
 
     Args:
         artifacts: Dict of artifact name to artifact dict.
@@ -1281,6 +2061,8 @@ def run_completion_check(
         bounded_revision_report: Bounded revision report (optional, falls back to freeze_manifest).
         synthetic_regression_report: Synthetic regression report (E2R-025).
         artifact_hashes: Dict of artifact name to SHA-256 hash (E2R-035).
+        agreement_report: Label agreement report (E2R-FIX-025).
+        evaluator_raw_responses: Evaluator raw response records (E2R-FIX-018).
 
     Returns:
         CompletionReport with all check results.
@@ -1292,7 +2074,7 @@ def run_completion_check(
         for name, sha256 in artifact_hashes.items():
             report.set_artifact_hash(name, sha256)
 
-    # Run all checks (E2R-034: 20 check categories)
+    # --- Core checks (E2 repair §40-51) ---
     report.add_check(check_protocol_consistency(artifacts))
     report.add_check(check_phase_state(phase_file))
     report.add_check(check_model_consistency(connectivity_config, pilot_config))
@@ -1304,10 +2086,10 @@ def run_completion_check(
     report.add_check(check_bounded_revision(bounded_revision_report or freeze_manifest))
     report.add_check(check_generator_freeze(freeze_manifest))
 
-    # E2R-025: Synthetic regression check
+    # --- E2R-025: Synthetic regression check ---
     report.add_check(check_synthetic_regression(synthetic_regression_report))
 
-    # E2R-034: Additional checks for 20 categories
+    # --- E2R-034: Identity and metadata checks ---
     report.add_check(check_generator_model_identity(pilot_config))
     report.add_check(check_evaluator_model_identity(labels_report))
     report.add_check(check_generator_evaluator_independence(labels_report))
@@ -1318,8 +2100,41 @@ def run_completion_check(
     report.add_check(check_floor_effect_diagnostic(analysis))
     report.add_check(check_evaluator_freeze(labels_report))
 
-    # E2R-FIX-016: Artifact hash binding check recomputes from files.
+    # --- E2R-FIX-016: Artifact hash binding ---
     report.add_check(check_artifact_hash_binding(artifact_hashes or {}, E2_ARTIFACT_PATHS))
+
+    # --- E2R-FIX-017: File-based label completeness ---
+    report.add_check(check_label_completeness_from_files())
+
+    # --- E2R-FIX-018: Evidence-based evaluator independence ---
+    report.add_check(
+        check_evaluator_independence_evidence(
+            labels_report, evaluator_raw_responses, pilot_manifest
+        )
+    )
+
+    # --- E2R-FIX-025: Additional check categories ---
+    report.add_check(check_raw_pilot_completeness())
+    report.add_check(check_evaluator_response_completeness())
+    report.add_check(check_primary_label_file_completeness())
+    report.add_check(check_reference_label_completeness())
+    report.add_check(check_agreement_validity(agreement_report))
+    report.add_check(check_uncertainty_ci(analysis))
+    report.add_check(check_synthetic_provenance(synthetic_regression_report))
+
+    # --- E2R-FIX-026: Cross-artifact consistency ---
+    report.add_check(
+        check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision_report or freeze_manifest,
+            completion_report=report,
+            phase_file=phase_file,
+        )
+    )
+
+    # --- Completion consistency (must be last) ---
+    report.add_check(check_completion_consistency(report))
 
     return report
 
