@@ -2,7 +2,7 @@
   "analysis": "trust_analysis",
   "schema_version": "1.0",
   "protocol_version": "1.2.0",
-  "generated_at": "2026-08-10T13:48:05.624556+00:00",
+  "generated_at": "2026-08-10T13:52:35.259769+00:00",
   "conditions": [
     "full_mvp",
     "no_firewall",

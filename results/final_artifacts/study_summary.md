@@ -1,7 +1,7 @@
 # TrustParadox-U Primary Study Results
 
-**Generated:** 2026-08-10T13:48:06.001056+00:00
-**Commit:** 6041c867ae3132ec3bccf8874a3c6b2c728445af
+**Generated:** 2026-08-10T13:52:35.634982+00:00
+**Commit:** 0049c53b97eca1e7594b3337f06dbe041c8c43db
 
 ### Table 1: Main Results by Condition
 
