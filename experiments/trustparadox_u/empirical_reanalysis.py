@@ -104,6 +104,7 @@ class PairingAudit:
     total_families: int
     complete_families: int
     excluded_families: int
+    incomplete_families: int
     duplicate_families: int
     missing_low: int
     missing_default: int
@@ -111,12 +112,16 @@ class PairingAudit:
     content_mismatches: int
     complete_family_ids: tuple[str, ...]
     excluded_family_ids: tuple[str, ...]
+    exclusion_reasons: tuple[dict[str, Any], ...]
+    trust_level_coverage: tuple[dict[str, Any], ...]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-serializable dict."""
         d = asdict(self)
         d["complete_family_ids"] = list(self.complete_family_ids)
         d["excluded_family_ids"] = list(self.excluded_family_ids)
+        d["exclusion_reasons"] = list(self.exclusion_reasons)
+        d["trust_level_coverage"] = list(self.trust_level_coverage)
         return d
 
 
@@ -143,6 +148,8 @@ def audit_pairing(
 
     complete_ids: list[str] = []
     excluded_ids: list[str] = []
+    exclusion_reasons: list[dict[str, Any]] = []
+    trust_level_coverage: list[dict[str, Any]] = []
     missing_low = 0
     missing_default = 0
     missing_high = 0
@@ -153,10 +160,27 @@ def audit_pairing(
         members = family_groups[family_id]
         trust_levels = {m.trust_level for m in members}
 
+        # Record trust-level coverage for every family
+        trust_level_coverage.append(
+            {
+                "family_id": family_id,
+                "trust_levels_present": sorted(trust_levels),
+                "n_members": len(members),
+            }
+        )
+
         # Check for duplicate trust levels
         if len(members) != len(trust_levels):
             duplicates += 1
             excluded_ids.append(family_id)
+            exclusion_reasons.append(
+                {
+                    "family_id": family_id,
+                    "reason": "duplicate_trust_level",
+                    "n_members": len(members),
+                    "unique_trust_levels": len(trust_levels),
+                }
+            )
             continue
 
         has_low = TrustLevel.LOW.value in trust_levels
@@ -164,13 +188,24 @@ def audit_pairing(
         has_high = TrustLevel.HIGH.value in trust_levels
 
         if not (has_low and has_default and has_high):
+            missing_parts: list[str] = []
             if not has_low:
                 missing_low += 1
+                missing_parts.append("low")
             if not has_default:
                 missing_default += 1
+                missing_parts.append("default")
             if not has_high:
                 missing_high += 1
+                missing_parts.append("high")
             excluded_ids.append(family_id)
+            exclusion_reasons.append(
+                {
+                    "family_id": family_id,
+                    "reason": "missing_trust_level",
+                    "missing": missing_parts,
+                }
+            )
             continue
 
         # Verify scenario consistency within family
@@ -178,20 +213,42 @@ def audit_pairing(
         if len(scenarios) != 1:
             content_mismatches += 1
             excluded_ids.append(family_id)
+            exclusion_reasons.append(
+                {
+                    "family_id": family_id,
+                    "reason": "scenario_mismatch",
+                    "scenarios": sorted(scenarios),
+                }
+            )
             continue
 
         # Verify all members have labels
         all_labeled = all(m.generation_attempt_id in label_by_id for m in members)
         if not all_labeled:
+            unlabeled = [
+                m.generation_attempt_id
+                for m in members
+                if m.generation_attempt_id not in label_by_id
+            ]
             excluded_ids.append(family_id)
+            exclusion_reasons.append(
+                {
+                    "family_id": family_id,
+                    "reason": "missing_labels",
+                    "unlabeled_attempt_ids": unlabeled,
+                }
+            )
             continue
 
         complete_ids.append(family_id)
+
+    n_incomplete = len(excluded_ids)
 
     return PairingAudit(
         total_families=len(family_groups),
         complete_families=len(complete_ids),
         excluded_families=len(excluded_ids),
+        incomplete_families=n_incomplete,
         duplicate_families=duplicates,
         missing_low=missing_low,
         missing_default=missing_default,
@@ -199,6 +256,8 @@ def audit_pairing(
         content_mismatches=content_mismatches,
         complete_family_ids=tuple(complete_ids),
         excluded_family_ids=tuple(excluded_ids),
+        exclusion_reasons=tuple(exclusion_reasons),
+        trust_level_coverage=tuple(trust_level_coverage),
     )
 
 
@@ -328,6 +387,10 @@ def compute_trust_level_metrics(
 
         result[trust] = {
             "n": n,
+            "n_positive_disclosures": n_positive,
+            "n_behavioral_refusals": n_refusal,
+            "n_task_compliant": n_compliant,
+            "n_task_relevant": n_relevant,
             "disclosure_rate": round(n_positive / n, 4) if n else 0.0,
             "behavioral_refusal_rate": round(n_refusal / n, 4) if n else 0.0,
             "task_compliance_rate": round(n_compliant / n, 4) if n else 0.0,
@@ -374,11 +437,19 @@ def compute_scenario_trust_metrics(
             n_compliant = sum(
                 1 for _, lb in members if lb.task_compliance and lb.evaluator_status == "success"
             )
+            n_relevant = sum(
+                1 for _, lb in members if lb.task_relevant and lb.evaluator_status == "success"
+            )
             result[scenario][trust] = {
                 "n": n,
+                "n_positive_disclosures": n_positive,
+                "n_behavioral_refusals": n_refusal,
+                "n_task_compliant": n_compliant,
+                "n_task_relevant": n_relevant,
                 "disclosure_rate": round(n_positive / n, 4) if n else 0.0,
                 "behavioral_refusal_rate": round(n_refusal / n, 4) if n else 0.0,
                 "task_compliance_rate": round(n_compliant / n, 4) if n else 0.0,
+                "task_relevance_rate": round(n_relevant / n, 4) if n else 0.0,
             }
 
     return result
@@ -466,6 +537,11 @@ def compute_paired_effects(
 
     return {
         "n_families": n_families,
+        "bootstrap_method": "paired_clustered",
+        "bootstrap_cluster": "generation_family_id",
+        "bootstrap_iterations": BOOTSTRAP_RESAMPLES,
+        "bootstrap_seed": BOOTSTRAP_SEED,
+        "confidence_level": 0.95,
         "high_minus_low": {
             "disclosure_risk_difference": round(mean_disc, 4),
             "disclosure_ci95": disc_ci,
@@ -707,6 +783,66 @@ def _revision_limitations(floor_status: str, disc_effect: float) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# E2R-011: consistency checks
+# ---------------------------------------------------------------------------
+
+
+def verify_count_consistency(
+    overall: dict[str, Any],
+    trust_metrics: dict[str, dict[str, Any]],
+    scenario_trust: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """E2R-FIX-011: verify overall = sum trust-level = sum scenario-level.
+
+    For each outcome count (positive disclosures, behavioral refusals,
+    task compliant, task relevant), check that the overall count equals
+    the sum across trust levels and the sum across scenario×trust cells.
+    """
+    checks: dict[str, Any] = {"all_passed": True, "checks": []}
+
+    count_keys = [
+        ("n_positive_disclosures", "positive_disclosures"),
+        ("n_behavioral_refusals", "behavioral_refusals"),
+        ("n_task_compliant", "task_compliant"),
+        ("n_task_relevant", "task_relevant"),
+    ]
+
+    for count_key, label in count_keys:
+        overall_val = overall.get(count_key, 0)
+
+        # Sum across trust levels
+        trust_sum = sum(tm.get(count_key, 0) for tm in trust_metrics.values())
+
+        # Sum across scenario×trust cells
+        scenario_sum = sum(
+            st.get(count_key, 0)
+            for scenario_data in scenario_trust.values()
+            for st in scenario_data.values()
+        )
+
+        trust_ok = overall_val == trust_sum
+        scenario_ok = overall_val == scenario_sum
+        passed = trust_ok and scenario_ok
+
+        checks["checks"].append(
+            {
+                "metric": label,
+                "overall": overall_val,
+                "trust_level_sum": trust_sum,
+                "scenario_trust_sum": scenario_sum,
+                "trust_consistent": trust_ok,
+                "scenario_consistent": scenario_ok,
+                "passed": passed,
+            }
+        )
+
+        if not passed:
+            checks["all_passed"] = False
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -775,13 +911,18 @@ def run_reanalysis(
         encoding="utf-8",
     )
 
-    # Step 9: main report
+    # Step 9: consistency checks (E2R-FIX-011)
+    consistency = verify_count_consistency(overall, trust_metrics, scenario_trust)
+
+    # Step 10: main report
     report: dict[str, Any] = {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
         "study_version": EMPIRICAL_STUDY_VERSION,
         "analysis_type": "e2_primary_reanalysis",
         "label_source": "independent_evaluator_j",
+        "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
+        "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
         "overall_metrics": overall,
         "trust_level_metrics": trust_metrics,
         "scenario_trust_metrics": scenario_trust,
@@ -789,10 +930,12 @@ def run_reanalysis(
         "pairing_audit": {
             "total_families": pairing.total_families,
             "complete_families": pairing.complete_families,
+            "incomplete_families": pairing.incomplete_families,
             "excluded_families": pairing.excluded_families,
         },
         "floor_effect_diagnostic": floor,
         "bounded_revision_decision": revision["decision"],
+        "consistency_checks": consistency,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

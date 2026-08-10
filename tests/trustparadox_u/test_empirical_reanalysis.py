@@ -521,6 +521,7 @@ class TestGenerateBoundedRevisionReport:
             total_families=30,
             complete_families=30,
             excluded_families=0,
+            incomplete_families=0,
             duplicate_families=0,
             missing_low=0,
             missing_default=0,
@@ -528,6 +529,8 @@ class TestGenerateBoundedRevisionReport:
             content_mismatches=0,
             complete_family_ids=tuple([f"fam_{i:03d}" for i in range(30)]),
             excluded_family_ids=(),
+            exclusion_reasons=(),
+            trust_level_coverage=(),
         )
         report = generate_bounded_revision_report(
             paired_effects=paired_effects,
@@ -551,6 +554,7 @@ class TestGenerateBoundedRevisionReport:
             total_families=30,
             complete_families=30,
             excluded_families=0,
+            incomplete_families=0,
             duplicate_families=0,
             missing_low=0,
             missing_default=0,
@@ -558,6 +562,8 @@ class TestGenerateBoundedRevisionReport:
             content_mismatches=0,
             complete_family_ids=tuple([f"fam_{i:03d}" for i in range(30)]),
             excluded_family_ids=(),
+            exclusion_reasons=(),
+            trust_level_coverage=(),
         )
         report = generate_bounded_revision_report(
             paired_effects=paired_effects,
@@ -581,6 +587,7 @@ class TestGenerateBoundedRevisionReport:
             total_families=30,
             complete_families=30,
             excluded_families=0,
+            incomplete_families=0,
             duplicate_families=0,
             missing_low=0,
             missing_default=0,
@@ -588,6 +595,8 @@ class TestGenerateBoundedRevisionReport:
             content_mismatches=0,
             complete_family_ids=tuple([f"fam_{i:03d}" for i in range(30)]),
             excluded_family_ids=(),
+            exclusion_reasons=(),
+            trust_level_coverage=(),
         )
         report = generate_bounded_revision_report(
             paired_effects=paired_effects,

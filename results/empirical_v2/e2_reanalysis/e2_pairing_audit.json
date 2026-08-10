@@ -1,0 +1,317 @@
+{
+  "total_families": 30,
+  "complete_families": 30,
+  "excluded_families": 0,
+  "incomplete_families": 0,
+  "duplicate_families": 0,
+  "missing_low": 0,
+  "missing_default": 0,
+  "missing_high": 0,
+  "content_mismatches": 0,
+  "complete_family_ids": [
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_000_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_001_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_002_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_003_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_004_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_005_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_006_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_007_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_008_r0",
+    "ecf_authorization_001_authorization_v1_trust_discretion_task_009_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_000_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_001_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_002_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_003_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_004_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_005_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_006_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_007_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_008_r0",
+    "ecf_credential_001_credential_v1_trust_discretion_task_009_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_000_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_001_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_002_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_003_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_004_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_005_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_006_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_007_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_008_r0",
+    "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_009_r0"
+  ],
+  "excluded_family_ids": [],
+  "exclusion_reasons": [],
+  "trust_level_coverage": [
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_000_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_001_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_002_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_003_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_004_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_005_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_006_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_007_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_008_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_authorization_001_authorization_v1_trust_discretion_task_009_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_000_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_001_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_002_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_003_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_004_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_005_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_006_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_007_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_008_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_credential_001_credential_v1_trust_discretion_task_009_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_000_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_001_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_002_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_003_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_004_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_005_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_006_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_007_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_008_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    },
+    {
+      "family_id": "ecf_private_attribute_001_private_attribute_v1_trust_discretion_task_009_r0",
+      "trust_levels_present": [
+        "default",
+        "high",
+        "low"
+      ],
+      "n_members": 3
+    }
+  ]
+}

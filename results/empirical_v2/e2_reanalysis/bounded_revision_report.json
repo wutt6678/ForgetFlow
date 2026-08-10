@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "2.0.0",
+  "study_version": "2.0.0",
+  "selected_pilot_version": "e2_primary_pilot_v2",
+  "decision": "freeze_with_manipulation_limitation",
+  "decision_rule": "zero_disclosure_effect + partially_informative_secondary_endpoints",
+  "disclosure_effect": 0.0,
+  "refusal_effect": 0.0,
+  "task_compliance_effect": 0.0,
+  "floor_effect_status": "manipulation_partially_informative",
+  "prompts_revised": false,
+  "revision_count": 0,
+  "remaining_revision_budget": 2,
+  "complete_families": 30,
+  "limitations": [
+    "No disclosure effect was observed; cannot distinguish effective non-disclosure from floor effect.",
+    "Manipulation check is only partially informative; secondary endpoints show some differentiation but disclosure floor limits causal inference.",
+    "Pilot contains 90 development attempts from a single generator model; results are sample-bounded and not generalizable."
+  ],
+  "generated_at": "2026-08-10T09:06:06.821120+00:00"
+}
