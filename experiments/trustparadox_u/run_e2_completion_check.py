@@ -1621,14 +1621,18 @@ def check_evaluator_response_completeness(
 def check_real_evaluator_evidence(
     evaluator_raw_responses: list[dict[str, Any]] | None = None,
     evaluator_path: Path | None = None,
+    expected_model: str = "qwen3.8-max",
 ) -> CheckResult:
-    """E2J-FIX-005: reject mock evaluator evidence.
+    """E2J-FIX-005/024: reject mock evaluator evidence and verify provenance.
 
     Fail if any evaluator record contains:
     - evaluator_provider == "mock"
     - evaluator_transport == "mock"
-    - request_id/evaluator_request_id startswith "mock_"
-    - model_returned missing
+    - request_id/evaluator_request_id startswith "mock_" or empty
+    - model_returned missing or mismatched
+    - raw_output empty
+    - evaluated_at missing
+    - parsed output missing for success records
     """
     # Load from parameter or file
     records = evaluator_raw_responses
@@ -1706,6 +1710,58 @@ def check_real_evaluator_evidence(
                     "record_index": i,
                     "reason": "model_returned is missing or empty",
                 },
+            )
+
+        # Check model_returned matches expected J model (E2J-FIX-024)
+        if expected_model and expected_model not in model_returned:
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_model_mismatch",
+                details={
+                    "record_index": i,
+                    "expected_model": expected_model,
+                    "model_returned": model_returned,
+                },
+            )
+
+        # Check request_id nonempty (E2J-FIX-024)
+        if not request_id:
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_empty_request_id",
+                details={"record_index": i},
+            )
+
+        # Check raw_output nonempty (E2J-FIX-024)
+        raw_output = record.get("raw_output", "")
+        if not raw_output:
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_empty_raw_output",
+                details={"record_index": i},
+            )
+
+        # Check evaluated_at present (E2J-FIX-024)
+        evaluated_at = record.get("evaluated_at", "")
+        if not evaluated_at:
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_missing_evaluated_at",
+                details={"record_index": i},
+            )
+
+        # Check parsed output present for success records (E2J-FIX-024)
+        status = record.get("status", "")
+        if status == "success" and not record.get("parsed"):
+            return CheckResult(
+                check_name="real_evaluator_evidence",
+                passed=False,
+                failure_code="e2_success_without_parsed",
+                details={"record_index": i},
             )
 
     return CheckResult(

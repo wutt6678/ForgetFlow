@@ -696,8 +696,11 @@ def run_independent_labeling(
     # ---- Step 2: run J evaluator (E2R-003/005/006/007) ----
     raw_responses: list[dict[str, Any]] = []
     judgments: dict[str, dict[str, Any]] = {}
+    _eval_total = len(attempts)
+    _eval_idx = 0
 
     for attempt in attempts:
+        _eval_idx += 1
         spec = target_specs.get(attempt.scenario_id)
         if spec is None:
             continue
@@ -728,9 +731,20 @@ def run_independent_labeling(
                 candidate_text=candidate_text,
                 target_spec=spec,
             )
+            print(
+                f"  [{_eval_idx}/{_eval_total}] Evaluating " f"{attempt.generation_attempt_id}...",
+                flush=True,
+            )
             result = evaluator_provider.evaluate(eval_request)
             result["generation_attempt_id"] = attempt.generation_attempt_id
+            result.setdefault("evaluated_at", datetime.now(timezone.utc).isoformat())
             raw_responses.append(result)
+            status_tag = result["status"]
+            latency = result.get("latency_ms", 0.0)
+            print(
+                f"    -> {status_tag} ({latency:.0f}ms)",
+                flush=True,
+            )
             if result["status"] == "success" and result.get("parsed"):
                 judgments[attempt.generation_attempt_id] = result["parsed"]
         else:
@@ -755,6 +769,9 @@ def run_independent_labeling(
     report["evaluator_raw_responses_file"] = str(raw_path)
 
     # ---- Step 4: build primary labels (E2R-005/006/007) ----
+    raw_response_by_id: dict[str, dict[str, Any]] = {
+        r["generation_attempt_id"]: r for r in raw_responses
+    }
     primary_labels: list[IndependentPrimaryLabel] = []
     for attempt in attempts:
         spec = target_specs.get(attempt.scenario_id)
@@ -766,7 +783,10 @@ def run_independent_labeling(
 
         if attempt_id in judgments:
             parsed = judgments[attempt_id]
-            judgment = _judgment_from_parsed(parsed, attempt_id, evaluator_provider)
+            raw_resp = raw_response_by_id.get(attempt_id)
+            judgment = _judgment_from_parsed(
+                parsed, attempt_id, evaluator_provider, raw_response=raw_resp
+            )
             label = _build_primary_label_from_judgment(judgment, eligible=eligible)
         else:
             # Unresolved: evaluator failed or not configured
@@ -931,13 +951,40 @@ def _judgment_from_parsed(
     parsed: dict[str, Any],
     attempt_id: str,
     provider: EvaluatorProvider | None,
+    *,
+    raw_response: dict[str, Any] | None = None,
 ) -> EvaluatorJudgment:
     """Construct an EvaluatorJudgment from a parsed judgment dict.
 
-    Fills in evaluator provenance from the provider or defaults.
+    When *raw_response* is supplied (real J evaluation), provenance fields
+    are taken from the actual evaluator call.  Otherwise fallback to the
+    provider defaults (or mock placeholders when no provider either).
     """
+    is_real = raw_response is not None and provider is not None
+
     prov_provider = provider.provider if provider else "mock"
-    prov_model = provider.model_name if provider else EVALUATOR_MODEL_IDENTITY
+    prov_model_req = provider.model_name if provider else EVALUATOR_MODEL_IDENTITY
+    prov_model_ret = (
+        raw_response.get("model_returned", prov_model_req) if raw_response else prov_model_req
+    )
+    transport = "litellm" if is_real else "mock"
+    request_id = (
+        raw_response.get("request_id", f"mock_{attempt_id}")
+        if raw_response
+        else f"mock_{attempt_id}"
+    )
+    sys_hash = (
+        raw_response.get("system_prompt_hash", "")
+        if raw_response
+        else parsed.get("system_prompt_hash", "")
+    )
+    usr_hash = (
+        raw_response.get("user_prompt_hash", "")
+        if raw_response
+        else parsed.get("user_prompt_hash", "")
+    )
+    temperature = provider.temperature if provider else 0.0
+    max_tokens = provider.max_tokens if provider else 512
 
     return EvaluatorJudgment(
         generation_attempt_id=attempt_id,
@@ -957,18 +1004,18 @@ def _judgment_from_parsed(
         confidence=float(parsed.get("confidence", 0.0)),
         rationale_code=parsed.get("rationale_code", "MOCK"),
         evaluator_provider=prov_provider,
-        evaluator_model_requested=prov_model,
-        evaluator_model_returned=prov_model,
+        evaluator_model_requested=prov_model_req,
+        evaluator_model_returned=prov_model_ret,
         evaluator_model_revision=None,
-        evaluator_transport="mock",
-        evaluator_temperature=0.0,
-        evaluator_max_tokens=512,
+        evaluator_transport=transport,
+        evaluator_temperature=temperature,
+        evaluator_max_tokens=max_tokens,
         evaluator_seed=None,
-        evaluator_system_prompt_hash=parsed.get("system_prompt_hash", ""),
-        evaluator_user_prompt_hash=parsed.get("user_prompt_hash", ""),
-        evaluator_request_id=f"mock_{attempt_id}",
-        evaluator_retry_index=0,
+        evaluator_system_prompt_hash=sys_hash,
+        evaluator_user_prompt_hash=usr_hash,
+        evaluator_request_id=request_id,
+        evaluator_retry_index=raw_response.get("retries", 0) if raw_response else 0,
         evaluated_at=datetime.now(timezone.utc).isoformat(),
         evaluator_status=parsed.get("evaluator_status", "success"),
-        parse_retries=0,
+        parse_retries=raw_response.get("retries", 0) if raw_response else 0,
     )

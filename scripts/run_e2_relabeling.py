@@ -31,6 +31,9 @@ from experiments.trustparadox_u.empirical_corpus import (  # noqa: E402
     EmpiricalGenerationAttempt,
     EmpiricalTargetSpec,
 )
+from experiments.trustparadox_u.empirical_evaluator import (  # noqa: E402
+    EvaluatorProvider,
+)
 from experiments.trustparadox_u.empirical_relabeling import (  # noqa: E402
     run_independent_labeling,
 )
@@ -202,16 +205,19 @@ def main() -> None:
     target_specs = build_target_specs()
     print(f"  Built {len(target_specs)} target specs: {list(target_specs.keys())}")
 
-    # E2J-FIX-003: require real evaluator provider
-    # TODO: Initialize real evaluator provider when API keys are available
-    # evaluator_provider = EvaluatorProvider.from_config(...)
-    evaluator_provider = None
-
-    if evaluator_provider is None:
-        print("\nERROR: Real evaluator_provider is required for certification.")
-        print("Mock judgments are not permitted in the production path.")
-        print("Use run_e2_relabeling_fixture.py for testing only.")
-        sys.exit(1)
+    # E2J-FIX-004: Create real evaluator provider (J = qwen3.8-max)
+    api_base = "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+    evaluator_provider = EvaluatorProvider(
+        model_name="openai/qwen3.8-max",
+        provider="openai",
+        temperature=0.0,
+        max_tokens=1024,
+        api_base=api_base,
+        api_key_env="OPENAI_API_KEY",
+        timeout_seconds=120.0,
+        max_retries=2,
+    )
+    print(f"  Evaluator: J = qwen3.8-max via {api_base}")
 
     # Run the pipeline with real evaluator
     print("\nRunning independent labeling pipeline with REAL evaluator...")

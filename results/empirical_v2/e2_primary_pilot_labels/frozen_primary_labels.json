@@ -1,15 +1,15 @@
 {
   "primary_label_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
-  "primary_label_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
+  "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "labeling_report_sha256": "7b3f8a74e18a39ed9616659173825ac116151e85f51504beab788f33a701bcd6",
-  "evaluator_prompt_manifest_sha256": "",
+  "labeling_report_sha256": "c86ae014becc936ef139b01a4c34927a7c416a5e21276290c68ccea2f1c3a82d",
+  "evaluator_prompt_manifest_sha256": "f15643c9e3f50ed66ad6ab834400425d0a8854ea84b38fe1ee4ad712e5e9cc8a",
   "evaluator_model_identity": "qwen3.8-max",
   "num_attempts": 90,
   "num_resolved_labels": 90,
   "num_positive_disclosures": 0,
-  "num_behavioral_refusals": 0,
-  "num_task_compliant": 90,
+  "num_behavioral_refusals": 87,
+  "num_task_compliant": 3,
   "num_adjudicated": 0,
-  "frozen_at": "2026-08-10T08:08:33.665687+00:00"
+  "frozen_at": "2026-08-10T12:30:35.576624+00:00"
 }

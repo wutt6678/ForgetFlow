@@ -687,7 +687,10 @@ class TestRunCompletionCheck:
             evaluator_raw_responses=[
                 {
                     "generation_attempt_id": f"att_{i}",
+                    "request_id": f"chatcmpl-test_{i}",
                     "model_returned": "qwen3.8-max",
+                    "raw_output": "sample evaluator output",
+                    "evaluated_at": "2026-01-01T00:00:00Z",
                     "parsed": {
                         "primary_exposure_label": "high",
                         "confidence": 0.9,
@@ -841,6 +844,8 @@ class TestRealEvaluatorEvidence:
                 "model_returned": "qwen3.8-max",
                 "evaluator_provider": "openai",
                 "evaluator_transport": "api",
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
             for i in range(89)
         ]
@@ -852,6 +857,8 @@ class TestRealEvaluatorEvidence:
                 "model_returned": "qwen3.8-max",
                 "evaluator_provider": "mock",
                 "evaluator_transport": "mock",
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
         )
         result = check_real_evaluator_evidence(records)
@@ -910,11 +917,14 @@ class TestRealEvaluatorEvidence:
                 "request_id": "",
                 "model_returned": "qwen3.8-max",
                 "evaluator_provider": "openai",
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
         ]
         result = check_real_evaluator_evidence(records)
-        # Empty request_id is not explicitly checked, but model_returned is
-        assert result.passed is True  # Empty request_id alone doesn't fail
+        # FIX-024: empty request_id now fails
+        assert result.passed is False
+        assert result.failure_code == "e2_empty_request_id"
 
     def test_must_fail_missing_returned_model(self) -> None:
         """Missing returned model -> fail."""
@@ -940,6 +950,8 @@ class TestRealEvaluatorEvidence:
                 "evaluator_provider": "openai",
                 "evaluator_transport": "api",
                 "latency_ms": 1234.5,
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
             for i in range(90)
         ]
@@ -955,6 +967,8 @@ class TestRealEvaluatorEvidence:
                 "request_id": f"real_req_{i}",
                 "model_returned": "qwen3.8-max",
                 "evaluator_provider": "openai",
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
             for i in range(10)
         ]
@@ -970,6 +984,8 @@ class TestRealEvaluatorEvidence:
                 "model_returned": "qwen3.8-max",
                 "evaluator_provider": "openai",
                 "evaluator_transport": "api",
+                "raw_output": "sample output",
+                "evaluated_at": "2026-01-01T00:00:00Z",
             }
             for i in range(5)
         ]
