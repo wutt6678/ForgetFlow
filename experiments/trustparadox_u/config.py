@@ -185,6 +185,12 @@ class ModelsConfig:
     secret_safe_logging: bool = True
     cache_invalidation_mode: str = "on_forget"
 
+    # E2R-001: Independent evaluator (J) configuration
+    evaluator_provider: str | None = None
+    evaluator_model: str | None = None
+    evaluator_temperature: float = 0.0
+    evaluator_max_tokens: int = 512
+
 
 @dataclass(frozen=True)
 class ExperimentConfig:
@@ -346,6 +352,10 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         chat_model=models_raw.get("chat_model"),
         chat_temperature=float(models_raw.get("chat_temperature", 0.0)),
         chat_max_tokens=int(models_raw.get("chat_max_tokens", 256)),
+        evaluator_provider=models_raw.get("evaluator_provider"),
+        evaluator_model=models_raw.get("evaluator_model"),
+        evaluator_temperature=float(models_raw.get("evaluator_temperature", 0.0)),
+        evaluator_max_tokens=int(models_raw.get("evaluator_max_tokens", 512)),
     )
 
     return ExperimentConfig(
