@@ -4,8 +4,13 @@
   "study_version": "2.0.0",
   "analysis_type": "e2_primary_reanalysis",
   "label_source": "independent_evaluator_j",
+  "primary_label_source": "independent_evaluator_j",
   "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
   "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
+  "primary_label_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
+  "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
+  "analysis_code_commit": "b8663b09f44f696c37e15b981f8db3e13afa4d3e",
+  "analysis_timestamp": "2026-08-10T09:51:19.655873+00:00",
   "overall_metrics": {
     "n_total_attempts": 90,
     "n_provider_failures": 0,
@@ -257,5 +262,5 @@
       }
     ]
   },
-  "generated_at": "2026-08-10T09:06:06.821209+00:00"
+  "generated_at": "2026-08-10T09:51:19.655882+00:00"
 }

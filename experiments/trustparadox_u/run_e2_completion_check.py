@@ -1952,6 +1952,60 @@ def check_cross_artifact_consistency(
     )
 
 
+def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
+    """E2R-FIX-031: verify J-analysis provenance declarations.
+
+    Ensures the analysis declares where primary labels came from and
+    cannot accidentally regress to the legacy oracle file.
+    """
+    legacy_sources = {
+        "e2_pilot_labeling/labeled_pilot_attempts.jsonl",
+        "labeled_pilot_attempts.jsonl",
+        "labeling_oracle",
+    }
+
+    required_fields = [
+        "primary_label_source",
+        "primary_label_sha256",
+        "raw_generation_sha256",
+        "analysis_code_commit",
+        "analysis_timestamp",
+    ]
+
+    missing = [f for f in required_fields if not analysis.get(f)]
+    if missing:
+        return CheckResult(
+            check_name="j_analysis_provenance",
+            passed=False,
+            failure_code="j_analysis_provenance_incomplete",
+            details={"missing_fields": missing},
+        )
+
+    # Check that the source is not the legacy oracle file.
+    source = str(analysis.get("primary_label_source", ""))
+    input_file = str(analysis.get("input_file", ""))
+    for legacy in legacy_sources:
+        if legacy in source or legacy in input_file:
+            return CheckResult(
+                check_name="j_analysis_provenance",
+                passed=False,
+                failure_code="j_analysis_uses_legacy_oracle",
+                details={"legacy_source": legacy},
+            )
+
+    return CheckResult(
+        check_name="j_analysis_provenance",
+        passed=True,
+        details={
+            "primary_label_source": analysis["primary_label_source"],
+            "primary_label_sha256": analysis["primary_label_sha256"][:16] + "...",
+            "raw_generation_sha256": analysis["raw_generation_sha256"][:16] + "...",
+            "analysis_code_commit": analysis["analysis_code_commit"],
+            "analysis_timestamp": analysis["analysis_timestamp"],
+        },
+    )
+
+
 def check_artifact_hash_binding(
     expected_hashes: dict[str, str | None],
     artifact_paths: dict[str, Path] | None = None,
@@ -2132,6 +2186,9 @@ def run_completion_check(
             phase_file=phase_file,
         )
     )
+
+    # --- E2R-FIX-031: J-analysis provenance ---
+    report.add_check(check_j_analysis_provenance(analysis))
 
     # --- Completion consistency (must be last) ---
     report.add_check(check_completion_consistency(report))

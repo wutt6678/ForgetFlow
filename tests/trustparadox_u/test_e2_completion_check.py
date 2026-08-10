@@ -25,6 +25,7 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_generator_evaluator_independence,
     check_generator_freeze,
     check_human_review_completion,
+    check_j_analysis_provenance,
     check_label_completeness_from_files,
     check_model_consistency,
     check_pairing_audit,
@@ -632,6 +633,10 @@ class TestRunCompletionCheck:
             "experiments.trustparadox_u.run_e2_completion_check.check_cross_artifact_consistency",
             lambda *a, **kw: _pass("cross_artifact_consistency"),
         )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_j_analysis_provenance",
+            lambda *a, **kw: _pass("j_analysis_provenance"),
+        )
 
         report = run_completion_check(
             artifacts={"manifest": {"protocol_version": "2.0.0", "study_version": "2.0.0"}},
@@ -692,7 +697,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 31
+        assert len(report.checks) == 32
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -1317,6 +1322,55 @@ class TestIterationGRegression:
             {"raw_pilot_attempts": hash1}, {"raw_pilot_attempts": path}
         )
         assert result.passed is False
+
+    # --- FIX-031: J-analysis provenance ---
+
+    def test_fix031_complete_provenance_passes(self) -> None:
+        """E2R-FIX-031: complete provenance fields pass."""
+        analysis = {
+            "primary_label_source": "independent_evaluator_j",
+            "primary_label_sha256": "a" * 64,
+            "raw_generation_sha256": "b" * 64,
+            "analysis_code_commit": "abc123",
+            "analysis_timestamp": "2026-08-09T00:00:00Z",
+            "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
+        }
+        result = check_j_analysis_provenance(analysis)
+        assert result.passed is True
+
+    def test_fix031_missing_fields_fail(self) -> None:
+        """E2R-FIX-031: missing provenance fields fail."""
+        analysis = {"primary_label_source": "independent_evaluator_j"}
+        result = check_j_analysis_provenance(analysis)
+        assert result.passed is False
+        assert result.failure_code == "j_analysis_provenance_incomplete"
+
+    def test_fix031_legacy_oracle_file_fails(self) -> None:
+        """E2R-FIX-031: legacy oracle file causes failure."""
+        analysis = {
+            "primary_label_source": "independent_evaluator_j",
+            "primary_label_sha256": "a" * 64,
+            "raw_generation_sha256": "b" * 64,
+            "analysis_code_commit": "abc123",
+            "analysis_timestamp": "2026-08-09T00:00:00Z",
+            "input_file": "e2_pilot_labeling/labeled_pilot_attempts.jsonl",
+        }
+        result = check_j_analysis_provenance(analysis)
+        assert result.passed is False
+        assert result.failure_code == "j_analysis_uses_legacy_oracle"
+
+    def test_fix031_empty_source_fails(self) -> None:
+        """E2R-FIX-031: empty source field fails."""
+        analysis = {
+            "primary_label_source": "",
+            "primary_label_sha256": "a" * 64,
+            "raw_generation_sha256": "b" * 64,
+            "analysis_code_commit": "abc123",
+            "analysis_timestamp": "2026-08-09T00:00:00Z",
+        }
+        result = check_j_analysis_provenance(analysis)
+        assert result.passed is False
+        assert result.failure_code == "j_analysis_provenance_incomplete"
 
     # --- FIX-032: Human-audit edge cases ---
 

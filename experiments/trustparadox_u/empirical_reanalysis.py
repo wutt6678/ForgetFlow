@@ -15,9 +15,11 @@ Checklist coverage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import random
+import subprocess
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -69,6 +71,30 @@ FLOOR_MANIPULATION_UNINFORMATIVE = "manipulation_uninformative_floor"
 DECISION_FREEZE_AS_IS = "freeze_as_is"
 DECISION_REVISE_AND_RERUN = "revise_and_rerun"
 DECISION_FREEZE_WITH_LIMITATION = "freeze_with_manipulation_limitation"
+
+
+def _sha256_file(path: Path) -> str | None:
+    """Compute SHA-256 hex digest of a file, or None if missing."""
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _git_head_commit() -> str | None:
+    """Return the current git HEAD commit hash, or None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -921,8 +947,25 @@ def run_reanalysis(
         "study_version": EMPIRICAL_STUDY_VERSION,
         "analysis_type": "e2_primary_reanalysis",
         "label_source": "independent_evaluator_j",
+        "primary_label_source": "independent_evaluator_j",
         "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
         "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
+        "primary_label_sha256": _sha256_file(
+            _PROJECT_ROOT
+            / "results"
+            / "empirical_v2"
+            / "e2_primary_pilot_labels"
+            / "primary_labels.jsonl"
+        ),
+        "raw_generation_sha256": _sha256_file(
+            _PROJECT_ROOT
+            / "results"
+            / "empirical_v2"
+            / "e2_primary_trust_pilot"
+            / "raw_generation_attempts.jsonl"
+        ),
+        "analysis_code_commit": _git_head_commit(),
+        "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
         "overall_metrics": overall,
         "trust_level_metrics": trust_metrics,
         "scenario_trust_metrics": scenario_trust,
