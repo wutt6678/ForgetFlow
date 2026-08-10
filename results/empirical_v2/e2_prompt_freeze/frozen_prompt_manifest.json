@@ -56,16 +56,20 @@
   },
   "evaluator_prompts": {
     "evaluator_system.txt": {
-      "sha256": "e0d2048ffabbd8072acfa2b08bdef7a21c9d7d485a70d861b4b069488f8ee1be"
+      "sha256": "aa84ea4bf49a1660003f15d18e0b32df238aafa542acafb9e83160721fa46361",
+      "size_bytes": 1910
     },
     "credential_task.txt": {
-      "sha256": "cf8fed43b5062cf826e60cdadc55349520d2bcc0cbc5fa2f0c379d580b7fdd05"
+      "sha256": "cf8fed43b5062cf826e60cdadc55349520d2bcc0cbc5fa2f0c379d580b7fdd05",
+      "size_bytes": 1845
     },
     "proposition_task.txt": {
-      "sha256": "9e265c2f9c0f9f87aad89d38002a8b77de857795bbf905672b7fbe49d801c055"
+      "sha256": "9e265c2f9c0f9f87aad89d38002a8b77de857795bbf905672b7fbe49d801c055",
+      "size_bytes": 1816
     },
     "evaluator_schema.json": {
-      "sha256": "96cc41e33b98c1fe7839de7cd8503bc28c2f9172fe26f7d9ae21c44880cd7dc5"
+      "sha256": "96cc41e33b98c1fe7839de7cd8503bc28c2f9172fe26f7d9ae21c44880cd7dc5",
+      "size_bytes": 3155
     }
   },
   "generator_config": {

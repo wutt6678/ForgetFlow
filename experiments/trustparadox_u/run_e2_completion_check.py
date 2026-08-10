@@ -2809,6 +2809,227 @@ def check_secondary_annotation_integrity(
     )
 
 
+def check_frozen_label_integrity(
+    frozen_primary_labels: dict[str, Any] | None = None,
+    frozen_prompt_manifest: dict[str, Any] | None = None,
+    *,
+    labeling_report_path: Path | None = None,
+    primary_labels_path: Path | None = None,
+) -> CheckResult:
+    """E2-A7-FIX-020: verify frozen-label manifest hashes match actual files.
+
+    Cross-validates:
+    - sha256(labeling_report.json) == frozen_primary_labels.labeling_report_sha256
+    - sha256(primary_labels.jsonl) == frozen_primary_labels.primary_label_sha256
+    - evaluator prompt hash consistency between labeling_report and frozen_prompt_manifest
+    """
+    if frozen_primary_labels is None:
+        if _FROZEN_PRIMARY_LABELS_PATH.exists():
+            frozen_primary_labels = json.loads(
+                _FROZEN_PRIMARY_LABELS_PATH.read_text(encoding="utf-8")
+            )
+        else:
+            return CheckResult(
+                check_name="frozen_label_integrity",
+                passed=False,
+                failure_code="frozen_primary_labels_missing",
+                details={"message": "frozen_primary_labels.json not found"},
+            )
+
+    if labeling_report_path is None:
+        labeling_report_path = _LABELING_REPORT_PATH
+    if primary_labels_path is None:
+        primary_labels_path = _PRIMARY_LABELS_PATH
+
+    # Check labeling_report SHA-256.
+    frozen_lr_hash = frozen_primary_labels.get("labeling_report_sha256")
+    if frozen_lr_hash and labeling_report_path.exists():
+        actual_lr_hash = sha256_file(labeling_report_path)
+        if actual_lr_hash and frozen_lr_hash != actual_lr_hash:
+            return CheckResult(
+                check_name="frozen_label_integrity",
+                passed=False,
+                failure_code="labeling_report_hash_mismatch",
+                details={
+                    "frozen_hash": frozen_lr_hash,
+                    "actual_hash": actual_lr_hash,
+                },
+            )
+
+    # Check primary_labels SHA-256.
+    frozen_pl_hash = frozen_primary_labels.get("primary_label_sha256")
+    if frozen_pl_hash and primary_labels_path.exists():
+        actual_pl_hash = sha256_file(primary_labels_path)
+        if actual_pl_hash and frozen_pl_hash != actual_pl_hash:
+            return CheckResult(
+                check_name="frozen_label_integrity",
+                passed=False,
+                failure_code="primary_label_hash_mismatch",
+                details={
+                    "frozen_hash": frozen_pl_hash,
+                    "actual_hash": actual_pl_hash,
+                },
+            )
+
+    # Check evaluator prompt hash: labeling_report vs frozen_prompt_manifest.
+    if frozen_prompt_manifest is None:
+        if _FROZEN_PROMPT_MANIFEST_PATH.exists():
+            frozen_prompt_manifest = json.loads(
+                _FROZEN_PROMPT_MANIFEST_PATH.read_text(encoding="utf-8")
+            )
+    if frozen_prompt_manifest is not None and labeling_report_path.exists():
+        lr_data = json.loads(labeling_report_path.read_text(encoding="utf-8"))
+        lr_prompt_hash = lr_data.get("evaluator_prompt_hash")
+        fpm_eval_hash = (
+            frozen_prompt_manifest.get("evaluator_prompts", {})
+            .get("evaluator_system.txt", {})
+            .get("sha256")
+        )
+        if lr_prompt_hash and fpm_eval_hash and lr_prompt_hash != fpm_eval_hash:
+            return CheckResult(
+                check_name="frozen_label_integrity",
+                passed=False,
+                failure_code="evaluator_prompt_hash_mismatch",
+                details={
+                    "labeling_report_hash": lr_prompt_hash,
+                    "frozen_prompt_manifest_hash": fpm_eval_hash,
+                },
+            )
+
+    return CheckResult(
+        check_name="frozen_label_integrity",
+        passed=True,
+        details={"message": "Frozen label manifest hashes match actual files"},
+    )
+
+
+def check_annotation_id_consistency(
+    *,
+    raw_generation_path: Path | None = None,
+    evaluator_raw_path: Path | None = None,
+    primary_labels_path: Path | None = None,
+    secondary_queue_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+) -> CheckResult:
+    """E2-A7-FIX-021: verify exact ID consistency across annotation artifacts.
+
+    Rules:
+    - secondary_review_queue IDs ⊆ primary_label_ids
+    - secondary_labels IDs == secondary_review_queue IDs
+    - adjudication/resolution IDs ⊆ disagreement IDs (subset of secondary queue)
+    """
+    if raw_generation_path is None:
+        raw_generation_path = _RAW_GENERATION_PATH
+    if evaluator_raw_path is None:
+        evaluator_raw_path = _EVALUATOR_RAW_PATH
+    if primary_labels_path is None:
+        primary_labels_path = _PRIMARY_LABELS_PATH
+    if secondary_queue_path is None:
+        secondary_queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_REVIEW_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+
+    # Collect IDs from each artifact.
+    raw_ids: set[str] = set()
+    if raw_generation_path.exists():
+        for rec in _load_jsonl(raw_generation_path):
+            gid = rec.get("generation_attempt_id") or rec.get("attempt_id")
+            if gid:
+                raw_ids.add(gid)
+
+    evaluator_ids: set[str] = set()
+    if evaluator_raw_path.exists():
+        for rec in _load_jsonl(evaluator_raw_path):
+            gid = rec.get("generation_attempt_id")
+            if gid:
+                evaluator_ids.add(gid)
+
+    primary_ids: set[str] = set()
+    if primary_labels_path.exists():
+        for rec in _load_jsonl(primary_labels_path):
+            gid = rec.get("generation_attempt_id")
+            if gid:
+                primary_ids.add(gid)
+
+    queue_ids: set[str] = set()
+    if secondary_queue_path.exists():
+        for rec in _load_jsonl(secondary_queue_path):
+            gid = rec.get("generation_attempt_id")
+            if gid:
+                queue_ids.add(gid)
+
+    secondary_label_ids: set[str] = set()
+    if secondary_labels_path.exists():
+        for rec in _load_jsonl(secondary_labels_path):
+            gid = rec.get("generation_attempt_id")
+            if gid:
+                secondary_label_ids.add(gid)
+
+    adjudication_ids: set[str] = set()
+    if adjudication_path.exists():
+        for rec in _load_jsonl(adjudication_path):
+            gid = rec.get("generation_attempt_id")
+            if gid:
+                adjudication_ids.add(gid)
+
+    # Rule 1: secondary_review_queue ⊆ primary_label_ids.
+    queue_orphans = queue_ids - primary_ids
+    if queue_orphans:
+        return CheckResult(
+            check_name="annotation_id_consistency",
+            passed=False,
+            failure_code="secondary_queue_not_subset_of_primary",
+            details={
+                "orphan_count": len(queue_orphans),
+                "sample_orphans": sorted(queue_orphans)[:5],
+            },
+        )
+
+    # Rule 2: secondary_labels IDs == secondary_review_queue IDs.
+    if secondary_label_ids != queue_ids:
+        only_in_labels = secondary_label_ids - queue_ids
+        only_in_queue = queue_ids - secondary_label_ids
+        return CheckResult(
+            check_name="annotation_id_consistency",
+            passed=False,
+            failure_code="secondary_labels_queue_id_mismatch",
+            details={
+                "only_in_labels": len(only_in_labels),
+                "only_in_queue": len(only_in_queue),
+            },
+        )
+
+    # Rule 3: adjudication IDs ⊆ secondary_queue IDs (disagreement subset).
+    adj_orphans = adjudication_ids - queue_ids
+    if adj_orphans:
+        return CheckResult(
+            check_name="annotation_id_consistency",
+            passed=False,
+            failure_code="adjudication_not_subset_of_queue",
+            details={
+                "orphan_count": len(adj_orphans),
+                "sample_orphans": sorted(adj_orphans)[:5],
+            },
+        )
+
+    # Report summary.
+    return CheckResult(
+        check_name="annotation_id_consistency",
+        passed=True,
+        details={
+            "raw_generation_ids": len(raw_ids),
+            "evaluator_response_ids": len(evaluator_ids),
+            "primary_label_ids": len(primary_ids),
+            "secondary_queue_ids": len(queue_ids),
+            "secondary_label_ids": len(secondary_label_ids),
+            "adjudication_ids": len(adjudication_ids),
+        },
+    )
+
+
 def run_completion_check(
     *,
     artifacts: dict[str, Any],
@@ -2909,6 +3130,12 @@ def run_completion_check(
 
     # --- E2-A7-FIX-028: Secondary-annotation integrity ---
     report.add_check(check_secondary_annotation_integrity())
+
+    # --- E2-A7-FIX-020: Frozen-label integrity ---
+    report.add_check(check_frozen_label_integrity())
+
+    # --- E2-A7-FIX-021: Annotation ID consistency ---
+    report.add_check(check_annotation_id_consistency())
 
     # --- E2R-FIX-026: Cross-artifact consistency ---
     report.add_check(

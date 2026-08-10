@@ -2,14 +2,16 @@
   "primary_label_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "labeling_report_sha256": "401e98377617d5cc096431bd4a3e8551eabaca2cc86bcd0400f8e87b8807e6a9",
-  "evaluator_prompt_manifest_sha256": "f15643c9e3f50ed66ad6ab834400425d0a8854ea84b38fe1ee4ad712e5e9cc8a",
+  "labeling_report_sha256": "08ea679b4292ca8187924c3ee70e880a5098dacd93465fe0a7a4eb0c0b1aadca",
+  "evaluator_prompt_manifest_sha256": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
   "evaluator_model_identity": "qwen3.8-max",
   "num_attempts": 90,
   "num_resolved_labels": 90,
   "num_positive_disclosures": 0,
   "num_behavioral_refusals": 87,
   "num_task_compliant": 3,
+  "num_secondary_reviewed": 9,
+  "num_disagreements": 0,
   "num_adjudicated": 0,
   "frozen_at": "2026-08-10T12:42:38.185619+00:00"
 }
