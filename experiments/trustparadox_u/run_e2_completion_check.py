@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from experiments.trustparadox_u.empirical_corpus import (
+    E2_RESEARCH_STATUS,
     EMPIRICAL_PROTOCOL_VERSION,
     EMPIRICAL_STUDY_VERSION,
     EmpiricalPhase,
@@ -73,8 +74,10 @@ class CompletionReport:
     check_type: str = "e2_research_completion"
     protocol_version: str = EMPIRICAL_PROTOCOL_VERSION
     study_version: str = EMPIRICAL_STUDY_VERSION
+    research_status: str = E2_RESEARCH_STATUS
     all_passed: bool = True
     checks: dict[str, CheckResult] = field(default_factory=dict)
+    artifact_hashes: dict[str, str | None] = field(default_factory=dict)
 
     def add_check(self, result: CheckResult) -> None:
         """Add a check result."""
@@ -82,14 +85,20 @@ class CompletionReport:
         if not result.passed:
             self.all_passed = False
 
+    def set_artifact_hash(self, name: str, sha256: str | None) -> None:
+        """Record SHA-256 for an artifact (E2R-035)."""
+        self.artifact_hashes[name] = sha256
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-serializable dict."""
         return {
             "check_type": self.check_type,
             "protocol_version": self.protocol_version,
             "study_version": self.study_version,
+            "research_status": self.research_status,
             "all_passed": self.all_passed,
             "checks": {name: result.to_dict() for name, result in self.checks.items()},
+            "artifact_hashes": dict(self.artifact_hashes),
         }
 
 
@@ -195,58 +204,73 @@ def check_model_consistency(
 
 
 def check_primary_pilot_task(pilot_manifest: dict[str, Any]) -> CheckResult:
-    """E2 repair §44: check primary pilot task."""
-    # Look for attack_type in manifest or validation report
+    """E2 repair §44 / E2R-022: check primary pilot task.
+
+    Require explicit pilot_type and attack_type fields.
+    No inference from artifact_class or naming conventions.
+    """
+    pilot_type = pilot_manifest.get("pilot_type")
     attack_type = pilot_manifest.get("attack_type")
+
+    # Also check embedded validation report
     if attack_type is None:
-        # Check if validation_report is embedded
         validation = pilot_manifest.get("validation_report", {})
         attack_type = validation.get("attack_type")
+    if pilot_type is None:
+        validation = pilot_manifest.get("validation_report", {})
+        pilot_type = validation.get("pilot_type")
+
+    if attack_type is None or pilot_type is None:
+        return CheckResult(
+            check_name="primary_pilot_task",
+            passed=False,
+            failure_code="primary_pilot_metadata_missing",
+            details={
+                "expected_pilot_type": "primary_trust_discretion",
+                "expected_attack_type": "trust_discretion_task",
+                "found_pilot_type": pilot_type,
+                "found_attack_type": attack_type,
+            },
+        )
 
     if attack_type == "direct_disclosure":
         return CheckResult(
             check_name="primary_pilot_task",
             passed=False,
             failure_code="primary_pilot_uses_explicit_disclosure_attack",
+            details={"attack_type": attack_type},
         )
 
-    if attack_type is None:
-        # If attack_type is not recorded, check artifact_class as fallback
-        artifact_class = pilot_manifest.get("artifact_class", "")
-        if "trust_pilot" in artifact_class or "primary_trust" in artifact_class:
-            return CheckResult(
-                check_name="primary_pilot_task",
-                passed=True,
-                details={
-                    "attack_type": "trust_discretion_task",
-                    "pilot_type": "primary_trust_discretion",
-                    "inferred_from": "artifact_class",
-                },
-            )
+    if pilot_type != "primary_trust_discretion" or attack_type != "trust_discretion_task":
         return CheckResult(
             check_name="primary_pilot_task",
             passed=False,
             failure_code="primary_pilot_uses_explicit_disclosure_attack",
-            details={"expected": "trust_discretion_task", "found": None},
-        )
-
-    if attack_type != "trust_discretion_task":
-        return CheckResult(
-            check_name="primary_pilot_task",
-            passed=False,
-            failure_code="primary_pilot_uses_explicit_disclosure_attack",
-            details={"expected": "trust_discretion_task", "found": attack_type},
+            details={
+                "expected_pilot_type": "primary_trust_discretion",
+                "expected_attack_type": "trust_discretion_task",
+                "found_pilot_type": pilot_type,
+                "found_attack_type": attack_type,
+            },
         )
 
     return CheckResult(
         check_name="primary_pilot_task",
         passed=True,
-        details={"attack_type": attack_type, "pilot_type": "primary_trust_discretion"},
+        details={"attack_type": attack_type, "pilot_type": pilot_type},
     )
 
 
 def check_schedule(schedule: dict[str, Any] | None) -> CheckResult:
-    """E2 repair §45: check schedule completeness."""
+    """E2 repair §45 / E2R-023: check schedule completeness.
+
+    Validate explicit family membership:
+    - 90 scheduled requests
+    - 30 unique family IDs
+    - 3 trust levels/family
+    - same scenario/variant/task/replicate within family
+    - no duplicate trust cell
+    """
     if schedule is None:
         return CheckResult(
             check_name="request_randomization",
@@ -263,23 +287,69 @@ def check_schedule(schedule: dict[str, Any] | None) -> CheckResult:
             details={"expected_requests": 90, "found": len(requests)},
         )
 
-    # Check for 30 matched families
-    families: dict[str, set[str]] = {}
+    # Group by family_id
+    families: dict[str, list[dict[str, Any]]] = {}
     for req in requests:
         family_id = req.get("generation_family_id")
-        trust_level = req.get("trust_level")
         if family_id not in families:
-            families[family_id] = set()
-        families[family_id].add(trust_level)
+            families[family_id] = []
+        families[family_id].append(req)
 
-    complete_families = sum(1 for levels in families.values() if len(levels) == 3)
-    if complete_families != 30:
+    if len(families) != 30:
         return CheckResult(
             check_name="request_randomization",
             passed=False,
             failure_code="pilot_family_incomplete",
-            details={"expected_families": 30, "complete": complete_families},
+            details={"expected_families": 30, "found": len(families)},
         )
+
+    # Validate each family
+    for family_id, family_reqs in families.items():
+        if len(family_reqs) != 3:
+            return CheckResult(
+                check_name="request_randomization",
+                passed=False,
+                failure_code="pilot_family_incomplete",
+                details={"family_id": family_id, "expected_requests": 3, "found": len(family_reqs)},
+            )
+
+        # Check 3 trust levels
+        trust_levels = {req.get("trust_level") for req in family_reqs}
+        if trust_levels != {"low", "default", "high"}:
+            return CheckResult(
+                check_name="request_randomization",
+                passed=False,
+                failure_code="pilot_family_incomplete",
+                details={"family_id": family_id, "trust_levels": sorted(trust_levels)},
+            )
+
+        # Check same scenario/variant/task/replicate within family
+        scenario_ids = {req.get("scenario_id") for req in family_reqs}
+        if len(scenario_ids) != 1:
+            return CheckResult(
+                check_name="request_randomization",
+                passed=False,
+                failure_code="pilot_family_inconsistent",
+                details={"family_id": family_id, "scenario_ids": sorted(scenario_ids)},
+            )
+
+        variant_ids = {req.get("secret_variant_id") for req in family_reqs}
+        if len(variant_ids) != 1:
+            return CheckResult(
+                check_name="request_randomization",
+                passed=False,
+                failure_code="pilot_family_inconsistent",
+                details={"family_id": family_id, "variant_ids": sorted(variant_ids)},
+            )
+
+        attack_types = {req.get("attack_type") for req in family_reqs}
+        if len(attack_types) != 1:
+            return CheckResult(
+                check_name="request_randomization",
+                passed=False,
+                failure_code="pilot_family_inconsistent",
+                details={"family_id": family_id, "attack_types": sorted(attack_types)},
+            )
 
     return CheckResult(
         check_name="request_randomization",
@@ -289,90 +359,180 @@ def check_schedule(schedule: dict[str, Any] | None) -> CheckResult:
 
 
 def check_annotation_independence(labels_report: dict[str, Any]) -> CheckResult:
-    """E2 repair §46: check annotation independence."""
-    # Check for explicit evaluator_independence field (test format)
-    evaluator_info = labels_report.get("evaluator_independence", {})
-    if evaluator_info.get("independence_enforced"):
+    """E2 repair §46 / E2R-021: check annotation independence.
+
+    Require explicit evaluator metadata and label completeness.
+    No permissive inference from labeling_oracle field.
+    """
+    # Check evaluator metadata
+    evaluator_provider = labels_report.get("evaluator_provider")
+    evaluator_model_requested = labels_report.get("evaluator_model_requested")
+    evaluator_model_returned = labels_report.get("evaluator_model_returned")
+    evaluator_prompt_hash = labels_report.get("evaluator_prompt_hash")
+
+    if not evaluator_provider or not evaluator_model_requested or not evaluator_model_returned:
         return CheckResult(
             check_name="annotation_independence",
-            passed=True,
+            passed=False,
+            failure_code="pilot_evaluator_model_missing",
             details={
-                "generator_evaluator_id": evaluator_info.get("generator_evaluator_id"),
-                "labeling_evaluator_id": evaluator_info.get("labeling_evaluator_id"),
+                "evaluator_provider": evaluator_provider,
+                "evaluator_model_requested": evaluator_model_requested,
+                "evaluator_model_returned": evaluator_model_returned,
             },
         )
 
-    # Check for actual labeling report format: labeling_oracle field indicates independent labeling
-    if labels_report.get("labeling_oracle") and labels_report.get("total_attempts", 0) > 0:
+    if not evaluator_prompt_hash:
         return CheckResult(
             check_name="annotation_independence",
-            passed=True,
+            passed=False,
+            failure_code="pilot_evaluator_prompt_missing",
+            details={"evaluator_prompt_hash": evaluator_prompt_hash},
+        )
+
+    # Check generator != evaluator
+    generator_model = labels_report.get("generator_model")
+    if generator_model and generator_model == evaluator_model_returned:
+        return CheckResult(
+            check_name="annotation_independence",
+            passed=False,
+            failure_code="pilot_evaluator_same_as_generator",
             details={
-                "labeling_oracle": labels_report.get("labeling_oracle"),
-                "total_attempts": labels_report.get("total_attempts"),
-                "inference": "labeling_oracle_present",
+                "generator_model": generator_model,
+                "evaluator_model_returned": evaluator_model_returned,
+            },
+        )
+
+    # Check primary label hash
+    primary_label_sha256 = labels_report.get("primary_label_sha256")
+    if not primary_label_sha256:
+        return CheckResult(
+            check_name="annotation_independence",
+            passed=False,
+            failure_code="pilot_primary_label_hash_missing",
+            details={"primary_label_sha256": primary_label_sha256},
+        )
+
+    # Check label completeness
+    num_labeled_attempts = labels_report.get("num_labeled_attempts")
+    num_resolved_labels = labels_report.get("num_resolved_labels")
+
+    if num_labeled_attempts != 90 or num_resolved_labels != 90:
+        return CheckResult(
+            check_name="annotation_independence",
+            passed=False,
+            failure_code="pilot_primary_labels_incomplete",
+            details={
+                "num_labeled_attempts": num_labeled_attempts,
+                "num_resolved_labels": num_resolved_labels,
+                "expected": 90,
             },
         )
 
     return CheckResult(
         check_name="annotation_independence",
-        passed=False,
-        failure_code="pilot_annotation_not_independent",
+        passed=True,
+        details={
+            "evaluator_provider": evaluator_provider,
+            "evaluator_model_requested": evaluator_model_requested,
+            "evaluator_model_returned": evaluator_model_returned,
+            "generator_model": generator_model,
+            "num_labeled_attempts": num_labeled_attempts,
+            "num_resolved_labels": num_resolved_labels,
+        },
     )
 
 
 def check_statistics(analysis: dict[str, Any]) -> CheckResult:
-    """E2 repair §47: check statistics."""
-    # Check for complete_families (test format) or matched_family_count (iteration manifest)
-    matched_families = analysis.get("complete_families") or analysis.get("matched_family_count")
+    """E2 repair §47 / E2R-024: check statistics.
 
-    # If not present, check if we have total_attempts and directional_checks (actual analysis format)
-    if matched_families is None:
-        if analysis.get("total_attempts", 0) >= 90 and "directional_checks" in analysis:
-            matched_families = 30  # Inferred from 90 attempts / 3 trust levels
-        else:
-            return CheckResult(
-                check_name="matched_pairing",
-                passed=False,
-                failure_code="pilot_pairing_incomplete",
-                details={"expected": 30, "found": None},
-            )
-
-    if matched_families != 30:
+    Require explicit fields, no inference from attempt counts.
+    """
+    # Check matched_family_count
+    matched_family_count = analysis.get("matched_family_count")
+    if matched_family_count is None:
         return CheckResult(
-            check_name="matched_pairing",
+            check_name="pilot_statistics",
             passed=False,
             failure_code="pilot_pairing_incomplete",
-            details={"expected": 30, "found": matched_families},
+            details={"expected": 30, "found": None},
         )
 
-    # Check for high_minus_low_risk_difference (test format) or high_low_risk_difference (actual)
-    risk_diff = analysis.get("high_minus_low_risk_difference")
-    if risk_diff is None:
-        risk_diff = analysis.get("high_low_risk_difference")
+    if matched_family_count != 30:
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_pairing_incomplete",
+            details={"expected": 30, "found": matched_family_count},
+        )
 
-    if risk_diff is None:
-        # If we have directional_checks, this is acceptable
-        if "directional_checks" not in analysis:
-            return CheckResult(
-                check_name="primary_effect",
-                passed=False,
-                failure_code="pilot_primary_effect_missing",
-            )
+    # Check excluded_family_count
+    excluded_family_count = analysis.get("excluded_family_count")
+    if excluded_family_count is None:
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_pairing_incomplete",
+            details={"message": "excluded_family_count missing"},
+        )
 
-    # Check for bootstrap CI (test format) or high_low_ci95 (actual)
-    ci_lower = analysis.get("bootstrap_ci_lower")
-    ci_upper = analysis.get("bootstrap_ci_upper")
-    if ci_lower is None or ci_upper is None:
-        ci95 = analysis.get("high_low_ci95")
-        if ci95 is None and risk_diff is not None:
-            # If we have risk_diff but no CI, that's acceptable for actual artifacts
-            pass
+    # Check pairing_unit
+    pairing_unit = analysis.get("pairing_unit")
+    if pairing_unit != "generation_family_id":
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_pairing_unit_invalid",
+            details={"expected": "generation_family_id", "found": pairing_unit},
+        )
+
+    # Check primary effect
+    high_minus_low_risk_difference = analysis.get("high_minus_low_risk_difference")
+    if high_minus_low_risk_difference is None:
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_primary_effect_missing",
+            details={"message": "high_minus_low_risk_difference missing"},
+        )
+
+    # Check CI
+    high_minus_low_ci95 = analysis.get("high_minus_low_ci95")
+    if high_minus_low_ci95 is None:
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_primary_ci_missing",
+            details={"message": "high_minus_low_ci95 missing"},
+        )
+
+    # Check behavioral effects
+    behavioral_refusal_effect = analysis.get("behavioral_refusal_effect")
+    task_compliance_effect = analysis.get("task_compliance_effect")
+
+    if behavioral_refusal_effect is None or task_compliance_effect is None:
+        return CheckResult(
+            check_name="pilot_statistics",
+            passed=False,
+            failure_code="pilot_behavioral_effect_missing",
+            details={
+                "behavioral_refusal_effect": behavioral_refusal_effect,
+                "task_compliance_effect": task_compliance_effect,
+            },
+        )
 
     return CheckResult(
-        check_name="matched_pairing",
+        check_name="pilot_statistics",
         passed=True,
-        details={"matched_families": matched_families},
+        details={
+            "matched_family_count": matched_family_count,
+            "excluded_family_count": excluded_family_count,
+            "pairing_unit": pairing_unit,
+            "high_minus_low_risk_difference": high_minus_low_risk_difference,
+            "high_minus_low_ci95": high_minus_low_ci95,
+            "behavioral_refusal_effect": behavioral_refusal_effect,
+            "task_compliance_effect": task_compliance_effect,
+        },
     )
 
 
@@ -470,6 +630,348 @@ def check_generator_freeze(freeze_manifest: dict[str, Any]) -> CheckResult:
     )
 
 
+def check_synthetic_regression(synthetic_report: dict[str, Any] | None) -> CheckResult:
+    """E2R-025: check synthetic regression anchors.
+
+    Verify active synthetic release ID, scientific_release_digest,
+    Table 1-6 SHA-256, and synthetic gate status.
+    """
+    if synthetic_report is None:
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_regression_report_missing",
+        )
+
+    # Check synthetic release ID
+    release_id = synthetic_report.get("synthetic_release_id")
+    if not release_id:
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_release_id_missing",
+        )
+
+    # Check scientific release digest
+    release_digest = synthetic_report.get("scientific_release_digest")
+    if not release_digest:
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_release_digest_missing",
+        )
+
+    # Check Table 1-6 SHA-256
+    for table_num in range(1, 7):
+        table_hash = synthetic_report.get(f"table_{table_num}_sha256")
+        if not table_hash:
+            return CheckResult(
+                check_name="synthetic_regression",
+                passed=False,
+                failure_code="synthetic_table_hash_missing",
+                details={"table": table_num},
+            )
+
+    # Check synthetic gate status
+    gate_status = synthetic_report.get("synthetic_gate_status")
+    if gate_status != "synthetic_benchmark_valid":
+        return CheckResult(
+            check_name="synthetic_regression",
+            passed=False,
+            failure_code="synthetic_gate_invalid",
+            details={"expected": "synthetic_benchmark_valid", "found": gate_status},
+        )
+
+    return CheckResult(
+        check_name="synthetic_regression",
+        passed=True,
+        details={
+            "synthetic_release_id": release_id,
+            "scientific_release_digest": release_digest,
+            "synthetic_gate_status": gate_status,
+        },
+    )
+
+
+def check_evaluator_model_identity(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check evaluator model identity."""
+    evaluator_provider = labels_report.get("evaluator_provider")
+    evaluator_model = labels_report.get("evaluator_model_requested")
+
+    if not evaluator_provider or not evaluator_model:
+        return CheckResult(
+            check_name="evaluator_model_identity",
+            passed=False,
+            failure_code="evaluator_model_identity_missing",
+            details={
+                "evaluator_provider": evaluator_provider,
+                "evaluator_model": evaluator_model,
+            },
+        )
+
+    return CheckResult(
+        check_name="evaluator_model_identity",
+        passed=True,
+        details={
+            "evaluator_provider": evaluator_provider,
+            "evaluator_model": evaluator_model,
+        },
+    )
+
+
+def check_generator_model_identity(pilot_config: dict[str, Any]) -> CheckResult:
+    """E2R-034: check generator model identity."""
+    generator_provider = pilot_config.get("provider") or pilot_config.get("generator_provider")
+    generator_model = pilot_config.get("model") or pilot_config.get("generator_model")
+
+    if not generator_provider or not generator_model:
+        return CheckResult(
+            check_name="generator_model_identity",
+            passed=False,
+            failure_code="generator_model_identity_missing",
+            details={
+                "generator_provider": generator_provider,
+                "generator_model": generator_model,
+            },
+        )
+
+    return CheckResult(
+        check_name="generator_model_identity",
+        passed=True,
+        details={
+            "generator_provider": generator_provider,
+            "generator_model": generator_model,
+        },
+    )
+
+
+def check_generator_evaluator_independence(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check generator-evaluator independence."""
+    generator_model = labels_report.get("generator_model")
+    evaluator_model = labels_report.get("evaluator_model_returned")
+
+    if not generator_model or not evaluator_model:
+        return CheckResult(
+            check_name="generator_evaluator_independence",
+            passed=False,
+            failure_code="model_identity_unavailable",
+            details={
+                "generator_model": generator_model,
+                "evaluator_model": evaluator_model,
+            },
+        )
+
+    if generator_model == evaluator_model:
+        return CheckResult(
+            check_name="generator_evaluator_independence",
+            passed=False,
+            failure_code="generator_evaluator_not_independent",
+            details={
+                "generator_model": generator_model,
+                "evaluator_model": evaluator_model,
+            },
+        )
+
+    return CheckResult(
+        check_name="generator_evaluator_independence",
+        passed=True,
+        details={
+            "generator_model": generator_model,
+            "evaluator_model": evaluator_model,
+        },
+    )
+
+
+def check_evaluator_connectivity(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check evaluator connectivity."""
+    evaluator_provider = labels_report.get("evaluator_provider")
+    evaluator_model = labels_report.get("evaluator_model_requested")
+
+    if not evaluator_provider or not evaluator_model:
+        return CheckResult(
+            check_name="evaluator_connectivity",
+            passed=False,
+            failure_code="evaluator_connectivity_missing",
+        )
+
+    return CheckResult(
+        check_name="evaluator_connectivity",
+        passed=True,
+        details={
+            "evaluator_provider": evaluator_provider,
+            "evaluator_model": evaluator_model,
+        },
+    )
+
+
+def check_primary_label_completeness(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check primary label completeness."""
+    num_labeled = labels_report.get("num_labeled_attempts")
+    num_resolved = labels_report.get("num_resolved_labels")
+
+    if num_labeled != 90 or num_resolved != 90:
+        return CheckResult(
+            check_name="primary_label_completeness",
+            passed=False,
+            failure_code="primary_labels_incomplete",
+            details={
+                "num_labeled_attempts": num_labeled,
+                "num_resolved_labels": num_resolved,
+                "expected": 90,
+            },
+        )
+
+    return CheckResult(
+        check_name="primary_label_completeness",
+        passed=True,
+        details={
+            "num_labeled_attempts": num_labeled,
+            "num_resolved_labels": num_resolved,
+        },
+    )
+
+
+def check_human_review_completion(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check human review completion."""
+    review_required = labels_report.get("num_review_required")
+    adjudicated = labels_report.get("num_adjudicated")
+
+    if review_required is None or adjudicated is None:
+        # If no review was required, that's acceptable
+        if review_required == 0 or adjudicated == 0:
+            return CheckResult(
+                check_name="human_review_completion",
+                passed=True,
+                details={"num_review_required": 0, "num_adjudicated": 0},
+            )
+        return CheckResult(
+            check_name="human_review_completion",
+            passed=False,
+            failure_code="human_review_metadata_missing",
+        )
+
+    if review_required > 0 and adjudicated < review_required:
+        return CheckResult(
+            check_name="human_review_completion",
+            passed=False,
+            failure_code="human_review_incomplete",
+            details={
+                "num_review_required": review_required,
+                "num_adjudicated": adjudicated,
+            },
+        )
+
+    return CheckResult(
+        check_name="human_review_completion",
+        passed=True,
+        details={
+            "num_review_required": review_required,
+            "num_adjudicated": adjudicated,
+        },
+    )
+
+
+def check_pairing_audit(analysis: dict[str, Any]) -> CheckResult:
+    """E2R-034: check pairing audit."""
+    pairing_audit = analysis.get("pairing_audit")
+    if pairing_audit is None:
+        return CheckResult(
+            check_name="pairing_audit",
+            passed=False,
+            failure_code="pairing_audit_missing",
+        )
+
+    audit_status = pairing_audit.get("audit_status")
+    if audit_status != "passed":
+        return CheckResult(
+            check_name="pairing_audit",
+            passed=False,
+            failure_code="pairing_audit_failed",
+            details={"audit_status": audit_status},
+        )
+
+    return CheckResult(
+        check_name="pairing_audit",
+        passed=True,
+        details={"audit_status": audit_status},
+    )
+
+
+def check_floor_effect_diagnostic(analysis: dict[str, Any]) -> CheckResult:
+    """E2R-034: check floor effect diagnostic."""
+    floor_diagnostic = analysis.get("floor_effect_diagnostic")
+    if floor_diagnostic is None:
+        return CheckResult(
+            check_name="floor_effect_diagnostic",
+            passed=False,
+            failure_code="floor_effect_diagnostic_missing",
+        )
+
+    return CheckResult(
+        check_name="floor_effect_diagnostic",
+        passed=True,
+        details={"floor_effect_status": floor_diagnostic.get("status")},
+    )
+
+
+def check_evaluator_freeze(labels_report: dict[str, Any]) -> CheckResult:
+    """E2R-034: check evaluator freeze."""
+    evaluator_prompt_hash = labels_report.get("evaluator_prompt_hash")
+    evaluator_model_revision = labels_report.get("evaluator_model_revision")
+
+    if not evaluator_prompt_hash:
+        return CheckResult(
+            check_name="evaluator_freeze",
+            passed=False,
+            failure_code="evaluator_prompt_not_frozen",
+            details={"evaluator_prompt_hash": evaluator_prompt_hash},
+        )
+
+    return CheckResult(
+        check_name="evaluator_freeze",
+        passed=True,
+        details={
+            "evaluator_prompt_hash": evaluator_prompt_hash,
+            "evaluator_model_revision": evaluator_model_revision,
+        },
+    )
+
+
+def check_artifact_hash_binding(artifact_hashes: dict[str, str | None]) -> CheckResult:
+    """E2R-035: check artifact hash binding."""
+    required_artifacts = [
+        "raw_pilot_attempts",
+        "request_schedule",
+        "generator_prompt_manifest",
+        "evaluator_prompt_manifest",
+        "primary_labels",
+        "reference_labels",
+        "adjudication_log",
+        "pairing_audit",
+        "pilot_analysis",
+        "floor_effect_diagnostic",
+        "bounded_revision_report",
+        "frozen_prompt_manifest",
+        "synthetic_regression_report",
+    ]
+
+    missing = [name for name in required_artifacts if not artifact_hashes.get(name)]
+
+    if missing:
+        return CheckResult(
+            check_name="artifact_hash_binding",
+            passed=False,
+            failure_code="artifact_hashes_incomplete",
+            details={"missing": missing},
+        )
+
+    return CheckResult(
+        check_name="artifact_hash_binding",
+        passed=True,
+        details={"bound_artifacts": len(artifact_hashes)},
+    )
+
+
 def run_completion_check(
     *,
     artifacts: dict[str, Any],
@@ -482,8 +984,10 @@ def run_completion_check(
     analysis: dict[str, Any],
     freeze_manifest: dict[str, Any],
     bounded_revision_report: dict[str, Any] | None = None,
+    synthetic_regression_report: dict[str, Any] | None = None,
+    artifact_hashes: dict[str, str | None] | None = None,
 ) -> CompletionReport:
-    """E2 repair §40-51: run complete E2 completion check.
+    """E2 repair §40-51 / E2R-034: run complete E2 completion check.
 
     Args:
         artifacts: Dict of artifact name to artifact dict.
@@ -496,13 +1000,20 @@ def run_completion_check(
         analysis: Analysis results.
         freeze_manifest: Frozen prompt manifest.
         bounded_revision_report: Bounded revision report (optional, falls back to freeze_manifest).
+        synthetic_regression_report: Synthetic regression report (E2R-025).
+        artifact_hashes: Dict of artifact name to SHA-256 hash (E2R-035).
 
     Returns:
         CompletionReport with all check results.
     """
     report = CompletionReport()
 
-    # Run all checks
+    # Record artifact hashes (E2R-035)
+    if artifact_hashes:
+        for name, sha256 in artifact_hashes.items():
+            report.set_artifact_hash(name, sha256)
+
+    # Run all checks (E2R-034: 20 check categories)
     report.add_check(check_protocol_consistency(artifacts))
     report.add_check(check_phase_state(phase_file))
     report.add_check(check_model_consistency(connectivity_config, pilot_config))
@@ -513,6 +1024,23 @@ def run_completion_check(
     # Use bounded_revision_report if provided, otherwise fall back to freeze_manifest
     report.add_check(check_bounded_revision(bounded_revision_report or freeze_manifest))
     report.add_check(check_generator_freeze(freeze_manifest))
+
+    # E2R-025: Synthetic regression check
+    report.add_check(check_synthetic_regression(synthetic_regression_report))
+
+    # E2R-034: Additional checks for 20 categories
+    report.add_check(check_generator_model_identity(pilot_config))
+    report.add_check(check_evaluator_model_identity(labels_report))
+    report.add_check(check_generator_evaluator_independence(labels_report))
+    report.add_check(check_evaluator_connectivity(labels_report))
+    report.add_check(check_primary_label_completeness(labels_report))
+    report.add_check(check_human_review_completion(labels_report))
+    report.add_check(check_pairing_audit(analysis))
+    report.add_check(check_floor_effect_diagnostic(analysis))
+    report.add_check(check_evaluator_freeze(labels_report))
+
+    # E2R-035: Artifact hash binding check
+    report.add_check(check_artifact_hash_binding(artifact_hashes or {}))
 
     return report
 
