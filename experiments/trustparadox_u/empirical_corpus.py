@@ -41,12 +41,123 @@ EMPIRICAL_SCHEMA_VERSION = "1.0.0"
 EMPIRICAL_PROTOCOL_VERSION = "2.0.0"
 EMPIRICAL_STUDY_VERSION = "2.0.0"
 
+# E2R-001: frozen model-role contract.
+# G = primary candidate-message generator; J = independent evaluator.
+GENERATOR_MODEL_IDENTITY = "qwen3.7-plus"
+EVALUATOR_MODEL_IDENTITY = "qwen3.8-max"
+GENERATOR_ROLE = "G"
+EVALUATOR_ROLE = "J"
+
+#: E2R-001: required provenance fields for generator (G) and evaluator (J).
+GENERATOR_PROVENANCE_FIELDS: tuple[str, ...] = (
+    "generator_provider",
+    "generator_model_requested",
+    "generator_model_returned",
+    "generator_model_revision",
+    "generator_transport",
+    "generator_temperature",
+    "generator_max_tokens",
+    "generator_seed",
+    "generator_system_prompt_hash",
+    "generator_user_prompt_hash",
+    "request_id",
+    "retry_index",
+    "generated_at",
+)
+
+EVALUATOR_PROVENANCE_FIELDS: tuple[str, ...] = (
+    "evaluator_provider",
+    "evaluator_model_requested",
+    "evaluator_model_returned",
+    "evaluator_model_revision",
+    "evaluator_transport",
+    "evaluator_temperature",
+    "evaluator_max_tokens",
+    "evaluator_seed",
+    "evaluator_system_prompt_hash",
+    "evaluator_user_prompt_hash",
+    "evaluator_request_id",
+    "evaluator_retry_index",
+    "evaluated_at",
+)
+
+#: E2R-001: required failure codes for model-ID resolution gate.
+EVALUATOR_FAILURE_CODES: tuple[str, ...] = (
+    "evaluator_model_missing",
+    "evaluator_model_resolution_failed",
+    "generator_evaluator_same_model",
+    "evaluator_model_requested_returned_mismatch",
+    "evaluator_model_revision_missing",
+    "evaluator_transport_missing",
+)
+
+
+
+def validate_model_role_contract(
+    *,
+    generator_provider: str | None,
+    generator_model: str | None,
+    evaluator_provider: str | None,
+    evaluator_model_requested: str | None,
+    evaluator_model_returned: str | None,
+    evaluator_transport: str | None = None,
+    evaluator_model_revision: str | None = None,
+) -> list[str]:
+    """E2R-001: validate the G/J model-role contract.
+
+    Returns a list of failure codes from EVALUATOR_FAILURE_CODES.
+    An empty list means the contract is satisfied.
+    """
+    failures: list[str] = []
+
+    # Generator identity must be available.
+    if not generator_provider or not generator_model:
+        failures.append("evaluator_model_missing")
+        return failures
+
+    # Evaluator identity must be available.
+    if not evaluator_provider or not evaluator_model_requested:
+        failures.append("evaluator_model_missing")
+        return failures
+
+    # Returned model must be resolvable.
+    if not evaluator_model_returned:
+        failures.append("evaluator_model_resolution_failed")
+        return failures
+
+    # Transport must be recorded.
+    if not evaluator_transport:
+        failures.append("evaluator_transport_missing")
+
+    # Model revision should be recorded (may be None if provider doesn't expose it).
+    if evaluator_model_revision is None:
+        failures.append("evaluator_model_revision_missing")
+
+    # Requested vs returned mismatch.
+    requested_name = evaluator_model_requested.split("/")[-1]
+    returned_name = evaluator_model_returned.split("/")[-1]
+    if requested_name not in returned_name and returned_name not in requested_name:
+        failures.append("evaluator_model_requested_returned_mismatch")
+
+    # G != J: generator and evaluator must be provably distinct.
+    gen_identity = f"{generator_provider}/{generator_model}".split("/")[-1]
+    eval_identity = f"{evaluator_provider}/{evaluator_model_returned}".split("/")[-1]
+    if gen_identity == eval_identity:
+        failures.append("generator_evaluator_same_model")
+
+    return failures
+
+
+#: E2R-001: frozen E2 research status terminology.
+E2_RESEARCH_STATUS = "empirical_pilot_complete"
+
 
 # E2-001: the empirical phase is a validated enum, never a free string.
 class EmpiricalPhase(str, Enum):
     E1_FOUNDATION = "E1_FOUNDATION"
     E2_TRUST_PILOT = "E2_TRUST_PILOT"
     E2_PROMPTS_FROZEN = "E2_PROMPTS_FROZEN"
+    E2_COMPLETE = "E2_COMPLETE"
     E3_CORPUS_GENERATION = "E3_CORPUS_GENERATION"
 
 
@@ -160,7 +271,7 @@ def _validated(enum_type: type[Enum], value: str, field_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-#: E2-001: phases in which only the development split may be generated.
+#: E2R-001: E2_COMPLETE is not a development-only phase; it authorizes E3.
 DEVELOPMENT_ONLY_PHASES: frozenset[EmpiricalPhase] = frozenset(
     {
         EmpiricalPhase.E1_FOUNDATION,
