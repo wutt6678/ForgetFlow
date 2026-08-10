@@ -29,6 +29,7 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_model_consistency,
     check_pairing_audit,
     check_phase_state,
+    check_primary_effect_consistency,
     check_primary_label_completeness,
     check_primary_label_file_completeness,
     check_primary_pilot_task,
@@ -575,8 +576,22 @@ class TestRunCompletionCheck:
             "pairing_unit": "generation_family_id",
             "high_minus_low_risk_difference": 0.15,
             "high_minus_low_ci95": [0.05, 0.25],
+            "high_minus_low_refusal_effect": 0.10,
+            "high_minus_low_refusal_ci95": [0.0, 0.20],
+            "high_minus_low_task_compliance_effect": 0.12,
+            "high_minus_low_task_compliance_ci95": [0.02, 0.22],
             "behavioral_refusal_effect": 0.10,
             "task_compliance_effect": 0.12,
+            "paired_effects": {
+                "high_minus_low": {
+                    "disclosure_risk_difference": 0.15,
+                    "disclosure_ci95": [0.05, 0.25],
+                    "refusal_risk_difference": 0.10,
+                    "refusal_ci95": [0.0, 0.20],
+                    "task_compliance_risk_difference": 0.12,
+                    "task_compliance_ci95": [0.02, 0.22],
+                },
+            },
             "pairing_audit": {"audit_status": "passed"},
             "floor_effect_diagnostic": {"status": "floor_effect_detected"},
         }
@@ -712,7 +727,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 34
+        assert len(report.checks) == 35
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -2545,3 +2560,125 @@ class TestFrozenManifestConsistency:
             adjudication_path=tmp_path / "no_adj.jsonl",
         )
         assert result.passed is True
+
+
+# ---------------------------------------------------------------------------
+# E2-A7-FIX-031: CI endpoint regression tests
+# ---------------------------------------------------------------------------
+
+
+def _make_analysis_with_paired(
+    *,
+    disclosure_rd: float = 0.0,
+    disclosure_ci: list[float] | None = None,
+    refusal_rd: float = 0.0,
+    refusal_ci: list[float] | None = None,
+    compliance_rd: float = 0.0333,
+    compliance_ci: list[float] | None = None,
+    top_disclosure_rd: float | None = None,
+    top_disclosure_ci: list[float] | None = None,
+    top_refusal_rd: float | None = None,
+    top_refusal_ci: list[float] | None = None,
+    top_compliance_rd: float | None = None,
+    top_compliance_ci: list[float] | None = None,
+) -> dict:
+    """Build an analysis dict with paired_effects and top-level fields."""
+    if disclosure_ci is None:
+        disclosure_ci = [0.0, 0.0]
+    if refusal_ci is None:
+        refusal_ci = [-0.1, 0.1]
+    if compliance_ci is None:
+        compliance_ci = [-0.0667, 0.1333]
+
+    analysis: dict = {
+        "paired_effects": {
+            "high_minus_low": {
+                "disclosure_risk_difference": disclosure_rd,
+                "disclosure_ci95": disclosure_ci,
+                "refusal_risk_difference": refusal_rd,
+                "refusal_ci95": refusal_ci,
+                "task_compliance_risk_difference": compliance_rd,
+                "task_compliance_ci95": compliance_ci,
+            },
+        },
+    }
+    # Add top-level fields (explicit overrides or defaults from paired)
+    if top_disclosure_rd is not None:
+        analysis["high_minus_low_risk_difference"] = top_disclosure_rd
+    else:
+        analysis["high_minus_low_risk_difference"] = disclosure_rd
+    if top_disclosure_ci is not None:
+        analysis["high_minus_low_ci95"] = top_disclosure_ci
+    else:
+        analysis["high_minus_low_ci95"] = disclosure_ci
+    if top_refusal_rd is not None:
+        analysis["high_minus_low_refusal_effect"] = top_refusal_rd
+    else:
+        analysis["high_minus_low_refusal_effect"] = refusal_rd
+    if top_refusal_ci is not None:
+        analysis["high_minus_low_refusal_ci95"] = top_refusal_ci
+    else:
+        analysis["high_minus_low_refusal_ci95"] = refusal_ci
+    if top_compliance_rd is not None:
+        analysis["high_minus_low_task_compliance_effect"] = top_compliance_rd
+    else:
+        analysis["high_minus_low_task_compliance_effect"] = compliance_rd
+    if top_compliance_ci is not None:
+        analysis["high_minus_low_task_compliance_ci95"] = top_compliance_ci
+    else:
+        analysis["high_minus_low_task_compliance_ci95"] = compliance_ci
+    return analysis
+
+
+def test_fix031_disclosure_ci_matches_paired() -> None:
+    """E2-A7-FIX-031: primary disclosure top-level CI == paired disclosure CI."""
+    analysis = _make_analysis_with_paired(
+        disclosure_ci=[0.0, 0.0],
+    )
+    result = check_primary_effect_consistency(analysis)
+    assert result.passed is True
+
+
+def test_fix031_refusal_ci_cannot_substitute_for_disclosure() -> None:
+    """E2-A7-FIX-031: refusal CI in disclosure field must fail."""
+    analysis = _make_analysis_with_paired(
+        disclosure_ci=[0.0, 0.0],
+        refusal_ci=[-0.1, 0.1],
+        top_disclosure_ci=[-0.1, 0.1],  # BUG: refusal CI in disclosure field
+    )
+    result = check_primary_effect_consistency(analysis)
+    assert result.passed is False
+    assert result.failure_code == "primary_effect_field_mismatch"
+
+
+def test_fix031_all_endpoints_consistent() -> None:
+    """E2-A7-FIX-031: all three endpoints match paired_effects."""
+    analysis = _make_analysis_with_paired(
+        disclosure_rd=0.0,
+        disclosure_ci=[0.0, 0.0],
+        refusal_rd=0.0,
+        refusal_ci=[-0.1, 0.1],
+        compliance_rd=0.0333,
+        compliance_ci=[-0.0667, 0.1333],
+    )
+    result = check_primary_effect_consistency(analysis)
+    assert result.passed is True
+
+
+def test_fix031_compliance_mismatch_detected() -> None:
+    """E2-A7-FIX-031: compliance effect mismatch must fail."""
+    analysis = _make_analysis_with_paired(
+        compliance_rd=0.0333,
+        top_compliance_rd=0.999,  # wrong value
+    )
+    result = check_primary_effect_consistency(analysis)
+    assert result.passed is False
+    assert result.failure_code == "primary_effect_field_mismatch"
+
+
+def test_fix031_missing_paired_effects() -> None:
+    """E2-A7-FIX-031: missing paired_effects section must fail."""
+    analysis: dict = {"high_minus_low_risk_difference": 0.0}
+    result = check_primary_effect_consistency(analysis)
+    assert result.passed is False
+    assert result.failure_code == "paired_effects_missing"

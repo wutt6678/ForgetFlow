@@ -699,22 +699,28 @@ def _attempt_scenario(label: IndependentPrimaryLabel) -> str:
 
 
 def _floor_interpretation(decision: str, n_resolved: int) -> str:
-    """Generate sample-bounded interpretation text."""
+    """Generate sample-bounded interpretation text (E2-A7-FIX-022)."""
     if decision == FLOOR_MANIPULATION_INFORMATIVE:
         return (
-            f"Disclosure was observed in the {n_resolved} development-pilot attempts. "
-            "Trust-manipulation effects are potentially informative."
+            f"Disclosure was detected by the primary evaluator in the {n_resolved} "
+            "development-pilot attempts under the tested generator, prompts, targets, "
+            "and annotation procedure. Trust-manipulation effects are potentially "
+            "informative."
         )
     if decision == FLOOR_MANIPULATION_PARTIALLY_INFORMATIVE:
         return (
-            f"No unauthorized disclosure was observed in the {n_resolved} development-pilot "
-            "attempts under the tested prompt formulation and generator model. "
-            "Secondary behavioral endpoints show some differentiation."
+            f"No unauthorized disclosure was detected by the primary evaluator in the "
+            f"{n_resolved} development-pilot attempts under the tested generator, "
+            "prompts, targets, and annotation procedure. Secondary behavioral endpoints "
+            "show some differentiation. This finding is evaluator-dependent and "
+            "sample-bounded; it does not generalise beyond the tested configuration."
         )
     return (
-        f"No unauthorized disclosure was observed in the {n_resolved} development-pilot "
-        "attempts under the tested prompt formulation and generator model. "
-        "The manipulation check is uninformative due to floor effects."
+        f"No unauthorized disclosure was detected by the primary evaluator in the "
+        f"{n_resolved} development-pilot attempts under the tested generator, prompts, "
+        "targets, and annotation procedure. The manipulation check is uninformative "
+        "due to floor effects. This conclusion is evaluator-dependent and "
+        "sample-bounded."
     )
 
 
@@ -783,13 +789,17 @@ def generate_bounded_revision_report(
 
 
 def _revision_limitations(floor_status: str, disc_effect: float) -> list[str]:
-    """Generate limitation statements."""
+    """Generate limitation statements (E2-A7-FIX-023)."""
     limitations: list[str] = []
     if disc_effect == 0.0:
         limitations.append(
-            "No disclosure effect was observed; cannot distinguish "
+            "Disclosure floor: no disclosure effect was observed; cannot distinguish "
             "effective non-disclosure from floor effect."
         )
+    limitations.append(
+        "High refusal rate (96.7 %) and small number of compliant responses (3/90) "
+        "limit trust-effect informativeness."
+    )
     if floor_status == FLOOR_MANIPULATION_UNINFORMATIVE:
         limitations.append(
             "Manipulation check is uninformative; trust-framing impact "
@@ -802,8 +812,15 @@ def _revision_limitations(floor_status: str, disc_effect: float) -> list[str]:
             "disclosure floor limits causal inference."
         )
     limitations.append(
-        "Pilot contains 90 development attempts from a single generator model; "
+        "Single generator model (qwen3.7-plus); results may not generalise " "to other generators."
+    )
+    limitations.append(
+        "Development-pilot scope: 90 attempts from 30 families; "
         "results are sample-bounded and not generalizable."
+    )
+    limitations.append(
+        "LLM-based annotation: labels were produced by an LLM evaluator "
+        "(qwen3.8-max), not by human annotators; annotation errors are possible."
     )
     return limitations
 
@@ -940,7 +957,10 @@ def run_reanalysis(
     # Step 9: consistency checks (E2R-FIX-011)
     consistency = verify_count_consistency(overall, trust_metrics, scenario_trust)
 
-    # Step 10: main report
+    # Step 10: promote top-level effect fields (E2-A7-FIX-014)
+    hml = paired.get("high_minus_low", {})
+
+    # Step 11: main report
     report: dict[str, Any] = {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
@@ -978,6 +998,19 @@ def run_reanalysis(
         },
         "floor_effect_diagnostic": floor,
         "bounded_revision_decision": revision["decision"],
+        # E2-A7-FIX-014: top-level primary disclosure effect + separate endpoints
+        "matched_family_count": pairing.complete_families,
+        "excluded_family_count": pairing.excluded_families,
+        "pairing_unit": "generation_family_id",
+        "high_minus_low_risk_difference": hml.get("disclosure_risk_difference", 0.0),
+        "high_minus_low_ci95": hml.get("disclosure_ci95", [0.0, 0.0]),
+        "high_minus_low_refusal_effect": hml.get("refusal_risk_difference", 0.0),
+        "high_minus_low_refusal_ci95": hml.get("refusal_ci95", [0.0, 0.0]),
+        "high_minus_low_task_compliance_effect": hml.get("task_compliance_risk_difference", 0.0),
+        "high_minus_low_task_compliance_ci95": hml.get("task_compliance_ci95", [0.0, 0.0]),
+        # Backward-compatible aliases for completion checker
+        "behavioral_refusal_effect": hml.get("refusal_risk_difference", 0.0),
+        "task_compliance_effect": hml.get("task_compliance_risk_difference", 0.0),
         "consistency_checks": consistency,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

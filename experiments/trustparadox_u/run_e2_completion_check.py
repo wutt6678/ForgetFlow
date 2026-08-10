@@ -1944,6 +1944,87 @@ def check_agreement_validity(
     )
 
 
+def check_primary_effect_consistency(analysis: dict[str, Any]) -> CheckResult:
+    """E2-A7-FIX-015: verify top-level effect fields match paired_effects."""
+    paired = analysis.get("paired_effects")
+    if paired is None:
+        return CheckResult(
+            check_name="primary_effect_consistency",
+            passed=False,
+            failure_code="paired_effects_missing",
+            details={"message": "paired_effects section missing from analysis"},
+        )
+
+    hml = paired.get("high_minus_low", {})
+    mismatches: list[str] = []
+
+    # Disclosure (primary endpoint)
+    top_rd = analysis.get("high_minus_low_risk_difference")
+    paired_rd = hml.get("disclosure_risk_difference")
+    if top_rd is not None and paired_rd is not None and top_rd != paired_rd:
+        mismatches.append(
+            f"high_minus_low_risk_difference: top-level={top_rd}, " f"paired={paired_rd}"
+        )
+
+    top_ci = analysis.get("high_minus_low_ci95")
+    paired_ci = hml.get("disclosure_ci95")
+    if top_ci is not None and paired_ci is not None and list(top_ci) != list(paired_ci):
+        mismatches.append(f"high_minus_low_ci95: top-level={top_ci}, paired={paired_ci}")
+
+    # Refusal
+    top_ref = analysis.get("high_minus_low_refusal_effect")
+    paired_ref = hml.get("refusal_risk_difference")
+    if top_ref is not None and paired_ref is not None and top_ref != paired_ref:
+        mismatches.append(
+            f"high_minus_low_refusal_effect: top-level={top_ref}, " f"paired={paired_ref}"
+        )
+
+    top_ref_ci = analysis.get("high_minus_low_refusal_ci95")
+    paired_ref_ci = hml.get("refusal_ci95")
+    if (
+        top_ref_ci is not None
+        and paired_ref_ci is not None
+        and list(top_ref_ci) != list(paired_ref_ci)
+    ):
+        mismatches.append(
+            f"high_minus_low_refusal_ci95: top-level={top_ref_ci}, " f"paired={paired_ref_ci}"
+        )
+
+    # Task compliance
+    top_tc = analysis.get("high_minus_low_task_compliance_effect")
+    paired_tc = hml.get("task_compliance_risk_difference")
+    if top_tc is not None and paired_tc is not None and top_tc != paired_tc:
+        mismatches.append(
+            f"high_minus_low_task_compliance_effect: top-level={top_tc}, " f"paired={paired_tc}"
+        )
+
+    top_tc_ci = analysis.get("high_minus_low_task_compliance_ci95")
+    paired_tc_ci = hml.get("task_compliance_ci95")
+    if top_tc_ci is not None and paired_tc_ci is not None and list(top_tc_ci) != list(paired_tc_ci):
+        mismatches.append(
+            f"high_minus_low_task_compliance_ci95: top-level={top_tc_ci}, " f"paired={paired_tc_ci}"
+        )
+
+    if mismatches:
+        return CheckResult(
+            check_name="primary_effect_consistency",
+            passed=False,
+            failure_code="primary_effect_field_mismatch",
+            details={"mismatches": mismatches},
+        )
+
+    return CheckResult(
+        check_name="primary_effect_consistency",
+        passed=True,
+        details={
+            "disclosure_rd": top_rd,
+            "disclosure_ci": top_ci,
+            "refusal_rd": top_ref,
+            "compliance_rd": top_tc,
+        },
+    )
+
+
 def check_uncertainty_ci(analysis: dict[str, Any]) -> CheckResult:
     """E2R-FIX-025: check uncertainty/CI presence."""
     paired = analysis.get("paired_effects")
@@ -2781,6 +2862,8 @@ def run_completion_check(
     report.add_check(check_schedule(schedule))
     report.add_check(check_annotation_independence(labels_report))
     report.add_check(check_statistics(analysis))
+    # E2-A7-FIX-015: primary effect consistency
+    report.add_check(check_primary_effect_consistency(analysis))
     # Use bounded_revision_report if provided, otherwise fall back to freeze_manifest
     report.add_check(check_bounded_revision(bounded_revision_report or freeze_manifest))
     report.add_check(check_generator_freeze(freeze_manifest))

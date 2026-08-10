@@ -65,8 +65,8 @@
         "pairing_unit": "generation_family_id",
         "high_minus_low_risk_difference": 0.0,
         "high_minus_low_ci95": [
-          -0.1,
-          0.1
+          0.0,
+          0.0
         ],
         "behavioral_refusal_effect": 0.0,
         "task_compliance_effect": 0.0333
@@ -291,11 +291,21 @@
         "analysis_timestamp": "2026-08-10T12:57:21.767841+00:00"
       }
     },
+    "primary_effect_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "disclosure_rd": 0.0,
+        "disclosure_ci": [0.0, 0.0],
+        "refusal_rd": 0.0,
+        "compliance_rd": 0.0333
+      }
+    },
     "completion_consistency": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "total_checks": 33,
+        "total_checks": 35,
         "all_passed": true
       }
     }
