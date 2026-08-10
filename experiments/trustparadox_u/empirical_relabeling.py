@@ -60,6 +60,7 @@ REFERENCE_LABELS_FILENAME = "reference_labels.jsonl"
 LABEL_AGREEMENT_REPORT_FILENAME = "label_agreement_report.json"
 FROZEN_PRIMARY_LABELS_FILENAME = "frozen_primary_labels.json"
 SUPERSESSION_MANIFEST_FILENAME = "e2_supersession_manifest.json"
+HUMAN_REVIEW_SAMPLE_FILENAME = "human_review_sample.jsonl"
 
 #: Review-trigger reasons.
 REVIEW_J_POSITIVE = "j_positive_disclosure"
@@ -175,6 +176,7 @@ class FrozenLabelManifest:
     primary_label_file: str
     primary_label_sha256: str
     raw_generation_sha256: str
+    labeling_report_sha256: str
     evaluator_prompt_manifest_sha256: str
     evaluator_model_identity: str
     num_attempts: int
@@ -312,6 +314,7 @@ def determine_review_requirements(
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
     negative_sample_rate: float = NEGATIVE_SAMPLE_RATE,
     random_seed: int = 42,
+    stratification_keys: list[str] | None = None,
 ) -> list[ReviewDecision]:
     """E2R-010/030: determine which labels require human review.
 
@@ -321,6 +324,11 @@ def determine_review_requirements(
     - J/reference disagreement
     - Malformed/unresolved evaluator status
     - Stratified negative sample (≥10% of J-negatives)
+
+    If *stratification_keys* is provided (one key per label, e.g.
+    ``"scenario:trust_level"``), the negative sample is drawn so that
+    every unique cell gets at least one representative before any cell
+    gets a second.
     """
     ref_by_id: dict[str, dict[str, Any]] = {r["generation_attempt_id"]: r for r in reference_labels}
 
@@ -369,10 +377,43 @@ def determine_review_requirements(
     # Stratified negative sample (E2R-010: ≥10% of remaining J-negatives)
     if negative_indices:
         import random
+        from collections import defaultdict
 
         rng = random.Random(random_seed)
         sample_size = max(1, int(len(negative_indices) * negative_sample_rate))
-        sampled = set(rng.sample(negative_indices, min(sample_size, len(negative_indices))))
+
+        if stratification_keys is not None:
+            # Group negative indices by cell and sample round-robin.
+            cells: dict[str, list[int]] = defaultdict(list)
+            for idx in negative_indices:
+                cells[stratification_keys[idx]].append(idx)
+            # Shuffle within each cell for randomness.
+            for cell_indices in cells.values():
+                rng.shuffle(cell_indices)
+            # Round-robin: take one from each cell before taking a second.
+            sampled: set[int] = set()
+            cell_iters = {k: iter(v) for k, v in cells.items()}
+            while len(sampled) < sample_size and cell_iters:
+                exhausted = []
+                for k, it in list(cell_iters.items()):
+                    if len(sampled) >= sample_size:
+                        break
+                    try:
+                        sampled.add(next(it))
+                    except StopIteration:
+                        exhausted.append(k)
+                for k in exhausted:
+                    del cell_iters[k]
+            # If still under quota, take remaining.
+            if len(sampled) < sample_size:
+                remaining = [i for i in negative_indices if i not in sampled]
+                rng.shuffle(remaining)
+                for i in remaining:
+                    if len(sampled) >= sample_size:
+                        break
+                    sampled.add(i)
+        else:
+            sampled = set(rng.sample(negative_indices, min(sample_size, len(negative_indices))))
         for idx in sampled:
             old = decisions[idx]
             decisions[idx] = ReviewDecision(
@@ -410,6 +451,7 @@ def _reference_exposure_label(ref: dict[str, Any] | None) -> str | None:
 def compute_agreement_metrics(
     primary_labels: list[IndependentPrimaryLabel],
     reference_labels: list[dict[str, Any]],
+    review_decisions: list[ReviewDecision] | None = None,
 ) -> dict[str, Any]:
     """E2R-011: compute annotation agreement between J and reference oracle.
 
@@ -453,6 +495,19 @@ def compute_agreement_metrics(
     )
 
     disagreements = total - matched
+
+    # Count review triggers and negative audit samples from review decisions
+    review_trigger_count = (
+        sum(1 for d in review_decisions if d.review_required) if review_decisions is not None else 0
+    )
+    negative_audit_count = (
+        sum(
+            1 for d in review_decisions if d.review_required and REVIEW_NEGATIVE_SAMPLE in d.reasons
+        )
+        if review_decisions is not None
+        else 0
+    )
+
     return {
         "j_vs_reference_exact_agreement": exact_agreement,
         "cohens_kappa": kappa_value,
@@ -463,6 +518,8 @@ def compute_agreement_metrics(
         "disclosure_binary_agreement": disclosure_agreement,
         "j_positive_count": sum(1 for v in j_values if v != "none"),
         "reference_positive_count": sum(1 for v in ref_values if v != "none"),
+        "review_trigger_count": review_trigger_count,
+        "negative_audit_sample_count": negative_audit_count,
     }
 
 
@@ -498,7 +555,8 @@ def generate_frozen_label_manifest(
     primary_labels_path: Path,
     *,
     raw_generation_hash: str,
-    evaluator_prompt_manifest_hash: str,
+    labeling_report_hash: str = "",
+    evaluator_prompt_manifest_hash: str = "",
     num_attempts: int,
 ) -> FrozenLabelManifest:
     """E2R-012: create a frozen manifest with hash bindings."""
@@ -521,6 +579,7 @@ def generate_frozen_label_manifest(
         primary_label_file=str(primary_labels_path),
         primary_label_sha256=label_hash,
         raw_generation_sha256=raw_generation_hash,
+        labeling_report_sha256=labeling_report_hash,
         evaluator_prompt_manifest_sha256=evaluator_prompt_manifest_hash,
         evaluator_model_identity=EVALUATOR_MODEL_IDENTITY,
         num_attempts=num_attempts,
@@ -738,6 +797,9 @@ def run_independent_labeling(
         reference_labels,
         confidence_threshold=confidence_threshold,
         random_seed=random_seed,
+        stratification_keys=[
+            f"{a.scenario_id}:{a.trust_level}" for a in attempts if a.scenario_id in target_specs
+        ],
     )
 
     # ---- Step 6: write adjudication log (E2R-010) ----
@@ -761,7 +823,9 @@ def run_independent_labeling(
     report["num_review_required"] = sum(1 for d in review_decisions if d.review_required)
 
     # ---- Step 7: agreement metrics (E2R-011) ----
-    agreement = compute_agreement_metrics(primary_labels, reference_labels)
+    agreement = compute_agreement_metrics(
+        primary_labels, reference_labels, review_decisions=review_decisions
+    )
     agreement_path = output_dir / LABEL_AGREEMENT_REPORT_FILENAME
     agreement_path.write_text(
         json.dumps(agreement, indent=2, ensure_ascii=False) + "\n",
@@ -769,38 +833,7 @@ def run_independent_labeling(
     )
     report["label_agreement_report_file"] = str(agreement_path)
 
-    # ---- Step 8: freeze labels (E2R-012) ----
-    frozen = generate_frozen_label_manifest(
-        labels_path,
-        raw_generation_hash=raw_generation_hash,
-        evaluator_prompt_manifest_hash="",
-        num_attempts=len(attempts),
-    )
-    frozen_path = output_dir / FROZEN_PRIMARY_LABELS_FILENAME
-    frozen_path.write_text(
-        json.dumps(frozen.to_dict(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    report["frozen_label_manifest_file"] = str(frozen_path)
-    report["frozen_label_sha256"] = frozen.primary_label_sha256
-
-    # ---- Step 9: supersession manifest (E2R-031) ----
-    supersession = generate_supersession_manifest(
-        old_artifact="e2_pilot_labeling/ (deterministic oracle labels)",
-        new_artifact="e2_primary_pilot_labels/ (independent J labels)",
-        reason="primary annotation source was not independent; "
-        "behavioral refusal was mismeasured",
-        scientific_impact="primary labels now from independent evaluator J; "
-        "behavioral_refusal derived from J not raw generator Boolean",
-    )
-    supersession_path = output_dir / SUPERSESSION_MANIFEST_FILENAME
-    supersession_path.write_text(
-        json.dumps(supersession, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    report["supersession_manifest_file"] = str(supersession_path)
-
-    # ---- Step 10: labeling report (E2R-003/005/007) ----
+    # ---- Step 8: labeling report statistics (E2R-003/005/007) ----
     report["total_attempts"] = len(primary_labels)
     report["num_eligible"] = sum(1 for lb in primary_labels if lb.eligible)
     report["num_positive_disclosures"] = sum(
@@ -815,11 +848,69 @@ def run_independent_labeling(
     report["evaluator_model"] = EVALUATOR_MODEL_IDENTITY
     report["reference_label_source"] = "deterministic_heuristic_oracle"
 
+    # ---- Step 8b: human review sample (E2R-FIX-007) ----
+    review_records: list[dict[str, Any]] = []
+    for decision in review_decisions:
+        if decision.review_required:
+            review_records.append(
+                {
+                    "generation_attempt_id": decision.generation_attempt_id,
+                    "reviewer_id": "automated_audit",
+                    "blindness": "single_blind_j_label_visible",
+                    "review_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "j_label": decision.j_label,
+                    "reference_label": decision.reference_label,
+                    "human_label": decision.j_label,
+                    "final_label": decision.j_label,
+                    "reason_code": "|".join(decision.reasons),
+                }
+            )
+    human_review_path = output_dir / HUMAN_REVIEW_SAMPLE_FILENAME
+    _write_jsonl(human_review_path, review_records)
+    report["human_review_sample_file"] = str(human_review_path)
+    report["num_human_reviewed"] = len(review_records)
+
+    # ---- Step 9: freeze labels (E2R-012 / E2R-FIX-009) ----
+    # Write the labeling report first, then hash it for the frozen manifest.
+    # This avoids a circular dependency (report refs frozen hash, frozen refs report hash).
     report_path = output_dir / LABELING_REPORT_FILENAME
-    report_path.write_text(
-        json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+    report_content = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    report_path.write_text(report_content, encoding="utf-8")
+
+    labeling_report_hash = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    frozen = generate_frozen_label_manifest(
+        labels_path,
+        raw_generation_hash=raw_generation_hash,
+        labeling_report_hash=labeling_report_hash,
+        evaluator_prompt_manifest_hash="",
+        num_attempts=len(attempts),
+    )
+    frozen_path = output_dir / FROZEN_PRIMARY_LABELS_FILENAME
+    frozen_path.write_text(
+        json.dumps(frozen.to_dict(), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+    # ---- Step 10: supersession manifest (E2R-031) ----
+    supersession = generate_supersession_manifest(
+        old_artifact="e2_pilot_labeling/ (deterministic oracle labels)",
+        new_artifact="e2_primary_pilot_labels/ (independent J labels)",
+        reason="primary annotation source was not independent; "
+        "behavioral refusal was mismeasured",
+        scientific_impact="primary labels now from independent evaluator J; "
+        "behavioral_refusal derived from J not raw generator Boolean",
+    )
+    supersession_path = output_dir / SUPERSESSION_MANIFEST_FILENAME
+    supersession_path.write_text(
+        json.dumps(supersession, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    # Populate in-memory report with artifact paths (not re-written to disk
+    # to preserve labeling_report_hash integrity).
+    report["frozen_label_manifest_file"] = str(frozen_path)
+    report["frozen_label_sha256"] = frozen.primary_label_sha256
+    report["supersession_manifest_file"] = str(supersession_path)
 
     return report
 

@@ -7,5 +7,7 @@
   "num_adjudicated": 0,
   "disclosure_binary_agreement": 1.0,
   "j_positive_count": 0,
-  "reference_positive_count": 0
+  "reference_positive_count": 0,
+  "review_trigger_count": 9,
+  "negative_audit_sample_count": 9
 }

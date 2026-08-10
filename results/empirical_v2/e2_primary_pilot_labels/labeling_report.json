@@ -10,9 +10,6 @@
   "adjudication_log_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/adjudication_log.jsonl",
   "num_review_required": 9,
   "label_agreement_report_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/label_agreement_report.json",
-  "frozen_label_manifest_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/frozen_primary_labels.json",
-  "frozen_label_sha256": "7be4db18ad1a98b162a4048564b3964f8efa2f9452553b8e41c02180121f145c",
-  "supersession_manifest_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/e2_supersession_manifest.json",
   "total_attempts": 90,
   "num_eligible": 90,
   "num_positive_disclosures": 0,
@@ -23,5 +20,7 @@
   "num_adjudicated": 0,
   "primary_label_source": "independent_evaluator_j",
   "evaluator_model": "qwen3.8-max",
-  "reference_label_source": "deterministic_heuristic_oracle"
+  "reference_label_source": "deterministic_heuristic_oracle",
+  "human_review_sample_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/human_review_sample.jsonl",
+  "num_human_reviewed": 9
 }
