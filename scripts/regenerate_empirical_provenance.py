@@ -104,6 +104,10 @@ def regenerate_labeling_report() -> None:
             "secondary_reviewer_type": "independent_llm",
             "secondary_reviewer_model": "glm-5.2",
             "secondary_reviewer_provider": "openai",
+            # PATCH-016: Explicit annotation-source provenance.
+            "primary_annotation_source": "J1",
+            "independent_validation_source": "J2",
+            "reference_diagnostic_source": "deterministic_heuristic_oracle",
         }
     )
 
@@ -334,6 +338,10 @@ def regenerate_frozen_primary_labels() -> None:
         EMP_V2 / "e2_primary_trust_pilot" / "raw_generation_attempts.jsonl"
     )
     frozen["labeling_report_sha256"] = sha256_file(PRIMARY_LABELS_DIR / "labeling_report.json")
+    # PATCH-018: Bind agreement report to prevent post-freeze tampering.
+    frozen["agreement_report_sha256"] = sha256_file(
+        PRIMARY_LABELS_DIR / "label_agreement_report.json"
+    )
     frozen["evaluator_prompt_manifest_sha256"] = sha256_file(
         EMP_V2 / "e2_prompt_freeze" / "frozen_prompt_manifest.json"
     )

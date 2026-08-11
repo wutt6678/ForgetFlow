@@ -40,5 +40,8 @@
   "num_secondary_review_successful": 9,
   "num_secondary_review_failed": 0,
   "secondary_reviewer_model": "glm-5.2",
-  "secondary_reviewer_provider": "openai"
+  "secondary_reviewer_provider": "openai",
+  "primary_annotation_source": "J1",
+  "independent_validation_source": "J2",
+  "reference_diagnostic_source": "deterministic_heuristic_oracle"
 }

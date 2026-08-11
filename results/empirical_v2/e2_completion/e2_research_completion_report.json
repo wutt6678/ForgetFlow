@@ -246,13 +246,26 @@
         "reference_label_count": 90
       }
     },
-    "agreement_validity": {
+    "reference_diagnostic_validity": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "exact_agreement": 0.0,
+        "comparison_type": "binary_unauthorized_disclosure",
         "num_compared": 90,
-        "num_disagreements": 90
+        "num_agreements": 90,
+        "id_set_size": 90
+      }
+    },
+    "independent_annotation_validation": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "primary_annotator": "J1",
+        "secondary_annotator": "J2",
+        "reviewer_type": "independent_llm",
+        "num_compared": 9,
+        "num_agreements": 9,
+        "exact_agreement_rate": 1.0
       }
     },
     "uncertainty_ci": {
@@ -349,8 +362,8 @@
         "primary_label_source": "independent_evaluator_j",
         "primary_label_sha256": "412d750f90c2f357...",
         "raw_generation_sha256": "3475d3a2da714b4a...",
-        "analysis_code_commit": "d0ace9ddcc321ce9c0bad06aa5d626974d0b9695",
-        "analysis_timestamp": "2026-08-11T10:06:09+08:00"
+        "analysis_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
+        "analysis_timestamp": "2026-08-11T11:31:38+08:00"
       }
     },
     "secondary_queue_complete": {
@@ -424,7 +437,18 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "bound_hashes": 2
+        "bound_hashes": 6
+      }
+    },
+    "j2_transport_provenance": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "num_records": 9,
+        "cap_distribution": {
+          "512": 8,
+          "1024": 1
+        }
       }
     },
     "e2_file_integrity_audit": {
@@ -439,7 +463,7 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "total_checks": 49,
+        "total_checks": 51,
         "all_passed": true
       }
     }
@@ -452,17 +476,17 @@
     "adjudication_log": "585da24e5f907512105d2759f538015ed5b1969a4280edc70fcf08008f70b795",
     "secondary_review_queue": "5ceceeb0cd3c8c07dad4e0cb8ee99304ad2b1ed27ffadb2925f15af85c44c600",
     "secondary_review_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
-    "labeling_report": "747f51ab97bd9f25797b89cdd95e71b24cede1bf07225c8fa13632a0a05fda78",
-    "agreement_report": "9548ec2ab49c82cfab436308938d015a28294e7376f4b2f4dfb55f10356e1bea",
+    "labeling_report": "6b75131bd823311a39c4983160c885f785dce36f60cc33f34dde44f801b291d1",
+    "agreement_report": "18f3e61e13bd82aca4ab05b544608dbcbc3ccb7ec4f65b4fba8a368f1bbfde12",
     "pairing_audit": "40b84075eda4cc8b8464306cf789a869d8f4b2aac0b1bd9cec515edf37cf3488",
-    "pilot_analysis": "8e7d5d68cd70ac4c8f60a0f75056518a3a30de2b396b6a4d55a20ba0c4fccbfc",
+    "pilot_analysis": "99a2cf39b82f90b39feea8e28010972652e4c817e2c5de0349469e2e08b671de",
     "floor_effect_diagnostic": "f3d8ccb223cce50886b40c9b3ca81bcdbb2539963bd7be8bfebf23833c322a03",
     "bounded_revision_report": "cf244c12608d230229638a008aeb223a2f2ab4fe8b080e7f582054871d6a11ce",
     "frozen_prompt_manifest": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
     "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
-    "secondary_raw_responses": "89c88972dea5bb7dbccf753209d303dbe9fc800d664f7e6bab5756b9928ff5d3",
+    "secondary_raw_responses": "484493aaf7583d46413e68ed8faba0f87777b7bab175d1a2a7ab6732939ac99c",
     "secondary_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
     "secondary_annotation_agreement": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
-    "secondary_prompt_manifest": "373626e5f2635b0a5083b5334df6d8f494e5e9c9d46b7f1c2b2f671a302fae09"
+    "secondary_prompt_manifest": "7d2569c88ab6c709e59f85e190752b5551b2a7cf4a9e30db743978b9cc4dcf3f"
   }
 }

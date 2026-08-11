@@ -2,7 +2,7 @@
   "primary_label_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "labeling_report_sha256": "747f51ab97bd9f25797b89cdd95e71b24cede1bf07225c8fa13632a0a05fda78",
+  "labeling_report_sha256": "6b75131bd823311a39c4983160c885f785dce36f60cc33f34dde44f801b291d1",
   "evaluator_prompt_manifest_sha256": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
   "evaluator_model_identity": "qwen3.8-max",
   "num_attempts": 90,
@@ -22,5 +22,6 @@
   "num_unresolved": 0,
   "primary_labels_frozen_at": "2026-08-10T12:42:38.185619+00:00",
   "secondary_audit_frozen_at": "2026-08-10T22:19:45.188320+00:00",
-  "manifest_generated_at": "2026-08-11T03:27:59.153824+00:00"
+  "manifest_generated_at": "2026-08-11T03:32:54.255864+00:00",
+  "agreement_report_sha256": "18f3e61e13bd82aca4ab05b544608dbcbc3ccb7ec4f65b4fba8a368f1bbfde12"
 }
