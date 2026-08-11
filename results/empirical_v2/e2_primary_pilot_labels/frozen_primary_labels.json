@@ -2,7 +2,7 @@
   "primary_label_file": "/home/ecs-user/ForgetFlow/results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "labeling_report_sha256": "08ea679b4292ca8187924c3ee70e880a5098dacd93465fe0a7a4eb0c0b1aadca",
+  "labeling_report_sha256": "747f51ab97bd9f25797b89cdd95e71b24cede1bf07225c8fa13632a0a05fda78",
   "evaluator_prompt_manifest_sha256": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
   "evaluator_model_identity": "qwen3.8-max",
   "num_attempts": 90,
@@ -13,5 +13,12 @@
   "num_secondary_reviewed": 9,
   "num_disagreements": 0,
   "num_adjudicated": 0,
-  "frozen_at": "2026-08-10T12:42:38.185619+00:00"
+  "frozen_at": "2026-08-10T12:42:38.185619+00:00",
+  "secondary_review_queue_sha256": "5ceceeb0cd3c8c07dad4e0cb8ee99304ad2b1ed27ffadb2925f15af85c44c600",
+  "secondary_raw_responses_sha256": "89c88972dea5bb7dbccf753209d303dbe9fc800d664f7e6bab5756b9928ff5d3",
+  "secondary_labels_sha256": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
+  "secondary_agreement_sha256": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
+  "num_secondary_review_successful": 9,
+  "num_secondary_review_failed": 0,
+  "num_unresolved": 0
 }

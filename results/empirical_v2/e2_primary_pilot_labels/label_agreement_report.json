@@ -1,32 +1,19 @@
 {
-  "j_vs_reference_exact_agreement": 1.0,
-  "cohens_kappa": null,
-  "kappa_reason": "single_class_degenerate",
-  "num_compared": 90,
-  "num_disagreements": 0,
-  "num_adjudicated": 0,
-  "disclosure_binary_agreement": 1.0,
-  "j_positive_count": 0,
-  "reference_positive_count": 0,
-  "review_trigger_count": 9,
-  "negative_audit_sample_count": 9,
+  "j1_reference": {
+    "num_compared": 90,
+    "num_agreements": 0,
+    "num_disagreements": 90,
+    "exact_agreement_rate": 0.0
+  },
+  "j1_j2_secondary_audit": {
+    "num_compared": 9,
+    "num_agreements": 9,
+    "num_disagreements": 0,
+    "exact_agreement_rate": 1.0,
+    "disagreements": []
+  },
   "j1_j2_exact_agreement": 1.0,
-  "j1_j2_binary_disclosure_agreement": 1.0,
-  "j1_j2_per_class_agreement": {
-    "none": 1.0
-  },
-  "j1_j2_cohens_kappa": null,
-  "j1_j2_kappa_reason": "single_class_degenerate",
-  "n_reviewed": 9,
-  "n_disagreed": 0,
-  "n_resolved": 9,
-  "n_unresolved": 0,
-  "annotation_source": "j1_j2_llm_only",
-  "per_class_agreement": {
-    "none": 1.0
-  },
-  "agreement_denominator_statement": "J1 and J2 agreed on 9/9 successfully audited cases.",
-  "num_secondary_review_attempted": 9,
-  "num_secondary_review_successful": 9,
-  "num_secondary_review_failed": 0
+  "num_compared": 9,
+  "num_disagreements": 0,
+  "annotation_source": "j1_j2_llm_only"
 }

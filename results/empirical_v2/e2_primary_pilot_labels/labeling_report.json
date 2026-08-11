@@ -35,6 +35,10 @@
   "num_disagreements": 0,
   "num_adjudication_required": 0,
   "num_adjudicated": 0,
-  "num_unresolved": 0,
-  "secondary_reviewer_type": "independent_llm"
+  "secondary_reviewer_type": "independent_llm",
+  "num_secondary_review_attempted": 9,
+  "num_secondary_review_successful": 9,
+  "num_secondary_review_failed": 0,
+  "secondary_reviewer_model": "glm-5.2",
+  "secondary_reviewer_provider": "openai"
 }
