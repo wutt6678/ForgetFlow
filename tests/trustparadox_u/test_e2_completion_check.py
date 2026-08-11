@@ -725,6 +725,11 @@ class TestRunCompletionCheck:
             "experiments.trustparadox_u.run_e2_completion_check.check_independent_annotation_validation",
             lambda *a, **kw: _pass("independent_annotation_validation"),
         )
+        # PATCH-014: J2 transport-provenance consistency check.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_j2_transport_provenance",
+            lambda *a, **kw: _pass("j2_transport_provenance"),
+        )
         # E2C-FIX-044: file-level integrity audit.
         monkeypatch.setattr(
             "experiments.trustparadox_u.run_e2_completion_check.check_e2_file_integrity_audit",
@@ -814,7 +819,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 51
+        assert len(report.checks) == 52
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -1444,6 +1449,52 @@ class TestIterationFFileBasedChecks:
             )
         )
         assert report2.all_passed is False
+
+    def test_patch014_j2_transport_provenance_pass(self) -> None:
+        """PATCH-014: J2 transport-provenance check passes with valid caps."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_j2_transport_provenance,
+        )
+
+        # The actual regenerated file should pass.
+        result = check_j2_transport_provenance()
+        assert result.passed is True
+        assert result.check_name == "j2_transport_provenance"
+        details = result.details or {}
+        assert details.get("num_records") == 9
+        cap_dist = details.get("cap_distribution", {})
+        assert "512" in cap_dist
+        assert "1024" in cap_dist
+
+    def test_patch014_j2_transport_provenance_missing_cap(self, tmp_path) -> None:
+        """PATCH-014: missing requested_max_tokens fails the check."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_j2_transport_provenance,
+        )
+
+        bad_file = tmp_path / "bad_raw.jsonl"
+        bad_file.write_text(
+            json.dumps({"generation_attempt_id": "x", "retries": 0}) + "\n",
+            encoding="utf-8",
+        )
+        result = check_j2_transport_provenance(raw_responses_path=bad_file)
+        assert result.passed is False
+        assert result.failure_code == "j2_transport_cap_missing"
+
+    def test_patch014_j2_transport_provenance_disallowed_cap(self, tmp_path) -> None:
+        """PATCH-014: disallowed cap value fails the check."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_j2_transport_provenance,
+        )
+
+        bad_file = tmp_path / "bad_raw.jsonl"
+        bad_file.write_text(
+            json.dumps({"generation_attempt_id": "x", "requested_max_tokens": 256}) + "\n",
+            encoding="utf-8",
+        )
+        result = check_j2_transport_provenance(raw_responses_path=bad_file)
+        assert result.passed is False
+        assert result.failure_code == "j2_transport_cap_not_allowed"
 
     def test_uncertainty_ci_pass_paired(self) -> None:
         """Test uncertainty CI passes with paired_effects."""

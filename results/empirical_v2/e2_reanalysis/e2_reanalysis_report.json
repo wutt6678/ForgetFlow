@@ -9,8 +9,8 @@
   "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "analysis_code_commit": "873d3934838072a0e7a4ff6d090650216d091ff2",
-  "analysis_timestamp": "2026-08-11T10:52:38+08:00",
+  "analysis_code_commit": "ca3997f2cd679953313a5036663e294a5f71916c",
+  "analysis_timestamp": "2026-08-11T11:23:04+08:00",
   "overall_metrics": {
     "n_total_attempts": 90,
     "n_provider_failures": 0,
@@ -283,5 +283,5 @@
       }
     ]
   },
-  "generated_at": "2026-08-11T10:52:38+08:00"
+  "generated_at": "2026-08-11T11:23:04+08:00"
 }

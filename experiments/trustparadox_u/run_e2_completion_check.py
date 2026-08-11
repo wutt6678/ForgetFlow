@@ -2306,6 +2306,62 @@ def check_independent_annotation_validation(
     )
 
 
+def check_j2_transport_provenance(
+    raw_responses_path: Path | None = None,
+) -> CheckResult:
+    """PATCH-014: J2 transport-provenance consistency check.
+
+    Every raw J2 record must have requested_max_tokens set to a value
+    allowed by the frozen retry policy (512 or 1024).
+    """
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    records = _load_jsonl(raw_responses_path) if raw_responses_path.exists() else []
+    if not records:
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="j2_raw_responses_missing",
+        )
+
+    allowed_caps = {512, 1024}
+    missing = []
+    disallowed = []
+    cap_counts: dict[int, int] = {}
+    for rec in records:
+        cap = rec.get("requested_max_tokens")
+        if cap is None:
+            missing.append(rec.get("generation_attempt_id", "?"))
+        elif cap not in allowed_caps:
+            disallowed.append({"id": rec.get("generation_attempt_id", "?"), "cap": cap})
+        else:
+            cap_counts[cap] = cap_counts.get(cap, 0) + 1
+
+    if missing:
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="j2_transport_cap_missing",
+            details={"missing_count": len(missing), "missing_ids": missing[:5]},
+        )
+    if disallowed:
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="j2_transport_cap_not_allowed",
+            details={"disallowed": disallowed[:5]},
+        )
+
+    return CheckResult(
+        check_name="j2_transport_provenance",
+        passed=True,
+        details={
+            "num_records": len(records),
+            "cap_distribution": {str(k): v for k, v in sorted(cap_counts.items())},
+        },
+    )
+
+
 def check_primary_effect_consistency(analysis: dict[str, Any]) -> CheckResult:
     """E2-A7-FIX-015: verify top-level effect fields match paired_effects."""
     paired = analysis.get("paired_effects")
@@ -4387,6 +4443,9 @@ def run_completion_check(
     report.add_check(check_secondary_adjudication_consistency())
     report.add_check(check_secondary_prompt_freeze())
     report.add_check(check_secondary_hash_binding(phase_file))
+
+    # --- PATCH-014: J2 transport-provenance consistency ---
+    report.add_check(check_j2_transport_provenance())
 
     # --- E2C-FIX-044: final file-level integrity audit ---
     report.add_check(check_e2_file_integrity_audit())

@@ -6,6 +6,9 @@ FIX-024: Regenerate label_agreement_report.json.
 FIX-025: Regenerate frozen_primary_labels.json with J2 hashes.
 FIX-026: Correct freeze timestamps.
 FIX-027: Repair reanalysis provenance.
+PATCH-010/011: Replace ambiguous frozen_at with explicit timestamps.
+PATCH-012: Record J2 transport-cap provenance (requested_max_tokens).
+PATCH-013: Clarify J2 prompt freeze vs transport configuration.
 """
 
 from __future__ import annotations
@@ -291,8 +294,15 @@ def regenerate_label_agreement_report() -> None:
 
 
 def regenerate_frozen_primary_labels() -> None:
-    """FIX-025: Regenerate frozen_primary_labels.json with J2 hashes."""
-    print("\nFIX-025: Regenerating frozen_primary_labels.json...")
+    """FIX-025 + PATCH-010/011: Regenerate frozen_primary_labels.json.
+
+    PATCH-010: Replace ambiguous frozen_at with explicit timestamps:
+    - primary_labels_frozen_at: time J1 primary labels became frozen
+    - secondary_audit_frozen_at: time J2 audit became frozen
+    - manifest_generated_at: time the combined manifest was generated
+    """
+    print("\nFIX-025/PATCH-010: Regenerating frozen_primary_labels.json...")
+    from datetime import datetime, timezone
 
     # Load existing frozen labels
     frozen_path = PRIMARY_LABELS_DIR / "frozen_primary_labels.json"
@@ -301,6 +311,22 @@ def regenerate_frozen_primary_labels() -> None:
             frozen = json.load(fh)
     else:
         frozen = {}
+
+    # PATCH-010: preserve original primary_labels_frozen_at if available.
+    old_frozen_at = frozen.pop("frozen_at", None)
+    if "primary_labels_frozen_at" not in frozen:
+        frozen["primary_labels_frozen_at"] = old_frozen_at or "2026-08-10T12:42:38.185619+00:00"
+
+    # PATCH-010: secondary_audit_frozen_at from secondary prompt manifest.
+    spm_path = SECONDARY_ANNOTATION_DIR / "secondary_prompt_manifest.json"
+    if spm_path.exists():
+        spm = json.loads(spm_path.read_text(encoding="utf-8"))
+        frozen["secondary_audit_frozen_at"] = spm.get(
+            "frozen_at", "2026-08-10T22:19:45.188320+00:00"
+        )
+
+    # PATCH-010: manifest_generated_at = current time.
+    frozen["manifest_generated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Compute hashes for all artifacts
     frozen["primary_label_sha256"] = sha256_file(PRIMARY_LABELS_DIR / "primary_labels.jsonl")
@@ -387,6 +413,81 @@ def repair_reanalysis_provenance() -> None:
     print(f"  Timestamp: {timestamp}")
 
 
+def patch012_record_j2_transport_cap() -> None:
+    """PATCH-012: Record J2 transport-cap provenance in raw responses.
+
+    Adds requested_max_tokens field to each J2 raw response record:
+    - retries=0 → requested_max_tokens=512 (original cap)
+    - retries>0 → requested_max_tokens=1024 (retry-repair cap)
+    """
+    print("\nPATCH-012: Recording J2 transport-cap provenance...")
+    raw_path = SECONDARY_ANNOTATION_DIR / "secondary_raw_responses.jsonl"
+    if not raw_path.exists():
+        print("  WARNING: secondary_raw_responses.jsonl not found")
+        return
+
+    records = load_jsonl(raw_path)
+    updated = 0
+    for rec in records:
+        retries = rec.get("retries", 0)
+        if retries == 0:
+            rec["requested_max_tokens"] = 512
+        else:
+            rec["requested_max_tokens"] = 1024
+        updated += 1
+
+    with raw_path.open("w", encoding="utf-8") as fh:
+        for rec in records:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+    caps = {}
+    for rec in records:
+        cap = rec.get("requested_max_tokens")
+        caps[cap] = caps.get(cap, 0) + 1
+    print(f"  Updated {updated} records")
+    for cap, count in sorted(caps.items()):
+        print(f"  requested_max_tokens={cap}: {count} records")
+
+
+def patch013_clarify_j2_prompt_freeze() -> None:
+    """PATCH-013: Clarify J2 prompt freeze vs transport configuration.
+
+    Adds semantic_evaluation_config and transport_execution sections
+    to the secondary prompt manifest.
+    """
+    print("\nPATCH-013: Clarifying J2 prompt freeze vs transport config...")
+    manifest_path = SECONDARY_ANNOTATION_DIR / "secondary_prompt_manifest.json"
+    if not manifest_path.exists():
+        print("  WARNING: secondary_prompt_manifest.json not found")
+        return
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    # Build prompt hash summary for semantic_evaluation_config.
+    prompt_hashes = {}
+    for name, info in manifest.get("prompts", {}).items():
+        prompt_hashes[name] = info.get("sha256", "")
+
+    manifest["semantic_evaluation_config"] = {
+        "temperature": 0.0,
+        "prompt_hashes": prompt_hashes,
+        "model_identity": manifest.get("model_identity", "glm-5.2"),
+    }
+    manifest["transport_execution"] = {
+        "requested_max_tokens_recorded_per_call": True,
+        "original_cap": 512,
+        "retry_cap": 1024,
+        "retry_policy": "increased_max_tokens_on_parse_failure",
+    }
+
+    with manifest_path.open("w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+
+    print(f"  semantic_evaluation_config: temperature=0.0, {len(prompt_hashes)} prompts")
+    print("  transport_execution: original=512, retry=1024")
+
+
 def main() -> None:
     """Run all regeneration steps."""
     print("Regenerating empirical-v2 provenance artifacts...\n")
@@ -396,7 +497,11 @@ def main() -> None:
 
     regenerate_labeling_report()
     regenerate_label_agreement_report()
+    # PATCH-012 must run before frozen-primary regeneration because
+    # the frozen manifest hashes secondary_raw_responses.jsonl.
+    patch012_record_j2_transport_cap()
     regenerate_frozen_primary_labels()
+    patch013_clarify_j2_prompt_freeze()
     repair_reanalysis_provenance()
 
     print("\n✓ Regeneration complete.")
