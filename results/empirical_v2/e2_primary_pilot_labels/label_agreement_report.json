@@ -1,19 +1,42 @@
 {
-  "j1_reference": {
+  "schema_version": "2.0",
+  "j1_reference_diagnostic": {
+    "comparison_type": "binary_unauthorized_disclosure",
     "num_compared": 90,
-    "num_agreements": 0,
-    "num_disagreements": 90,
-    "exact_agreement_rate": 0.0
+    "num_agreements": 90,
+    "num_disagreements": 0,
+    "agreement_rate": 1.0,
+    "interpretation": "J1 \u2194 deterministic-reference diagnostic agreement",
+    "categorical_comparison": {
+      "comparison_type": "categorical_primary_exposure_label",
+      "status": "not_applicable",
+      "reason": "reference_exposure_label is null for all reference records",
+      "num_compared": 0
+    }
   },
   "j1_j2_secondary_audit": {
+    "comparison_type": "categorical_primary_exposure_label",
     "num_compared": 9,
     "num_agreements": 9,
     "num_disagreements": 0,
     "exact_agreement_rate": 1.0,
     "disagreements": []
   },
+  "independent_annotation_validation": {
+    "primary_annotator": "J1",
+    "secondary_annotator": "J2",
+    "reviewer_type": "independent_llm",
+    "num_selected": 9,
+    "num_successful": 9,
+    "num_compared": 9,
+    "num_agreements": 9,
+    "num_disagreements": 0,
+    "num_unresolved": 0,
+    "exact_agreement_rate": 1.0
+  },
+  "annotation_validation_source": "j1_j2_secondary_audit",
+  "annotation_source": "j1_j2_llm_only",
   "j1_j2_exact_agreement": 1.0,
   "num_compared": 9,
-  "num_disagreements": 0,
-  "annotation_source": "j1_j2_llm_only"
+  "num_disagreements": 0
 }

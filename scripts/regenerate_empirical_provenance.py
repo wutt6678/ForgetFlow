@@ -120,8 +120,21 @@ def regenerate_labeling_report() -> None:
 
 
 def regenerate_label_agreement_report() -> None:
-    """FIX-024: Regenerate label_agreement_report.json with nested structure."""
-    print("\nFIX-024: Regenerating label_agreement_report.json...")
+    """PATCH-001..004/006: Regenerate label_agreement_report.json.
+
+    PATCH-001: Remove invalid categorical J1↔reference comparison.
+      reference_exposure_label is null for all records; categorical
+      agreement is ``not_applicable``, not 0.0.
+    PATCH-002: Use binary unauthorized-disclosure agreement for the
+      J1↔reference diagnostic.
+    PATCH-003: Make J1↔J2 the explicit independent annotation-validation
+      result via ``independent_annotation_validation`` section.
+    PATCH-004: Restructure report with clear hierarchy:
+      ``j1_reference_diagnostic``, ``j1_j2_secondary_audit``,
+      ``independent_annotation_validation``, ``annotation_validation_source``.
+    PATCH-006: Exact ID-set check between primary and reference labels.
+    """
+    print("\nPATCH-001..004/006: Regenerating label_agreement_report.json...")
 
     # Load source files
     primary_labels = load_jsonl(PRIMARY_LABELS_DIR / "primary_labels.jsonl")
@@ -133,24 +146,77 @@ def regenerate_label_agreement_report() -> None:
     reference_by_id = {r["generation_attempt_id"]: r for r in reference_labels}
     secondary_by_id = {r["generation_attempt_id"]: r for r in secondary_labels}
 
-    # J1 vs reference agreement
-    j1_ref_agreements = 0
-    j1_ref_compared = 0
+    # --- PATCH-006: exact ID-set check ---
+    primary_ids = set(primary_by_id.keys())
+    reference_ids = set(reference_by_id.keys())
+    assert primary_ids == reference_ids, (
+        f"ID-set mismatch: {len(primary_ids)} primary vs {len(reference_ids)} reference; "
+        f"missing_in_ref={primary_ids - reference_ids}, extra_in_ref={reference_ids - primary_ids}"
+    )
+    print(f"  ID-set check: {len(primary_ids)} primary == {len(reference_ids)} reference ✓")
+
+    # --- PATCH-001: categorical J1↔reference comparison ---
+    # reference_exposure_label is null for all records → not_applicable.
+    has_categorical_ref = any(
+        ref_rec.get("reference_exposure_label") is not None for ref_rec in reference_by_id.values()
+    )
+    if has_categorical_ref:
+        cat_exact_agreements = 0
+        cat_compared = 0
+        for aid, primary_rec in primary_by_id.items():
+            ref_rec = reference_by_id.get(aid)
+            if ref_rec and ref_rec.get("reference_exposure_label") is not None:
+                cat_compared += 1
+                if primary_rec.get("primary_exposure_label") == ref_rec.get(
+                    "reference_exposure_label"
+                ):
+                    cat_exact_agreements += 1
+        categorical_result = {
+            "comparison_type": "categorical_primary_exposure_label",
+            "num_compared": cat_compared,
+            "num_agreements": cat_exact_agreements,
+            "num_disagreements": cat_compared - cat_exact_agreements,
+            "exact_agreement_rate": (
+                cat_exact_agreements / cat_compared if cat_compared > 0 else 0.0
+            ),
+        }
+    else:
+        categorical_result = {
+            "comparison_type": "categorical_primary_exposure_label",
+            "status": "not_applicable",
+            "reason": "reference_exposure_label is null for all reference records",
+            "num_compared": 0,
+        }
+
+    # --- PATCH-002: binary unauthorized-disclosure J1↔reference diagnostic ---
+    bin_agreements = 0
+    bin_compared = 0
     for aid, primary_rec in primary_by_id.items():
         ref_rec = reference_by_id.get(aid)
-        if ref_rec:
-            j1_ref_compared += 1
-            j1_label = primary_rec.get("primary_exposure_label")
-            ref_label = ref_rec.get("reference_label")
-            if j1_label == ref_label:
-                j1_ref_agreements += 1
+        if ref_rec is not None:
+            p_ud = primary_rec.get("unauthorized_disclosure")
+            r_ud = ref_rec.get("unauthorized_disclosure")
+            if p_ud is not None and r_ud is not None:
+                bin_compared += 1
+                if p_ud == r_ud:
+                    bin_agreements += 1
 
-    j1_ref_agreement_rate = j1_ref_agreements / j1_ref_compared if j1_ref_compared > 0 else 0.0
+    bin_agreement_rate = bin_agreements / bin_compared if bin_compared > 0 else 0.0
 
-    # J1 vs J2 secondary audit agreement
+    j1_reference_diagnostic = {
+        "comparison_type": "binary_unauthorized_disclosure",
+        "num_compared": bin_compared,
+        "num_agreements": bin_agreements,
+        "num_disagreements": bin_compared - bin_agreements,
+        "agreement_rate": bin_agreement_rate,
+        "interpretation": "J1 ↔ deterministic-reference diagnostic agreement",
+        "categorical_comparison": categorical_result,
+    }
+
+    # --- PATCH-003: J1↔J2 independent annotation validation ---
     j1_j2_agreements = 0
     j1_j2_compared = 0
-    j1_j2_disagreements = []
+    j1_j2_disagreements: list[dict] = []
     for aid, secondary_rec in secondary_by_id.items():
         if secondary_rec.get("secondary_evaluator_status") == "success":
             j1_j2_compared += 1
@@ -170,26 +236,46 @@ def regenerate_label_agreement_report() -> None:
 
     j1_j2_agreement_rate = j1_j2_agreements / j1_j2_compared if j1_j2_compared > 0 else 0.0
 
-    # Build nested structure
+    j1_j2_secondary_audit = {
+        "comparison_type": "categorical_primary_exposure_label",
+        "num_compared": j1_j2_compared,
+        "num_agreements": j1_j2_agreements,
+        "num_disagreements": len(j1_j2_disagreements),
+        "exact_agreement_rate": j1_j2_agreement_rate,
+        "disagreements": j1_j2_disagreements,
+    }
+
+    # Independent annotation validation summary (PATCH-003).
+    num_selected = len(secondary_by_id)
+    num_successful = j1_j2_compared
+    num_unresolved = sum(
+        1 for r in secondary_by_id.values() if r.get("resolution_status") == "unresolved"
+    )
+    independent_annotation_validation = {
+        "primary_annotator": "J1",
+        "secondary_annotator": "J2",
+        "reviewer_type": "independent_llm",
+        "num_selected": num_selected,
+        "num_successful": num_successful,
+        "num_compared": j1_j2_compared,
+        "num_agreements": j1_j2_agreements,
+        "num_disagreements": len(j1_j2_disagreements),
+        "num_unresolved": num_unresolved,
+        "exact_agreement_rate": j1_j2_agreement_rate,
+    }
+
+    # --- PATCH-004: restructured report ---
     report = {
-        "j1_reference": {
-            "num_compared": j1_ref_compared,
-            "num_agreements": j1_ref_agreements,
-            "num_disagreements": j1_ref_compared - j1_ref_agreements,
-            "exact_agreement_rate": j1_ref_agreement_rate,
-        },
-        "j1_j2_secondary_audit": {
-            "num_compared": j1_j2_compared,
-            "num_agreements": j1_j2_agreements,
-            "num_disagreements": len(j1_j2_disagreements),
-            "exact_agreement_rate": j1_j2_agreement_rate,
-            "disagreements": j1_j2_disagreements,
-        },
-        # Legacy fields for backward compatibility
+        "schema_version": "2.0",
+        "j1_reference_diagnostic": j1_reference_diagnostic,
+        "j1_j2_secondary_audit": j1_j2_secondary_audit,
+        "independent_annotation_validation": independent_annotation_validation,
+        "annotation_validation_source": "j1_j2_secondary_audit",
+        "annotation_source": "j1_j2_llm_only",
+        # Legacy top-level aliases for backward compatibility.
         "j1_j2_exact_agreement": j1_j2_agreement_rate,
         "num_compared": j1_j2_compared,
         "num_disagreements": len(j1_j2_disagreements),
-        "annotation_source": "j1_j2_llm_only",
     }
 
     report_path = PRIMARY_LABELS_DIR / "label_agreement_report.json"
@@ -197,8 +283,11 @@ def regenerate_label_agreement_report() -> None:
         json.dump(report, fh, indent=2)
         fh.write("\n")
 
-    print(f"  J1 vs reference: {j1_ref_agreements}/{j1_ref_compared} ({j1_ref_agreement_rate:.3f})")
-    print(f"  J1 vs J2: {j1_j2_agreements}/{j1_j2_compared} ({j1_j2_agreement_rate:.3f})")
+    print(f"  J1↔ref binary disclosure: {bin_agreements}/{bin_compared} ({bin_agreement_rate:.3f})")
+    print(
+        f"  J1↔J2 independent audit: {j1_j2_agreements}/{j1_j2_compared} ({j1_j2_agreement_rate:.3f})"
+    )
+    print(f"  Categorical J1↔ref: {categorical_result.get('status', 'computed')}")
 
 
 def regenerate_frozen_primary_labels() -> None:

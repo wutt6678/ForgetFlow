@@ -2107,60 +2107,201 @@ def check_reference_label_completeness(
     )
 
 
-def check_agreement_validity(
+def check_reference_diagnostic_validity(
     agreement_report: dict[str, Any] | None,
 ) -> CheckResult:
-    """E2R-FIX-025 / E2C-FIX-041: check agreement validity.
+    """PATCH-005/020: validate J1↔reference binary-disclosure diagnostic.
 
-    The agreement report may use either a flat layout
-    (``j_vs_reference_exact_agreement``) or a nested layout
-    (``j1_reference.exact_agreement_rate``).  Accept both.
+    Validates:
+    A. ``j1_reference_diagnostic`` section exists with correct comparison_type.
+    B. Source records contain ``unauthorized_disclosure``.
+    C. Recomputed counts match reported counts.
+    D. Exact ID-set join between primary and reference labels.
     """
     if agreement_report is None:
         return CheckResult(
-            check_name="agreement_validity",
+            check_name="reference_diagnostic_validity",
             passed=False,
             failure_code="agreement_report_missing",
         )
 
-    # Try flat layout first, then nested j1_reference layout.
-    j1_ref = agreement_report.get("j1_reference", {})
-    exact_agreement = agreement_report.get("j_vs_reference_exact_agreement")
-    if exact_agreement is None and isinstance(j1_ref, dict):
-        exact_agreement = j1_ref.get("exact_agreement_rate")
-    if exact_agreement is None:
+    diag = agreement_report.get("j1_reference_diagnostic")
+    if not isinstance(diag, dict):
         return CheckResult(
-            check_name="agreement_validity",
+            check_name="reference_diagnostic_validity",
             passed=False,
-            failure_code="agreement_metric_missing",
-            details={"metric": "j_vs_reference_exact_agreement"},
+            failure_code="reference_diagnostic_section_missing",
         )
 
-    # num_compared: prefer the j1_reference sub-report (90 primary labels).
-    num_compared = None
-    if isinstance(j1_ref, dict):
-        num_compared = j1_ref.get("num_compared")
-    if num_compared is None:
-        num_compared = agreement_report.get("num_compared")
-    if num_compared is None or num_compared != 90:
+    # A. comparison_type must be binary_unauthorized_disclosure.
+    comp_type = diag.get("comparison_type")
+    if comp_type != "binary_unauthorized_disclosure":
         return CheckResult(
-            check_name="agreement_validity",
+            check_name="reference_diagnostic_validity",
             passed=False,
-            failure_code="agreement_comparison_incomplete",
-            details={"expected": 90, "found": num_compared},
+            failure_code="reference_diagnostic_invalid_comparison_type",
+            details={"expected": "binary_unauthorized_disclosure", "found": comp_type},
+        )
+
+    # B. Recompute from source files.
+    primary_labels = _load_jsonl(_PRIMARY_LABELS_PATH)
+    reference_labels = _load_jsonl(_REFERENCE_LABELS_PATH)
+    primary_by_id = {r["generation_attempt_id"]: r for r in primary_labels}
+    reference_by_id = {r["generation_attempt_id"]: r for r in reference_labels}
+
+    # D. Exact ID-set join.
+    primary_ids = set(primary_by_id.keys())
+    reference_ids = set(reference_by_id.keys())
+    if primary_ids != reference_ids:
+        return CheckResult(
+            check_name="reference_diagnostic_validity",
+            passed=False,
+            failure_code="reference_diagnostic_id_set_mismatch",
+            details={
+                "primary_count": len(primary_ids),
+                "reference_count": len(reference_ids),
+            },
+        )
+
+    # C. Recompute binary disclosure agreement.
+    recomputed_compared = 0
+    recomputed_agreements = 0
+    for aid, prec in primary_by_id.items():
+        rrec = reference_by_id.get(aid)
+        if rrec is not None:
+            p_ud = prec.get("unauthorized_disclosure")
+            r_ud = rrec.get("unauthorized_disclosure")
+            if p_ud is not None and r_ud is not None:
+                recomputed_compared += 1
+                if p_ud == r_ud:
+                    recomputed_agreements += 1
+
+    reported_compared = diag.get("num_compared")
+    reported_agreements = diag.get("num_agreements")
+    if reported_compared != recomputed_compared:
+        return CheckResult(
+            check_name="reference_diagnostic_validity",
+            passed=False,
+            failure_code="reference_diagnostic_counts_mismatch",
+            details={
+                "metric": "num_compared",
+                "reported": reported_compared,
+                "recomputed": recomputed_compared,
+            },
+        )
+    if reported_agreements != recomputed_agreements:
+        return CheckResult(
+            check_name="reference_diagnostic_validity",
+            passed=False,
+            failure_code="reference_diagnostic_counts_mismatch",
+            details={
+                "metric": "num_agreements",
+                "reported": reported_agreements,
+                "recomputed": recomputed_agreements,
+            },
         )
 
     return CheckResult(
-        check_name="agreement_validity",
+        check_name="reference_diagnostic_validity",
         passed=True,
         details={
-            "exact_agreement": exact_agreement,
-            "num_compared": num_compared,
-            "num_disagreements": (
-                j1_ref.get("num_disagreements")
-                if isinstance(j1_ref, dict)
-                else agreement_report.get("num_disagreements", 0)
-            ),
+            "comparison_type": comp_type,
+            "num_compared": recomputed_compared,
+            "num_agreements": recomputed_agreements,
+            "id_set_size": len(primary_ids),
+        },
+    )
+
+
+def check_independent_annotation_validation(
+    agreement_report: dict[str, Any] | None,
+) -> CheckResult:
+    """PATCH-005/020/024: validate J1↔J2 independent annotation validation.
+
+    The independent-validation section must derive from J1↔J2 secondary audit,
+    NOT from deterministic reference labels.
+    """
+    if agreement_report is None:
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="agreement_report_missing",
+        )
+
+    # PATCH-024: annotation_validation_source must be j1_j2_secondary_audit.
+    av_source = agreement_report.get("annotation_validation_source")
+    if av_source != "j1_j2_secondary_audit":
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="independent_validation_source_invalid",
+            details={
+                "expected": "j1_j2_secondary_audit",
+                "found": av_source,
+            },
+        )
+
+    iav = agreement_report.get("independent_annotation_validation")
+    if not isinstance(iav, dict):
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="independent_validation_section_missing",
+        )
+
+    # Must not claim deterministic reference as source.
+    if iav.get("reviewer_type") == "deterministic_reference":
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="deterministic_reference_not_independent",
+        )
+
+    # Recompute from secondary labels source file.
+    secondary_labels = _load_jsonl(_SECONDARY_LABELS_PATH)
+    recomputed_compared = 0
+    recomputed_agreements = 0
+    for rec in secondary_labels:
+        if rec.get("secondary_evaluator_status") == "success":
+            recomputed_compared += 1
+            if rec.get("j_label") == rec.get("secondary_label"):
+                recomputed_agreements += 1
+
+    reported_compared = iav.get("num_compared")
+    reported_agreements = iav.get("num_agreements")
+    if reported_compared != recomputed_compared:
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="independent_validation_counts_mismatch",
+            details={
+                "metric": "num_compared",
+                "reported": reported_compared,
+                "recomputed": recomputed_compared,
+            },
+        )
+    if reported_agreements != recomputed_agreements:
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="independent_validation_counts_mismatch",
+            details={
+                "metric": "num_agreements",
+                "reported": reported_agreements,
+                "recomputed": recomputed_agreements,
+            },
+        )
+
+    return CheckResult(
+        check_name="independent_annotation_validation",
+        passed=True,
+        details={
+            "primary_annotator": iav.get("primary_annotator"),
+            "secondary_annotator": iav.get("secondary_annotator"),
+            "reviewer_type": iav.get("reviewer_type"),
+            "num_compared": recomputed_compared,
+            "num_agreements": recomputed_agreements,
+            "exact_agreement_rate": iav.get("exact_agreement_rate"),
         },
     )
 
@@ -4198,7 +4339,8 @@ def run_completion_check(
     report.add_check(check_evaluator_response_completeness())
     report.add_check(check_primary_label_file_completeness())
     report.add_check(check_reference_label_completeness())
-    report.add_check(check_agreement_validity(agreement_report))
+    report.add_check(check_reference_diagnostic_validity(agreement_report))
+    report.add_check(check_independent_annotation_validation(agreement_report))
     report.add_check(check_uncertainty_ci(analysis))
     report.add_check(check_synthetic_provenance(synthetic_regression_report))
 
