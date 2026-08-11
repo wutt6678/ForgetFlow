@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -3298,8 +3299,8 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
         "primary_label_source",
         "primary_label_sha256",
         "raw_generation_sha256",
-        "analysis_code_commit",
-        "analysis_timestamp",
+        "analysis_result_code_commit",
+        "analysis_executed_at",
     ]
 
     missing = [f for f in required_fields if not analysis.get(f)]
@@ -3311,7 +3312,8 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
             details={"missing_fields": missing},
         )
 
-    # PATCH-7359-017: split provenance fields must be present.
+    # PATCH-7359-017 / PATCH-1526-012: split provenance fields must be present;
+    # legacy analysis_code_commit / analysis_timestamp are no longer required.
     split_required = [
         "analysis_result_code_commit",
         "analysis_executed_at",
@@ -3346,8 +3348,6 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
             "primary_label_source": analysis["primary_label_source"],
             "primary_label_sha256": analysis["primary_label_sha256"][:16] + "...",
             "raw_generation_sha256": analysis["raw_generation_sha256"][:16] + "...",
-            "analysis_code_commit": analysis["analysis_code_commit"],
-            "analysis_timestamp": analysis["analysis_timestamp"],
             "analysis_result_code_commit": analysis["analysis_result_code_commit"],
             "analysis_executed_at": analysis["analysis_executed_at"],
             "provenance_refresh_commit": analysis["provenance_refresh_commit"],
@@ -3359,12 +3359,16 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
 def check_analysis_provenance_valid(
     analysis: dict[str, Any],
 ) -> CheckResult:
-    """PATCH-7359-026: analysis-provenance semantic check.
+    """PATCH-1526-014/015: strengthened analysis-provenance semantic check.
 
-    Pass only if the report either:
-    - preserves explicit historical numerical execution provenance plus
-      separate refresh metadata; or
-    - records a genuine fresh deterministic analysis execution.
+    Pass only if the report:
+    - has non-empty execution provenance (commit + timestamp);
+    - has non-empty refresh provenance (commit + timestamp) OR is a fresh
+      deterministic execution with no refresh yet;
+    - primary-label hash matches the actual file on disk;
+    - raw-generation hash matches the actual file on disk;
+    - analysis script path exists and its hash matches the reported hash;
+    - chronology: analysis_executed_at <= provenance_refreshed_at.
 
     Reject metadata-refresh commits masquerading as numerical-execution
     provenance (i.e. missing split provenance fields).
@@ -3377,8 +3381,90 @@ def check_analysis_provenance_valid(
     has_execution = bool(exec_commit and exec_time)
     has_refresh = bool(refresh_commit and refresh_time)
 
-    if has_execution and has_refresh:
-        # Both execution and refresh provenance declared — valid.
+    # --- PATCH-1526-014: verify non-empty execution provenance ----------
+    if not has_execution:
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=False,
+            failure_code="analysis_provenance_metadata_refresh_only",
+            details={
+                "has_execution_provenance": has_execution,
+                "has_refresh_provenance": has_refresh,
+                "message": (
+                    "Analysis report lacks numerical execution provenance; "
+                    "metadata refresh commit cannot substitute for actual "
+                    "analysis execution provenance."
+                ),
+            },
+        )
+
+    # --- PATCH-1526-014: verify input-file hashes match actual files -----
+    failures: list[str] = []
+
+    primary_labels_path = _PRIMARY_LABELS_PATH
+    raw_gen_path = _RAW_GENERATION_PATH
+
+    declared_label_hash = analysis.get("primary_label_sha256")
+    if declared_label_hash and primary_labels_path.exists():
+        actual = sha256_file(primary_labels_path) or ""
+        if actual != declared_label_hash:
+            failures.append(
+                f"primary_label_sha256 mismatch: "
+                f"declared={declared_label_hash[:16]}… actual={actual[:16]}…"
+            )
+
+    declared_raw_hash = analysis.get("raw_generation_sha256")
+    if declared_raw_hash and raw_gen_path.exists():
+        actual = sha256_file(raw_gen_path) or ""
+        if actual != declared_raw_hash:
+            failures.append(
+                f"raw_generation_sha256 mismatch: "
+                f"declared={declared_raw_hash[:16]}… actual={actual[:16]}…"
+            )
+
+    # --- PATCH-1526-014: verify analysis script path + hash -------------
+    script_info = analysis.get("analysis_script", {})
+    if script_info:
+        script_rel = script_info.get("path", "")
+        script_declared_hash = script_info.get("sha256", "")
+        if script_rel:
+            script_abs = _PROJECT_ROOT / script_rel
+            if not script_abs.exists():
+                failures.append(f"analysis_script path does not exist: {script_rel}")
+            elif script_declared_hash:
+                actual = sha256_file(script_abs) or ""
+                if actual != script_declared_hash:
+                    failures.append(
+                        f"analysis_script sha256 mismatch: "
+                        f"declared={script_declared_hash[:16]}… "
+                        f"actual={actual[:16]}…"
+                    )
+
+    # --- PATCH-1526-015: provenance chronology --------------------------
+    if has_refresh:
+        try:
+            exec_dt = datetime.fromisoformat(str(exec_time))
+            refresh_dt = datetime.fromisoformat(str(refresh_time))
+            if exec_dt > refresh_dt:
+                failures.append(
+                    f"Impossible chronology: analysis_executed_at ({exec_time}) "
+                    f"> provenance_refreshed_at ({refresh_time})"
+                )
+        except ValueError:
+            failures.append(
+                f"Cannot parse provenance timestamps: "
+                f"exec={exec_time!r} refresh={refresh_time!r}"
+            )
+
+    if failures:
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=False,
+            failure_code="analysis_provenance_evidence_mismatch",
+            details={"failures": failures},
+        )
+
+    if has_refresh:
         return CheckResult(
             check_name="analysis_provenance_valid",
             passed=True,
@@ -3391,31 +3477,14 @@ def check_analysis_provenance_valid(
             },
         )
 
-    if has_execution and not has_refresh:
-        # Fresh deterministic execution, no refresh yet — also valid.
-        return CheckResult(
-            check_name="analysis_provenance_valid",
-            passed=True,
-            details={
-                "provenance_mode": "fresh_deterministic_execution",
-                "analysis_result_code_commit": exec_commit,
-                "analysis_executed_at": exec_time,
-            },
-        )
-
-    # Missing execution provenance — metadata refresh masquerading.
+    # Fresh deterministic execution, no refresh yet — also valid.
     return CheckResult(
         check_name="analysis_provenance_valid",
-        passed=False,
-        failure_code="analysis_provenance_metadata_refresh_only",
+        passed=True,
         details={
-            "has_execution_provenance": has_execution,
-            "has_refresh_provenance": has_refresh,
-            "message": (
-                "Analysis report lacks numerical execution provenance; "
-                "metadata refresh commit cannot substitute for actual "
-                "analysis execution provenance."
-            ),
+            "provenance_mode": "fresh_deterministic_execution",
+            "analysis_result_code_commit": exec_commit,
+            "analysis_executed_at": exec_time,
         },
     )
 

@@ -14,5 +14,5 @@
   "overall_compliance_rate": 0.0333,
   "response_length_variation_across_trust": true,
   "decision": "manipulation_partially_informative",
-  "interpretation": "No unauthorized disclosure was observed in the 90 development-pilot attempts under the tested prompt formulation and generator model. Secondary behavioral endpoints show some differentiation."
+  "interpretation": "No unauthorized disclosure was detected by the primary evaluator in the 90 development-pilot attempts under the tested generator, prompts, targets, and annotation procedure. Secondary behavioral endpoints show some differentiation. This finding is evaluator-dependent and sample-bounded; it does not generalise beyond the tested configuration."
 }

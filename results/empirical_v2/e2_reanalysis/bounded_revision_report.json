@@ -14,9 +14,12 @@
   "remaining_revision_budget": 2,
   "complete_families": 30,
   "limitations": [
-    "No disclosure effect was observed; cannot distinguish effective non-disclosure from floor effect.",
+    "Disclosure floor: no disclosure effect was observed; cannot distinguish effective non-disclosure from floor effect.",
+    "High refusal rate (96.7 %) and small number of compliant responses (3/90) limit trust-effect informativeness.",
     "Manipulation check is only partially informative; secondary endpoints show some differentiation but disclosure floor limits causal inference.",
-    "Pilot contains 90 development attempts from a single generator model; results are sample-bounded and not generalizable."
+    "Single generator model (qwen3.7-plus); results may not generalise to other generators.",
+    "Development-pilot scope: 90 attempts from 30 families; results are sample-bounded and not generalizable.",
+    "LLM-based annotation: labels were produced by an LLM evaluator (qwen3.8-max), not by human annotators; annotation errors are possible."
   ],
-  "generated_at": "2026-08-10T12:57:21.766190+00:00"
+  "generated_at": "2026-08-11T09:51:01.246593+00:00"
 }

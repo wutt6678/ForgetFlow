@@ -357,6 +357,13 @@ def regenerate_frozen_primary_labels() -> None:
     frozen["secondary_agreement_sha256"] = sha256_file(
         SECONDARY_ANNOTATION_DIR / "secondary_annotation_agreement.json"
     )
+    # PATCH-1526-002: bind canonical execution-provenance hash.
+    frozen["secondary_execution_provenance_sha256"] = sha256_file(
+        SECONDARY_ANNOTATION_DIR / "secondary_execution_provenance.json"
+    )
+    frozen["secondary_prompt_manifest_sha256"] = sha256_file(
+        SECONDARY_ANNOTATION_DIR / "secondary_prompt_manifest.json"
+    )
 
     # Load secondary labels to compute counts
     secondary_labels = load_jsonl(SECONDARY_ANNOTATION_DIR / "secondary_labels.jsonl")
@@ -389,70 +396,143 @@ def regenerate_frozen_primary_labels() -> None:
     print(f"  num_unresolved: {frozen['num_unresolved']}")
 
 
-def repair_reanalysis_provenance() -> None:
-    """FIX-027: Repair reanalysis provenance timestamps."""
-    print("\nFIX-027: Repairing reanalysis provenance...")
+def refresh_analysis_provenance() -> None:
+    """PATCH-1526-011/012/013: refresh analysis provenance metadata.
+
+    PATCH-1526-011: preserve execution fields, only update refresh fields.
+    PATCH-1526-012: remove legacy analysis_code_commit / analysis_timestamp.
+    PATCH-1526-013: add/update analysis_inputs and analysis_script evidence.
+    """
+    print("\nPATCH-1526-011: Refreshing analysis provenance metadata...")
 
     report_path = REANALYSIS_DIR / "e2_reanalysis_report.json"
     if not report_path.exists():
         print("  WARNING: e2_reanalysis_report.json not found")
         return
 
-    with report_path.open(encoding="utf-8") as fh:
-        report = json.load(fh)
-
-    # Update provenance to current commit
     import subprocess
 
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    # PATCH-1526-011: preserve execution provenance — never overwrite.
+    exec_commit = report.get("analysis_result_code_commit")
+    exec_time = report.get("analysis_executed_at")
+    if not exec_commit or not exec_time:
+        raise ValueError(
+            "Analysis report lacks execution provenance "
+            "(analysis_result_code_commit / analysis_executed_at). "
+            "Run the deterministic analysis before refreshing provenance."
+        )
+
+    # PATCH-1526-011: only update refresh metadata.
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     timestamp = subprocess.check_output(
         ["git", "show", "-s", "--format=%cI", "HEAD"], text=True
     ).strip()
+    report["provenance_refresh_commit"] = commit
+    report["provenance_refreshed_at"] = timestamp
 
-    report["analysis_code_commit"] = commit
-    report["analysis_timestamp"] = timestamp
-    report["generated_at"] = timestamp
+    # PATCH-1526-012: remove legacy ambiguous fields.
+    report.pop("analysis_code_commit", None)
+    report.pop("analysis_timestamp", None)
 
-    with report_path.open("w", encoding="utf-8") as fh:
-        json.dump(report, fh, indent=2)
-        fh.write("\n")
+    # PATCH-1526-013: add/update execution-provenance evidence.
+    primary_labels_path = Path("results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl")
+    raw_gen_path = Path("results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl")
+    script_path = Path("experiments/trustparadox_u/empirical_reanalysis.py")
+    report["analysis_inputs"] = {
+        "primary_labels_sha256": sha256_file(primary_labels_path),
+        "raw_generation_sha256": sha256_file(raw_gen_path),
+    }
+    report["analysis_script"] = {
+        "path": str(script_path),
+        "sha256": sha256_file(script_path),
+    }
 
-    print(f"  Updated to commit: {commit[:8]}")
-    print(f"  Timestamp: {timestamp}")
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+    print(f"  Execution provenance preserved: {exec_commit[:8]} @ {exec_time}")
+    print(f"  Refresh commit: {commit[:8]}")
+    print(f"  Refresh timestamp: {timestamp}")
+    print("  Legacy fields removed: analysis_code_commit, analysis_timestamp")
+    print("  analysis_inputs and analysis_script updated")
 
 
 def patch012_record_j2_transport_cap() -> None:
-    """PATCH-012: Record J2 transport-cap provenance in raw responses.
+    """PATCH-012 / PATCH-1526-001..006: Record J2 transport-cap provenance.
 
-    Adds requested_max_tokens field to each J2 raw response record:
-    - retries=0 → requested_max_tokens=512 (original cap)
-    - retries>0 → requested_max_tokens=1024 (retry-repair cap)
+    PATCH-1526-001: Remove all retry-count inference logic.
+    PATCH-1526-002: Use secondary_execution_provenance.json as canonical.
+    PATCH-1526-003: Rewrite to load provenance -> build ID map -> assign caps.
+    PATCH-1526-004: Fail on unmapped J2 IDs.
+    PATCH-1526-005: Fail on duplicate batch membership.
+    PATCH-1526-006: Enforce exact raw/provenance ID-set equivalence.
     """
-    print("\nPATCH-012: Recording J2 transport-cap provenance...")
+    print("\nPATCH-012/PATCH-1526: Recording J2 transport-cap provenance...")
+    provenance_path = SECONDARY_ANNOTATION_DIR / "secondary_execution_provenance.json"
     raw_path = SECONDARY_ANNOTATION_DIR / "secondary_raw_responses.jsonl"
+
+    if not provenance_path.exists():
+        raise FileNotFoundError(f"Canonical execution provenance not found: {provenance_path}")
     if not raw_path.exists():
         print("  WARNING: secondary_raw_responses.jsonl not found")
         return
 
+    # Load canonical provenance.
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    batches = provenance.get("batches", [])
+
+    # PATCH-1526-005: fail on duplicate batch membership.
+    batch_by_id: dict[str, dict[str, object]] = {}
+    all_provenance_ids: list[str] = []
+    for batch in batches:
+        for aid in batch.get("generation_attempt_ids", []):
+            if aid in batch_by_id:
+                raise ValueError(
+                    f"Duplicate batch membership: {aid!r} appears in more than one batch"
+                )
+            batch_by_id[aid] = batch
+            all_provenance_ids.append(aid)
+
+    # Load raw J2 records.
     records = load_jsonl(raw_path)
+    raw_ids = [rec["generation_attempt_id"] for rec in records]
+
+    # PATCH-1526-006: enforce exact ID-set equivalence.
+    raw_id_set = set(raw_ids)
+    prov_id_set = set(all_provenance_ids)
+    if raw_id_set != prov_id_set:
+        missing = prov_id_set - raw_id_set
+        extra = raw_id_set - prov_id_set
+        raise ValueError(
+            f"Raw/provenance ID-set mismatch: "
+            f"{len(raw_id_set)} raw vs {len(prov_id_set)} provenance; "
+            f"missing_in_raw={sorted(missing)}, extra_in_raw={sorted(extra)}"
+        )
+
+    # Assign transport provenance from canonical batches.
     updated = 0
     for rec in records:
-        retries = rec.get("retries", 0)
-        if retries == 0:
-            rec["requested_max_tokens"] = 512
-        else:
-            rec["requested_max_tokens"] = 1024
+        aid = rec["generation_attempt_id"]
+        # PATCH-1526-004: fail on unmapped J2 IDs (already enforced above
+        # by exact-set check, but guard explicitly as well).
+        if aid not in batch_by_id:
+            raise ValueError(f"Secondary raw response ID {aid!r} missing from execution provenance")
+        batch = batch_by_id[aid]
+        rec["requested_max_tokens"] = batch["requested_max_tokens"]
+        rec["execution_batch_id"] = batch["batch_id"]
+        rec["execution_type"] = batch["execution_type"]
         updated += 1
 
     with raw_path.open("w", encoding="utf-8") as fh:
         for rec in records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    caps = {}
+    caps: dict[int, int] = {}
     for rec in records:
         cap = rec.get("requested_max_tokens")
         caps[cap] = caps.get(cap, 0) + 1
-    print(f"  Updated {updated} records")
+    print(f"  Updated {updated} records from canonical provenance")
     for cap, count in sorted(caps.items()):
         print(f"  requested_max_tokens={cap}: {count} records")
 
@@ -510,7 +590,7 @@ def main() -> None:
     patch012_record_j2_transport_cap()
     regenerate_frozen_primary_labels()
     patch013_clarify_j2_prompt_freeze()
-    repair_reanalysis_provenance()
+    refresh_analysis_provenance()
 
     print("\n✓ Regeneration complete.")
 

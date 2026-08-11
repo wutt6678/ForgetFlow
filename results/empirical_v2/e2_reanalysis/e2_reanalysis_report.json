@@ -9,12 +9,18 @@
   "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
   "primary_label_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
   "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe",
-  "analysis_result_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
-  "analysis_executed_at": "2026-08-11T11:31:38+08:00",
-  "provenance_refresh_commit": "7359e25b101665078f55512dd52dae5eeb34bcf8",
-  "provenance_refreshed_at": "2026-08-11T11:31:38+08:00",
-  "analysis_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
-  "analysis_timestamp": "2026-08-11T11:31:38+08:00",
+  "analysis_result_code_commit": "1526f1a83c67cbe4ad8690e51deb3999f588eda8",
+  "analysis_executed_at": "2026-08-11T09:51:01.246690+00:00",
+  "provenance_refresh_commit": "1526f1a83c67cbe4ad8690e51deb3999f588eda8",
+  "provenance_refreshed_at": "2026-08-11T09:51:01.246690+00:00",
+  "analysis_inputs": {
+    "primary_labels_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
+    "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe"
+  },
+  "analysis_script": {
+    "path": "experiments/trustparadox_u/empirical_reanalysis.py",
+    "sha256": "1713c10a8719f7aa87ec237a8be7a695ca520c31e72d28c3a316c5fabe65155e"
+  },
   "overall_metrics": {
     "n_total_attempts": 90,
     "n_provider_failures": 0,
@@ -201,7 +207,6 @@
     }
   },
   "pairing_audit": {
-    "audit_status": "passed",
     "total_families": 30,
     "complete_families": 30,
     "incomplete_families": 0,
@@ -287,5 +292,5 @@
       }
     ]
   },
-  "generated_at": "2026-08-11T11:31:38+08:00"
+  "generated_at": "2026-08-11T09:51:01.246690+00:00"
 }

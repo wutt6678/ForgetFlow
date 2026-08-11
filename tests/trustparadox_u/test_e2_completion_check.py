@@ -2001,7 +2001,7 @@ class TestIterationGRegression:
         assert result.failure_code == "j_analysis_provenance_incomplete"
 
     def test_fix031_split_provenance_missing_fails(self) -> None:
-        """PATCH-7359-017: missing split provenance fields fail."""
+        """PATCH-7359-017 / PATCH-1526-012: missing new provenance fields fail."""
         analysis = {
             "primary_label_source": "independent_evaluator_j",
             "primary_label_sha256": "a" * 64,
@@ -2012,7 +2012,7 @@ class TestIterationGRegression:
         }
         result = check_j_analysis_provenance(analysis)
         assert result.passed is False
-        assert result.failure_code == "j_analysis_split_provenance_incomplete"
+        assert result.failure_code == "j_analysis_provenance_incomplete"
 
     def test_fix031_legacy_oracle_file_fails(self) -> None:
         """E2R-FIX-031: legacy oracle file causes failure."""

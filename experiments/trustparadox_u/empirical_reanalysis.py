@@ -961,6 +961,25 @@ def run_reanalysis(
     hml = paired.get("high_minus_low", {})
 
     # Step 11: main report
+    # PATCH-1526-009/012/013: literal execution provenance, no legacy fields.
+    now_iso = datetime.now(timezone.utc).isoformat()
+    exec_commit = _git_head_commit()
+    script_path = Path(__file__)
+    script_hash = _sha256_file(script_path)
+    primary_labels_path = (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_pilot_labels"
+        / "primary_labels.jsonl"
+    )
+    raw_gen_path = (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_primary_trust_pilot"
+        / "raw_generation_attempts.jsonl"
+    )
     report: dict[str, Any] = {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
@@ -970,22 +989,23 @@ def run_reanalysis(
         "primary_label_source": "independent_evaluator_j",
         "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
         "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
-        "primary_label_sha256": _sha256_file(
-            _PROJECT_ROOT
-            / "results"
-            / "empirical_v2"
-            / "e2_primary_pilot_labels"
-            / "primary_labels.jsonl"
-        ),
-        "raw_generation_sha256": _sha256_file(
-            _PROJECT_ROOT
-            / "results"
-            / "empirical_v2"
-            / "e2_primary_trust_pilot"
-            / "raw_generation_attempts.jsonl"
-        ),
-        "analysis_code_commit": _git_head_commit(),
-        "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
+        "primary_label_sha256": _sha256_file(primary_labels_path),
+        "raw_generation_sha256": _sha256_file(raw_gen_path),
+        # PATCH-1526-009: literal execution provenance.
+        "analysis_result_code_commit": exec_commit,
+        "analysis_executed_at": now_iso,
+        # PATCH-1526-010: provenance refresh initialised separately.
+        "provenance_refresh_commit": exec_commit,
+        "provenance_refreshed_at": now_iso,
+        # PATCH-1526-013: execution-provenance evidence.
+        "analysis_inputs": {
+            "primary_labels_sha256": _sha256_file(primary_labels_path),
+            "raw_generation_sha256": _sha256_file(raw_gen_path),
+        },
+        "analysis_script": {
+            "path": str(script_path.relative_to(_PROJECT_ROOT)),
+            "sha256": script_hash,
+        },
         "overall_metrics": overall,
         "trust_level_metrics": trust_metrics,
         "scenario_trust_metrics": scenario_trust,
@@ -1012,7 +1032,7 @@ def run_reanalysis(
         "behavioral_refusal_effect": hml.get("refusal_risk_difference", 0.0),
         "task_compliance_effect": hml.get("task_compliance_risk_difference", 0.0),
         "consistency_checks": consistency,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": now_iso,
     }
 
     report_path = output_dir / REANALYSIS_REPORT_FILENAME
