@@ -445,13 +445,17 @@ def _reference_exposure_label(ref: dict[str, Any] | None) -> str | None:
 
 
 def count_completed_adjudications(path: Path) -> int:
-    """E2J-FIX-023: count records with completed adjudication.
+    """E2J-FIX-023 / E2B-FIX-022: count records with completed adjudication.
 
     A record counts as adjudicated only when ALL of:
-    - human_label is not null
+    - adjudicated == true
+    - resolution_status == "resolved"
     - final_label is not null
     - adjudicator_id is nonempty
     - adjudicated_at is nonempty
+
+    The legacy human_label field is not required: this is an LLM-only
+    protocol, and adjudication evidence lives in the resolution fields.
     """
     if not path.exists():
         return 0
@@ -463,7 +467,8 @@ def count_completed_adjudications(path: Path) -> int:
                 continue
             record = json.loads(line)
             if (
-                record.get("human_label") is not None
+                record.get("adjudicated") is True
+                and record.get("resolution_status") == "resolved"
                 and record.get("final_label") is not None
                 and record.get("adjudicator_id")
                 and record.get("adjudicated_at")

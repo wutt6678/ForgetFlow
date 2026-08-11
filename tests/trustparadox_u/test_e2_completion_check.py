@@ -44,6 +44,8 @@ from experiments.trustparadox_u.run_e2_completion_check import (
     check_schedule,
     check_secondary_annotation_completion,
     check_secondary_annotation_integrity,
+    check_secondary_review_cross_artifact_consistency,
+    check_secondary_review_evidence_consistency,
     check_statistics,
     check_synthetic_provenance,
     check_synthetic_regression,
@@ -732,7 +734,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 37
+        assert len(report.checks) == 39
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -1945,7 +1947,8 @@ class TestIterationGRegression:
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "human_label": "none",
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
                     "final_label": "none",
                     "adjudicator_id": "",
                     "adjudicated_at": "",
@@ -1955,7 +1958,8 @@ class TestIterationGRegression:
             + json.dumps(
                 {
                     "generation_attempt_id": "test_002",
-                    "human_label": None,
+                    "adjudicated": False,
+                    "resolution_status": "unresolved",
                     "final_label": "none",
                     "adjudicator_id": "",
                     "adjudicated_at": "",
@@ -1975,7 +1979,8 @@ class TestIterationGRegression:
             json.dumps(
                 {
                     "generation_attempt_id": "test_001",
-                    "human_label": "none",
+                    "adjudicated": False,
+                    "resolution_status": "unresolved",
                     "final_label": "none",
                     "adjudicator_id": "",
                     "adjudicated_at": "",
@@ -1985,17 +1990,19 @@ class TestIterationGRegression:
             json.dumps(
                 {
                     "generation_attempt_id": "test_002",
-                    "human_label": "exact_value_disclosure",
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
                     "final_label": "exact_value_disclosure",
                     "adjudicator_id": "senior_adjudicator",
                     "adjudicated_at": "2026-08-01T00:00:00Z",
                 }
             ),
-            # Missing human_label — should NOT count
+            # Missing resolution evidence — should NOT count
             json.dumps(
                 {
                     "generation_attempt_id": "test_003",
-                    "human_label": None,
+                    "adjudicated": False,
+                    "resolution_status": "unresolved",
                     "final_label": "none",
                     "adjudicator_id": "adjudicator_2",
                     "adjudicated_at": "2026-08-01T01:00:00Z",
@@ -2479,7 +2486,8 @@ class TestFrozenManifestConsistency:
             [
                 {
                     "generation_attempt_id": "a_0",
-                    "human_label": "none",
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
                     "final_label": "none",
                     "adjudicator_id": "judge_1",
                     "adjudicated_at": "2026-08-01T00:00:00Z",
@@ -3009,3 +3017,323 @@ def test_fix021_adjudication_not_subset_of_queue(tmp_path: Path) -> None:
     )
     assert result.passed is False
     assert result.failure_code == "adjudication_not_subset_of_queue"
+
+
+class TestSecondaryReviewEvidenceConsistency:
+    """E2B-FIX-018/019/020: J2 evidence-level consistency checks."""
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _consistent_artifacts(self, tmp_path: Path) -> dict[str, Path]:
+        queue = [{"generation_attempt_id": aid} for aid in self.IDS]
+        raw = [
+            {"generation_attempt_id": aid, "status": "success", "parsed_output": {"x": 1}}
+            for aid in self.IDS
+        ]
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "final_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        adj = [
+            {
+                "generation_attempt_id": aid,
+                "resolution_status": "agreement",
+                "adjudicated": False,
+                "final_label": "none",
+                "adjudicator_id": "",
+                "adjudicated_at": "",
+            }
+            for aid in self.IDS
+        ]
+        paths = {
+            "queue_path": tmp_path / "queue.jsonl",
+            "raw_responses_path": tmp_path / "raw.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+        }
+        self._write_jsonl(paths["queue_path"], queue)
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(paths["adjudication_path"], adj)
+        return paths
+
+    def test_passes_with_consistent_nine_cases(self, tmp_path: Path) -> None:
+        paths = self._consistent_artifacts(tmp_path)
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is True
+
+    def test_fails_duplicate_ids(self, tmp_path: Path) -> None:
+        paths = self._consistent_artifacts(tmp_path)
+        raw = [{"generation_attempt_id": self.IDS[0], "status": "success", "parsed_output": {}}]
+        raw += [{"generation_attempt_id": self.IDS[0], "status": "success", "parsed_output": {}}]
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_duplicate_ids"
+
+    def test_fails_id_set_mismatch(self, tmp_path: Path) -> None:
+        paths = self._consistent_artifacts(tmp_path)
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {"generation_attempt_id": aid, "status": "success", "parsed_output": {}}
+                for aid in self.IDS[:-1]
+            ],
+        )
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_id_set_mismatch"
+
+    def test_fails_wrong_case_count(self, tmp_path: Path) -> None:
+        paths = self._consistent_artifacts(tmp_path)
+        short_ids = self.IDS[:8]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in short_ids])
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {"generation_attempt_id": a, "status": "success", "parsed_output": {}}
+                for a in short_ids
+            ],
+        )
+        self._write_jsonl(
+            paths["secondary_labels_path"],
+            [
+                {
+                    "generation_attempt_id": a,
+                    "j_label": "none",
+                    "secondary_label": "none",
+                    "final_label": "none",
+                    "resolution_status": "agreement",
+                    "secondary_evaluator_status": "success",
+                }
+                for a in short_ids
+            ],
+        )
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_audit_case_count_mismatch"
+
+    def test_fails_label_without_successful_raw(self, tmp_path: Path) -> None:
+        """FIX-019: non-null label with failed raw evaluation must fail."""
+        paths = self._consistent_artifacts(tmp_path)
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "empty" if i == 0 else "success",
+                    "parsed_output": None if i == 0 else {},
+                }
+                for i, aid in enumerate(self.IDS)
+            ],
+        )
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_label_without_successful_raw"
+
+    def test_fails_agreement_final_label_mismatch(self, tmp_path: Path) -> None:
+        """FIX-020: agreement requires final_label == j_label == secondary_label."""
+        paths = self._consistent_artifacts(tmp_path)
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "final_label": "exact_value_disclosure" if i == 0 else "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for i, aid in enumerate(self.IDS)
+        ]
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_agreement_label_inconsistent"
+
+    def test_fails_unresolved_with_final_label(self, tmp_path: Path) -> None:
+        """FIX-020: unresolved records must have final_label == null."""
+        paths = self._consistent_artifacts(tmp_path)
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": None,
+                "final_label": "none" if i else "none",
+                "resolution_status": "unresolved" if i == 0 else "agreement",
+                "secondary_evaluator_status": "empty" if i == 0 else "success",
+            }
+            for i, aid in enumerate(self.IDS)
+        ]
+        labels[0]["final_label"] = "none"  # unresolved but final label set
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        result = check_secondary_review_evidence_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_unresolved_has_final_label"
+
+
+class TestSecondaryReviewCrossArtifactConsistency:
+    """E2B-FIX-021: cross-artifact secondary-review consistency."""
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _label_records(self, unresolved_ids: set[str] | None = None) -> list[dict]:
+        unresolved_ids = unresolved_ids or set()
+        return [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": None if aid in unresolved_ids else "none",
+                "final_label": None if aid in unresolved_ids else "none",
+                "resolution_status": "unresolved" if aid in unresolved_ids else "agreement",
+                "secondary_evaluator_status": ("empty" if aid in unresolved_ids else "success"),
+            }
+            for aid in self.IDS
+        ]
+
+    def _paths(self, tmp_path: Path) -> dict[str, Path]:
+        return {
+            "secondary_review_labels_path": tmp_path / "review_labels.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+            "annotation_agreement_path": tmp_path / "annotation_agreement.json",
+            "label_agreement_report_path": tmp_path / "label_agreement_report.json",
+            "labeling_report_path": tmp_path / "labeling_report.json",
+        }
+
+    def test_passes_with_consistent_artifacts(self, tmp_path: Path) -> None:
+        paths = self._paths(tmp_path)
+        records = self._label_records()
+        self._write_jsonl(paths["secondary_review_labels_path"], records)
+        self._write_jsonl(paths["secondary_labels_path"], records)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": r["generation_attempt_id"],
+                    "j_label": r["j_label"],
+                    "secondary_label": r["secondary_label"],
+                    "resolution_status": r["resolution_status"],
+                    "adjudicated": False,
+                    "final_label": r["final_label"],
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+                for r in records
+            ],
+        )
+        paths["annotation_agreement_path"].write_text(
+            json.dumps(
+                {
+                    "n_selected": 9,
+                    "n_successful": 9,
+                    "n_failed": 0,
+                    "n_disagreed": 0,
+                    "n_unresolved": 0,
+                }
+            )
+        )
+        paths["label_agreement_report_path"].write_text(
+            json.dumps(
+                {
+                    "num_secondary_review_successful": 9,
+                    "num_secondary_review_failed": 0,
+                    "n_disagreed": 0,
+                    "n_unresolved": 0,
+                }
+            )
+        )
+        paths["labeling_report_path"].write_text(
+            json.dumps(
+                {
+                    "num_secondary_reviewed": 9,
+                    "num_disagreements": 0,
+                    "num_unresolved": 0,
+                    "num_adjudicated": 0,
+                }
+            )
+        )
+        result = check_secondary_review_cross_artifact_consistency(**paths)
+        assert result.passed is True
+
+    def test_fails_unresolved_count_contradiction(self, tmp_path: Path) -> None:
+        """The legacy 2-vs-0 unresolved contradiction must fail."""
+        paths = self._paths(tmp_path)
+        records = self._label_records(unresolved_ids={self.IDS[0], self.IDS[1]})
+        self._write_jsonl(paths["secondary_review_labels_path"], records)
+        self._write_jsonl(paths["secondary_labels_path"], records)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": r["generation_attempt_id"],
+                    "j_label": r["j_label"],
+                    "secondary_label": r["secondary_label"],
+                    "resolution_status": r["resolution_status"],
+                    "adjudicated": False,
+                    "final_label": r["final_label"],
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+                for r in records
+            ],
+        )
+        paths["annotation_agreement_path"].write_text(
+            json.dumps(
+                {
+                    "n_selected": 9,
+                    "n_successful": 7,
+                    "n_failed": 2,
+                    "n_disagreed": 0,
+                    "n_unresolved": 2,
+                }
+            )
+        )
+        paths["label_agreement_report_path"].write_text(
+            json.dumps(
+                {
+                    "num_secondary_review_successful": 7,
+                    "num_secondary_review_failed": 2,
+                    "n_disagreed": 0,
+                    "n_unresolved": 2,
+                }
+            )
+        )
+        # labeling_report claims 0 unresolved — contradicts source evidence.
+        paths["labeling_report_path"].write_text(
+            json.dumps(
+                {
+                    "num_secondary_reviewed": 7,
+                    "num_disagreements": 0,
+                    "num_unresolved": 0,
+                    "num_adjudicated": 0,
+                }
+            )
+        )
+        result = check_secondary_review_cross_artifact_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_cross_artifact_count_mismatch"
+
+    def test_fails_per_case_field_mismatch(self, tmp_path: Path) -> None:
+        paths = self._paths(tmp_path)
+        records = self._label_records()
+        review_records = [dict(r) for r in records]
+        review_records[0]["secondary_label"] = "exact_value_disclosure"  # contradicts
+        self._write_jsonl(paths["secondary_review_labels_path"], review_records)
+        self._write_jsonl(paths["secondary_labels_path"], records)
+        self._write_jsonl(paths["adjudication_path"], [])
+        result = check_secondary_review_cross_artifact_consistency(**paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_cross_artifact_field_mismatch"

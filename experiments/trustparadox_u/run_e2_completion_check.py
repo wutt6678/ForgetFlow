@@ -239,6 +239,13 @@ _SECONDARY_REVIEW_QUEUE_PATH = (
 _SECONDARY_ANNOTATION_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "e2_secondary_annotation"
 _SECONDARY_RAW_RESPONSES_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_raw_responses.jsonl"
 _SECONDARY_PROMPT_MANIFEST_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_prompt_manifest.json"
+_SECONDARY_LABELS_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_labels.jsonl"
+_SECONDARY_ANNOTATION_AGREEMENT_PATH = (
+    _SECONDARY_ANNOTATION_DIR / "secondary_annotation_agreement.json"
+)
+
+#: E2B-FIX-018: the stratified negative-sample audit queue has exactly 9 cases.
+REQUIRED_J2_AUDIT_CASES = 9
 _PILOT_MANIFEST_PATH = (
     _PROJECT_ROOT / "results" / "empirical_v2" / "e2_primary_trust_pilot" / "pilot_manifest.json"
 )
@@ -2349,10 +2356,14 @@ def check_cross_artifact_consistency(
 
     if adjudication_path is not None and adjudication_path.exists():
         adj_records = _load_jsonl(adjudication_path)
+        # E2B-FIX-022: generic adjudication counting must not require the
+        # legacy human_label field in an LLM-only protocol.  A record counts
+        # as adjudicated only when it carries full resolution evidence.
         completed = sum(
             1
             for r in adj_records
-            if r.get("human_label") is not None
+            if r.get("adjudicated") is True
+            and r.get("resolution_status") == "resolved"
             and r.get("final_label") is not None
             and r.get("adjudicator_id")
             and r.get("adjudicated_at")
@@ -3030,6 +3041,394 @@ def check_annotation_id_consistency(
     )
 
 
+def check_secondary_review_evidence_consistency(
+    *,
+    queue_path: Path | None = None,
+    raw_responses_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+) -> CheckResult:
+    """E2B-FIX-018/019/020: J2 evidence-level consistency checks.
+
+    FIX-018: set(queue IDs) == set(raw response IDs) == set(label IDs),
+    count == REQUIRED_J2_AUDIT_CASES, and no duplicate IDs.
+    FIX-019: secondary_label != null requires raw status == success with
+    parsed output present; raw evaluator failure requires null label.
+    FIX-020: resolution_status semantics — agreement implies
+    final_label == j_label == secondary_label; unresolved implies
+    final_label == null; resolved implies adjudicated == true with
+    non-empty adjudicator provenance.
+    """
+    if queue_path is None:
+        queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+
+    def _ids_with_dupes(path: Path) -> list[str]:
+        return [
+            str(rec.get("generation_attempt_id", ""))
+            for rec in _load_jsonl(path)
+            if rec.get("generation_attempt_id")
+        ]
+
+    queue_id_list = _ids_with_dupes(queue_path)
+    raw_id_list = _ids_with_dupes(raw_responses_path)
+    label_id_list = _ids_with_dupes(secondary_labels_path)
+
+    # FIX-018: reject duplicate IDs within any artifact.
+    for name, id_list in (
+        ("queue", queue_id_list),
+        ("raw_responses", raw_id_list),
+        ("secondary_labels", label_id_list),
+    ):
+        dupes = sorted({i for i in id_list if id_list.count(i) > 1})
+        if dupes:
+            return CheckResult(
+                check_name="secondary_review_evidence_consistency",
+                passed=False,
+                failure_code="e2_j2_duplicate_ids",
+                details={"artifact": name, "duplicates": dupes[:5]},
+            )
+
+    queue_ids, raw_ids, label_ids = set(queue_id_list), set(raw_id_list), set(label_id_list)
+
+    # FIX-018: exact ID equivalence across queue, raw responses, labels.
+    if not (queue_ids == raw_ids == label_ids):
+        return CheckResult(
+            check_name="secondary_review_evidence_consistency",
+            passed=False,
+            failure_code="e2_j2_id_set_mismatch",
+            details={
+                "only_in_queue": sorted(queue_ids - raw_ids - label_ids)[:5],
+                "only_in_raw": sorted(raw_ids - queue_ids - label_ids)[:5],
+                "only_in_labels": sorted(label_ids - queue_ids - raw_ids)[:5],
+            },
+        )
+
+    # FIX-018: the audit queue is fixed at 9 stratified negative samples.
+    if len(queue_ids) != REQUIRED_J2_AUDIT_CASES:
+        return CheckResult(
+            check_name="secondary_review_evidence_consistency",
+            passed=False,
+            failure_code="e2_j2_audit_case_count_mismatch",
+            details={
+                "expected": REQUIRED_J2_AUDIT_CASES,
+                "actual": len(queue_ids),
+            },
+        )
+
+    raw_by_id = {str(r.get("generation_attempt_id")): r for r in _load_jsonl(raw_responses_path)}
+    labels_by_id = {
+        str(r.get("generation_attempt_id")): r for r in _load_jsonl(secondary_labels_path)
+    }
+    adj_by_id = {str(r.get("generation_attempt_id")): r for r in _load_jsonl(adjudication_path)}
+
+    for aid in sorted(queue_ids):
+        raw_rec = raw_by_id.get(aid, {})
+        label_rec = labels_by_id.get(aid, {})
+        raw_status = str(raw_rec.get("status", ""))
+        secondary_label = label_rec.get("secondary_label")
+
+        # FIX-019: a non-null secondary label requires a successful raw
+        # evaluation with parsed output present.
+        if secondary_label is not None and (
+            raw_status != "success" or raw_rec.get("parsed_output") is None
+        ):
+            return CheckResult(
+                check_name="secondary_review_evidence_consistency",
+                passed=False,
+                failure_code="e2_j2_label_without_successful_raw",
+                details={
+                    "generation_attempt_id": aid,
+                    "raw_status": raw_status,
+                    "parsed_output_present": raw_rec.get("parsed_output") is not None,
+                },
+            )
+
+        # FIX-019: raw evaluator failure must yield a null secondary label.
+        if raw_status != "success" and secondary_label is not None:
+            return CheckResult(
+                check_name="secondary_review_evidence_consistency",
+                passed=False,
+                failure_code="e2_j2_failed_raw_has_label",
+                details={"generation_attempt_id": aid, "raw_status": raw_status},
+            )
+
+        # FIX-020: resolution_status semantics on the label record.
+        resolution_status = str(label_rec.get("resolution_status", ""))
+        final_label = label_rec.get("final_label")
+        j_label = label_rec.get("j_label")
+        if resolution_status == "agreement":
+            if not (final_label is not None and final_label == j_label == secondary_label):
+                return CheckResult(
+                    check_name="secondary_review_evidence_consistency",
+                    passed=False,
+                    failure_code="e2_j2_agreement_label_inconsistent",
+                    details={
+                        "generation_attempt_id": aid,
+                        "final_label": final_label,
+                        "j_label": j_label,
+                        "secondary_label": secondary_label,
+                    },
+                )
+        elif resolution_status == "unresolved":
+            if final_label is not None:
+                return CheckResult(
+                    check_name="secondary_review_evidence_consistency",
+                    passed=False,
+                    failure_code="e2_j2_unresolved_has_final_label",
+                    details={"generation_attempt_id": aid, "final_label": final_label},
+                )
+        elif resolution_status == "resolved":
+            adj_rec = adj_by_id.get(aid, {})
+            if final_label is None or not (
+                adj_rec.get("adjudicated") is True
+                and adj_rec.get("adjudicator_id")
+                and adj_rec.get("adjudicated_at")
+            ):
+                return CheckResult(
+                    check_name="secondary_review_evidence_consistency",
+                    passed=False,
+                    failure_code="e2_j2_resolved_without_adjudication_evidence",
+                    details={"generation_attempt_id": aid, "final_label": final_label},
+                )
+
+        # FIX-020: adjudication log must agree with the label record.
+        adj_record = adj_by_id.get(aid)
+        if adj_record is not None and str(adj_record.get("resolution_status", "")) != resolution_status:
+            return CheckResult(
+                check_name="secondary_review_evidence_consistency",
+                passed=False,
+                failure_code="e2_j2_resolution_status_mismatch",
+                details={
+                    "generation_attempt_id": aid,
+                    "label_record": resolution_status,
+                    "adjudication_record": adj_record.get("resolution_status"),
+                },
+            )
+
+    return CheckResult(
+        check_name="secondary_review_evidence_consistency",
+        passed=True,
+        details={"audit_cases": len(queue_ids)},
+    )
+
+
+def check_secondary_review_cross_artifact_consistency(
+    *,
+    secondary_review_labels_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+    annotation_agreement_path: Path | None = None,
+    label_agreement_report_path: Path | None = None,
+    labeling_report_path: Path | None = None,
+) -> CheckResult:
+    """E2B-FIX-021: cross-artifact secondary-review consistency.
+
+    Compare secondary_review_labels.jsonl, secondary_labels.jsonl,
+    adjudication_log.jsonl, secondary_annotation_agreement.json,
+    label_agreement_report.json, and labeling_report.json.  Review IDs,
+    J1 labels, J2 labels, and resolution statuses must agree per case;
+    successful/failed/disagreement/unresolved/adjudicated counts must
+    agree across every artifact that reports them.  The legacy 2-vs-0
+    unresolved contradiction must fail this check.
+    """
+    if secondary_review_labels_path is None:
+        secondary_review_labels_path = _SECONDARY_REVIEW_LABELS_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+    if annotation_agreement_path is None:
+        annotation_agreement_path = _SECONDARY_ANNOTATION_AGREEMENT_PATH
+    if label_agreement_report_path is None:
+        label_agreement_report_path = _AGREEMENT_REPORT_PATH
+    if labeling_report_path is None:
+        labeling_report_path = _LABELING_REPORT_PATH
+
+    def _by_id(path: Path) -> dict[str, dict[str, Any]]:
+        return {
+            str(rec.get("generation_attempt_id")): rec
+            for rec in _load_jsonl(path)
+            if rec.get("generation_attempt_id")
+        }
+
+    review_by_id = _by_id(secondary_review_labels_path)
+    labels_by_id = _by_id(secondary_labels_path)
+    adj_by_id = _by_id(adjudication_path)
+
+    # Per-case ID / J1 / J2 / resolution agreement across record artifacts.
+    common_ids = set(review_by_id) | set(labels_by_id) | set(adj_by_id)
+    for aid in sorted(common_ids):
+        review_rec = review_by_id.get(aid)
+        label_rec = labels_by_id.get(aid)
+        adj_rec = adj_by_id.get(aid)
+        present = [r for r in (review_rec, label_rec, adj_rec) if r is not None]
+        for field_name in ("j_label", "secondary_label", "resolution_status"):
+            values = {r.get(field_name) for r in present}
+            if len(values) > 1:
+                return CheckResult(
+                    check_name="secondary_review_cross_artifact_consistency",
+                    passed=False,
+                    failure_code="e2_j2_cross_artifact_field_mismatch",
+                    details={
+                        "generation_attempt_id": aid,
+                        "field": field_name,
+                        "secondary_review_labels": (
+                            review_rec.get(field_name) if review_rec else None
+                        ),
+                        "secondary_labels": (label_rec.get(field_name) if label_rec else None),
+                        "adjudication_log": adj_rec.get(field_name) if adj_rec else None,
+                    },
+                )
+
+    # Recompute counters from the secondary_labels source evidence.
+    label_records = list(labels_by_id.values())
+    n_successful = sum(1 for r in label_records if r.get("secondary_evaluator_status") == "success")
+    n_failed = len(label_records) - n_successful
+    n_disagreed = sum(
+        1
+        for r in label_records
+        if r.get("secondary_evaluator_status") == "success"
+        and r.get("j_label") != r.get("secondary_label")
+    )
+    n_unresolved = sum(1 for r in label_records if r.get("resolution_status") == "unresolved")
+    n_adjudicated = sum(
+        1
+        for r in adj_by_id.values()
+        if r.get("adjudicated") is True
+        and r.get("resolution_status") == "resolved"
+        and r.get("final_label") is not None
+        and r.get("adjudicator_id")
+        and r.get("adjudicated_at")
+    )
+
+    annotation_agreement: dict[str, Any] = {}
+    if annotation_agreement_path.exists():
+        annotation_agreement = json.loads(annotation_agreement_path.read_text(encoding="utf-8"))
+    label_agreement_report: dict[str, Any] = {}
+    if label_agreement_report_path.exists():
+        label_agreement_report = json.loads(label_agreement_report_path.read_text(encoding="utf-8"))
+    labeling_report: dict[str, Any] = {}
+    if labeling_report_path.exists():
+        labeling_report = json.loads(labeling_report_path.read_text(encoding="utf-8"))
+
+    # (recomputed, reported, artifact, field) triples; None values skipped.
+    comparisons: list[tuple[int, Any, str, str]] = [
+        (
+            n_successful,
+            annotation_agreement.get("n_successful"),
+            "annotation_agreement",
+            "n_successful",
+        ),
+        (
+            n_successful,
+            label_agreement_report.get("num_secondary_review_successful"),
+            "label_agreement_report",
+            "num_secondary_review_successful",
+        ),
+        # E2B-FIX-010: num_secondary_reviewed counts successful reviews only.
+        (
+            n_successful,
+            labeling_report.get("num_secondary_reviewed"),
+            "labeling_report",
+            "num_secondary_reviewed",
+        ),
+        (
+            n_successful,
+            labeling_report.get("num_secondary_review_successful"),
+            "labeling_report",
+            "num_secondary_review_successful",
+        ),
+        (n_failed, annotation_agreement.get("n_failed"), "annotation_agreement", "n_failed"),
+        (
+            n_failed,
+            label_agreement_report.get("num_secondary_review_failed"),
+            "label_agreement_report",
+            "num_secondary_review_failed",
+        ),
+        (
+            n_failed,
+            labeling_report.get("num_secondary_review_failed"),
+            "labeling_report",
+            "num_secondary_review_failed",
+        ),
+        (
+            n_disagreed,
+            annotation_agreement.get("n_disagreed"),
+            "annotation_agreement",
+            "n_disagreed",
+        ),
+        (
+            n_disagreed,
+            label_agreement_report.get("n_disagreed"),
+            "label_agreement_report",
+            "n_disagreed",
+        ),
+        (
+            n_disagreed,
+            labeling_report.get("num_disagreements"),
+            "labeling_report",
+            "num_disagreements",
+        ),
+        (
+            n_unresolved,
+            annotation_agreement.get("n_unresolved"),
+            "annotation_agreement",
+            "n_unresolved",
+        ),
+        (
+            n_unresolved,
+            label_agreement_report.get("n_unresolved"),
+            "label_agreement_report",
+            "n_unresolved",
+        ),
+        (n_unresolved, labeling_report.get("num_unresolved"), "labeling_report", "num_unresolved"),
+        (
+            n_adjudicated,
+            labeling_report.get("num_adjudicated"),
+            "labeling_report",
+            "num_adjudicated",
+        ),
+        (
+            len(label_records),
+            annotation_agreement.get("n_selected"),
+            "annotation_agreement",
+            "n_selected",
+        ),
+    ]
+    for recomputed, reported, artifact, field_name in comparisons:
+        if reported is not None and reported != recomputed:
+            return CheckResult(
+                check_name="secondary_review_cross_artifact_consistency",
+                passed=False,
+                failure_code="e2_j2_cross_artifact_count_mismatch",
+                details={
+                    "artifact": artifact,
+                    "field": field_name,
+                    "reported": reported,
+                    "recomputed_from_source": recomputed,
+                },
+            )
+
+    return CheckResult(
+        check_name="secondary_review_cross_artifact_consistency",
+        passed=True,
+        details={
+            "cases": len(common_ids),
+            "n_successful": n_successful,
+            "n_failed": n_failed,
+            "n_disagreed": n_disagreed,
+            "n_unresolved": n_unresolved,
+            "n_adjudicated": n_adjudicated,
+        },
+    )
+
+
 def run_completion_check(
     *,
     artifacts: dict[str, Any],
@@ -3136,6 +3535,12 @@ def run_completion_check(
 
     # --- E2-A7-FIX-021: Annotation ID consistency ---
     report.add_check(check_annotation_id_consistency())
+
+    # --- E2B-FIX-018/019/020: J2 evidence-level consistency ---
+    report.add_check(check_secondary_review_evidence_consistency())
+
+    # --- E2B-FIX-021: cross-artifact secondary-review consistency ---
+    report.add_check(check_secondary_review_cross_artifact_consistency())
 
     # --- E2R-FIX-026: Cross-artifact consistency ---
     report.add_check(
