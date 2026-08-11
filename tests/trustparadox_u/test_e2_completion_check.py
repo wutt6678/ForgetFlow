@@ -5510,3 +5510,404 @@ class TestPatch1526IdempotenceRegression:
             assert caps.get(512) == 7, f"Expected 7×512, got {caps}"
             assert caps.get(1024) == 2, f"Expected 2×1024, got {caps}"
             assert len(state) == 9
+
+
+# ---------------------------------------------------------------------------
+# FIX-B5-030..034: Analysis-provenance regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestPatchB5AnalysisProvenanceRegression:
+    """FIX-B5-030..034: commit-bound analysis provenance regression tests.
+
+    Each test verifies a distinct failure mode in
+    check_analysis_provenance_valid() cannot silently pass.
+    """
+
+    def test_fix_b5_030_correct_commit_script_pair_pass(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-030: correct commit/script pair → PASS."""
+        script_content = b"# analysis script content\n"
+        script_file = tmp_path / "empirical_reanalysis.py"
+        script_file.write_bytes(script_content)
+        correct_hash = hashlib.sha256(script_content).hexdigest()
+
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "no_labels.jsonl")
+        monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "no_raw.jsonl")
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: script_content)
+
+        analysis = {
+            "analysis_result_code_commit": "abc123def",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "def456abc",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
+            "analysis_script": {
+                "path": str(script_file),
+                "sha256": correct_hash,
+            },
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is True
+
+    def test_fix_b5_031_wrong_recorded_commit_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-031: report hash = sha256(current script) but commit has
+        different bytes → analysis_script_commit_hash_mismatch."""
+        current_content = b"# current script v2\n"
+        committed_content = b"# old script v1\n"
+        script_file = tmp_path / "empirical_reanalysis.py"
+        script_file.write_bytes(current_content)
+        # Report declares hash of CURRENT script, not committed script.
+        current_hash = hashlib.sha256(current_content).hexdigest()
+
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "no_labels.jsonl")
+        monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "no_raw.jsonl")
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        # At the recorded commit, the script has DIFFERENT bytes.
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: committed_content)
+
+        analysis = {
+            "analysis_result_code_commit": "old_commit",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
+            "analysis_script": {
+                "path": str(script_file),
+                "sha256": current_hash,
+            },
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_script_commit_hash_mismatch"
+
+    def test_fix_b5_032_dirty_tree_fail(self) -> None:
+        """FIX-B5-032: working_tree_clean = false → analysis_working_tree_dirty."""
+        analysis = {
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "working_tree_clean": False,
+            "analysis_provenance_mode": "clean_committed_execution",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_working_tree_dirty"
+
+    def test_fix_b5_033_missing_script_at_commit_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-033: script path does not exist at recorded commit →
+        analysis_script_missing_at_recorded_commit."""
+        script_file = tmp_path / "empirical_reanalysis.py"
+        script_file.write_text("# script\n", encoding="utf-8")
+
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "no_labels.jsonl")
+        monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "no_raw.jsonl")
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        # Script does not exist at the recorded commit.
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: None)
+
+        analysis = {
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
+            "analysis_script": {
+                "path": str(script_file),
+                "sha256": "a" * 64,
+            },
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_script_missing_at_recorded_commit"
+
+    def test_fix_b5_034_unresolvable_commit_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """FIX-B5-034: commit does not exist →
+        analysis_result_code_commit_unresolvable."""
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: False)
+
+        analysis = {
+            "analysis_result_code_commit": "deadbeef_nonexistent",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_result_code_commit_unresolvable"
+
+
+# ---------------------------------------------------------------------------
+# FIX-B5-035..040: Four-way hash binding regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestPatchB5FourWayHashBindingRegression:
+    """FIX-B5-035..040: four-way EP hash binding regression tests.
+
+    Tests that missing or mismatched EP hash sources are correctly
+    rejected in both canonical and non-canonical modes.
+    """
+
+    @staticmethod
+    def _minimal_inputs() -> tuple[dict, dict, dict]:
+        labels_report: dict[str, Any] = {}
+        analysis: dict[str, Any] = {}
+        bounded_revision: dict[str, Any] = {}
+        return labels_report, analysis, bounded_revision
+
+    def test_fix_b5_035_missing_completion_hash_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-035: completion hash missing in canonical mode → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "a" * 64
+
+        # Monkeypatch EP file to non-existent path so actual_file is missing.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            tmp_path / "no_ep.json",
+        )
+
+        completion = CompletionReport()
+        # No secondary_execution_provenance hash in completion.
+        phase = {"secondary_execution_provenance_sha256": consistent_hash}
+        frozen = {"secondary_execution_provenance_sha256": consistent_hash}
+
+        # Canonical mode: do NOT pass primary_labels_path.
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_source_missing"
+
+    def test_fix_b5_036_missing_phase_hash_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-036: phase hash missing in canonical mode → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "a" * 64
+
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            tmp_path / "no_ep.json",
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
+        # Phase has no hash.
+        phase: dict[str, str] = {}
+        frozen = {"secondary_execution_provenance_sha256": consistent_hash}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_source_missing"
+
+    def test_fix_b5_037_missing_frozen_hash_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-037: frozen hash missing in canonical mode → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "a" * 64
+
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            tmp_path / "no_ep.json",
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
+        phase = {"secondary_execution_provenance_sha256": consistent_hash}
+        # Frozen has no hash.
+        frozen: dict[str, str] = {}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_source_missing"
+
+    def test_fix_b5_038_missing_actual_file_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-038: actual EP file missing in canonical mode → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "a" * 64
+
+        # EP file does not exist.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            tmp_path / "nonexistent_ep.json",
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
+        phase = {"secondary_execution_provenance_sha256": consistent_hash}
+        frozen = {"secondary_execution_provenance_sha256": consistent_hash}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_source_missing"
+
+    def test_fix_b5_039a_completion_ne_phase_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-039: completion != phase → execution_provenance_hash_mismatch."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        ep_file = tmp_path / "ep.json"
+        ep_file.write_text("{}")
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            ep_file,
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
+        phase = {"secondary_execution_provenance_sha256": "b" * 64}
+        frozen = {"secondary_execution_provenance_sha256": "a" * 64}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_hash_mismatch"
+
+    def test_fix_b5_039b_phase_ne_frozen_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-039: phase != frozen → execution_provenance_hash_mismatch."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        ep_file = tmp_path / "ep.json"
+        ep_file.write_text("{}")
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            ep_file,
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
+        phase = {"secondary_execution_provenance_sha256": "a" * 64}
+        frozen = {"secondary_execution_provenance_sha256": "b" * 64}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_hash_mismatch"
+
+    def test_fix_b5_039c_frozen_ne_actual_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-039: frozen != actual file → execution_provenance_hash_mismatch."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        # Create EP file with known content.
+        ep_file = tmp_path / "ep.json"
+        ep_file.write_text('{"real": "content"}')
+        actual_hash = hashlib.sha256(ep_file.read_bytes()).hexdigest()
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            ep_file,
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", actual_hash)
+        phase = {"secondary_execution_provenance_sha256": actual_hash}
+        # Frozen disagrees with actual file.
+        frozen = {"secondary_execution_provenance_sha256": "b" * 64}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_hash_mismatch"
+
+    def test_fix_b5_040_all_four_equal_pass(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FIX-B5-040: all four sources equal → PASS."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        ep_file = tmp_path / "ep.json"
+        ep_file.write_text('{"consistent": true}')
+        consistent_hash = hashlib.sha256(ep_file.read_bytes()).hexdigest()
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            ep_file,
+        )
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
+        phase = {"secondary_execution_provenance_sha256": consistent_hash}
+        frozen = {"secondary_execution_provenance_sha256": consistent_hash}
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is True
