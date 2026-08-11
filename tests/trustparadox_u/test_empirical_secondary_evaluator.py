@@ -8,6 +8,8 @@ Empty J2 output is retryable under the frozen retry policy:
 from __future__ import annotations
 
 import json
+import sys
+import types
 from typing import Any
 
 import pytest
@@ -81,9 +83,9 @@ class TestEmptyResponseRetry:
                 return _fake_completion("")
             return _fake_completion(_valid_judgment_json())
 
-        import litellm
-
-        monkeypatch.setattr(litellm, "completion", fake_completion)
+        fake_litellm = types.ModuleType("litellm")
+        fake_litellm.completion = fake_completion  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
         provider = SecondaryEvaluatorProvider(model_name="openai/glm-5.2")
         result = provider.evaluate(_request())
@@ -101,9 +103,9 @@ class TestEmptyResponseRetry:
             calls["n"] += 1
             return _fake_completion("   ")
 
-        import litellm
-
-        monkeypatch.setattr(litellm, "completion", fake_completion)
+        fake_litellm = types.ModuleType("litellm")
+        fake_litellm.completion = fake_completion  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
         provider = SecondaryEvaluatorProvider(model_name="openai/glm-5.2")
         result = provider.evaluate(_request())
