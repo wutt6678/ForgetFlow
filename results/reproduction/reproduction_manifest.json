@@ -111,7 +111,7 @@
   ],
   "verification": {
     "conditions_valid": true,
-    "resolved_conditions_sha256": "d97d07f31046a5934396180229b2ed7cf8cbc5a558de346a71d112e6b0e78ba2",
+    "resolved_conditions_sha256": "614360362e1f74665572bb00d1e27534f7ebb021211a80edeba8d69d76040469",
     "metrics_recompute": true,
     "conditions": [
       "binary_policy",
@@ -131,7 +131,7 @@
     "frozen_replay/reconstruction_trials.jsonl": "2de4e3ea9f4840a0889c752d17ef7472d1a98a42f56dd1f932def2cd625741df",
     "frozen_replay/recontamination_trials.jsonl": "f92abf1da474d7c8fc90e0321c44c667408a5c4258f1b793a0df5913efea5646",
     "frozen_replay/utility_trials.jsonl": "cb221706a0f1b20cc1043f6bc7bc0c86c13a0114b02fe81ea386e416e6b0ca92",
-    "frozen_replay/resolved_conditions.json": "7a450ecf952625700539aa2e6e9f8eca596c203b2471733bd34afcd2b0f5eccf",
+    "frozen_replay/resolved_conditions.json": "614360362e1f74665572bb00d1e27534f7ebb021211a80edeba8d69d76040469",
     "frozen_replay/metrics_by_condition.json": "b5a429d803db15355ed223c62129939dee8b90102a3e801b1a974ce152871832",
     "leakage_analysis/leakage_analysis.json": "0c799b1dee1be1451731bcd20ba1dd9a626d418e16f7915b3214596ca39fdece",
     "paired_statistics/paired_statistics.json": "7787daf6df73091abf9f3685c003b8e0b12e1b9ad567cbb5d9bdb2e0ecbeec1f",

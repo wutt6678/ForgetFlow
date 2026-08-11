@@ -367,9 +367,7 @@ def _build_config(raw: dict[str, Any]) -> ExperimentConfig:
         secondary_evaluator_temperature=float(
             models_raw.get("secondary_evaluator_temperature", 0.0)
         ),
-        secondary_evaluator_max_tokens=int(
-            models_raw.get("secondary_evaluator_max_tokens", 512)
-        ),
+        secondary_evaluator_max_tokens=int(models_raw.get("secondary_evaluator_max_tokens", 512)),
     )
 
     return ExperimentConfig(

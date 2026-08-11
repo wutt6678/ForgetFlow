@@ -7,7 +7,7 @@
   "gate_evidence_commit": "ed1e20fdfd352b773760b253bf9588aacfc445a2",
   "gate_snapshot_commit": "ed1e20fdfd352b773760b253bf9588aacfc445a2",
   "gate_evidence_sha256": "8ed5afde0d1b04f4cb913343db199a86e3d0f45269a6e12b2fe0903fffaf0360",
-  "verified_at": "2026-08-07T10:08:43.171715+00:00",
+  "verified_at": "2026-08-10T14:23:01+00:00",
   "scientific_release_digest": "b2d33d49ea9d0d36de21c9274ff6bd439435133a9d1e13c3a8fb258f82908424",
   "storage_metadata_digest": "1329b6517ddd89a9cb7938ff8c13ef4a2a7dd7ac93ab0dae5ca1adb1bde952d0"
 }

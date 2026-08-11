@@ -287,6 +287,17 @@ def check_conditions_valid() -> dict[str, Any]:
         findings.append(f"baseline_missing: {BASELINE_CONDITION}")
     for name in sorted(set(resolved) & expected):
         expected_config = dataclasses.asdict(build_config_for_condition(name, seed=seed))
+        # FIX-033: Strip empirical-only evaluator fields to match the
+        # synthetic frozen-condition serialization.
+        models = expected_config.get("models")
+        if isinstance(models, dict):
+            for key in (
+                "secondary_evaluator_provider",
+                "secondary_evaluator_model",
+                "secondary_evaluator_temperature",
+                "secondary_evaluator_max_tokens",
+            ):
+                models.pop(key, None)
         # The resolved configs are JSON-serialized: normalize tuples to
         # lists before comparing.
         normalized = json.loads(json.dumps(expected_config))

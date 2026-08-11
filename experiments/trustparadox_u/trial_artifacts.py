@@ -798,9 +798,35 @@ def episode_record(condition_id: str, result: EpisodeResult) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# FIX-033: Empirical-only evaluator fields excluded from synthetic
+# frozen-condition serialization so that adding E2 evaluation config
+# does not alter historical synthetic condition hashes.
+_SYNTHETIC_EXCLUDED_MODEL_FIELDS = frozenset(
+    {
+        "secondary_evaluator_provider",
+        "secondary_evaluator_model",
+        "secondary_evaluator_temperature",
+        "secondary_evaluator_max_tokens",
+    }
+)
+
+
 def resolved_conditions_payload(configs: dict[str, Any]) -> dict[str, Any]:
-    """Serialize the fully resolved config of every condition."""
-    return {name: dataclasses.asdict(config) for name, config in sorted(configs.items())}
+    """Serialize the fully resolved config of every condition.
+
+    FIX-033: Empirical-only evaluator fields are stripped from the
+    serialized models sub-dict so synthetic frozen-condition serialization
+    remains stable across evaluator configuration changes.
+    """
+    result: dict[str, Any] = {}
+    for name, config in sorted(configs.items()):
+        d = dataclasses.asdict(config)
+        models = d.get("models")
+        if isinstance(models, dict):
+            for key in _SYNTHETIC_EXCLUDED_MODEL_FIELDS:
+                models.pop(key, None)
+        result[name] = d
+    return result
 
 
 def _sha256_of(path: Path) -> str:

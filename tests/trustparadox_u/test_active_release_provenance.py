@@ -307,3 +307,169 @@ def test_fix034_synthetic_provenance_chain_coherent(
     assert (
         verified_at >= created_at
     ), f"verified_at ({verified_at}) must be >= created_at ({created_at})"
+
+
+# --- FIX-030: Synthetic timestamp regression tests ---
+
+
+def _parse_iso(ts: str) -> Any:
+    from datetime import datetime
+
+    return datetime.fromisoformat(ts.replace("+00:00", "+00:00"))
+
+
+def test_fix030_sidecar_verified_at_not_before_evidence_commit(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """FIX-030: STORAGE_PROVENANCE.verified_at must be >= gate evidence commit time.
+
+    A stale sidecar timestamp that predates the evidence it references
+    must fail this regression check.
+    """
+    _, _, sidecar = active_release
+    evidence_commit = str(sidecar.get("gate_evidence_commit", "") or "")
+    assert evidence_commit and COMMIT_RE.match(evidence_commit)
+
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%cI", evidence_commit],
+        capture_output=True,
+        text=True,
+        cwd=_PROJECT_ROOT,
+    )
+    assert result.returncode == 0, f"git log failed for {evidence_commit}"
+    commit_ts = _parse_iso(result.stdout.strip())
+    verified_ts = _parse_iso(str(sidecar.get("verified_at", "")))
+    assert (
+        verified_ts >= commit_ts
+    ), f"sidecar verified_at ({verified_ts}) must be >= evidence commit ({commit_ts})"
+
+
+def test_fix030_final_cert_verified_at_not_before_evidence_commit(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """FIX-030: FINAL_STORAGE_CERTIFICATION.verified_at >= evidence commit time."""
+    from experiments.trustparadox_u.release_bundle import FINAL_STORAGE_CERTIFICATION_NAME
+
+    bundle_dir, _, sidecar = active_release
+    final_cert = json.loads((bundle_dir / FINAL_STORAGE_CERTIFICATION_NAME).read_text())
+
+    evidence_commit = str(sidecar.get("gate_evidence_commit", "") or "")
+    assert evidence_commit and COMMIT_RE.match(evidence_commit)
+
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%cI", evidence_commit],
+        capture_output=True,
+        text=True,
+        cwd=_PROJECT_ROOT,
+    )
+    assert result.returncode == 0
+    commit_ts = _parse_iso(result.stdout.strip())
+    verified_ts = _parse_iso(str(final_cert.get("verified_at", "")))
+    assert (
+        verified_ts >= commit_ts
+    ), f"final cert verified_at ({verified_ts}) must be >= evidence commit ({commit_ts})"
+
+
+def test_fix030_sidecar_timestamp_is_reasonable(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """FIX-030: STORAGE_PROVENANCE.verified_at must be a reasonable timestamp."""
+    _, _, sidecar = active_release
+    verified_ts = _parse_iso(str(sidecar.get("verified_at", "")))
+    # verified_at may predate generated_at only if the sidecar was created
+    # before the bundle; in practice verified_at >= generated_at.
+    # The critical invariant is verified_at >= evidence commit (tested above).
+    # Here we ensure the sidecar timestamp is at least a valid ISO timestamp
+    # and not absurdly early (before 2026).
+    from datetime import datetime, timezone
+
+    assert verified_ts >= datetime(
+        2026, 1, 1, tzinfo=timezone.utc
+    ), f"sidecar verified_at ({verified_ts}) is unreasonably early"
+
+
+# --- FIX-032: Reproduction-manifest self-consistency test ---
+
+
+def test_fix032_reproduction_manifest_resolved_conditions_self_consistent() -> None:
+    """FIX-032: reproduction_manifest resolved_conditions hash must be self-consistent.
+
+    Validates:
+    1. verification.resolved_conditions_sha256 == artifacts['frozen_replay/resolved_conditions.json']
+    2. Both equal sha256 of the actual file bytes on disk.
+    """
+    import hashlib
+
+    manifest_path = RESULTS_DIR / "reproduction" / "reproduction_manifest.json"
+    assert manifest_path.exists(), f"reproduction manifest missing: {manifest_path}"
+    manifest = json.loads(manifest_path.read_text())
+
+    verification_hash = str(manifest.get("verification", {}).get("resolved_conditions_sha256", ""))
+    artifacts_hash = str(
+        manifest.get("artifacts", {}).get("frozen_replay/resolved_conditions.json", "")
+    )
+
+    # Internal consistency: the two manifest fields must agree.
+    assert verification_hash, "verification.resolved_conditions_sha256 is empty"
+    assert artifacts_hash, "artifacts['frozen_replay/resolved_conditions.json'] is empty"
+    assert (
+        verification_hash == artifacts_hash
+    ), f"manifest internal mismatch: verification={verification_hash} artifacts={artifacts_hash}"
+
+    # External consistency: both must match the actual file bytes.
+    resolved_path = REPLAY_DIR / "resolved_conditions.json"
+    assert resolved_path.exists(), f"resolved_conditions.json missing: {resolved_path}"
+    actual_hash = hashlib.sha256(resolved_path.read_bytes()).hexdigest()
+    assert (
+        actual_hash == verification_hash
+    ), f"file hash {actual_hash} != manifest verification hash {verification_hash}"
+
+
+# --- FIX-034: Historical synthetic outputs immutability ---
+
+
+def test_fix034_tables_hashes_unchanged(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """FIX-034: Tables 1-6 hashes in reproduction manifest match the release bundle.
+
+    The scientific release digest and table hashes must remain identical
+    to the values recorded in the bundle manifest (frozen at storage commit).
+    """
+    _, manifest, _ = active_release
+    manifest_path = RESULTS_DIR / "reproduction" / "reproduction_manifest.json"
+    repro = json.loads(manifest_path.read_text())
+
+    bundle_components = manifest.get("components", {})
+    repro_artifacts = repro.get("artifacts", {})
+
+    table_keys = [
+        "final_artifacts/table1_main_results.json",
+        "final_artifacts/table2_leakage_breakdown.json",
+        "final_artifacts/table3_parameter_sensitivity.json",
+        "final_artifacts/table4_statistical_comparisons.json",
+        "final_artifacts/table5_target_type_results.json",
+        "final_artifacts/table6_trust_analysis.json",
+    ]
+    for key in table_keys:
+        bundle_hash = str(bundle_components.get(key, {}).get("sha256", ""))
+        repro_hash = str(repro_artifacts.get(key, ""))
+        assert bundle_hash and repro_hash, f"missing hash for {key}"
+        assert (
+            bundle_hash == repro_hash
+        ), f"{key}: bundle={bundle_hash} != reproduction={repro_hash}"
+
+
+def test_fix034_scientific_release_digest_unchanged(
+    active_release: tuple[Path, dict[str, Any], dict[str, Any]],
+) -> None:
+    """FIX-034: scientific_release_digest in the bundle is stable."""
+    _, manifest, sidecar = active_release
+    bundle_digest = str(manifest.get("scientific_release_digest", ""))
+    sidecar_digest = str(sidecar.get("scientific_release_digest", ""))
+    assert bundle_digest and sidecar_digest
+    assert (
+        bundle_digest == sidecar_digest
+    ), f"scientific_release_digest mismatch: bundle={bundle_digest} sidecar={sidecar_digest}"
+    # Also matches release_digest
+    assert str(manifest.get("release_digest", "")) == bundle_digest
