@@ -1496,6 +1496,101 @@ class TestIterationFFileBasedChecks:
         assert result.passed is False
         assert result.failure_code == "j2_transport_cap_not_allowed"
 
+    # -- PATCH-025/026/030: final-recertification regression tests --------
+
+    def test_patch025_study_metadata_in_report(self) -> None:
+        """PATCH-025: CompletionReport.to_dict() includes study_metadata."""
+        report = CompletionReport()
+        d = report.to_dict()
+        assert "study_metadata" in d
+        sm = d["study_metadata"]
+        assert "paper_facing_description" in sm
+        assert "limitations" in sm
+        # Paper-facing description must mention J1 and J2.
+        desc = sm["paper_facing_description"]
+        assert "J1" in desc
+        assert "J2" in desc
+        assert "deterministic reference" in desc.lower() or "deterministic Reference" in desc
+        # Must NOT claim human validation.
+        assert "human validation" not in desc.lower()
+        assert "human ground truth" not in desc.lower()
+
+    def test_patch026_limitations_content(self) -> None:
+        """PATCH-026: limitations list all required items."""
+        report = CompletionReport()
+        limitations = report.to_dict()["study_metadata"]["limitations"]
+        assert isinstance(limitations, list)
+        assert len(limitations) >= 7
+        # Required limitation keywords.
+        joined = " ".join(limitations).lower()
+        assert "pilot" in joined
+        assert "90" in joined
+        assert "single generator" in joined
+        assert "refusal" in joined
+        assert "llm" in joined
+        assert "9-case" in joined or "9 case" in joined
+
+    def test_patch030_frozen_timestamp_chronological_order(self) -> None:
+        """PATCH-010/030: frozen manifest timestamps are chronologically valid."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            _FROZEN_PRIMARY_LABELS_PATH,
+        )
+
+        if not _FROZEN_PRIMARY_LABELS_PATH.exists():
+            pytest.skip("frozen_primary_labels.json not found")
+        frozen = json.loads(_FROZEN_PRIMARY_LABELS_PATH.read_text(encoding="utf-8"))
+        ts_primary = frozen.get("primary_labels_frozen_at")
+        ts_secondary = frozen.get("secondary_audit_frozen_at")
+        ts_manifest = frozen.get("manifest_generated_at")
+        # All three must be present.
+        assert ts_primary is not None, "missing primary_labels_frozen_at"
+        assert ts_secondary is not None, "missing secondary_audit_frozen_at"
+        assert ts_manifest is not None, "missing manifest_generated_at"
+        # Chronological order: primary <= secondary <= manifest.
+        assert ts_primary <= ts_secondary, (
+            f"primary_labels_frozen_at ({ts_primary}) must be <= "
+            f"secondary_audit_frozen_at ({ts_secondary})"
+        )
+        assert ts_secondary <= ts_manifest, (
+            f"secondary_audit_frozen_at ({ts_secondary}) must be <= "
+            f"manifest_generated_at ({ts_manifest})"
+        )
+        # Old ambiguous field must not be present.
+        assert "frozen_at" not in frozen, "stale frozen_at field must be removed"
+
+    def test_patch030_agreement_report_hash_binding(self) -> None:
+        """PATCH-018/030: frozen manifest binds agreement report hash."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            _AGREEMENT_REPORT_PATH,
+            _FROZEN_PRIMARY_LABELS_PATH,
+            sha256_file,
+        )
+
+        if not _FROZEN_PRIMARY_LABELS_PATH.exists():
+            pytest.skip("frozen_primary_labels.json not found")
+        frozen = json.loads(_FROZEN_PRIMARY_LABELS_PATH.read_text(encoding="utf-8"))
+        bound_hash = frozen.get("agreement_report_sha256")
+        assert bound_hash is not None, "agreement_report_sha256 missing from frozen manifest"
+        if _AGREEMENT_REPORT_PATH.exists():
+            actual_hash = sha256_file(_AGREEMENT_REPORT_PATH)
+            assert (
+                bound_hash == actual_hash
+            ), "agreement_report_sha256 does not match actual file hash"
+
+    def test_patch030_e2_transition_requires_all_passed(self) -> None:
+        """PATCH-023/030: E2_COMPLETE transition requires all_passed=true."""
+        report = CompletionReport()
+        report.add_check(
+            CheckResult(
+                check_name="deliberate_failure",
+                passed=False,
+                failure_code="test_failure",
+            )
+        )
+        assert report.all_passed is False
+        d = report.to_dict()
+        assert d["all_passed"] is False
+
     def test_uncertainty_ci_pass_paired(self) -> None:
         """Test uncertainty CI passes with paired_effects."""
         analysis = {

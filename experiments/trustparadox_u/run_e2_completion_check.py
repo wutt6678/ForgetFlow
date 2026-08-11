@@ -377,6 +377,31 @@ class CheckResult:
         }
 
 
+# -- PATCH-025/026: paper-facing study metadata ---------------------------
+
+_PAPER_FACING_DESCRIPTION: str = (
+    "Primary empirical outcomes were annotated by J1 (qwen3.8-max). "
+    "A stratified nine-case audit was independently evaluated by J2 "
+    "(glm-5.2), with agreement observed on all 9 successfully audited "
+    "cases. Deterministic reference labels were retained only as a "
+    "secondary diagnostic comparison and were not treated as independent "
+    "ground truth."
+)
+
+_LIMITATIONS: list[str] = [
+    "development-pilot only",
+    "90 cases",
+    "single generator (qwen3.7-plus)",
+    "0 observed unauthorized disclosures",
+    "high behavioral refusal rate (87/90)",
+    "disclosure floor effect (CI = [0.0, 0.0])",
+    "LLM-based annotation (J1 = qwen3.8-max)",
+    "9-case secondary audit (J2 = glm-5.2)",
+    "all J2 audit cases drawn from the negative stratum "
+    "because no J1 positive exposure labels occurred",
+]
+
+
 @dataclass
 class CompletionReport:
     """E2 repair §51: completion report."""
@@ -399,6 +424,13 @@ class CompletionReport:
         """Record SHA-256 for an artifact (E2R-035)."""
         self.artifact_hashes[name] = sha256
 
+    def study_metadata(self) -> dict[str, Any]:
+        """PATCH-025/026: paper-facing study metadata."""
+        return {
+            "paper_facing_description": _PAPER_FACING_DESCRIPTION,
+            "limitations": list(_LIMITATIONS),
+        }
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-serializable dict."""
         return {
@@ -409,6 +441,7 @@ class CompletionReport:
             "all_passed": self.all_passed,
             "checks": {name: result.to_dict() for name, result in self.checks.items()},
             "artifact_hashes": dict(self.artifact_hashes),
+            "study_metadata": self.study_metadata(),
         }
 
 

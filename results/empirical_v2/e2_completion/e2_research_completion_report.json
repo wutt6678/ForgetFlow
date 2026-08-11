@@ -488,5 +488,19 @@
     "secondary_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
     "secondary_annotation_agreement": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
     "secondary_prompt_manifest": "7d2569c88ab6c709e59f85e190752b5551b2a7cf4a9e30db743978b9cc4dcf3f"
+  },
+  "study_metadata": {
+    "paper_facing_description": "Primary empirical outcomes were annotated by J1 (qwen3.8-max). A stratified nine-case audit was independently evaluated by J2 (glm-5.2), with agreement observed on all 9 successfully audited cases. Deterministic reference labels were retained only as a secondary diagnostic comparison and were not treated as independent ground truth.",
+    "limitations": [
+      "development-pilot only",
+      "90 cases",
+      "single generator (qwen3.7-plus)",
+      "0 observed unauthorized disclosures",
+      "high behavioral refusal rate (87/90)",
+      "disclosure floor effect (CI = [0.0, 0.0])",
+      "LLM-based annotation (J1 = qwen3.8-max)",
+      "9-case secondary audit (J2 = glm-5.2)",
+      "all J2 audit cases drawn from the negative stratum because no J1 positive exposure labels occurred"
+    ]
   }
 }
