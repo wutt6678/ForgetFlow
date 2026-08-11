@@ -2281,6 +2281,21 @@ def check_reference_diagnostic_validity(
                 failure_code="categorical_comparison_not_applicable_expected",
                 details={"status": cat_comp.get("status")},
             )
+        # PATCH-1526-024: verify the source condition that justifies
+        # not_applicable — reference_exposure_label must be null for every
+        # reference record.  Without this check an incorrectly marked
+        # not_applicable report could still pass.
+        for aid, rrec in reference_by_id.items():
+            if rrec.get("reference_exposure_label") is not None:
+                return CheckResult(
+                    check_name="reference_diagnostic_validity",
+                    passed=False,
+                    failure_code="categorical_comparison_source_condition_invalid",
+                    details={
+                        "generation_attempt_id": aid,
+                        "reference_exposure_label": rrec.get("reference_exposure_label"),
+                    },
+                )
 
     return CheckResult(
         check_name="reference_diagnostic_validity",
@@ -2510,6 +2525,41 @@ def check_agreement_metric_consistency(
             },
         )
 
+    # --- PATCH-1526-025: also validate independent_annotation_validation ---
+    # Regression protection: both j1_j2_secondary_audit and
+    # independent_annotation_validation metrics must be verified.
+    iav = agreement_report.get("independent_annotation_validation")
+    if isinstance(iav, dict):
+        recomputed_ia_selected = len(secondary_labels)
+        recomputed_ia_unresolved = recomputed_ia_selected - recomputed_successful
+        for metric, reported, recomputed in [
+            ("num_selected", iav.get("num_selected"), recomputed_ia_selected),
+            ("num_successful", iav.get("num_successful"), recomputed_successful),
+            ("num_unresolved", iav.get("num_unresolved"), recomputed_ia_unresolved),
+        ]:
+            if reported != recomputed:
+                return CheckResult(
+                    check_name="agreement_metric_consistency",
+                    passed=False,
+                    failure_code="independent_validation_metric_mismatch",
+                    details={
+                        "metric": metric,
+                        "reported": reported,
+                        "recomputed": recomputed,
+                    },
+                )
+        ia_rate = recomputed_agreements / recomputed_compared if recomputed_compared else None
+        if iav.get("exact_agreement_rate") != ia_rate:
+            return CheckResult(
+                check_name="agreement_metric_consistency",
+                passed=False,
+                failure_code="independent_validation_rate_mismatch",
+                details={
+                    "reported": iav.get("exact_agreement_rate"),
+                    "expected": ia_rate,
+                },
+            )
+
     return CheckResult(
         check_name="agreement_metric_consistency",
         passed=True,
@@ -2518,6 +2568,7 @@ def check_agreement_metric_consistency(
             "j1_j2_num_agreements": recomputed_agreements,
             "j1_j2_num_disagreements": recomputed_disagreements,
             "j1_j2_exact_agreement_rate": expected_rate,
+            "independent_validation_covered": True,
         },
     )
 
