@@ -97,6 +97,62 @@ def _git_head_commit() -> str | None:
     return None
 
 
+def _git_working_tree_clean() -> tuple[bool, str]:
+    """PATCH-B5-003/004: check whether the tracked working tree is clean.
+
+    Returns (is_clean, porcelain_output).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            porcelain = result.stdout.strip()
+            return (porcelain == "", porcelain)
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return (False, "git status unavailable")
+
+
+def _git_show_file(commit: str, rel_path: str) -> bytes | None:
+    """PATCH-B5-006: retrieve file bytes from a specific git commit.
+
+    Conceptual operation: git show <commit>:<rel_path>
+    Returns None if the commit or path is unresolvable.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{commit}:{rel_path}"],
+            capture_output=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
+
+
+def _git_commit_exists(commit: str) -> bool:
+    """PATCH-B5-009: verify that a commit hash is resolvable."""
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-t", commit],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "commit"
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -961,11 +1017,18 @@ def run_reanalysis(
     hml = paired.get("high_minus_low", {})
 
     # Step 11: main report
-    # PATCH-1526-009/012/013: literal execution provenance, no legacy fields.
+    # PATCH-B5-003/004/005/011: commit-bound provenance with working-tree
+    # cleanliness and explicit provenance mode.
     now_iso = datetime.now(timezone.utc).isoformat()
+    tree_clean, tree_status = _git_working_tree_clean()
     exec_commit = _git_head_commit()
     script_path = Path(__file__)
     script_hash = _sha256_file(script_path)
+    # PATCH-B5-011: provenance mode declaration.
+    if tree_clean and exec_commit:
+        provenance_mode = "clean_committed_execution"
+    else:
+        provenance_mode = "working_tree_execution"
     primary_labels_path = (
         _PROJECT_ROOT
         / "results"
@@ -991,6 +1054,10 @@ def run_reanalysis(
         "raw_attempts_file": "results/empirical_v2/e2_primary_trust_pilot/raw_generation_attempts.jsonl",
         "primary_label_sha256": _sha256_file(primary_labels_path),
         "raw_generation_sha256": _sha256_file(raw_gen_path),
+        # PATCH-B5-004/005: working-tree cleanliness and provenance mode.
+        "working_tree_clean": tree_clean,
+        "working_tree_status": tree_status,
+        "analysis_provenance_mode": provenance_mode,
         # PATCH-1526-009: literal execution provenance.
         "analysis_result_code_commit": exec_commit,
         "analysis_executed_at": now_iso,

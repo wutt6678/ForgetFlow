@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -3414,38 +3415,69 @@ def check_cross_artifact_consistency(
                 },
             )
 
-    # --- PATCH-1526-022/023: execution-provenance cross-artifact binding ---
-    # Require: completion.artifact_hashes.secondary_execution_provenance
-    #       == phase.secondary_execution_provenance_sha256
-    #       == frozen_primary.secondary_execution_provenance_sha256
-    #       == sha256(actual file).
-    # All four must agree.
+    # --- PATCH-B5-015..020: execution-provenance four-way binding ---
+    # Collect all available EP hash sources.
     _ep_sources: dict[str, str] = {}
+    _ep_missing: list[str] = []
+
+    # FIX-B5-015: completion-report execution hash
     if completion_report is not None:
         _ep_completion = completion_report.artifact_hashes.get("secondary_execution_provenance")
         if _ep_completion:
             _ep_sources["completion_report"] = _ep_completion
+        else:
+            _ep_missing.append("completion_report")
+    else:
+        _ep_missing.append("completion_report")
+
+    # FIX-B5-016: phase execution hash
     if phase_file is not None:
         _ep_phase = phase_file.get("secondary_execution_provenance_sha256")
         if _ep_phase:
             _ep_sources["phase_file"] = _ep_phase
+        else:
+            _ep_missing.append("phase_file")
+    else:
+        _ep_missing.append("phase_file")
+
+    # FIX-B5-017: frozen-primary execution hash
     if frozen_primary_labels is not None:
         _ep_frozen = frozen_primary_labels.get("secondary_execution_provenance_sha256")
         if _ep_frozen:
             _ep_sources["frozen_primary_labels"] = _ep_frozen
-    if _using_canonical_paths and _SECONDARY_EXECUTION_PROVENANCE_PATH.exists():
+        else:
+            _ep_missing.append("frozen_primary_labels")
+    else:
+        _ep_missing.append("frozen_primary_labels")
+
+    # FIX-B5-018: actual execution-provenance file
+    if _SECONDARY_EXECUTION_PROVENANCE_PATH.exists():
         _ep_actual = sha256_file(_SECONDARY_EXECUTION_PROVENANCE_PATH)
         if _ep_actual:
             _ep_sources["actual_file"] = _ep_actual
-    if len(_ep_sources) >= 2:
-        _ep_values = set(_ep_sources.values())
-        if len(_ep_values) > 1:
-            return CheckResult(
-                check_name="cross_artifact_consistency",
-                passed=False,
-                failure_code="execution_provenance_hash_mismatch",
-                details={src: val[:16] for src, val in sorted(_ep_sources.items())},
-            )
+        else:
+            _ep_missing.append("actual_file")
+    else:
+        _ep_missing.append("actual_file")
+
+    # FIX-B5-019: any present sources with different values → mismatch.
+    _ep_values = set(_ep_sources.values())
+    if len(_ep_values) > 1:
+        return CheckResult(
+            check_name="cross_artifact_consistency",
+            passed=False,
+            failure_code="execution_provenance_hash_mismatch",
+            details={src: val[:16] for src, val in sorted(_ep_sources.items())},
+        )
+
+    # FIX-B5-020: in production (canonical paths), all four must be present.
+    if _using_canonical_paths and _ep_missing:
+        return CheckResult(
+            check_name="cross_artifact_consistency",
+            passed=False,
+            failure_code="execution_provenance_source_missing",
+            details={"missing_sources": _ep_missing},
+        )
 
     return CheckResult(
         check_name="cross_artifact_consistency",
@@ -3532,19 +3564,23 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
 def check_analysis_provenance_valid(
     analysis: dict[str, Any],
 ) -> CheckResult:
-    """PATCH-1526-014/015: strengthened analysis-provenance semantic check.
+    """PATCH-B5-026/027/028/029: commit-bound analysis-provenance check.
 
     Pass only if the report:
     - has non-empty execution provenance (commit + timestamp);
     - has non-empty refresh provenance (commit + timestamp) OR is a fresh
       deterministic execution with no refresh yet;
+    - working_tree_clean == true;
+    - analysis_provenance_mode == "clean_committed_execution";
+    - recorded commit exists and is resolvable;
+    - analysis script path exists at recorded commit;
+    - commit-resolved script hash matches reported hash;
+    - current filesystem script hash matches reported hash;
     - primary-label hash matches the actual file on disk;
     - raw-generation hash matches the actual file on disk;
-    - analysis script path exists and its hash matches the reported hash;
     - chronology: analysis_executed_at <= provenance_refreshed_at.
 
-    Reject metadata-refresh commits masquerading as numerical-execution
-    provenance (i.e. missing split provenance fields).
+    Each failure mode has a distinct failure code.
     """
     exec_commit = analysis.get("analysis_result_code_commit")
     exec_time = analysis.get("analysis_executed_at")
@@ -3571,7 +3607,41 @@ def check_analysis_provenance_valid(
             },
         )
 
-    # --- PATCH-1526-014: verify input-file hashes match actual files -----
+    # --- PATCH-B5-026: require working_tree_clean == true ---------------
+    working_tree_clean = analysis.get("working_tree_clean")
+    if working_tree_clean is not True:
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=False,
+            failure_code="analysis_working_tree_dirty",
+            details={
+                "working_tree_clean": working_tree_clean,
+                "working_tree_status": analysis.get("working_tree_status", ""),
+            },
+        )
+
+    # --- PATCH-B5-029: require analysis_provenance_mode -----------------
+    provenance_mode = analysis.get("analysis_provenance_mode")
+    if provenance_mode != "clean_committed_execution":
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=False,
+            failure_code="analysis_provenance_mode_not_clean_committed",
+            details={
+                "analysis_provenance_mode": provenance_mode,
+            },
+        )
+
+    # --- PATCH-B5-009: verify recorded commit exists --------------------
+    if not _git_commit_exists(str(exec_commit)):
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=False,
+            failure_code="analysis_result_code_commit_unresolvable",
+            details={"analysis_result_code_commit": exec_commit},
+        )
+
+    # --- Input-file and script hash checks ------------------------------
     failures: list[str] = []
 
     primary_labels_path = _PRIMARY_LABELS_PATH
@@ -3595,41 +3665,66 @@ def check_analysis_provenance_valid(
                 f"declared={declared_raw_hash[:16]}… actual={actual[:16]}…"
             )
 
-    # --- PATCH-1526-014: verify analysis script path + hash -------------
+    # --- PATCH-B5-006/007/008/010: commit-bound script verification -----
     script_info = analysis.get("analysis_script", {})
     if script_info:
         script_rel = script_info.get("path", "")
         script_declared_hash = script_info.get("sha256", "")
         if script_rel:
+            # PATCH-B5-010: verify script exists at recorded commit.
+            committed_bytes = _git_show_file(str(exec_commit), script_rel)
+            if committed_bytes is None:
+                return CheckResult(
+                    check_name="analysis_provenance_valid",
+                    passed=False,
+                    failure_code="analysis_script_missing_at_recorded_commit",
+                    details={
+                        "analysis_result_code_commit": exec_commit,
+                        "analysis_script_path": script_rel,
+                    },
+                )
+            # PATCH-B5-007: commit-resolved script hash must match report.
+            if script_declared_hash:
+                committed_hash = hashlib.sha256(committed_bytes).hexdigest()
+                if committed_hash != script_declared_hash:
+                    return CheckResult(
+                        check_name="analysis_provenance_valid",
+                        passed=False,
+                        failure_code="analysis_script_commit_hash_mismatch",
+                        details={
+                            "analysis_result_code_commit": exec_commit,
+                            "analysis_script_path": script_rel,
+                            "committed_sha256": committed_hash[:16] + "…",
+                            "declared_sha256": script_declared_hash[:16] + "…",
+                        },
+                    )
+            # PATCH-B5-008: current filesystem hash must also match.
             script_abs = _PROJECT_ROOT / script_rel
-            if not script_abs.exists():
-                failures.append(f"analysis_script path does not exist: {script_rel}")
-            elif script_declared_hash:
+            if script_abs.exists() and script_declared_hash:
                 actual = sha256_file(script_abs) or ""
                 if actual != script_declared_hash:
-                    failures.append(
-                        f"analysis_script sha256 mismatch: "
-                        f"declared={script_declared_hash[:16]}… "
-                        f"actual={actual[:16]}…"
+                    return CheckResult(
+                        check_name="analysis_provenance_valid",
+                        passed=False,
+                        failure_code="analysis_script_current_hash_mismatch",
+                        details={
+                            "analysis_script_path": script_rel,
+                            "current_sha256": actual[:16] + "…",
+                            "declared_sha256": script_declared_hash[:16] + "…",
+                        },
                     )
 
-    # --- PATCH-1526-015: provenance chronology --------------------------
-    if has_refresh:
-        try:
-            exec_dt = datetime.fromisoformat(str(exec_time))
-            refresh_dt = datetime.fromisoformat(str(refresh_time))
-            if exec_dt > refresh_dt:
-                failures.append(
-                    f"Impossible chronology: analysis_executed_at ({exec_time}) "
-                    f"> provenance_refreshed_at ({refresh_time})"
-                )
-        except ValueError:
-            failures.append(
-                f"Cannot parse provenance timestamps: "
-                f"exec={exec_time!r} refresh={refresh_time!r}"
-            )
-
+    # --- PATCH-B5-028: input hash mismatch (distinct code) ---------------
     if failures:
+        # Check if any failure is an input hash mismatch.
+        input_failures = [f for f in failures if "mismatch" in f]
+        if input_failures:
+            return CheckResult(
+                check_name="analysis_provenance_valid",
+                passed=False,
+                failure_code="analysis_input_hash_mismatch",
+                details={"failures": failures},
+            )
         return CheckResult(
             check_name="analysis_provenance_valid",
             passed=False,
@@ -3637,16 +3732,45 @@ def check_analysis_provenance_valid(
             details={"failures": failures},
         )
 
+    # --- PATCH-1526-015: provenance chronology --------------------------
+    if has_refresh:
+        try:
+            exec_dt = datetime.fromisoformat(str(exec_time))
+            refresh_dt = datetime.fromisoformat(str(refresh_time))
+            if exec_dt > refresh_dt:
+                return CheckResult(
+                    check_name="analysis_provenance_valid",
+                    passed=False,
+                    failure_code="analysis_provenance_chronology_invalid",
+                    details={
+                        "analysis_executed_at": exec_time,
+                        "provenance_refreshed_at": refresh_time,
+                    },
+                )
+        except ValueError:
+            return CheckResult(
+                check_name="analysis_provenance_valid",
+                passed=False,
+                failure_code="analysis_provenance_chronology_invalid",
+                details={
+                    "analysis_executed_at": exec_time,
+                    "provenance_refreshed_at": refresh_time,
+                },
+            )
+
     if has_refresh:
         return CheckResult(
             check_name="analysis_provenance_valid",
             passed=True,
             details={
-                "provenance_mode": "split_execution_refresh",
+                "provenance_mode": "clean_committed_execution",
                 "analysis_result_code_commit": exec_commit,
                 "analysis_executed_at": exec_time,
                 "provenance_refresh_commit": refresh_commit,
                 "provenance_refreshed_at": refresh_time,
+                "working_tree_clean": True,
+                "analysis_script_commit_hash_match": True,
+                "analysis_script_current_hash_match": True,
             },
         )
 
@@ -3655,9 +3779,12 @@ def check_analysis_provenance_valid(
         check_name="analysis_provenance_valid",
         passed=True,
         details={
-            "provenance_mode": "fresh_deterministic_execution",
+            "provenance_mode": "clean_committed_execution",
             "analysis_result_code_commit": exec_commit,
             "analysis_executed_at": exec_time,
+            "working_tree_clean": True,
+            "analysis_script_commit_hash_match": True,
+            "analysis_script_current_hash_match": True,
         },
     )
 
@@ -5292,6 +5419,41 @@ def sha256_file(path: Path) -> str | None:
     if not path.exists():
         return None
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _git_commit_exists(commit: str) -> bool:
+    """PATCH-B5-009: verify that a commit hash is resolvable."""
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-t", commit],
+            capture_output=True,
+            text=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "commit"
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
+def _git_show_file(commit: str, rel_path: str) -> bytes | None:
+    """PATCH-B5-006: retrieve file bytes from a specific git commit.
+
+    Conceptual operation: git show <commit>:<rel_path>
+    Returns None if the commit or path is unresolvable.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{commit}:{rel_path}"],
+            capture_output=True,
+            cwd=_PROJECT_ROOT,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
 
 
 def transition_to_e2_complete(

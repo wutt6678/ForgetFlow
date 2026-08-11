@@ -4743,29 +4743,45 @@ class TestPatch7359AnalysisProvenanceRegression:
         assert result.passed is False
         assert result.failure_code == "analysis_provenance_metadata_refresh_only"
 
-    def test_patch7359_030_execution_preserved_refresh_updated_pass(self) -> None:
+    def test_patch7359_030_execution_preserved_refresh_updated_pass(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Execution fields preserved + refresh fields updated → PASS."""
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: b"# script\n")
         analysis = {
             "analysis_result_code_commit": "5c2233b",
             "analysis_executed_at": "2026-08-09T00:00:00Z",
             "provenance_refresh_commit": "7359e25",
             "provenance_refreshed_at": "2026-08-11T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
         }
         result = check_analysis_provenance_valid(analysis)
         assert result.passed is True
         details = result.details or {}
-        assert details["provenance_mode"] == "split_execution_refresh"
+        assert details["provenance_mode"] == "clean_committed_execution"
 
-    def test_patch7359_030_fresh_deterministic_rerun_pass(self) -> None:
+    def test_patch7359_030_fresh_deterministic_rerun_pass(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Fresh deterministic rerun with real execution commit/time → PASS."""
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: b"# script\n")
         analysis = {
             "analysis_result_code_commit": "newcommit123",
             "analysis_executed_at": "2026-08-12T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
         }
         result = check_analysis_provenance_valid(analysis)
         assert result.passed is True
         details = result.details or {}
-        assert details["provenance_mode"] == "fresh_deterministic_execution"
+        assert details["provenance_mode"] == "clean_committed_execution"
 
     def test_patch7359_030_no_provenance_at_all_fail(self) -> None:
         """No provenance fields at all → FAIL."""
@@ -5185,27 +5201,28 @@ class TestPatch1526AnalysisProvenance:
     chronology-violation and script-hash-mismatch tests.
     """
 
-    def test_chronology_violation_fail(self) -> None:
+    def test_chronology_violation_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PATCH-1526-028: analysis_executed_at > provenance_refreshed_at → FAIL."""
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: b"# script\n")
         analysis = {
             "analysis_result_code_commit": "abc123",
             "analysis_executed_at": "2026-08-15T00:00:00Z",
             "provenance_refresh_commit": "def456",
             "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
         }
         result = check_analysis_provenance_valid(analysis)
         assert result.passed is False
-        assert result.failure_code == "analysis_provenance_evidence_mismatch"
-        details = result.details or {}
-        assert any(
-            "chronology" in f.lower() or "impossible" in f.lower()
-            for f in details.get("failures", [])
-        )
+        assert result.failure_code == "analysis_provenance_chronology_invalid"
 
     def test_script_hash_mismatch_fail(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """PATCH-1526-028: analysis script hash mismatch → FAIL."""
+        """PATCH-1526-028: analysis script commit hash mismatch → FAIL."""
         script_file = tmp_path / "test_script.py"
         script_file.write_text("# test analysis script\n", encoding="utf-8")
         wrong_hash = "0" * 64
@@ -5214,12 +5231,17 @@ class TestPatch1526AnalysisProvenance:
 
         monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "nonexistent_labels.jsonl")
         monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "nonexistent_raw.jsonl")
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        # Return different bytes than what the file contains.
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: b"# different content\n")
 
         analysis = {
             "analysis_result_code_commit": "abc123",
             "analysis_executed_at": "2026-08-09T00:00:00Z",
             "provenance_refresh_commit": "def456",
             "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
             "analysis_script": {
                 "path": str(script_file),
                 "sha256": wrong_hash,
@@ -5227,24 +5249,30 @@ class TestPatch1526AnalysisProvenance:
         }
         result = check_analysis_provenance_valid(analysis)
         assert result.passed is False
-        assert result.failure_code == "analysis_provenance_evidence_mismatch"
+        assert result.failure_code == "analysis_script_commit_hash_mismatch"
 
     def test_script_hash_match_pass(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """PATCH-1526-028: correct script hash → PASS."""
         script_file = tmp_path / "test_script.py"
-        script_file.write_text("# test analysis script\n", encoding="utf-8")
-        correct_hash = hashlib.sha256(script_file.read_bytes()).hexdigest()
+        script_content = b"# test analysis script\n"
+        script_file.write_bytes(script_content)
+        correct_hash = hashlib.sha256(script_content).hexdigest()
 
         import experiments.trustparadox_u.run_e2_completion_check as mod
 
         monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "nonexistent_labels.jsonl")
         monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "nonexistent_raw.jsonl")
+        monkeypatch.setattr(mod, "_git_commit_exists", lambda c: True)
+        # Return the same bytes as the file contains.
+        monkeypatch.setattr(mod, "_git_show_file", lambda c, p: script_content)
 
         analysis = {
             "analysis_result_code_commit": "abc123",
             "analysis_executed_at": "2026-08-09T00:00:00Z",
             "provenance_refresh_commit": "def456",
             "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "working_tree_clean": True,
+            "analysis_provenance_mode": "clean_committed_execution",
             "analysis_script": {
                 "path": str(script_file),
                 "sha256": correct_hash,
@@ -5275,14 +5303,37 @@ class TestPatch1526CompletionSelfBinding:
         bounded_revision: dict[str, Any] = {}
         return labels_report, analysis, bounded_revision
 
-    def test_ep_hash_absent_from_completion_report_pass(self, tmp_path: Path) -> None:
+    def _setup_ep_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: str = "{}"
+    ) -> Path:
+        """Create a temp EP file and monkeypatch the canonical path."""
+        ep_file = tmp_path / "ep.json"
+        ep_file.write_text(content)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            ep_file,
+        )
+        return ep_file
+
+    def test_ep_hash_absent_from_completion_report_pass(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """PATCH-1526-029: only phase+frozen have hash, they match → PASS.
 
         When the completion report does not declare the execution-provenance
-        hash, the remaining sources still agree.
+        hash, the remaining sources still agree.  The actual EP file is
+        monkeypatched to a non-existent path so only phase+frozen are present.
         """
         labels_report, analysis, bounded_revision = self._minimal_inputs()
         consistent_hash = "a" * 64
+
+        # Monkeypatch to a non-existent path so actual_file is missing.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check"
+            "._SECONDARY_EXECUTION_PROVENANCE_PATH",
+            tmp_path / "no_ep.json",
+        )
 
         completion = CompletionReport()
         # No secondary_execution_provenance hash in completion.
@@ -5305,14 +5356,20 @@ class TestPatch1526CompletionSelfBinding:
         )
         assert result.passed is True
 
-    def test_completion_hash_ne_phase_hash_fail(self, tmp_path: Path) -> None:
+    def test_completion_hash_ne_phase_hash_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """PATCH-1526-029: completion hash != phase hash → FAIL."""
         labels_report, analysis, bounded_revision = self._minimal_inputs()
+        self._setup_ep_file(tmp_path, monkeypatch)
 
         completion = CompletionReport()
         completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
         phase = {
             "secondary_execution_provenance_sha256": "b" * 64,
+        }
+        frozen = {
+            "secondary_execution_provenance_sha256": "a" * 64,
         }
 
         result = check_cross_artifact_consistency(
@@ -5322,16 +5379,23 @@ class TestPatch1526CompletionSelfBinding:
             completion_report=completion,
             primary_labels_path=tmp_path / "no_such_file.jsonl",
             phase_file=phase,
+            frozen_primary_labels=frozen,
         )
         assert result.passed is False
         assert result.failure_code == "execution_provenance_hash_mismatch"
 
-    def test_completion_hash_ne_frozen_hash_fail(self, tmp_path: Path) -> None:
+    def test_completion_hash_ne_frozen_hash_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """PATCH-1526-029: completion hash != frozen manifest hash → FAIL."""
         labels_report, analysis, bounded_revision = self._minimal_inputs()
+        self._setup_ep_file(tmp_path, monkeypatch)
 
         completion = CompletionReport()
         completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
+        phase = {
+            "secondary_execution_provenance_sha256": "a" * 64,
+        }
         frozen = {
             "secondary_execution_provenance_sha256": "b" * 64,
         }
@@ -5342,15 +5406,20 @@ class TestPatch1526CompletionSelfBinding:
             bounded_revision,
             completion_report=completion,
             primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
             frozen_primary_labels=frozen,
         )
         assert result.passed is False
         assert result.failure_code == "execution_provenance_hash_mismatch"
 
-    def test_all_hashes_consistent_pass(self, tmp_path: Path) -> None:
+    def test_all_hashes_consistent_pass(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """PATCH-1526-029: all hashes equal → PASS."""
         labels_report, analysis, bounded_revision = self._minimal_inputs()
-        consistent_hash = "deadbeef" * 8
+        # Use the actual hash of the temp EP file for all sources.
+        ep_file = self._setup_ep_file(tmp_path, monkeypatch)
+        consistent_hash = hashlib.sha256(ep_file.read_bytes()).hexdigest()
 
         completion = CompletionReport()
         completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
