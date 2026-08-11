@@ -5008,3 +5008,436 @@ class TestPatch7359TransportBatchRegression:
         prov = self._make_provenance(tmp_path, self._INITIAL_IDS, self._KNOWN_RETRY_IDS)
         result = check_secondary_execution_provenance_valid(raw, prov)
         assert result.passed is True
+
+
+class TestPatch1526BatchSchema:
+    """PATCH-1526-027: hardened batch-schema regression tests.
+
+    Verifies that check_secondary_execution_provenance_valid rejects
+    malformed batch configurations that could bypass the named-batch checks.
+    """
+
+    @staticmethod
+    def _write_raw(tmp_path: Path, ids_with_caps_and_batch: list[tuple[str, int, str]]) -> Path:
+        """Write JSONL raw responses and return the path."""
+        raw_file = tmp_path / "secondary_raw_responses.jsonl"
+        lines = []
+        for aid, cap, batch_id in ids_with_caps_and_batch:
+            lines.append(
+                json.dumps(
+                    {
+                        "generation_attempt_id": aid,
+                        "requested_max_tokens": cap,
+                        "execution_batch_id": batch_id,
+                    }
+                )
+            )
+        raw_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return raw_file
+
+    @staticmethod
+    def _write_prov(tmp_path: Path, batches: list[dict]) -> Path:
+        """Write provenance JSON and return the path."""
+        prov_file = tmp_path / "secondary_execution_provenance.json"
+        prov_file.write_text(json.dumps({"batches": batches}), encoding="utf-8")
+        return prov_file
+
+    _INITIAL_IDS = [f"ega_initial_{i}" for i in range(7)]
+    _RETRY_IDS = [
+        "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+        "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0",
+    ]
+
+    def _standard_batches(
+        self,
+        initial_cap: int = 512,
+        retry_cap: int = 1024,
+        include_source_commit: bool = True,
+    ) -> list[dict]:
+        """Return the standard two-batch list."""
+        batches = [
+            {
+                "batch_id": "initial_j2_batch",
+                "execution_type": "initial_secondary_audit",
+                "requested_max_tokens": initial_cap,
+                "generation_attempt_ids": list(self._INITIAL_IDS),
+            },
+            {
+                "batch_id": "retry_failed_batch",
+                "execution_type": "retry_failed_secondary_audit",
+                "requested_max_tokens": retry_cap,
+                "generation_attempt_ids": list(self._RETRY_IDS),
+            },
+        ]
+        if include_source_commit:
+            batches[1]["source_commit"] = "test_source_commit"
+        return batches
+
+    def _run(self, tmp_path: Path, batches: list[dict]) -> CheckResult:
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_execution_provenance_valid,
+        )
+
+        all_ids: list[tuple[str, int, str]] = []
+        for b in batches:
+            cap = b.get("requested_max_tokens", 512)
+            bid = b.get("batch_id", "")
+            for aid in b.get("generation_attempt_ids", []):
+                all_ids.append((aid, cap, bid))
+        raw = self._write_raw(tmp_path, all_ids)
+        prov = self._write_prov(tmp_path, batches)
+        return check_secondary_execution_provenance_valid(raw, prov)
+
+    def test_initial_batch_missing_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: no initial_j2batch → FAIL."""
+        batches = [
+            {
+                "batch_id": "wrong_name_batch",
+                "execution_type": "initial_secondary_audit",
+                "requested_max_tokens": 512,
+                "generation_attempt_ids": list(self._INITIAL_IDS),
+            },
+            {
+                "batch_id": "retry_failed_batch",
+                "execution_type": "retry_failed_secondary_audit",
+                "requested_max_tokens": 1024,
+                "generation_attempt_ids": list(self._RETRY_IDS),
+                "source_commit": "test_source_commit",
+            },
+        ]
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_initial_batch_missing"
+
+    def test_retry_batch_missing_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: no retry_failed_batch → FAIL."""
+        batches = [
+            {
+                "batch_id": "initial_j2_batch",
+                "execution_type": "initial_secondary_audit",
+                "requested_max_tokens": 512,
+                "generation_attempt_ids": list(self._INITIAL_IDS),
+            },
+            {
+                "batch_id": "wrong_retry_name",
+                "execution_type": "retry_failed_secondary_audit",
+                "requested_max_tokens": 1024,
+                "generation_attempt_ids": list(self._RETRY_IDS),
+                "source_commit": "test_source_commit",
+            },
+        ]
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_retry_batch_missing"
+
+    def test_third_unexpected_batch_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: three batches → FAIL (exactly 2 required)."""
+        batches = self._standard_batches()
+        batches.append(
+            {
+                "batch_id": "extra_batch",
+                "execution_type": "extra_audit",
+                "requested_max_tokens": 256,
+                "generation_attempt_ids": ["ega_extra_001"],
+            }
+        )
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_batch_count"
+
+    def test_initial_cap_not_512_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: initial cap != 512 → FAIL."""
+        batches = self._standard_batches(initial_cap=256)
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_initial_batch_cap"
+
+    def test_retry_cap_not_1024_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: retry cap != 1024 → FAIL."""
+        batches = self._standard_batches(retry_cap=512)
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_retry_batch_cap"
+
+    def test_retry_source_commit_missing_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: retry batch without source_commit → FAIL."""
+        batches = self._standard_batches(include_source_commit=False)
+        result = self._run(tmp_path, batches)
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_retry_source_commit_missing"
+
+    def test_correct_two_batch_schema_pass(self, tmp_path: Path) -> None:
+        """PATCH-1526-027: correct two-batch schema → PASS."""
+        batches = self._standard_batches()
+        result = self._run(tmp_path, batches)
+        assert result.passed is True
+
+
+# ---------------------------------------------------------------------------
+# PATCH-1526-028: Analysis provenance regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestPatch1526AnalysisProvenance:
+    """PATCH-1526-028: analysis-provenance regression tests.
+
+    Supplements TestPatch7359AnalysisProvenanceRegression with
+    chronology-violation and script-hash-mismatch tests.
+    """
+
+    def test_chronology_violation_fail(self) -> None:
+        """PATCH-1526-028: analysis_executed_at > provenance_refreshed_at → FAIL."""
+        analysis = {
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-15T00:00:00Z",
+            "provenance_refresh_commit": "def456",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_provenance_evidence_mismatch"
+        details = result.details or {}
+        assert any(
+            "chronology" in f.lower() or "impossible" in f.lower()
+            for f in details.get("failures", [])
+        )
+
+    def test_script_hash_mismatch_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PATCH-1526-028: analysis script hash mismatch → FAIL."""
+        script_file = tmp_path / "test_script.py"
+        script_file.write_text("# test analysis script\n", encoding="utf-8")
+        wrong_hash = "0" * 64
+
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "nonexistent_labels.jsonl")
+        monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "nonexistent_raw.jsonl")
+
+        analysis = {
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "def456",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "analysis_script": {
+                "path": str(script_file),
+                "sha256": wrong_hash,
+            },
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_provenance_evidence_mismatch"
+
+    def test_script_hash_match_pass(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PATCH-1526-028: correct script hash → PASS."""
+        script_file = tmp_path / "test_script.py"
+        script_file.write_text("# test analysis script\n", encoding="utf-8")
+        correct_hash = hashlib.sha256(script_file.read_bytes()).hexdigest()
+
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        monkeypatch.setattr(mod, "_PRIMARY_LABELS_PATH", tmp_path / "nonexistent_labels.jsonl")
+        monkeypatch.setattr(mod, "_RAW_GENERATION_PATH", tmp_path / "nonexistent_raw.jsonl")
+
+        analysis = {
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "def456",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
+            "analysis_script": {
+                "path": str(script_file),
+                "sha256": correct_hash,
+            },
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is True
+
+
+# ---------------------------------------------------------------------------
+# PATCH-1526-029: Completion self-binding regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestPatch1526CompletionSelfBinding:
+    """PATCH-1526-029: completion-report self-binding regression tests.
+
+    Verifies that the execution-provenance hash is consistently bound
+    across completion report, phase file, and frozen primary manifest.
+    """
+
+    @staticmethod
+    def _minimal_inputs() -> tuple[dict, dict, dict]:
+        """Return (labels_report, analysis, bounded_revision) that pass
+        the early checks in check_cross_artifact_consistency."""
+        labels_report: dict[str, Any] = {}
+        analysis: dict[str, Any] = {}
+        bounded_revision: dict[str, Any] = {}
+        return labels_report, analysis, bounded_revision
+
+    def test_ep_hash_absent_from_completion_report_pass(self, tmp_path: Path) -> None:
+        """PATCH-1526-029: only phase+frozen have hash, they match → PASS.
+
+        When the completion report does not declare the execution-provenance
+        hash, the remaining sources still agree.
+        """
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "a" * 64
+
+        completion = CompletionReport()
+        # No secondary_execution_provenance hash in completion.
+
+        phase = {
+            "secondary_execution_provenance_sha256": consistent_hash,
+        }
+        frozen = {
+            "secondary_execution_provenance_sha256": consistent_hash,
+        }
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is True
+
+    def test_completion_hash_ne_phase_hash_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-029: completion hash != phase hash → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
+        phase = {
+            "secondary_execution_provenance_sha256": "b" * 64,
+        }
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_hash_mismatch"
+
+    def test_completion_hash_ne_frozen_hash_fail(self, tmp_path: Path) -> None:
+        """PATCH-1526-029: completion hash != frozen manifest hash → FAIL."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", "a" * 64)
+        frozen = {
+            "secondary_execution_provenance_sha256": "b" * 64,
+        }
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is False
+        assert result.failure_code == "execution_provenance_hash_mismatch"
+
+    def test_all_hashes_consistent_pass(self, tmp_path: Path) -> None:
+        """PATCH-1526-029: all hashes equal → PASS."""
+        labels_report, analysis, bounded_revision = self._minimal_inputs()
+        consistent_hash = "deadbeef" * 8
+
+        completion = CompletionReport()
+        completion.set_artifact_hash("secondary_execution_provenance", consistent_hash)
+        phase = {
+            "secondary_execution_provenance_sha256": consistent_hash,
+        }
+        frozen = {
+            "secondary_execution_provenance_sha256": consistent_hash,
+        }
+
+        result = check_cross_artifact_consistency(
+            labels_report,
+            analysis,
+            bounded_revision,
+            completion_report=completion,
+            primary_labels_path=tmp_path / "no_such_file.jsonl",
+            phase_file=phase,
+            frozen_primary_labels=frozen,
+        )
+        assert result.passed is True
+
+
+# ---------------------------------------------------------------------------
+# PATCH-1526-030: Idempotence regression test
+# ---------------------------------------------------------------------------
+
+
+class TestPatch1526IdempotenceRegression:
+    """PATCH-1526-030: idempotence regression tests.
+
+    Verify that repeated provenance regeneration cannot revert to the
+    old incorrect 8×512 / 1×1024 distribution.
+    """
+
+    def test_repeated_regeneration_preserves_7_2(self) -> None:
+        """PATCH-1526-030: three rounds of regeneration → 7×512 / 2×1024."""
+        provenance_path = (
+            Path(__file__).resolve().parents[2]
+            / "results"
+            / "empirical_v2"
+            / "e2_secondary_annotation"
+            / "secondary_execution_provenance.json"
+        )
+        raw_path = (
+            Path(__file__).resolve().parents[2]
+            / "results"
+            / "empirical_v2"
+            / "e2_secondary_annotation"
+            / "secondary_raw_responses.jsonl"
+        )
+        if not provenance_path.exists() or not raw_path.exists():
+            pytest.skip("Canonical secondary annotation artifacts not found")
+
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        records: list[dict] = []
+        with raw_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+
+        import copy
+
+        def regenerate(recs: list[dict]) -> list[dict]:
+            """Simulate provenance-based cap assignment."""
+            work = copy.deepcopy(recs)
+            batch_by_id: dict[str, dict] = {}
+            for batch in provenance["batches"]:
+                for aid in batch["generation_attempt_ids"]:
+                    batch_by_id[aid] = batch
+            for rec in work:
+                aid = rec["generation_attempt_id"]
+                batch = batch_by_id[aid]
+                rec["requested_max_tokens"] = batch["requested_max_tokens"]
+                rec["execution_batch_id"] = batch["batch_id"]
+                rec["execution_type"] = batch["execution_type"]
+            return work
+
+        # Run three rounds of regeneration.
+        state = records
+        for _ in range(3):
+            state = regenerate(state)
+            caps: dict[int, int] = {}
+            for rec in state:
+                cap = rec["requested_max_tokens"]
+                caps[cap] = caps.get(cap, 0) + 1
+            # Must never revert to old 8×512 / 1×1024.
+            assert caps.get(512) == 7, f"Expected 7×512, got {caps}"
+            assert caps.get(1024) == 2, f"Expected 2×1024, got {caps}"
+            assert len(state) == 9
