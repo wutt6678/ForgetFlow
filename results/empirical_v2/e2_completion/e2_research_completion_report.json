@@ -281,7 +281,8 @@
         "j1_j2_num_compared": 9,
         "j1_j2_num_agreements": 9,
         "j1_j2_num_disagreements": 0,
-        "j1_j2_exact_agreement_rate": 1.0
+        "j1_j2_exact_agreement_rate": 1.0,
+        "independent_validation_covered": true
       }
     },
     "uncertainty_ci": {
@@ -378,12 +379,10 @@
         "primary_label_source": "independent_evaluator_j",
         "primary_label_sha256": "412d750f90c2f357...",
         "raw_generation_sha256": "3475d3a2da714b4a...",
-        "analysis_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
-        "analysis_timestamp": "2026-08-11T11:31:38+08:00",
-        "analysis_result_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
-        "analysis_executed_at": "2026-08-11T11:31:38+08:00",
-        "provenance_refresh_commit": "7359e25b101665078f55512dd52dae5eeb34bcf8",
-        "provenance_refreshed_at": "2026-08-11T11:31:38+08:00"
+        "analysis_result_code_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
+        "analysis_executed_at": "2026-08-11T10:30:06.191192+00:00",
+        "provenance_refresh_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
+        "provenance_refreshed_at": "2026-08-11T10:30:12.407445+00:00"
       }
     },
     "analysis_provenance_valid": {
@@ -391,10 +390,10 @@
       "failure_code": null,
       "details": {
         "provenance_mode": "split_execution_refresh",
-        "analysis_result_code_commit": "5c2233b278126b0b07274317bc5d31f55b6c903e",
-        "analysis_executed_at": "2026-08-11T11:31:38+08:00",
-        "provenance_refresh_commit": "7359e25b101665078f55512dd52dae5eeb34bcf8",
-        "provenance_refreshed_at": "2026-08-11T11:31:38+08:00"
+        "analysis_result_code_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
+        "analysis_executed_at": "2026-08-11T10:30:06.191192+00:00",
+        "provenance_refresh_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
+        "provenance_refreshed_at": "2026-08-11T10:30:12.407445+00:00"
       }
     },
     "secondary_queue_complete": {
@@ -490,7 +489,9 @@
         "num_records": 9,
         "total_batch_ids": 9,
         "initial_batch_size": 7,
-        "retry_batch_size": 2
+        "retry_batch_size": 2,
+        "initial_batch_cap": 512,
+        "retry_batch_cap": 1024
       }
     },
     "e2_file_integrity_audit": {
@@ -521,15 +522,16 @@
     "labeling_report": "6b75131bd823311a39c4983160c885f785dce36f60cc33f34dde44f801b291d1",
     "agreement_report": "18f3e61e13bd82aca4ab05b544608dbcbc3ccb7ec4f65b4fba8a368f1bbfde12",
     "pairing_audit": "40b84075eda4cc8b8464306cf789a869d8f4b2aac0b1bd9cec515edf37cf3488",
-    "pilot_analysis": "5aea0b066db79ac6a478e5e95eab63be3b22ad8a0f9f198960ef88529fe2d2d7",
-    "floor_effect_diagnostic": "f3d8ccb223cce50886b40c9b3ca81bcdbb2539963bd7be8bfebf23833c322a03",
-    "bounded_revision_report": "cf244c12608d230229638a008aeb223a2f2ab4fe8b080e7f582054871d6a11ce",
+    "pilot_analysis": "7430a55dd8f079288c26ae13e825100607d5edc98ed8494d0577a5a6d82274cf",
+    "floor_effect_diagnostic": "fd5b9eec7ec94cc50e005113abfe53b522bc3a05869841649fc20790e618b4db",
+    "bounded_revision_report": "f93067eb8b1a7b550bfae3c515dd92db013294c848ac9130109ec42741a2dda4",
     "frozen_prompt_manifest": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
     "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
     "secondary_raw_responses": "8dc0978c7b7555b709fba451433a19f021a052b0a9d77c00fe6e72412ea21f09",
     "secondary_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
     "secondary_annotation_agreement": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
-    "secondary_prompt_manifest": "12f662bd1c96d277962e9ac2b64606d1786974da6c54ef08a0346e043da933c9"
+    "secondary_prompt_manifest": "7d2569c88ab6c709e59f85e190752b5551b2a7cf4a9e30db743978b9cc4dcf3f",
+    "secondary_execution_provenance": "d431f38ffb29c4203dbd11e940336d6cbafd59c25886e75d7e421e300ade4977"
   },
   "study_metadata": {
     "paper_facing_description": "Primary empirical outcomes were annotated by J1 (qwen3.8-max). A stratified nine-case audit was independently evaluated by J2 (glm-5.2), with agreement observed on all 9 successfully audited cases. Deterministic reference labels were retained only as a secondary diagnostic comparison and were not treated as independent ground truth.",

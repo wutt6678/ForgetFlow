@@ -425,10 +425,12 @@ def refresh_analysis_provenance() -> None:
         )
 
     # PATCH-1526-011: only update refresh metadata.
+    from datetime import datetime, timezone
+
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    timestamp = subprocess.check_output(
-        ["git", "show", "-s", "--format=%cI", "HEAD"], text=True
-    ).strip()
+    # Use current UTC time for refresh timestamp to ensure correct
+    # chronology (refresh always happens after analysis execution).
+    timestamp = datetime.now(timezone.utc).isoformat()
     report["provenance_refresh_commit"] = commit
     report["provenance_refreshed_at"] = timestamp
 

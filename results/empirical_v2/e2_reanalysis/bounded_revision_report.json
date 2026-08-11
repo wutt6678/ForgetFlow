@@ -21,5 +21,5 @@
     "Development-pilot scope: 90 attempts from 30 families; results are sample-bounded and not generalizable.",
     "LLM-based annotation: labels were produced by an LLM evaluator (qwen3.8-max), not by human annotators; annotation errors are possible."
   ],
-  "generated_at": "2026-08-11T09:51:01.246593+00:00"
+  "generated_at": "2026-08-11T10:30:06.191090+00:00"
 }

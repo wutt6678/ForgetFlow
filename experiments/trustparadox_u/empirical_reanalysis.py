@@ -1015,6 +1015,11 @@ def run_reanalysis(
             "complete_families": pairing.complete_families,
             "incomplete_families": pairing.incomplete_families,
             "excluded_families": pairing.excluded_families,
+            "audit_status": (
+                "passed"
+                if pairing.excluded_families == 0 and pairing.content_mismatches == 0
+                else "failed"
+            ),
         },
         "floor_effect_diagnostic": floor,
         "bounded_revision_decision": revision["decision"],
