@@ -260,3 +260,127 @@ class TestIdempotence:
             assert r1["requested_max_tokens"] == r2["requested_max_tokens"]
             assert r1["execution_batch_id"] == r2["execution_batch_id"]
             assert r1["execution_type"] == r2["execution_type"]
+
+
+# ---------------------------------------------------------------------------
+# FIX-B5-021..025: Production-path regeneration integration tests.
+# ---------------------------------------------------------------------------
+
+# Scientific J2 fields that must survive regeneration untouched.
+_SCIENTIFIC_J2_FIELDS = (
+    "raw_output",
+    "parsed_output",
+    "request_id",
+    "model_returned",
+    "latency_ms",
+    "retries",
+    "system_prompt_hash",
+    "user_prompt_hash",
+    "timestamp",
+)
+
+
+@pytest.fixture()
+def _production_ann_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Copy canonical secondary annotation artifacts to a temp directory.
+
+    Monkeypatches ``SECONDARY_ANNOTATION_DIR`` in the regeneration module
+    so that ``patch012_record_j2_transport_cap()`` operates on the temp copy.
+    """
+    if not _PROVENANCE_PATH.exists() or not _RAW_PATH.exists():
+        pytest.skip("Canonical secondary annotation artifacts not found")
+
+    ann_dir = tmp_path / "e2_secondary_annotation"
+    ann_dir.mkdir()
+
+    # Copy all canonical secondary annotation files.
+    for src in _SECONDARY_DIR.iterdir():
+        if src.is_file():
+            shutil.copy2(src, ann_dir / src.name)
+
+    monkeypatch.setattr(
+        "scripts.regenerate_empirical_provenance.SECONDARY_ANNOTATION_DIR",
+        ann_dir,
+    )
+    return ann_dir
+
+
+class TestProductionRegeneration:
+    """FIX-B5-021..024: true production-path regeneration integration."""
+
+    def test_first_pass_distribution(self, _production_ann_dir: Path) -> None:
+        """FIX-B5-021/022: first production pass yields 7x512 / 2x1024."""
+        from scripts.regenerate_empirical_provenance import (
+            patch012_record_j2_transport_cap,
+        )
+
+        patch012_record_j2_transport_cap()
+
+        raw_path = _production_ann_dir / "secondary_raw_responses.jsonl"
+        records = _load_jsonl(raw_path)
+        caps = _count_caps(records)
+
+        assert caps.get(512) == 7
+        assert caps.get(1024) == 2
+        assert len(records) == 9
+
+        # task_004 must be 1024 / retry_failed_batch despite retries=0.
+        retry_id = "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0"
+        task004 = [r for r in records if r["generation_attempt_id"] == retry_id]
+        assert len(task004) == 1
+        assert task004[0]["requested_max_tokens"] == 1024
+        assert task004[0]["execution_batch_id"] == "retry_failed_batch"
+        assert task004[0].get("retries", 0) == 0
+
+    def test_second_pass_idempotent(self, _production_ann_dir: Path) -> None:
+        """FIX-B5-023: second production pass is idempotent."""
+        from scripts.regenerate_empirical_provenance import (
+            patch012_record_j2_transport_cap,
+        )
+
+        # First pass.
+        patch012_record_j2_transport_cap()
+        raw_path = _production_ann_dir / "secondary_raw_responses.jsonl"
+        first_records = _load_jsonl(raw_path)
+        first_caps = _count_caps(first_records)
+
+        # Second pass.
+        patch012_record_j2_transport_cap()
+        second_records = _load_jsonl(raw_path)
+        second_caps = _count_caps(second_records)
+
+        assert first_caps == second_caps
+        assert second_caps.get(512) == 7
+        assert second_caps.get(1024) == 2
+
+        # Same batch assignments and transport fields.
+        for r1, r2 in zip(first_records, second_records):
+            assert r1["requested_max_tokens"] == r2["requested_max_tokens"]
+            assert r1["execution_batch_id"] == r2["execution_batch_id"]
+            assert r1["execution_type"] == r2["execution_type"]
+
+    def test_scientific_fields_survive(self, _production_ann_dir: Path) -> None:
+        """FIX-B5-024: scientific J2 fields survive production regeneration."""
+        from scripts.regenerate_empirical_provenance import (
+            patch012_record_j2_transport_cap,
+        )
+
+        raw_path = _production_ann_dir / "secondary_raw_responses.jsonl"
+        before_records = _load_jsonl(raw_path)
+
+        # Snapshot scientific fields before regeneration.
+        before_snapshot: list[dict] = []
+        for rec in before_records:
+            before_snapshot.append({k: rec.get(k) for k in _SCIENTIFIC_J2_FIELDS})
+
+        # Run production regeneration.
+        patch012_record_j2_transport_cap()
+
+        after_records = _load_jsonl(raw_path)
+        assert len(after_records) == len(before_records)
+
+        for before, after in zip(before_snapshot, after_records):
+            for field in _SCIENTIFIC_J2_FIELDS:
+                assert before[field] == after.get(
+                    field
+                ), f"Field {field!r} changed during regeneration"
