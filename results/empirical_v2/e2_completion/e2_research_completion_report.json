@@ -379,21 +379,24 @@
         "primary_label_source": "independent_evaluator_j",
         "primary_label_sha256": "412d750f90c2f357...",
         "raw_generation_sha256": "3475d3a2da714b4a...",
-        "analysis_result_code_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
-        "analysis_executed_at": "2026-08-11T10:30:06.191192+00:00",
-        "provenance_refresh_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
-        "provenance_refreshed_at": "2026-08-11T10:30:12.407445+00:00"
+        "analysis_result_code_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+        "analysis_executed_at": "2026-08-11T12:23:47.849896+00:00",
+        "provenance_refresh_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+        "provenance_refreshed_at": "2026-08-11T12:23:54.736763+00:00"
       }
     },
     "analysis_provenance_valid": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "provenance_mode": "split_execution_refresh",
-        "analysis_result_code_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
-        "analysis_executed_at": "2026-08-11T10:30:06.191192+00:00",
-        "provenance_refresh_commit": "9aef3a98a3eff566fd2d5599fc4973b94f45e9be",
-        "provenance_refreshed_at": "2026-08-11T10:30:12.407445+00:00"
+        "provenance_mode": "clean_committed_execution",
+        "analysis_result_code_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+        "analysis_executed_at": "2026-08-11T12:23:47.849896+00:00",
+        "provenance_refresh_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+        "provenance_refreshed_at": "2026-08-11T12:23:54.736763+00:00",
+        "working_tree_clean": true,
+        "analysis_script_commit_hash_match": true,
+        "analysis_script_current_hash_match": true
       }
     },
     "secondary_queue_complete": {
@@ -522,9 +525,9 @@
     "labeling_report": "6b75131bd823311a39c4983160c885f785dce36f60cc33f34dde44f801b291d1",
     "agreement_report": "18f3e61e13bd82aca4ab05b544608dbcbc3ccb7ec4f65b4fba8a368f1bbfde12",
     "pairing_audit": "40b84075eda4cc8b8464306cf789a869d8f4b2aac0b1bd9cec515edf37cf3488",
-    "pilot_analysis": "7430a55dd8f079288c26ae13e825100607d5edc98ed8494d0577a5a6d82274cf",
+    "pilot_analysis": "ce65b3400efc0577b57dd805ba2d6ff17a8db9d6cfe970d194dd5adefe2aff06",
     "floor_effect_diagnostic": "fd5b9eec7ec94cc50e005113abfe53b522bc3a05869841649fc20790e618b4db",
-    "bounded_revision_report": "f93067eb8b1a7b550bfae3c515dd92db013294c848ac9130109ec42741a2dda4",
+    "bounded_revision_report": "68b754466d6d7352194ab504e93026d33c8ef9fd51b696e72e428b49b6f179df",
     "frozen_prompt_manifest": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
     "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
     "secondary_raw_responses": "8dc0978c7b7555b709fba451433a19f021a052b0a9d77c00fe6e72412ea21f09",

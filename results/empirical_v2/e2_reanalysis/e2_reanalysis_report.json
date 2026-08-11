@@ -12,10 +12,10 @@
   "working_tree_clean": true,
   "working_tree_status": "",
   "analysis_provenance_mode": "clean_committed_execution",
-  "analysis_result_code_commit": "d9f713c9d5454fbcb527c0953da518b767bb437b",
-  "analysis_executed_at": "2026-08-11T12:05:19.270062+00:00",
-  "provenance_refresh_commit": "d9f713c9d5454fbcb527c0953da518b767bb437b",
-  "provenance_refreshed_at": "2026-08-11T12:05:19.270062+00:00",
+  "analysis_result_code_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+  "analysis_executed_at": "2026-08-11T12:23:47.849896+00:00",
+  "provenance_refresh_commit": "40a2c6e7d96c50b5694495cfcce05367b75cf353",
+  "provenance_refreshed_at": "2026-08-11T12:23:54.736763+00:00",
   "analysis_inputs": {
     "primary_labels_sha256": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
     "raw_generation_sha256": "3475d3a2da714b4a5ab172bea9c769597cfb1d138536f0aaacadc13f87cc00fe"
@@ -296,5 +296,5 @@
       }
     ]
   },
-  "generated_at": "2026-08-11T12:05:19.270062+00:00"
+  "generated_at": "2026-08-11T12:23:47.849896+00:00"
 }
