@@ -4865,6 +4865,7 @@ class TestPatch7359TransportBatchRegression:
                     "execution_type": "retry_failed_secondary_audit",
                     "requested_max_tokens": retry_cap,
                     "generation_attempt_ids": list(retry_ids),
+                    "source_commit": "test_source_commit",
                 },
             ],
         }

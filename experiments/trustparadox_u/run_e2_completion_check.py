@@ -178,6 +178,14 @@ E2_ARTIFACT_PATHS: dict[str, Path] = {
         / "e2_secondary_annotation"
         / "secondary_prompt_manifest.json"
     ),
+    # PATCH-1526-021: bind execution-provenance hash in completion report.
+    "secondary_execution_provenance": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_execution_provenance.json"
+    ),
 }
 
 #: E2R-FIX-019/020: directory containing synthetic release bundles.
@@ -2671,17 +2679,18 @@ def check_secondary_execution_provenance_valid(
     raw_responses_path: Path | None = None,
     provenance_path: Path | None = None,
 ) -> CheckResult:
-    """PATCH-7359-024: mandatory execution-provenance check.
+    """PATCH-1526-016..020: hardened execution-provenance check.
 
     Verifies:
-    - 9 total IDs
-    - 7 initial
-    - 2 retry
-    - no duplicates
-    - no missing IDs
-    - exact known retry IDs
-    - batch caps correct
-    - raw-record caps match batch provenance
+    - exactly 2 batches (PATCH-1526-018);
+    - initial_j2_batch exists (PATCH-1526-016) with 7 IDs, cap=512;
+    - retry_failed_batch exists (PATCH-1526-017) with 2 IDs, cap=1024;
+    - batch schema fields present and non-empty (PATCH-1526-019);
+    - retry batch has source_commit (PATCH-1526-019);
+    - no duplicates, no missing IDs;
+    - exact known retry IDs;
+    - canonical batch caps enforced (PATCH-1526-020);
+    - raw-record caps match batch provenance.
     """
     if raw_responses_path is None:
         raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
@@ -2706,6 +2715,93 @@ def check_secondary_execution_provenance_valid(
     prov = json.loads(provenance_path.read_text(encoding="utf-8"))
     batches = prov.get("batches", [])
 
+    # --- PATCH-1526-018: require exactly two batches ----------------------
+    if len(batches) != 2:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_batch_count",
+            details={"expected": 2, "actual": len(batches)},
+        )
+
+    # --- PATCH-1526-019: validate batch schema fields -------------------
+    _required_batch_fields = {
+        "batch_id",
+        "execution_type",
+        "requested_max_tokens",
+        "generation_attempt_ids",
+    }
+    for batch in batches:
+        missing = _required_batch_fields - set(batch.keys())
+        if missing:
+            return CheckResult(
+                check_name="secondary_execution_provenance_valid",
+                passed=False,
+                failure_code="execution_provenance_batch_schema",
+                details={"batch_id": batch.get("batch_id", "?"), "missing_fields": sorted(missing)},
+            )
+        # Validate non-empty values.
+        for fld in ("batch_id", "execution_type", "requested_max_tokens"):
+            if not batch.get(fld) and batch.get(fld) != 0:
+                return CheckResult(
+                    check_name="secondary_execution_provenance_valid",
+                    passed=False,
+                    failure_code="execution_provenance_batch_schema",
+                    details={"batch_id": batch.get("batch_id", "?"), "empty_field": fld},
+                )
+        if not batch.get("generation_attempt_ids"):
+            return CheckResult(
+                check_name="secondary_execution_provenance_valid",
+                passed=False,
+                failure_code="execution_provenance_batch_schema",
+                details={
+                    "batch_id": batch.get("batch_id", "?"),
+                    "empty_field": "generation_attempt_ids",
+                },
+            )
+
+    # --- PATCH-1526-016: require initial_j2_batch -----------------------
+    initial_batch = next((b for b in batches if b["batch_id"] == "initial_j2_batch"), None)
+    if initial_batch is None:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_initial_batch_missing",
+        )
+
+    # --- PATCH-1526-017: require retry_failed_batch ---------------------
+    retry_batch = next((b for b in batches if b["batch_id"] == "retry_failed_batch"), None)
+    if retry_batch is None:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_retry_batch_missing",
+        )
+
+    # --- PATCH-1526-019: retry batch requires source_commit --------------
+    if not retry_batch.get("source_commit"):
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_retry_source_commit_missing",
+        )
+
+    # --- PATCH-1526-020: validate canonical batch caps -------------------
+    if initial_batch.get("requested_max_tokens") != 512:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_initial_batch_cap",
+            details={"expected": 512, "actual": initial_batch.get("requested_max_tokens")},
+        )
+    if retry_batch.get("requested_max_tokens") != 1024:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_retry_batch_cap",
+            details={"expected": 1024, "actual": retry_batch.get("requested_max_tokens")},
+        )
+
     # Build ID -> batch lookup.
     id_to_batch: dict[str, dict[str, Any]] = {}
     for batch in batches:
@@ -2723,28 +2819,24 @@ def check_secondary_execution_provenance_valid(
         )
 
     # Verify initial batch = 7.
-    initial_batch = next((b for b in batches if b["batch_id"] == "initial_j2_batch"), None)
-    if initial_batch is not None:
-        initial_count = len(initial_batch.get("generation_attempt_ids", []))
-        if initial_count != 7:
-            return CheckResult(
-                check_name="secondary_execution_provenance_valid",
-                passed=False,
-                failure_code="provenance_initial_batch_size",
-                details={"expected": 7, "actual": initial_count},
-            )
+    initial_count = len(initial_batch.get("generation_attempt_ids", []))
+    if initial_count != 7:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="provenance_initial_batch_size",
+            details={"expected": 7, "actual": initial_count},
+        )
 
     # Verify retry batch = 2.
-    retry_batch = next((b for b in batches if b["batch_id"] == "retry_failed_batch"), None)
-    if retry_batch is not None:
-        retry_count = len(retry_batch.get("generation_attempt_ids", []))
-        if retry_count != 2:
-            return CheckResult(
-                check_name="secondary_execution_provenance_valid",
-                passed=False,
-                failure_code="provenance_retry_batch_size",
-                details={"expected": 2, "actual": retry_count},
-            )
+    retry_count = len(retry_batch.get("generation_attempt_ids", []))
+    if retry_count != 2:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="provenance_retry_batch_size",
+            details={"expected": 2, "actual": retry_count},
+        )
 
     # Check for duplicates across batches.
     all_ids: list[str] = []
@@ -2762,18 +2854,17 @@ def check_secondary_execution_provenance_valid(
         "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
         "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0",
     }
-    if retry_batch is not None:
-        actual_retry_ids = set(retry_batch.get("generation_attempt_ids", []))
-        if actual_retry_ids != known_retry_ids:
-            return CheckResult(
-                check_name="secondary_execution_provenance_valid",
-                passed=False,
-                failure_code="retry_batch_id_mismatch",
-                details={
-                    "expected": sorted(known_retry_ids),
-                    "actual": sorted(actual_retry_ids),
-                },
-            )
+    actual_retry_ids = set(retry_batch.get("generation_attempt_ids", []))
+    if actual_retry_ids != known_retry_ids:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="retry_batch_id_mismatch",
+            details={
+                "expected": sorted(known_retry_ids),
+                "actual": sorted(actual_retry_ids),
+            },
+        )
 
     # Verify raw-record caps match batch provenance.
     mismatches: list[dict[str, Any]] = []
@@ -2820,12 +2911,10 @@ def check_secondary_execution_provenance_valid(
         details={
             "num_records": len(records),
             "total_batch_ids": total_ids,
-            "initial_batch_size": len(initial_batch.get("generation_attempt_ids", []))
-            if initial_batch
-            else 0,
-            "retry_batch_size": len(retry_batch.get("generation_attempt_ids", []))
-            if retry_batch
-            else 0,
+            "initial_batch_size": len(initial_batch.get("generation_attempt_ids", [])),
+            "retry_batch_size": len(retry_batch.get("generation_attempt_ids", [])),
+            "initial_batch_cap": initial_batch.get("requested_max_tokens"),
+            "retry_batch_cap": retry_batch.get("requested_max_tokens"),
         },
     )
 
@@ -3272,6 +3361,39 @@ def check_cross_artifact_consistency(
                     "frozen_prompt_manifest": fpm_pilot,
                     "bounded_revision": br_pilot,
                 },
+            )
+
+    # --- PATCH-1526-022/023: execution-provenance cross-artifact binding ---
+    # Require: completion.artifact_hashes.secondary_execution_provenance
+    #       == phase.secondary_execution_provenance_sha256
+    #       == frozen_primary.secondary_execution_provenance_sha256
+    #       == sha256(actual file).
+    # All four must agree.
+    _ep_sources: dict[str, str] = {}
+    if completion_report is not None:
+        _ep_completion = completion_report.artifact_hashes.get("secondary_execution_provenance")
+        if _ep_completion:
+            _ep_sources["completion_report"] = _ep_completion
+    if phase_file is not None:
+        _ep_phase = phase_file.get("secondary_execution_provenance_sha256")
+        if _ep_phase:
+            _ep_sources["phase_file"] = _ep_phase
+    if frozen_primary_labels is not None:
+        _ep_frozen = frozen_primary_labels.get("secondary_execution_provenance_sha256")
+        if _ep_frozen:
+            _ep_sources["frozen_primary_labels"] = _ep_frozen
+    if _using_canonical_paths and _SECONDARY_EXECUTION_PROVENANCE_PATH.exists():
+        _ep_actual = sha256_file(_SECONDARY_EXECUTION_PROVENANCE_PATH)
+        if _ep_actual:
+            _ep_sources["actual_file"] = _ep_actual
+    if len(_ep_sources) >= 2:
+        _ep_values = set(_ep_sources.values())
+        if len(_ep_values) > 1:
+            return CheckResult(
+                check_name="cross_artifact_consistency",
+                passed=False,
+                failure_code="execution_provenance_hash_mismatch",
+                details={src: val[:16] for src, val in sorted(_ep_sources.items())},
             )
 
     return CheckResult(
