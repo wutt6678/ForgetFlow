@@ -675,6 +675,52 @@ class TestRunCompletionCheck:
             "experiments.trustparadox_u.run_e2_completion_check.check_secondary_annotation_integrity",
             lambda *a, **kw: _pass("secondary_annotation_integrity"),
         )
+        # E2C-FIX-041: granular secondary annotation checks.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_queue_complete",
+            lambda *a, **kw: _pass("secondary_queue_complete"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_raw_complete",
+            lambda *a, **kw: _pass("secondary_raw_complete"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_raw_success",
+            lambda *a, **kw: _pass("secondary_raw_success"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_label_complete",
+            lambda *a, **kw: _pass("secondary_label_complete"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_label_raw_consistency",
+            lambda *a, **kw: _pass("secondary_label_raw_consistency"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_agreement_consistency",
+            lambda *a, **kw: _pass("secondary_agreement_consistency"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_unresolved_consistency",
+            lambda *a, **kw: _pass("secondary_unresolved_consistency"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_adjudication_consistency",
+            lambda *a, **kw: _pass("secondary_adjudication_consistency"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_prompt_freeze",
+            lambda *a, **kw: _pass("secondary_prompt_freeze"),
+        )
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_hash_binding",
+            lambda *a, **kw: _pass("secondary_hash_binding"),
+        )
+        # E2C-FIX-044: file-level integrity audit.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_e2_file_integrity_audit",
+            lambda *a, **kw: _pass("e2_file_integrity_audit"),
+        )
 
         report = run_completion_check(
             artifacts={"manifest": {"protocol_version": "2.0.0", "study_version": "2.0.0"}},
@@ -738,7 +784,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 39
+        assert len(report.checks) == 50
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 

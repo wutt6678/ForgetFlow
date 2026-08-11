@@ -154,11 +154,13 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "num_review_required": 9,
-        "num_secondary_reviewed": 9,
-        "num_disagreements": 0,
-        "num_adjudicated": 0,
-        "num_unresolved": 0
+        "queue_cases": 9,
+        "n_successful": 9,
+        "n_failed": 0,
+        "n_disagreed": 0,
+        "n_unresolved": 0,
+        "n_adjudicated": 0,
+        "annotation_source": "j1_j2_llm_only"
       }
     },
     "pairing_audit": {
@@ -248,9 +250,9 @@
       "passed": true,
       "failure_code": null,
       "details": {
-        "exact_agreement": 1.0,
+        "exact_agreement": 0.0,
         "num_compared": 90,
-        "num_disagreements": 0
+        "num_disagreements": 90
       }
     },
     "uncertainty_ci": {
@@ -314,6 +316,25 @@
         "adjudication_ids": 9
       }
     },
+    "secondary_review_evidence_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "audit_cases": 9
+      }
+    },
+    "secondary_review_cross_artifact_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "cases": 9,
+        "n_successful": 9,
+        "n_failed": 0,
+        "n_disagreed": 0,
+        "n_unresolved": 0,
+        "n_adjudicated": 0
+      }
+    },
     "cross_artifact_consistency": {
       "passed": true,
       "failure_code": null,
@@ -328,15 +349,97 @@
         "primary_label_source": "independent_evaluator_j",
         "primary_label_sha256": "412d750f90c2f357...",
         "raw_generation_sha256": "3475d3a2da714b4a...",
-        "analysis_code_commit": "d9fa38de4bec5ce449ffacddb35f78a623377122",
-        "analysis_timestamp": "2026-08-10T12:57:21.767841+00:00"
+        "analysis_code_commit": "d0ace9ddcc321ce9c0bad06aa5d626974d0b9695",
+        "analysis_timestamp": "2026-08-11T10:06:09+08:00"
+      }
+    },
+    "secondary_queue_complete": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "queue_cases": 9
+      }
+    },
+    "secondary_raw_complete": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "raw_count": 9,
+        "queue_cases": 9
+      }
+    },
+    "secondary_raw_success": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "successful_count": 9
+      }
+    },
+    "secondary_label_complete": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "label_count": 9,
+        "queue_cases": 9
+      }
+    },
+    "secondary_label_raw_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "raw_count": 9,
+        "label_count": 9
+      }
+    },
+    "secondary_agreement_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "n_selected": 9
+      }
+    },
+    "secondary_unresolved_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "n_unresolved": 0
+      }
+    },
+    "secondary_adjudication_consistency": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "adjudication_count": 9,
+        "label_count": 9
+      }
+    },
+    "secondary_prompt_freeze": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "prompt_entries": 4
+      }
+    },
+    "secondary_hash_binding": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "bound_hashes": 2
+      }
+    },
+    "e2_file_integrity_audit": {
+      "passed": true,
+      "failure_code": null,
+      "details": {
+        "audited_files": 25,
+        "all_present": true
       }
     },
     "completion_consistency": {
       "passed": true,
       "failure_code": null,
       "details": {
-        "total_checks": 36,
+        "total_checks": 49,
         "all_passed": true
       }
     }
@@ -346,16 +449,20 @@
     "request_schedule": "29a6a72f95036a9d5ce3d77b9d4b1da6dd1a2712646f047d1f41ce2a3397dbd8",
     "primary_labels": "412d750f90c2f357b754234d58eeb0bf1b9b3c0de97f0a93e081021497f0fe22",
     "reference_labels": "c3715d0a0508a78bf28690c7ffb1c1a100a86eda78ed59a184fb9872b9d360b5",
-    "adjudication_log": "5be1fb542fd64acf6019433c15276eff6a7fc7bc6fadf6e5f46dec2f424f588d",
+    "adjudication_log": "585da24e5f907512105d2759f538015ed5b1969a4280edc70fcf08008f70b795",
     "secondary_review_queue": "5ceceeb0cd3c8c07dad4e0cb8ee99304ad2b1ed27ffadb2925f15af85c44c600",
-    "secondary_review_labels": "0caeab431253107baf47d55daf02755b53312eae34af3948bbc44327fd0a9bcd",
-    "labeling_report": "08ea679b4292ca8187924c3ee70e880a5098dacd93465fe0a7a4eb0c0b1aadca",
-    "agreement_report": "eefeb2b634d5f46c5dc906162e17e42fdc0814648ba2e7558822b38970513476",
+    "secondary_review_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
+    "labeling_report": "747f51ab97bd9f25797b89cdd95e71b24cede1bf07225c8fa13632a0a05fda78",
+    "agreement_report": "9548ec2ab49c82cfab436308938d015a28294e7376f4b2f4dfb55f10356e1bea",
     "pairing_audit": "40b84075eda4cc8b8464306cf789a869d8f4b2aac0b1bd9cec515edf37cf3488",
-    "pilot_analysis": "dd0f404434b159f62b23f484552f58eabec692a403f456c669c784fb0f718fb8",
+    "pilot_analysis": "8e7d5d68cd70ac4c8f60a0f75056518a3a30de2b396b6a4d55a20ba0c4fccbfc",
     "floor_effect_diagnostic": "f3d8ccb223cce50886b40c9b3ca81bcdbb2539963bd7be8bfebf23833c322a03",
     "bounded_revision_report": "cf244c12608d230229638a008aeb223a2f2ab4fe8b080e7f582054871d6a11ce",
     "frozen_prompt_manifest": "5e18f6c2187328aaf4d892677bee8150ffbee63dc56a67448874f5762346172b",
-    "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae"
+    "synthetic_regression_report": "fb1c537ad7c576fd63f424a3e2db5a8598bb5785a7795ee52516dff3505dd8ae",
+    "secondary_raw_responses": "89c88972dea5bb7dbccf753209d303dbe9fc800d664f7e6bab5756b9928ff5d3",
+    "secondary_labels": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
+    "secondary_annotation_agreement": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
+    "secondary_prompt_manifest": "373626e5f2635b0a5083b5334df6d8f494e5e9c9d46b7f1c2b2f671a302fae09"
   }
 }

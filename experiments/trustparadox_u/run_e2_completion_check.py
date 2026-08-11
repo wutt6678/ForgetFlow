@@ -273,6 +273,70 @@ _SECONDARY_ANNOTATION_AGREEMENT_PATH = (
     _SECONDARY_ANNOTATION_DIR / "secondary_annotation_agreement.json"
 )
 
+#: E2C-FIX-044: final file-level integrity audit — all E2 artifact files.
+_E2_INTEGRITY_AUDIT_FILES: dict[str, Path] = {
+    # Primary generation and evaluation.
+    "raw_generation_attempts.jsonl": _RAW_GENERATION_PATH,
+    "evaluator_raw_responses.jsonl": _EVALUATOR_RAW_PATH,
+    "primary_labels.jsonl": _PRIMARY_LABELS_PATH,
+    "reference_labels.jsonl": _REFERENCE_LABELS_PATH,
+    # Secondary annotation.
+    "secondary_review_queue.jsonl": _SECONDARY_REVIEW_QUEUE_PATH,
+    "secondary_raw_responses.jsonl": _SECONDARY_RAW_RESPONSES_PATH,
+    "secondary_labels.jsonl": _SECONDARY_LABELS_PATH,
+    "secondary_review_labels.jsonl": _SECONDARY_REVIEW_LABELS_PATH,
+    "adjudication_log.jsonl": _ADJUDICATION_LOG_PATH,
+    "secondary_annotation_agreement.json": _SECONDARY_ANNOTATION_AGREEMENT_PATH,
+    # Primary label agreements and reports.
+    "label_agreement_report.json": _AGREEMENT_REPORT_PATH,
+    "labeling_report.json": _LABELING_REPORT_PATH,
+    # Reanalysis.
+    "e2_reanalysis_report.json": _REANALYSIS_REPORT_PATH,
+    "floor_effect_diagnostic.json": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_reanalysis"
+        / "floor_effect_diagnostic.json"
+    ),
+    "bounded_revision_report.json": _BOUNDED_REVISION_REPORT_PATH,
+    # Prompt freeze.
+    "frozen_prompt_manifest.json": _FROZEN_PROMPT_MANIFEST_PATH,
+    "secondary_prompt_manifest.json": _SECONDARY_PROMPT_MANIFEST_PATH,
+    "frozen_primary_labels.json": _FROZEN_PRIMARY_LABELS_PATH,
+    # Synthetic regression.
+    "synthetic_regression_report.json": _SYNTHETIC_REGRESSION_REPORT_PATH,
+    # Release bundle.
+    "bundle_manifest.json": (
+        _PROJECT_ROOT
+        / "results"
+        / "releases"
+        / "trustparadox_u-v1.2.1-b2d33d49ea9d"
+        / "bundle_manifest.json"
+    ),
+    "STORAGE_PROVENANCE.json": (
+        _PROJECT_ROOT
+        / "results"
+        / "releases"
+        / "trustparadox_u-v1.2.1-b2d33d49ea9d"
+        / "STORAGE_PROVENANCE.json"
+    ),
+    "FINAL_STORAGE_CERTIFICATION.json": (
+        _PROJECT_ROOT
+        / "results"
+        / "releases"
+        / "trustparadox_u-v1.2.1-b2d33d49ea9d"
+        / "FINAL_STORAGE_CERTIFICATION.json"
+    ),
+    # Reproduction.
+    "reproduction_manifest.json": (
+        _PROJECT_ROOT / "results" / "reproduction" / "reproduction_manifest.json"
+    ),
+    # Completion and phase.
+    "e2_research_completion_report.json": COMPLETION_REPORT_PATH,
+    "empirical_phase.json": EMPIRICAL_PHASE_FILE,
+}
+
 #: E2B-FIX-018: the stratified negative-sample audit queue has exactly 9 cases.
 REQUIRED_J2_AUDIT_CASES = 9
 _PILOT_MANIFEST_PATH = (
@@ -2046,7 +2110,12 @@ def check_reference_label_completeness(
 def check_agreement_validity(
     agreement_report: dict[str, Any] | None,
 ) -> CheckResult:
-    """E2R-FIX-025: check agreement validity."""
+    """E2R-FIX-025 / E2C-FIX-041: check agreement validity.
+
+    The agreement report may use either a flat layout
+    (``j_vs_reference_exact_agreement``) or a nested layout
+    (``j1_reference.exact_agreement_rate``).  Accept both.
+    """
     if agreement_report is None:
         return CheckResult(
             check_name="agreement_validity",
@@ -2054,7 +2123,11 @@ def check_agreement_validity(
             failure_code="agreement_report_missing",
         )
 
+    # Try flat layout first, then nested j1_reference layout.
+    j1_ref = agreement_report.get("j1_reference", {})
     exact_agreement = agreement_report.get("j_vs_reference_exact_agreement")
+    if exact_agreement is None and isinstance(j1_ref, dict):
+        exact_agreement = j1_ref.get("exact_agreement_rate")
     if exact_agreement is None:
         return CheckResult(
             check_name="agreement_validity",
@@ -2063,7 +2136,12 @@ def check_agreement_validity(
             details={"metric": "j_vs_reference_exact_agreement"},
         )
 
-    num_compared = agreement_report.get("num_compared")
+    # num_compared: prefer the j1_reference sub-report (90 primary labels).
+    num_compared = None
+    if isinstance(j1_ref, dict):
+        num_compared = j1_ref.get("num_compared")
+    if num_compared is None:
+        num_compared = agreement_report.get("num_compared")
     if num_compared is None or num_compared != 90:
         return CheckResult(
             check_name="agreement_validity",
@@ -2078,7 +2156,11 @@ def check_agreement_validity(
         details={
             "exact_agreement": exact_agreement,
             "num_compared": num_compared,
-            "num_disagreements": agreement_report.get("num_disagreements", 0),
+            "num_disagreements": (
+                j1_ref.get("num_disagreements")
+                if isinstance(j1_ref, dict)
+                else agreement_report.get("num_disagreements", 0)
+            ),
         },
     )
 
@@ -3615,6 +3697,416 @@ def check_secondary_review_cross_artifact_consistency(
     )
 
 
+# ---------------------------------------------------------------------------
+# E2C-FIX-041: granular secondary annotation checks.
+# ---------------------------------------------------------------------------
+
+
+def check_secondary_queue_complete(
+    queue_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: secondary review queue has exactly REQUIRED_J2_AUDIT_CASES."""
+    if queue_path is None:
+        queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    records = _load_jsonl(queue_path) if queue_path.exists() else []
+    queue_ids = {
+        str(r.get("generation_attempt_id")) for r in records if r.get("generation_attempt_id")
+    }
+    if len(queue_ids) != REQUIRED_J2_AUDIT_CASES:
+        return CheckResult(
+            check_name="secondary_queue_complete",
+            passed=False,
+            failure_code="e2_j2_queue_case_count_mismatch",
+            details={"expected": REQUIRED_J2_AUDIT_CASES, "actual": len(queue_ids)},
+        )
+    return CheckResult(
+        check_name="secondary_queue_complete",
+        passed=True,
+        details={"queue_cases": len(queue_ids)},
+    )
+
+
+def check_secondary_raw_complete(
+    queue_path: Path | None = None,
+    raw_responses_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: every queue ID has a raw response."""
+    if queue_path is None:
+        queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    queue_ids = {
+        str(r.get("generation_attempt_id"))
+        for r in _load_jsonl(queue_path)
+        if r.get("generation_attempt_id")
+    }
+    raw_ids = {
+        str(r.get("generation_attempt_id"))
+        for r in _load_jsonl(raw_responses_path)
+        if r.get("generation_attempt_id")
+    }
+    missing = queue_ids - raw_ids
+    if missing:
+        return CheckResult(
+            check_name="secondary_raw_complete",
+            passed=False,
+            failure_code="e2_j2_raw_missing_for_queue_id",
+            details={"missing_ids": sorted(missing)[:5]},
+        )
+    return CheckResult(
+        check_name="secondary_raw_complete",
+        passed=True,
+        details={"raw_count": len(raw_ids), "queue_cases": len(queue_ids)},
+    )
+
+
+def check_secondary_raw_success(
+    raw_responses_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: all raw responses have status=success with non-empty output."""
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    records = _load_jsonl(raw_responses_path) if raw_responses_path.exists() else []
+    for rec in records:
+        status = rec.get("status", "")
+        if status != "success":
+            return CheckResult(
+                check_name="secondary_raw_success",
+                passed=False,
+                failure_code="e2_j2_raw_not_successful",
+                details={
+                    "generation_attempt_id": rec.get("generation_attempt_id"),
+                    "status": status,
+                },
+            )
+        if not rec.get("raw_output"):
+            return CheckResult(
+                check_name="secondary_raw_success",
+                passed=False,
+                failure_code="e2_j2_raw_output_empty",
+                details={"generation_attempt_id": rec.get("generation_attempt_id")},
+            )
+    return CheckResult(
+        check_name="secondary_raw_success",
+        passed=True,
+        details={"successful_count": len(records)},
+    )
+
+
+def check_secondary_label_complete(
+    queue_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: every queue ID has a label with non-null secondary_label."""
+    if queue_path is None:
+        queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    queue_ids = {
+        str(r.get("generation_attempt_id"))
+        for r in _load_jsonl(queue_path)
+        if r.get("generation_attempt_id")
+    }
+    label_records = _load_jsonl(secondary_labels_path) if secondary_labels_path.exists() else []
+    label_by_id = {str(r.get("generation_attempt_id")): r for r in label_records}
+    for aid in sorted(queue_ids):
+        label_rec = label_by_id.get(aid)
+        if label_rec is None:
+            return CheckResult(
+                check_name="secondary_label_complete",
+                passed=False,
+                failure_code="e2_j2_label_missing",
+                details={"generation_attempt_id": aid},
+            )
+        if label_rec.get("secondary_label") is None:
+            return CheckResult(
+                check_name="secondary_label_complete",
+                passed=False,
+                failure_code="e2_j2_secondary_label_null",
+                details={"generation_attempt_id": aid},
+            )
+    return CheckResult(
+        check_name="secondary_label_complete",
+        passed=True,
+        details={"label_count": len(label_records), "queue_cases": len(queue_ids)},
+    )
+
+
+def check_secondary_label_raw_consistency(
+    raw_responses_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: label IDs match raw response IDs."""
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    raw_ids = {
+        str(r.get("generation_attempt_id"))
+        for r in _load_jsonl(raw_responses_path)
+        if r.get("generation_attempt_id")
+    }
+    label_ids = {
+        str(r.get("generation_attempt_id"))
+        for r in _load_jsonl(secondary_labels_path)
+        if r.get("generation_attempt_id")
+    }
+    if raw_ids != label_ids:
+        return CheckResult(
+            check_name="secondary_label_raw_consistency",
+            passed=False,
+            failure_code="e2_j2_label_raw_id_mismatch",
+            details={
+                "only_in_raw": sorted(raw_ids - label_ids)[:5],
+                "only_in_labels": sorted(label_ids - raw_ids)[:5],
+            },
+        )
+    return CheckResult(
+        check_name="secondary_label_raw_consistency",
+        passed=True,
+        details={"raw_count": len(raw_ids), "label_count": len(label_ids)},
+    )
+
+
+def check_secondary_agreement_consistency(
+    annotation_agreement_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: annotation agreement counts match source evidence."""
+    if annotation_agreement_path is None:
+        annotation_agreement_path = _SECONDARY_ANNOTATION_AGREEMENT_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    agreement = (
+        json.loads(annotation_agreement_path.read_text(encoding="utf-8"))
+        if annotation_agreement_path.exists()
+        else {}
+    )
+    if not agreement:
+        return CheckResult(
+            check_name="secondary_agreement_consistency",
+            passed=False,
+            failure_code="e2_j2_agreement_file_missing",
+            details={"reason": "secondary_annotation_agreement.json not found or empty"},
+        )
+    label_records = _load_jsonl(secondary_labels_path) if secondary_labels_path.exists() else []
+    n_successful = sum(1 for r in label_records if r.get("secondary_evaluator_status") == "success")
+    n_failed = len(label_records) - n_successful
+    n_disagreed = sum(
+        1
+        for r in label_records
+        if r.get("secondary_evaluator_status") == "success"
+        and r.get("j_label") != r.get("secondary_label")
+    )
+    for field_name, recomputed in [
+        ("n_successful", n_successful),
+        ("n_failed", n_failed),
+        ("n_disagreed", n_disagreed),
+    ]:
+        reported = agreement.get(field_name)
+        if reported is not None and reported != recomputed:
+            return CheckResult(
+                check_name="secondary_agreement_consistency",
+                passed=False,
+                failure_code="e2_j2_agreement_count_mismatch",
+                details={"field": field_name, "reported": reported, "recomputed": recomputed},
+            )
+    return CheckResult(
+        check_name="secondary_agreement_consistency",
+        passed=True,
+        details={"n_selected": agreement.get("n_selected", len(label_records))},
+    )
+
+
+def check_secondary_unresolved_consistency(
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: zero unresolved disagreements for E2 pilot."""
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+    label_records = _load_jsonl(secondary_labels_path) if secondary_labels_path.exists() else []
+    n_unresolved = sum(1 for r in label_records if r.get("resolution_status") == "unresolved")
+    if n_unresolved > 0:
+        return CheckResult(
+            check_name="secondary_unresolved_consistency",
+            passed=False,
+            failure_code="e2_j2_unresolved_disagreements",
+            details={"n_unresolved": n_unresolved, "reason": "E2 pilot requires zero unresolved"},
+        )
+    return CheckResult(
+        check_name="secondary_unresolved_consistency",
+        passed=True,
+        details={"n_unresolved": 0},
+    )
+
+
+def check_secondary_adjudication_consistency(
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: adjudication log is consistent with label records."""
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+    label_records = _load_jsonl(secondary_labels_path) if secondary_labels_path.exists() else []
+    adj_records = _load_jsonl(adjudication_path) if adjudication_path.exists() else []
+    label_ids = {
+        str(r.get("generation_attempt_id")) for r in label_records if r.get("generation_attempt_id")
+    }
+    adj_ids = {
+        str(r.get("generation_attempt_id")) for r in adj_records if r.get("generation_attempt_id")
+    }
+    # Every adjudication ID must correspond to a label ID.
+    orphan_adj = adj_ids - label_ids
+    if orphan_adj:
+        return CheckResult(
+            check_name="secondary_adjudication_consistency",
+            passed=False,
+            failure_code="e2_j2_adjudication_orphan_id",
+            details={"orphan_ids": sorted(orphan_adj)[:5]},
+        )
+    # Verify resolution_status agreement between label and adjudication records.
+    label_by_id = {str(r.get("generation_attempt_id")): r for r in label_records}
+    for rec in adj_records:
+        aid = str(rec.get("generation_attempt_id"))
+        label_rec = label_by_id.get(aid)
+        if label_rec and str(rec.get("resolution_status", "")) != str(
+            label_rec.get("resolution_status", "")
+        ):
+            return CheckResult(
+                check_name="secondary_adjudication_consistency",
+                passed=False,
+                failure_code="e2_j2_adjudication_resolution_mismatch",
+                details={
+                    "generation_attempt_id": aid,
+                    "adjudication_status": rec.get("resolution_status"),
+                    "label_status": label_rec.get("resolution_status"),
+                },
+            )
+    return CheckResult(
+        check_name="secondary_adjudication_consistency",
+        passed=True,
+        details={"adjudication_count": len(adj_records), "label_count": len(label_records)},
+    )
+
+
+def check_secondary_prompt_freeze(
+    prompt_manifest_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: secondary prompt manifest exists with valid hashes."""
+    if prompt_manifest_path is None:
+        prompt_manifest_path = _SECONDARY_PROMPT_MANIFEST_PATH
+    if not prompt_manifest_path.exists():
+        return CheckResult(
+            check_name="secondary_prompt_freeze",
+            passed=False,
+            failure_code="e2_j2_prompt_manifest_missing",
+            details={"path": str(prompt_manifest_path)},
+        )
+    manifest = json.loads(prompt_manifest_path.read_text(encoding="utf-8"))
+    prompts = manifest.get("prompts", {})
+    if not prompts:
+        return CheckResult(
+            check_name="secondary_prompt_freeze",
+            passed=False,
+            failure_code="e2_j2_prompt_manifest_empty",
+            details={"reason": "No prompt entries in secondary prompt manifest"},
+        )
+    for prompt_name, prompt_info in prompts.items():
+        if not prompt_info.get("sha256"):
+            return CheckResult(
+                check_name="secondary_prompt_freeze",
+                passed=False,
+                failure_code="e2_j2_prompt_hash_missing",
+                details={"prompt_name": prompt_name},
+            )
+    return CheckResult(
+        check_name="secondary_prompt_freeze",
+        passed=True,
+        details={"prompt_entries": len(prompts)},
+    )
+
+
+def check_secondary_hash_binding(
+    phase_file: dict[str, Any] | None = None,
+) -> CheckResult:
+    """E2C-FIX-041: secondary artifact hashes in phase file match actual files."""
+    if phase_file is None:
+        if not EMPIRICAL_PHASE_FILE.exists():
+            return CheckResult(
+                check_name="secondary_hash_binding",
+                passed=False,
+                failure_code="e2_phase_file_missing",
+                details={},
+            )
+        phase_file = json.loads(EMPIRICAL_PHASE_FILE.read_text(encoding="utf-8"))
+    hash_fields = {
+        "secondary_review_queue_sha256": _SECONDARY_REVIEW_QUEUE_PATH,
+        "secondary_review_labels_sha256": _SECONDARY_REVIEW_LABELS_PATH,
+        "secondary_raw_responses_sha256": _SECONDARY_RAW_RESPONSES_PATH,
+        "secondary_labels_sha256": _SECONDARY_LABELS_PATH,
+        "secondary_agreement_sha256": _SECONDARY_ANNOTATION_AGREEMENT_PATH,
+        "secondary_prompt_manifest_sha256": _SECONDARY_PROMPT_MANIFEST_PATH,
+    }
+    mismatches: list[dict[str, Any]] = []
+    for field_name, file_path in hash_fields.items():
+        expected = phase_file.get(field_name)
+        actual = sha256_file(file_path)
+        if expected and actual and expected != actual:
+            mismatches.append(
+                {"field": field_name, "expected": expected[:16], "actual": actual[:16]}
+            )
+    if mismatches:
+        return CheckResult(
+            check_name="secondary_hash_binding",
+            passed=False,
+            failure_code="e2_j2_hash_binding_mismatch",
+            details={"mismatches": mismatches},
+        )
+    bound = sum(1 for f in hash_fields if phase_file.get(f))
+    return CheckResult(
+        check_name="secondary_hash_binding",
+        passed=True,
+        details={"bound_hashes": bound},
+    )
+
+
+# ---------------------------------------------------------------------------
+# E2C-FIX-044: final file-level integrity audit.
+# ---------------------------------------------------------------------------
+
+
+def check_e2_file_integrity_audit(
+    audit_files: dict[str, Path] | None = None,
+) -> CheckResult:
+    """E2C-FIX-044: verify all E2 artifact files exist."""
+    if audit_files is None:
+        audit_files = _E2_INTEGRITY_AUDIT_FILES
+    missing: list[str] = []
+    present: list[str] = []
+    for name, path in sorted(audit_files.items()):
+        if path.exists():
+            present.append(name)
+        else:
+            missing.append(name)
+    if missing:
+        return CheckResult(
+            check_name="e2_file_integrity_audit",
+            passed=False,
+            failure_code="e2_artifact_file_missing",
+            details={"missing_files": missing, "present_count": len(present)},
+        )
+    return CheckResult(
+        check_name="e2_file_integrity_audit",
+        passed=True,
+        details={"audited_files": len(present), "all_present": True},
+    )
+
+
 def run_completion_check(
     *,
     artifacts: dict[str, Any],
@@ -3741,6 +4233,21 @@ def run_completion_check(
 
     # --- E2R-FIX-031: J-analysis provenance ---
     report.add_check(check_j_analysis_provenance(analysis))
+
+    # --- E2C-FIX-041: granular secondary annotation checks ---
+    report.add_check(check_secondary_queue_complete())
+    report.add_check(check_secondary_raw_complete())
+    report.add_check(check_secondary_raw_success())
+    report.add_check(check_secondary_label_complete())
+    report.add_check(check_secondary_label_raw_consistency())
+    report.add_check(check_secondary_agreement_consistency())
+    report.add_check(check_secondary_unresolved_consistency())
+    report.add_check(check_secondary_adjudication_consistency())
+    report.add_check(check_secondary_prompt_freeze())
+    report.add_check(check_secondary_hash_binding(phase_file))
+
+    # --- E2C-FIX-044: final file-level integrity audit ---
+    report.add_check(check_e2_file_integrity_audit())
 
     # --- Completion consistency (must be last) ---
     report.add_check(check_completion_consistency(report))

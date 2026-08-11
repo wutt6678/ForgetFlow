@@ -40,9 +40,9 @@ class TestPhaseLock:
 
     def test_phase_is_e2_complete_after_certification(self) -> None:
         # E2B-FIX-001: phase re-locked to E2_PROMPTS_FROZEN during the final
-        # evidence-integrity repair; restored to E2_COMPLETE only by the
-        # programmatic recertification transition (E2B-FIX-043).
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_PROMPTS_FROZEN
+        # evidence-integrity repair; restored to E2_COMPLETE by the
+        # programmatic recertification transition (E2B-FIX-043 / E2C-FIX-041).
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_COMPLETE
 
     @pytest.mark.parametrize(
         "phase",
