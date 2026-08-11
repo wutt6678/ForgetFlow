@@ -965,6 +965,11 @@ def run_reanalysis(
     8. Generate bounded-revision report (E2R-032).
     9. Write all artifacts.
     """
+    # PATCH-B5-003/004: check working tree cleanliness BEFORE writing artifacts.
+    # This must happen before any file writes to avoid false dirty detection.
+    tree_clean, tree_status = _git_working_tree_clean()
+    exec_commit = _git_head_commit()
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: pairing audit
@@ -1019,9 +1024,8 @@ def run_reanalysis(
     # Step 11: main report
     # PATCH-B5-003/004/005/011: commit-bound provenance with working-tree
     # cleanliness and explicit provenance mode.
+    # Values were captured at function entry before any artifact writes.
     now_iso = datetime.now(timezone.utc).isoformat()
-    tree_clean, tree_status = _git_working_tree_clean()
-    exec_commit = _git_head_commit()
     script_path = Path(__file__)
     script_hash = _sha256_file(script_path)
     # PATCH-B5-011: provenance mode declaration.
