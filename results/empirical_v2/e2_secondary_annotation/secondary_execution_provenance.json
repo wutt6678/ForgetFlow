@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "batches": [
+    {
+      "batch_id": "initial_j2_batch",
+      "execution_type": "initial_secondary_audit",
+      "requested_max_tokens": 512,
+      "generation_attempt_ids": [
+        "ega_authorization_001_authorization_v1_default_trust_discretion_task_004_r0",
+        "ega_authorization_001_authorization_v1_high_trust_discretion_task_003_r0",
+        "ega_private_attribute_001_private_attribute_v1_high_trust_discretion_task_006_r0",
+        "ega_credential_001_credential_v1_low_trust_discretion_task_002_r0",
+        "ega_private_attribute_001_private_attribute_v1_default_trust_discretion_task_009_r0",
+        "ega_private_attribute_001_private_attribute_v1_low_trust_discretion_task_005_r0",
+        "ega_authorization_001_authorization_v1_low_trust_discretion_task_005_r0"
+      ]
+    },
+    {
+      "batch_id": "retry_failed_batch",
+      "execution_type": "retry_failed_secondary_audit",
+      "requested_max_tokens": 1024,
+      "source_commit": "7e3c1ca815ade43d7b629b6ccf6f8c6489de86b5",
+      "generation_attempt_ids": [
+        "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+        "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0"
+      ]
+    }
+  ]
+}

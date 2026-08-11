@@ -272,6 +272,10 @@ _SECONDARY_LABELS_PATH = _SECONDARY_ANNOTATION_DIR / "secondary_labels.jsonl"
 _SECONDARY_ANNOTATION_AGREEMENT_PATH = (
     _SECONDARY_ANNOTATION_DIR / "secondary_annotation_agreement.json"
 )
+# PATCH-7359-002: canonical J2 execution-batch provenance.
+_SECONDARY_EXECUTION_PROVENANCE_PATH = (
+    _SECONDARY_ANNOTATION_DIR / "secondary_execution_provenance.json"
+)
 
 #: E2C-FIX-044: final file-level integrity audit — all E2 artifact files.
 _E2_INTEGRITY_AUDIT_FILES: dict[str, Path] = {
@@ -287,6 +291,7 @@ _E2_INTEGRITY_AUDIT_FILES: dict[str, Path] = {
     "secondary_review_labels.jsonl": _SECONDARY_REVIEW_LABELS_PATH,
     "adjudication_log.jsonl": _ADJUDICATION_LOG_PATH,
     "secondary_annotation_agreement.json": _SECONDARY_ANNOTATION_AGREEMENT_PATH,
+    "secondary_execution_provenance.json": _SECONDARY_EXECUTION_PROVENANCE_PATH,
     # Primary label agreements and reports.
     "label_agreement_report.json": _AGREEMENT_REPORT_PATH,
     "labeling_report.json": _LABELING_REPORT_PATH,
@@ -2211,6 +2216,8 @@ def check_reference_diagnostic_validity(
 
     reported_compared = diag.get("num_compared")
     reported_agreements = diag.get("num_agreements")
+    reported_disagreements = diag.get("num_disagreements")
+    reported_rate = diag.get("agreement_rate")
     if reported_compared != recomputed_compared:
         return CheckResult(
             check_name="reference_diagnostic_validity",
@@ -2234,6 +2241,38 @@ def check_reference_diagnostic_validity(
             },
         )
 
+    # PATCH-7359-010: validate num_disagreements and agreement_rate identities.
+    expected_disagreements = recomputed_compared - recomputed_agreements
+    if reported_disagreements != expected_disagreements:
+        return CheckResult(
+            check_name="reference_diagnostic_validity",
+            passed=False,
+            failure_code="reference_diagnostic_disagreements_wrong",
+            details={
+                "reported": reported_disagreements,
+                "expected": expected_disagreements,
+            },
+        )
+    expected_rate = recomputed_agreements / recomputed_compared if recomputed_compared else None
+    if reported_rate != expected_rate:
+        return CheckResult(
+            check_name="reference_diagnostic_validity",
+            passed=False,
+            failure_code="reference_diagnostic_agreement_rate_wrong",
+            details={"reported": reported_rate, "expected": expected_rate},
+        )
+
+    # PATCH-7359-013: categorical comparison must be not_applicable.
+    cat_comp = diag.get("categorical_comparison")
+    if isinstance(cat_comp, dict):
+        if cat_comp.get("status") != "not_applicable":
+            return CheckResult(
+                check_name="reference_diagnostic_validity",
+                passed=False,
+                failure_code="categorical_comparison_not_applicable_expected",
+                details={"status": cat_comp.get("status")},
+            )
+
     return CheckResult(
         check_name="reference_diagnostic_validity",
         passed=True,
@@ -2241,6 +2280,8 @@ def check_reference_diagnostic_validity(
             "comparison_type": comp_type,
             "num_compared": recomputed_compared,
             "num_agreements": recomputed_agreements,
+            "num_disagreements": expected_disagreements,
+            "agreement_rate": expected_rate,
             "id_set_size": len(primary_ids),
         },
     )
@@ -2290,38 +2331,63 @@ def check_independent_annotation_validation(
             failure_code="deterministic_reference_not_independent",
         )
 
+    # PATCH-7359-012: annotation_source must be j1_j2_llm_only.
+    ann_source = agreement_report.get("annotation_source")
+    if ann_source != "j1_j2_llm_only":
+        return CheckResult(
+            check_name="independent_annotation_validation",
+            passed=False,
+            failure_code="annotation_source_invalid",
+            details={"expected": "j1_j2_llm_only", "found": ann_source},
+        )
+
     # Recompute from secondary labels source file.
     secondary_labels = _load_jsonl(_SECONDARY_LABELS_PATH)
+    recomputed_selected = len(secondary_labels)
+    recomputed_successful = 0
     recomputed_compared = 0
     recomputed_agreements = 0
+    recomputed_disagreements = 0
     for rec in secondary_labels:
         if rec.get("secondary_evaluator_status") == "success":
+            recomputed_successful += 1
             recomputed_compared += 1
             if rec.get("j_label") == rec.get("secondary_label"):
                 recomputed_agreements += 1
+            else:
+                recomputed_disagreements += 1
+    recomputed_unresolved = recomputed_selected - recomputed_successful
 
-    reported_compared = iav.get("num_compared")
-    reported_agreements = iav.get("num_agreements")
-    if reported_compared != recomputed_compared:
+    # PATCH-7359-011: validate every field from source.
+    for metric, reported, recomputed in [
+        ("num_selected", iav.get("num_selected"), recomputed_selected),
+        ("num_successful", iav.get("num_successful"), recomputed_successful),
+        ("num_compared", iav.get("num_compared"), recomputed_compared),
+        ("num_agreements", iav.get("num_agreements"), recomputed_agreements),
+        ("num_disagreements", iav.get("num_disagreements"), recomputed_disagreements),
+        ("num_unresolved", iav.get("num_unresolved"), recomputed_unresolved),
+    ]:
+        if reported != recomputed:
+            return CheckResult(
+                check_name="independent_annotation_validation",
+                passed=False,
+                failure_code="independent_validation_counts_mismatch",
+                details={
+                    "metric": metric,
+                    "reported": reported,
+                    "recomputed": recomputed,
+                },
+            )
+
+    expected_rate = recomputed_agreements / recomputed_compared if recomputed_compared else None
+    if iav.get("exact_agreement_rate") != expected_rate:
         return CheckResult(
             check_name="independent_annotation_validation",
             passed=False,
-            failure_code="independent_validation_counts_mismatch",
+            failure_code="independent_validation_agreement_rate_wrong",
             details={
-                "metric": "num_compared",
-                "reported": reported_compared,
-                "recomputed": recomputed_compared,
-            },
-        )
-    if reported_agreements != recomputed_agreements:
-        return CheckResult(
-            check_name="independent_annotation_validation",
-            passed=False,
-            failure_code="independent_validation_counts_mismatch",
-            details={
-                "metric": "num_agreements",
-                "reported": reported_agreements,
-                "recomputed": recomputed_agreements,
+                "reported": iav.get("exact_agreement_rate"),
+                "expected": expected_rate,
             },
         )
 
@@ -2332,23 +2398,136 @@ def check_independent_annotation_validation(
             "primary_annotator": iav.get("primary_annotator"),
             "secondary_annotator": iav.get("secondary_annotator"),
             "reviewer_type": iav.get("reviewer_type"),
+            "num_selected": recomputed_selected,
+            "num_successful": recomputed_successful,
             "num_compared": recomputed_compared,
             "num_agreements": recomputed_agreements,
-            "exact_agreement_rate": iav.get("exact_agreement_rate"),
+            "num_disagreements": recomputed_disagreements,
+            "num_unresolved": recomputed_unresolved,
+            "exact_agreement_rate": expected_rate,
+        },
+    )
+
+
+def check_agreement_metric_consistency(
+    agreement_report: dict[str, Any] | None,
+) -> CheckResult:
+    """PATCH-7359-025: validate every count/rate across all agreement sections.
+
+    Ensures that every metric in ``j1_reference_diagnostic``,
+    ``j1_j2_secondary_audit``, and ``independent_annotation_validation``
+    recomputes from source artifacts.
+    """
+    if agreement_report is None:
+        return CheckResult(
+            check_name="agreement_metric_consistency",
+            passed=False,
+            failure_code="agreement_report_missing",
+        )
+
+    # --- j1_j2_secondary_audit section ---
+    audit = agreement_report.get("j1_j2_secondary_audit")
+    if not isinstance(audit, dict):
+        return CheckResult(
+            check_name="agreement_metric_consistency",
+            passed=False,
+            failure_code="secondary_audit_section_missing",
+        )
+
+    secondary_labels = _load_jsonl(_SECONDARY_LABELS_PATH)
+    recomputed_successful = 0
+    recomputed_compared = 0
+    recomputed_agreements = 0
+    recomputed_disagreements = 0
+    for rec in secondary_labels:
+        if rec.get("secondary_evaluator_status") == "success":
+            recomputed_successful += 1
+            recomputed_compared += 1
+            if rec.get("j_label") == rec.get("secondary_label"):
+                recomputed_agreements += 1
+            else:
+                recomputed_disagreements += 1
+
+    for metric, reported, recomputed in [
+        ("num_compared", audit.get("num_compared"), recomputed_compared),
+        ("num_agreements", audit.get("num_agreements"), recomputed_agreements),
+        ("num_disagreements", audit.get("num_disagreements"), recomputed_disagreements),
+    ]:
+        if reported != recomputed:
+            return CheckResult(
+                check_name="agreement_metric_consistency",
+                passed=False,
+                failure_code="secondary_audit_metric_mismatch",
+                details={
+                    "metric": metric,
+                    "reported": reported,
+                    "recomputed": recomputed,
+                },
+            )
+
+    expected_rate = recomputed_agreements / recomputed_compared if recomputed_compared else None
+    if audit.get("exact_agreement_rate") != expected_rate:
+        return CheckResult(
+            check_name="agreement_metric_consistency",
+            passed=False,
+            failure_code="secondary_audit_agreement_rate_wrong",
+            details={
+                "reported": audit.get("exact_agreement_rate"),
+                "expected": expected_rate,
+            },
+        )
+
+    # --- Top-level agreement report fields ---
+    top_compared = agreement_report.get("num_compared")
+    top_disagreements = agreement_report.get("num_disagreements")
+    if top_compared is not None and top_compared != recomputed_compared:
+        return CheckResult(
+            check_name="agreement_metric_consistency",
+            passed=False,
+            failure_code="top_level_num_compared_mismatch",
+            details={
+                "reported": top_compared,
+                "expected": recomputed_compared,
+            },
+        )
+    if top_disagreements is not None and top_disagreements != recomputed_disagreements:
+        return CheckResult(
+            check_name="agreement_metric_consistency",
+            passed=False,
+            failure_code="top_level_num_disagreements_mismatch",
+            details={
+                "reported": top_disagreements,
+                "expected": recomputed_disagreements,
+            },
+        )
+
+    return CheckResult(
+        check_name="agreement_metric_consistency",
+        passed=True,
+        details={
+            "j1_j2_num_compared": recomputed_compared,
+            "j1_j2_num_agreements": recomputed_agreements,
+            "j1_j2_num_disagreements": recomputed_disagreements,
+            "j1_j2_exact_agreement_rate": expected_rate,
         },
     )
 
 
 def check_j2_transport_provenance(
     raw_responses_path: Path | None = None,
+    provenance_path: Path | None = None,
 ) -> CheckResult:
-    """PATCH-014: J2 transport-provenance consistency check.
+    """PATCH-7359-006: J2 transport-provenance vs execution-batch provenance.
 
-    Every raw J2 record must have requested_max_tokens set to a value
-    allowed by the frozen retry policy (512 or 1024).
+    Every raw J2 record must have its requested_max_tokens and
+    execution_batch_id validated against the canonical execution-batch
+    provenance file.  Transport cap is never inferred from retry count.
     """
     if raw_responses_path is None:
         raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    if provenance_path is None:
+        provenance_path = _SECONDARY_EXECUTION_PROVENANCE_PATH
+
     records = _load_jsonl(raw_responses_path) if raw_responses_path.exists() else []
     if not records:
         return CheckResult(
@@ -2357,32 +2536,123 @@ def check_j2_transport_provenance(
             failure_code="j2_raw_responses_missing",
         )
 
-    allowed_caps = {512, 1024}
-    missing = []
-    disallowed = []
-    cap_counts: dict[int, int] = {}
-    for rec in records:
-        cap = rec.get("requested_max_tokens")
-        if cap is None:
-            missing.append(rec.get("generation_attempt_id", "?"))
-        elif cap not in allowed_caps:
-            disallowed.append({"id": rec.get("generation_attempt_id", "?"), "cap": cap})
-        else:
-            cap_counts[cap] = cap_counts.get(cap, 0) + 1
-
-    if missing:
+    if not provenance_path.exists():
         return CheckResult(
             check_name="j2_transport_provenance",
             passed=False,
-            failure_code="j2_transport_cap_missing",
-            details={"missing_count": len(missing), "missing_ids": missing[:5]},
+            failure_code="execution_provenance_missing",
         )
-    if disallowed:
+
+    prov = json.loads(provenance_path.read_text(encoding="utf-8"))
+    batches = prov.get("batches", [])
+
+    # Build ID -> batch lookup.
+    id_to_batch: dict[str, dict[str, Any]] = {}
+    for batch in batches:
+        for aid in batch.get("generation_attempt_ids", []):
+            id_to_batch[aid] = batch
+
+    # PATCH-7359-007: verify exact known retry IDs.
+    known_retry_ids = {
+        "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+        "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0",
+    }
+    retry_batch = next((b for b in batches if b["batch_id"] == "retry_failed_batch"), None)
+    if retry_batch is not None:
+        actual_retry_ids = set(retry_batch.get("generation_attempt_ids", []))
+        if actual_retry_ids != known_retry_ids:
+            return CheckResult(
+                check_name="j2_transport_provenance",
+                passed=False,
+                failure_code="retry_batch_id_mismatch",
+                details={
+                    "expected": sorted(known_retry_ids),
+                    "actual": sorted(actual_retry_ids),
+                },
+            )
+
+    # Validate each record against batch provenance.
+    mismatches: list[dict[str, Any]] = []
+    missing_batch: list[str] = []
+    cap_counts: dict[int | None, int] = {}
+    record_ids: list[str] = []
+
+    for rec in records:
+        aid = rec.get("generation_attempt_id", "?")
+        record_ids.append(aid)
+        batch = id_to_batch.get(aid)
+        if batch is None:
+            missing_batch.append(aid)
+            continue
+        expected_cap = batch["requested_max_tokens"]
+        actual_cap = rec.get("requested_max_tokens")
+        actual_batch_id = rec.get("execution_batch_id")
+        if actual_cap != expected_cap:
+            mismatches.append({"id": aid, "expected_cap": expected_cap, "actual_cap": actual_cap})
+        if actual_batch_id != batch["batch_id"]:
+            mismatches.append(
+                {
+                    "id": aid,
+                    "expected_batch": batch["batch_id"],
+                    "actual_batch": actual_batch_id,
+                }
+            )
+        cap_counts[actual_cap] = cap_counts.get(actual_cap, 0) + 1
+
+    if missing_batch:
         return CheckResult(
             check_name="j2_transport_provenance",
             passed=False,
-            failure_code="j2_transport_cap_not_allowed",
-            details={"disallowed": disallowed[:5]},
+            failure_code="record_not_in_any_batch",
+            details={"missing_ids": missing_batch[:5]},
+        )
+    if mismatches:
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="record_batch_mismatch",
+            details={"mismatches": mismatches[:5]},
+        )
+
+    # Verify total counts.
+    total_ids = sum(len(b.get("generation_attempt_ids", [])) for b in batches)
+    if total_ids != 9:
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="provenance_total_id_count",
+            details={"expected": 9, "actual": total_ids},
+        )
+
+    initial_batch = next((b for b in batches if b["batch_id"] == "initial_j2_batch"), None)
+    if initial_batch is not None:
+        initial_count = len(initial_batch.get("generation_attempt_ids", []))
+        if initial_count != 7:
+            return CheckResult(
+                check_name="j2_transport_provenance",
+                passed=False,
+                failure_code="provenance_initial_batch_size",
+                details={"expected": 7, "actual": initial_count},
+            )
+    if retry_batch is not None:
+        retry_count = len(retry_batch.get("generation_attempt_ids", []))
+        if retry_count != 2:
+            return CheckResult(
+                check_name="j2_transport_provenance",
+                passed=False,
+                failure_code="provenance_retry_batch_size",
+                details={"expected": 2, "actual": retry_count},
+            )
+
+    # Check for duplicates across batches.
+    all_ids: list[str] = []
+    for b in batches:
+        all_ids.extend(b.get("generation_attempt_ids", []))
+    if len(all_ids) != len(set(all_ids)):
+        return CheckResult(
+            check_name="j2_transport_provenance",
+            passed=False,
+            failure_code="provenance_duplicate_ids",
         )
 
     return CheckResult(
@@ -2391,6 +2661,170 @@ def check_j2_transport_provenance(
         details={
             "num_records": len(records),
             "cap_distribution": {str(k): v for k, v in sorted(cap_counts.items())},
+            "batch_count": len(batches),
+        },
+    )
+
+
+def check_secondary_execution_provenance_valid(
+    raw_responses_path: Path | None = None,
+    provenance_path: Path | None = None,
+) -> CheckResult:
+    """PATCH-7359-024: mandatory execution-provenance check.
+
+    Verifies:
+    - 9 total IDs
+    - 7 initial
+    - 2 retry
+    - no duplicates
+    - no missing IDs
+    - exact known retry IDs
+    - batch caps correct
+    - raw-record caps match batch provenance
+    """
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    if provenance_path is None:
+        provenance_path = _SECONDARY_EXECUTION_PROVENANCE_PATH
+
+    records = _load_jsonl(raw_responses_path) if raw_responses_path.exists() else []
+    if not records:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="j2_raw_responses_missing",
+        )
+
+    if not provenance_path.exists():
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="execution_provenance_missing",
+        )
+
+    prov = json.loads(provenance_path.read_text(encoding="utf-8"))
+    batches = prov.get("batches", [])
+
+    # Build ID -> batch lookup.
+    id_to_batch: dict[str, dict[str, Any]] = {}
+    for batch in batches:
+        for aid in batch.get("generation_attempt_ids", []):
+            id_to_batch[aid] = batch
+
+    # Verify total IDs = 9.
+    total_ids = sum(len(b.get("generation_attempt_ids", [])) for b in batches)
+    if total_ids != 9:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="provenance_total_id_count",
+            details={"expected": 9, "actual": total_ids},
+        )
+
+    # Verify initial batch = 7.
+    initial_batch = next((b for b in batches if b["batch_id"] == "initial_j2_batch"), None)
+    if initial_batch is not None:
+        initial_count = len(initial_batch.get("generation_attempt_ids", []))
+        if initial_count != 7:
+            return CheckResult(
+                check_name="secondary_execution_provenance_valid",
+                passed=False,
+                failure_code="provenance_initial_batch_size",
+                details={"expected": 7, "actual": initial_count},
+            )
+
+    # Verify retry batch = 2.
+    retry_batch = next((b for b in batches if b["batch_id"] == "retry_failed_batch"), None)
+    if retry_batch is not None:
+        retry_count = len(retry_batch.get("generation_attempt_ids", []))
+        if retry_count != 2:
+            return CheckResult(
+                check_name="secondary_execution_provenance_valid",
+                passed=False,
+                failure_code="provenance_retry_batch_size",
+                details={"expected": 2, "actual": retry_count},
+            )
+
+    # Check for duplicates across batches.
+    all_ids: list[str] = []
+    for b in batches:
+        all_ids.extend(b.get("generation_attempt_ids", []))
+    if len(all_ids) != len(set(all_ids)):
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="provenance_duplicate_ids",
+        )
+
+    # Verify exact known retry IDs.
+    known_retry_ids = {
+        "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+        "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0",
+    }
+    if retry_batch is not None:
+        actual_retry_ids = set(retry_batch.get("generation_attempt_ids", []))
+        if actual_retry_ids != known_retry_ids:
+            return CheckResult(
+                check_name="secondary_execution_provenance_valid",
+                passed=False,
+                failure_code="retry_batch_id_mismatch",
+                details={
+                    "expected": sorted(known_retry_ids),
+                    "actual": sorted(actual_retry_ids),
+                },
+            )
+
+    # Verify raw-record caps match batch provenance.
+    mismatches: list[dict[str, Any]] = []
+    missing_batch: list[str] = []
+
+    for rec in records:
+        aid = rec.get("generation_attempt_id", "?")
+        batch = id_to_batch.get(aid)
+        if batch is None:
+            missing_batch.append(aid)
+            continue
+        expected_cap = batch["requested_max_tokens"]
+        actual_cap = rec.get("requested_max_tokens")
+        actual_batch_id = rec.get("execution_batch_id")
+        if actual_cap != expected_cap:
+            mismatches.append({"id": aid, "expected_cap": expected_cap, "actual_cap": actual_cap})
+        if actual_batch_id != batch["batch_id"]:
+            mismatches.append(
+                {
+                    "id": aid,
+                    "expected_batch": batch["batch_id"],
+                    "actual_batch": actual_batch_id,
+                }
+            )
+
+    if missing_batch:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="record_not_in_any_batch",
+            details={"missing_ids": missing_batch[:5]},
+        )
+    if mismatches:
+        return CheckResult(
+            check_name="secondary_execution_provenance_valid",
+            passed=False,
+            failure_code="record_batch_mismatch",
+            details={"mismatches": mismatches[:5]},
+        )
+
+    return CheckResult(
+        check_name="secondary_execution_provenance_valid",
+        passed=True,
+        details={
+            "num_records": len(records),
+            "total_batch_ids": total_ids,
+            "initial_batch_size": len(initial_batch.get("generation_attempt_ids", []))
+            if initial_batch
+            else 0,
+            "retry_batch_size": len(retry_batch.get("generation_attempt_ids", []))
+            if retry_batch
+            else 0,
         },
     )
 
@@ -2847,10 +3281,12 @@ def check_cross_artifact_consistency(
 
 
 def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
-    """E2R-FIX-031: verify J-analysis provenance declarations.
+    """PATCH-7359-017: verify J-analysis provenance declarations.
 
-    Ensures the analysis declares where primary labels came from and
-    cannot accidentally regress to the legacy oracle file.
+    Ensures the analysis declares where primary labels came from,
+    cannot accidentally regress to the legacy oracle file, and
+    declares split provenance fields separating numerical execution
+    from metadata refresh.
     """
     legacy_sources = {
         "e2_pilot_labeling/labeled_pilot_attempts.jsonl",
@@ -2875,6 +3311,22 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
             details={"missing_fields": missing},
         )
 
+    # PATCH-7359-017: split provenance fields must be present.
+    split_required = [
+        "analysis_result_code_commit",
+        "analysis_executed_at",
+        "provenance_refresh_commit",
+        "provenance_refreshed_at",
+    ]
+    split_missing = [f for f in split_required if not analysis.get(f)]
+    if split_missing:
+        return CheckResult(
+            check_name="j_analysis_provenance",
+            passed=False,
+            failure_code="j_analysis_split_provenance_incomplete",
+            details={"missing_split_fields": split_missing},
+        )
+
     # Check that the source is not the legacy oracle file.
     source = str(analysis.get("primary_label_source", ""))
     input_file = str(analysis.get("input_file", ""))
@@ -2896,6 +3348,74 @@ def check_j_analysis_provenance(analysis: dict[str, Any]) -> CheckResult:
             "raw_generation_sha256": analysis["raw_generation_sha256"][:16] + "...",
             "analysis_code_commit": analysis["analysis_code_commit"],
             "analysis_timestamp": analysis["analysis_timestamp"],
+            "analysis_result_code_commit": analysis["analysis_result_code_commit"],
+            "analysis_executed_at": analysis["analysis_executed_at"],
+            "provenance_refresh_commit": analysis["provenance_refresh_commit"],
+            "provenance_refreshed_at": analysis["provenance_refreshed_at"],
+        },
+    )
+
+
+def check_analysis_provenance_valid(
+    analysis: dict[str, Any],
+) -> CheckResult:
+    """PATCH-7359-026: analysis-provenance semantic check.
+
+    Pass only if the report either:
+    - preserves explicit historical numerical execution provenance plus
+      separate refresh metadata; or
+    - records a genuine fresh deterministic analysis execution.
+
+    Reject metadata-refresh commits masquerading as numerical-execution
+    provenance (i.e. missing split provenance fields).
+    """
+    exec_commit = analysis.get("analysis_result_code_commit")
+    exec_time = analysis.get("analysis_executed_at")
+    refresh_commit = analysis.get("provenance_refresh_commit")
+    refresh_time = analysis.get("provenance_refreshed_at")
+
+    has_execution = bool(exec_commit and exec_time)
+    has_refresh = bool(refresh_commit and refresh_time)
+
+    if has_execution and has_refresh:
+        # Both execution and refresh provenance declared — valid.
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=True,
+            details={
+                "provenance_mode": "split_execution_refresh",
+                "analysis_result_code_commit": exec_commit,
+                "analysis_executed_at": exec_time,
+                "provenance_refresh_commit": refresh_commit,
+                "provenance_refreshed_at": refresh_time,
+            },
+        )
+
+    if has_execution and not has_refresh:
+        # Fresh deterministic execution, no refresh yet — also valid.
+        return CheckResult(
+            check_name="analysis_provenance_valid",
+            passed=True,
+            details={
+                "provenance_mode": "fresh_deterministic_execution",
+                "analysis_result_code_commit": exec_commit,
+                "analysis_executed_at": exec_time,
+            },
+        )
+
+    # Missing execution provenance — metadata refresh masquerading.
+    return CheckResult(
+        check_name="analysis_provenance_valid",
+        passed=False,
+        failure_code="analysis_provenance_metadata_refresh_only",
+        details={
+            "has_execution_provenance": has_execution,
+            "has_refresh_provenance": has_refresh,
+            "message": (
+                "Analysis report lacks numerical execution provenance; "
+                "metadata refresh commit cannot substitute for actual "
+                "analysis execution provenance."
+            ),
         },
     )
 
@@ -4281,6 +4801,8 @@ def check_secondary_hash_binding(
         "secondary_labels_sha256": _SECONDARY_LABELS_PATH,
         "secondary_agreement_sha256": _SECONDARY_ANNOTATION_AGREEMENT_PATH,
         "secondary_prompt_manifest_sha256": _SECONDARY_PROMPT_MANIFEST_PATH,
+        # PATCH-7359-031: bind execution-provenance hash.
+        "secondary_execution_provenance_sha256": _SECONDARY_EXECUTION_PROVENANCE_PATH,
     }
     mismatches: list[dict[str, Any]] = []
     for field_name, file_path in hash_fields.items():
@@ -4430,6 +4952,8 @@ def run_completion_check(
     report.add_check(check_reference_label_completeness())
     report.add_check(check_reference_diagnostic_validity(agreement_report))
     report.add_check(check_independent_annotation_validation(agreement_report))
+    # PATCH-7359-025: complete agreement-metric consistency.
+    report.add_check(check_agreement_metric_consistency(agreement_report))
     report.add_check(check_uncertainty_ci(analysis))
     report.add_check(check_synthetic_provenance(synthetic_regression_report))
 
@@ -4462,8 +4986,11 @@ def run_completion_check(
         )
     )
 
-    # --- E2R-FIX-031: J-analysis provenance ---
+    # --- E2R-FIX-031 / PATCH-7359-017: J-analysis provenance ---
     report.add_check(check_j_analysis_provenance(analysis))
+
+    # --- PATCH-7359-026: analysis-provenance semantic check ---
+    report.add_check(check_analysis_provenance_valid(analysis))
 
     # --- E2C-FIX-041: granular secondary annotation checks ---
     report.add_check(check_secondary_queue_complete())
@@ -4479,9 +5006,26 @@ def run_completion_check(
 
     # --- PATCH-014: J2 transport-provenance consistency ---
     report.add_check(check_j2_transport_provenance())
+    # --- PATCH-7359-024: mandatory execution-provenance check ---
+    report.add_check(check_secondary_execution_provenance_valid())
 
     # --- E2C-FIX-044: final file-level integrity audit ---
     report.add_check(check_e2_file_integrity_audit())
+
+    # --- PATCH-7359-027: strengthen all_passed — require 6 mandatory checks ---
+    _MANDATORY_PATCH_7359_CHECKS = [
+        "secondary_execution_provenance_valid",
+        "j2_transport_provenance",
+        "reference_diagnostic_validity",
+        "independent_annotation_validation",
+        "agreement_metric_consistency",
+        "analysis_provenance_valid",
+    ]
+    for _chk_name in _MANDATORY_PATCH_7359_CHECKS:
+        _chk = report.checks.get(_chk_name)
+        if _chk is None or not _chk.passed:
+            report.all_passed = False
+            break
 
     # --- Completion consistency (must be last) ---
     report.add_check(check_completion_consistency(report))
@@ -4640,6 +5184,14 @@ def transition_to_e2_complete(
         / "e2_secondary_annotation"
         / "secondary_prompt_manifest.json"
     )
+    # PATCH-7359-034: bind execution-provenance artifact.
+    secondary_execution_provenance_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_execution_provenance.json"
+    )
 
     new_phase: dict[str, Any] = {
         "schema_version": "1.1.0",
@@ -4665,6 +5217,8 @@ def transition_to_e2_complete(
         "secondary_labels_sha256": secondary_labels_hash,
         "secondary_agreement_sha256": secondary_agreement_hash,
         "secondary_prompt_manifest_sha256": secondary_prompt_manifest_hash,
+        # PATCH-7359-034: execution-provenance hash binding.
+        "secondary_execution_provenance_sha256": secondary_execution_provenance_hash,
     }
 
     phase_file_path.write_text(

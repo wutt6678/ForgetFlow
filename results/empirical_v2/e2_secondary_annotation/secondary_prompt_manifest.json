@@ -33,8 +33,8 @@
   },
   "transport_execution": {
     "requested_max_tokens_recorded_per_call": true,
-    "original_cap": 512,
-    "retry_cap": 1024,
-    "retry_policy": "increased_max_tokens_on_parse_failure"
+    "execution_provenance_file": "secondary_execution_provenance.json",
+    "initial_batch_cap": 512,
+    "retry_batch_cap": 1024
   }
 }

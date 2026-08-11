@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,6 +13,8 @@ from experiments.trustparadox_u.empirical_corpus import EmpiricalPhase
 from experiments.trustparadox_u.run_e2_completion_check import (
     CheckResult,
     CompletionReport,
+    check_agreement_metric_consistency,
+    check_analysis_provenance_valid,
     check_annotation_id_consistency,
     check_annotation_independence,
     check_artifact_hash_binding,
@@ -725,10 +728,25 @@ class TestRunCompletionCheck:
             "experiments.trustparadox_u.run_e2_completion_check.check_independent_annotation_validation",
             lambda *a, **kw: _pass("independent_annotation_validation"),
         )
+        # PATCH-7359-025: agreement-metric consistency.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_agreement_metric_consistency",
+            lambda *a, **kw: _pass("agreement_metric_consistency"),
+        )
+        # PATCH-7359-026: analysis-provenance semantic check.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_analysis_provenance_valid",
+            lambda *a, **kw: _pass("analysis_provenance_valid"),
+        )
         # PATCH-014: J2 transport-provenance consistency check.
         monkeypatch.setattr(
             "experiments.trustparadox_u.run_e2_completion_check.check_j2_transport_provenance",
             lambda *a, **kw: _pass("j2_transport_provenance"),
+        )
+        # PATCH-7359-024: mandatory execution-provenance check.
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check.check_secondary_execution_provenance_valid",
+            lambda *a, **kw: _pass("secondary_execution_provenance_valid"),
         )
         # E2C-FIX-044: file-level integrity audit.
         monkeypatch.setattr(
@@ -819,7 +837,7 @@ class TestRunCompletionCheck:
             ],
         )
         assert report.all_passed is True
-        assert len(report.checks) == 52
+        assert len(report.checks) == 55
         assert report.research_status == "empirical_pilot_complete"
         assert len(report.artifact_hashes) == 11
 
@@ -1467,34 +1485,79 @@ class TestIterationFFileBasedChecks:
         assert "1024" in cap_dist
 
     def test_patch014_j2_transport_provenance_missing_cap(self, tmp_path) -> None:
-        """PATCH-014: missing requested_max_tokens fails the check."""
+        """PATCH-014/7359-006: record not in any batch fails the check."""
         from experiments.trustparadox_u.run_e2_completion_check import (
             check_j2_transport_provenance,
         )
 
-        bad_file = tmp_path / "bad_raw.jsonl"
-        bad_file.write_text(
-            json.dumps({"generation_attempt_id": "x", "retries": 0}) + "\n",
+        # Create provenance file with a batch
+        prov_file = tmp_path / "provenance.json"
+        prov_file.write_text(
+            json.dumps(
+                {
+                    "batches": [
+                        {
+                            "batch_id": "initial_j2_batch",
+                            "requested_max_tokens": 512,
+                            "generation_attempt_ids": ["valid_id_1", "valid_id_2"],
+                        }
+                    ]
+                }
+            ),
             encoding="utf-8",
         )
-        result = check_j2_transport_provenance(raw_responses_path=bad_file)
+        # Create raw file with record not in batch
+        bad_file = tmp_path / "bad_raw.jsonl"
+        bad_file.write_text(
+            json.dumps({"generation_attempt_id": "x", "requested_max_tokens": 512}) + "\n",
+            encoding="utf-8",
+        )
+        result = check_j2_transport_provenance(
+            raw_responses_path=bad_file, provenance_path=prov_file
+        )
         assert result.passed is False
-        assert result.failure_code == "j2_transport_cap_missing"
+        assert result.failure_code == "record_not_in_any_batch"
 
     def test_patch014_j2_transport_provenance_disallowed_cap(self, tmp_path) -> None:
-        """PATCH-014: disallowed cap value fails the check."""
+        """PATCH-014/7359-007: cap mismatch with batch fails the check."""
         from experiments.trustparadox_u.run_e2_completion_check import (
             check_j2_transport_provenance,
         )
 
-        bad_file = tmp_path / "bad_raw.jsonl"
-        bad_file.write_text(
-            json.dumps({"generation_attempt_id": "x", "requested_max_tokens": 256}) + "\n",
+        # Create provenance file with a batch
+        prov_file = tmp_path / "provenance.json"
+        prov_file.write_text(
+            json.dumps(
+                {
+                    "batches": [
+                        {
+                            "batch_id": "initial_j2_batch",
+                            "requested_max_tokens": 512,
+                            "generation_attempt_ids": ["valid_id_1"],
+                        }
+                    ]
+                }
+            ),
             encoding="utf-8",
         )
-        result = check_j2_transport_provenance(raw_responses_path=bad_file)
+        # Create raw file with record in batch but wrong cap
+        bad_file = tmp_path / "bad_raw.jsonl"
+        bad_file.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "valid_id_1",
+                    "requested_max_tokens": 256,
+                    "execution_batch_id": "initial_j2_batch",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        result = check_j2_transport_provenance(
+            raw_responses_path=bad_file, provenance_path=prov_file
+        )
         assert result.passed is False
-        assert result.failure_code == "j2_transport_cap_not_allowed"
+        assert result.failure_code == "record_batch_mismatch"
 
     # -- PATCH-025/026/030: final-recertification regression tests --------
 
@@ -1914,13 +1977,17 @@ class TestIterationGRegression:
     # --- FIX-031: J-analysis provenance ---
 
     def test_fix031_complete_provenance_passes(self) -> None:
-        """E2R-FIX-031: complete provenance fields pass."""
+        """E2R-FIX-031 / PATCH-7359-017: complete provenance fields pass."""
         analysis = {
             "primary_label_source": "independent_evaluator_j",
             "primary_label_sha256": "a" * 64,
             "raw_generation_sha256": "b" * 64,
             "analysis_code_commit": "abc123",
             "analysis_timestamp": "2026-08-09T00:00:00Z",
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "def456",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
             "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
         }
         result = check_j_analysis_provenance(analysis)
@@ -1933,6 +2000,20 @@ class TestIterationGRegression:
         assert result.passed is False
         assert result.failure_code == "j_analysis_provenance_incomplete"
 
+    def test_fix031_split_provenance_missing_fails(self) -> None:
+        """PATCH-7359-017: missing split provenance fields fail."""
+        analysis = {
+            "primary_label_source": "independent_evaluator_j",
+            "primary_label_sha256": "a" * 64,
+            "raw_generation_sha256": "b" * 64,
+            "analysis_code_commit": "abc123",
+            "analysis_timestamp": "2026-08-09T00:00:00Z",
+            "input_file": "results/empirical_v2/e2_primary_pilot_labels/primary_labels.jsonl",
+        }
+        result = check_j_analysis_provenance(analysis)
+        assert result.passed is False
+        assert result.failure_code == "j_analysis_split_provenance_incomplete"
+
     def test_fix031_legacy_oracle_file_fails(self) -> None:
         """E2R-FIX-031: legacy oracle file causes failure."""
         analysis = {
@@ -1941,6 +2022,10 @@ class TestIterationGRegression:
             "raw_generation_sha256": "b" * 64,
             "analysis_code_commit": "abc123",
             "analysis_timestamp": "2026-08-09T00:00:00Z",
+            "analysis_result_code_commit": "abc123",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "def456",
+            "provenance_refreshed_at": "2026-08-10T00:00:00Z",
             "input_file": "e2_pilot_labeling/labeled_pilot_attempts.jsonl",
         }
         result = check_j_analysis_provenance(analysis)
@@ -4487,3 +4572,438 @@ class TestFix038UnresolvedCountCrossArtifact:
         # 2 unresolved → FAIL.
         assert result.passed is False
         assert result.failure_code == "e2_j2_unresolved_disagreements"
+
+
+# -----------------------------------------------------------------------
+# PATCH-7359-029: agreement-metric regression tests.
+# -----------------------------------------------------------------------
+
+
+class TestPatch7359AgreementMetricRegression:
+    """PATCH-7359-029: agreement-metric regression tests."""
+
+    def _make_secondary_labels(
+        self,
+        n: int = 9,
+        n_agree: int = 9,
+        n_disagree: int = 0,
+        n_fail: int = 0,
+    ) -> list[dict[str, object]]:
+        """Build synthetic secondary label records."""
+        records: list[dict[str, object]] = []
+        for i in range(n + n_fail):
+            if i < n_fail:
+                records.append(
+                    {
+                        "generation_attempt_id": f"fail_{i}",
+                        "secondary_evaluator_status": "fail",
+                        "j_label": "none",
+                    }
+                )
+            elif i < n_fail + n_agree:
+                records.append(
+                    {
+                        "generation_attempt_id": f"agree_{i}",
+                        "secondary_evaluator_status": "success",
+                        "j_label": "none",
+                        "secondary_label": "none",
+                    }
+                )
+            else:
+                records.append(
+                    {
+                        "generation_attempt_id": f"disagree_{i}",
+                        "secondary_evaluator_status": "success",
+                        "j_label": "none",
+                        "secondary_label": "high",
+                    }
+                )
+        return records
+
+    def test_patch7359_029_correct_counts_pass(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """All source-derived values correct → PASS."""
+        labels = self._make_secondary_labels(n=9, n_agree=9, n_disagree=0)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check._load_jsonl",
+            lambda _path: labels,
+        )
+        agreement = {
+            "j1_j2_secondary_audit": {
+                "num_compared": 9,
+                "num_agreements": 9,
+                "num_disagreements": 0,
+                "exact_agreement_rate": 1.0,
+            },
+            "num_compared": 9,
+            "num_disagreements": 0,
+        }
+        result = check_agreement_metric_consistency(agreement)
+        assert result.passed is True
+
+    def test_patch7359_029_wrong_disagreements_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Correct num_compared but wrong num_disagreements → FAIL."""
+        labels = self._make_secondary_labels(n=9, n_agree=9, n_disagree=0)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check._load_jsonl",
+            lambda _path: labels,
+        )
+        agreement = {
+            "j1_j2_secondary_audit": {
+                "num_compared": 9,
+                "num_agreements": 9,
+                "num_disagreements": 1,  # wrong
+                "exact_agreement_rate": 1.0,
+            },
+        }
+        result = check_agreement_metric_consistency(agreement)
+        assert result.passed is False
+        assert result.failure_code == "secondary_audit_metric_mismatch"
+
+    def test_patch7359_029_wrong_agreement_rate_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Correct counts but wrong agreement_rate → FAIL."""
+        labels = self._make_secondary_labels(n=9, n_agree=9, n_disagree=0)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check._load_jsonl",
+            lambda _path: labels,
+        )
+        agreement = {
+            "j1_j2_secondary_audit": {
+                "num_compared": 9,
+                "num_agreements": 9,
+                "num_disagreements": 0,
+                "exact_agreement_rate": 0.9,  # wrong
+            },
+        }
+        result = check_agreement_metric_consistency(agreement)
+        assert result.passed is False
+        assert result.failure_code == "secondary_audit_agreement_rate_wrong"
+
+    def test_patch7359_029_wrong_num_compared_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Wrong num_compared in audit section → FAIL."""
+        labels = self._make_secondary_labels(n=9, n_agree=9, n_disagree=0)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check._load_jsonl",
+            lambda _path: labels,
+        )
+        agreement = {
+            "j1_j2_secondary_audit": {
+                "num_compared": 8,  # wrong — should be 9
+                "num_agreements": 8,
+                "num_disagreements": 0,
+                "exact_agreement_rate": 1.0,
+            },
+        }
+        result = check_agreement_metric_consistency(agreement)
+        assert result.passed is False
+
+    def test_patch7359_029_top_level_mismatch_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Top-level num_compared mismatch → FAIL."""
+        labels = self._make_secondary_labels(n=9, n_agree=9, n_disagree=0)
+        monkeypatch.setattr(
+            "experiments.trustparadox_u.run_e2_completion_check._load_jsonl",
+            lambda _path: labels,
+        )
+        agreement = {
+            "j1_j2_secondary_audit": {
+                "num_compared": 9,
+                "num_agreements": 9,
+                "num_disagreements": 0,
+                "exact_agreement_rate": 1.0,
+            },
+            "num_compared": 8,  # wrong at top level
+            "num_disagreements": 0,
+        }
+        result = check_agreement_metric_consistency(agreement)
+        assert result.passed is False
+        assert result.failure_code == "top_level_num_compared_mismatch"
+
+
+# -----------------------------------------------------------------------
+# PATCH-7359-030: analysis-provenance regression tests.
+# -----------------------------------------------------------------------
+
+
+class TestPatch7359AnalysisProvenanceRegression:
+    """PATCH-7359-030: analysis-provenance regression tests."""
+
+    def test_patch7359_030_metadata_refresh_overwrites_execution_fail(self) -> None:
+        """Metadata refresh overwrites execution fields → FAIL.
+
+        If the report only has provenance_refresh_commit/time but no
+        analysis_result_code_commit/analysis_executed_at, the check
+        must reject it.
+        """
+        analysis = {
+            "analysis_result_code_commit": None,
+            "analysis_executed_at": None,
+            "provenance_refresh_commit": "7359e25",
+            "provenance_refreshed_at": "2026-08-11T00:00:00Z",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_provenance_metadata_refresh_only"
+
+    def test_patch7359_030_execution_preserved_refresh_updated_pass(self) -> None:
+        """Execution fields preserved + refresh fields updated → PASS."""
+        analysis = {
+            "analysis_result_code_commit": "5c2233b",
+            "analysis_executed_at": "2026-08-09T00:00:00Z",
+            "provenance_refresh_commit": "7359e25",
+            "provenance_refreshed_at": "2026-08-11T00:00:00Z",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is True
+        details = result.details or {}
+        assert details["provenance_mode"] == "split_execution_refresh"
+
+    def test_patch7359_030_fresh_deterministic_rerun_pass(self) -> None:
+        """Fresh deterministic rerun with real execution commit/time → PASS."""
+        analysis = {
+            "analysis_result_code_commit": "newcommit123",
+            "analysis_executed_at": "2026-08-12T00:00:00Z",
+        }
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is True
+        details = result.details or {}
+        assert details["provenance_mode"] == "fresh_deterministic_execution"
+
+    def test_patch7359_030_no_provenance_at_all_fail(self) -> None:
+        """No provenance fields at all → FAIL."""
+        analysis: dict[str, str] = {}
+        result = check_analysis_provenance_valid(analysis)
+        assert result.passed is False
+        assert result.failure_code == "analysis_provenance_metadata_refresh_only"
+
+
+class TestPatch7359ExecutionProvenanceHashBinding:
+    """PATCH-7359-031: execution-provenance hash-binding regression tests."""
+
+    def test_patch7359_031_matching_hash_pass(self, tmp_path: Path) -> None:
+        """Provenance file hash matches phase file → PASS."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_hash_binding,
+        )
+
+        prov_file = tmp_path / "secondary_execution_provenance.json"
+        prov_file.write_text(json.dumps({"batches": []}), encoding="utf-8")
+        actual_hash = hashlib.sha256(prov_file.read_bytes()).hexdigest()
+
+        phase_file = {
+            "secondary_execution_provenance_sha256": actual_hash,
+        }
+        # Patch the path constant so the check reads from tmp_path.
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        orig = mod._SECONDARY_EXECUTION_PROVENANCE_PATH
+        try:
+            mod._SECONDARY_EXECUTION_PROVENANCE_PATH = prov_file
+            result = check_secondary_hash_binding(phase_file)
+        finally:
+            mod._SECONDARY_EXECUTION_PROVENANCE_PATH = orig
+        assert result.passed is True
+
+    def test_patch7359_031_tampered_provenance_fail(self, tmp_path: Path) -> None:
+        """Modify provenance without updating phase hash → FAIL."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_hash_binding,
+        )
+
+        prov_file = tmp_path / "secondary_execution_provenance.json"
+        prov_file.write_text(json.dumps({"batches": []}), encoding="utf-8")
+        original_hash = hashlib.sha256(prov_file.read_bytes()).hexdigest()
+
+        # Tamper with the provenance file.
+        prov_file.write_text(json.dumps({"batches": [{"batch_id": "tampered"}]}), encoding="utf-8")
+
+        phase_file = {
+            # Phase still holds the original hash.
+            "secondary_execution_provenance_sha256": original_hash,
+        }
+        import experiments.trustparadox_u.run_e2_completion_check as mod
+
+        orig = mod._SECONDARY_EXECUTION_PROVENANCE_PATH
+        try:
+            mod._SECONDARY_EXECUTION_PROVENANCE_PATH = prov_file
+            result = check_secondary_hash_binding(phase_file)
+        finally:
+            mod._SECONDARY_EXECUTION_PROVENANCE_PATH = orig
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_hash_binding_mismatch"
+
+
+class TestPatch7359TransportBatchRegression:
+    """PATCH-7359-028: transport-batch regression tests."""
+
+    @staticmethod
+    def _make_raw_records(tmp_path: Path, records: list[dict[str, Any]]) -> Path:
+        """Write JSONL raw responses to *tmp_path* and return the path."""
+        raw_file = tmp_path / "secondary_raw_responses.jsonl"
+        lines = [json.dumps(r) for r in records]
+        raw_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return raw_file
+
+    @staticmethod
+    def _make_provenance(
+        tmp_path: Path,
+        initial_ids: list[str],
+        retry_ids: list[str],
+        initial_cap: int = 512,
+        retry_cap: int = 1024,
+    ) -> Path:
+        """Write execution-provenance JSON to *tmp_path*."""
+        prov = {
+            "schema_version": "1.0",
+            "batches": [
+                {
+                    "batch_id": "initial_j2_batch",
+                    "execution_type": "initial_secondary_audit",
+                    "requested_max_tokens": initial_cap,
+                    "generation_attempt_ids": list(initial_ids),
+                },
+                {
+                    "batch_id": "retry_failed_batch",
+                    "execution_type": "retry_failed_secondary_audit",
+                    "requested_max_tokens": retry_cap,
+                    "generation_attempt_ids": list(retry_ids),
+                },
+            ],
+        }
+        prov_file = tmp_path / "secondary_execution_provenance.json"
+        prov_file.write_text(json.dumps(prov), encoding="utf-8")
+        return prov_file
+
+    _KNOWN_RETRY_IDS = [
+        "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+        "ega_credential_001_credential_v1_default_trust_discretion_task_005_r0",
+    ]
+    _INITIAL_IDS = [f"ega_initial_{i}" for i in range(7)]
+
+    def test_patch7359_028_correct_7plus2_pass(self, tmp_path: Path) -> None:
+        """7 initial @512 + 2 known retry IDs @1024 → PASS."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_execution_provenance_valid,
+        )
+
+        records: list[dict[str, Any]] = []
+        for aid in self._INITIAL_IDS:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 512,
+                    "execution_batch_id": "initial_j2_batch",
+                }
+            )
+        for aid in self._KNOWN_RETRY_IDS:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 1024,
+                    "execution_batch_id": "retry_failed_batch",
+                }
+            )
+
+        raw = self._make_raw_records(tmp_path, records)
+        prov = self._make_provenance(tmp_path, self._INITIAL_IDS, self._KNOWN_RETRY_IDS)
+        result = check_secondary_execution_provenance_valid(raw, prov)
+        assert result.passed is True
+
+    def test_patch7359_028_old_8plus1_fail(self, tmp_path: Path) -> None:
+        """8 @512 + 1 @1024 → FAIL (old incorrect distribution)."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_execution_provenance_valid,
+        )
+
+        eight_ids = self._INITIAL_IDS + ["ega_extra_001"]
+        one_retry = [self._KNOWN_RETRY_IDS[0]]
+
+        records: list[dict[str, Any]] = []
+        for aid in eight_ids:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 512,
+                    "execution_batch_id": "initial_j2_batch",
+                }
+            )
+        for aid in one_retry:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 1024,
+                    "execution_batch_id": "retry_failed_batch",
+                }
+            )
+
+        raw = self._make_raw_records(tmp_path, records)
+        prov = self._make_provenance(tmp_path, eight_ids, one_retry)
+        result = check_secondary_execution_provenance_valid(raw, prov)
+        assert result.passed is False
+
+    def test_patch7359_028_wrong_retry_id_fail(self, tmp_path: Path) -> None:
+        """7/2 distribution but wrong retry ID → FAIL."""
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_execution_provenance_valid,
+        )
+
+        wrong_retry = [
+            "ega_credential_001_credential_v1_high_trust_discretion_task_004_r0",
+            "ega_wrong_id_001",
+        ]
+
+        records: list[dict[str, Any]] = []
+        for aid in self._INITIAL_IDS:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 512,
+                    "execution_batch_id": "initial_j2_batch",
+                }
+            )
+        for aid in wrong_retry:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 1024,
+                    "execution_batch_id": "retry_failed_batch",
+                }
+            )
+
+        raw = self._make_raw_records(tmp_path, records)
+        prov = self._make_provenance(tmp_path, self._INITIAL_IDS, wrong_retry)
+        result = check_secondary_execution_provenance_valid(raw, prov)
+        assert result.passed is False
+        assert result.failure_code == "retry_batch_id_mismatch"
+
+    def test_patch7359_028_retry_retries0_cap1024_pass(self, tmp_path: Path) -> None:
+        """Retry-batch record with retries=0 and cap=1024 → PASS.
+
+        Prevents recurrence of the retries-based inference bug.
+        """
+        from experiments.trustparadox_u.run_e2_completion_check import (
+            check_secondary_execution_provenance_valid,
+        )
+
+        records: list[dict[str, Any]] = []
+        for aid in self._INITIAL_IDS:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 512,
+                    "execution_batch_id": "initial_j2_batch",
+                }
+            )
+        # Both retry records have retries=0 but cap=1024 — historically correct.
+        for aid in self._KNOWN_RETRY_IDS:
+            records.append(
+                {
+                    "generation_attempt_id": aid,
+                    "requested_max_tokens": 1024,
+                    "execution_batch_id": "retry_failed_batch",
+                    "retries": 0,
+                }
+            )
+
+        raw = self._make_raw_records(tmp_path, records)
+        prov = self._make_provenance(tmp_path, self._INITIAL_IDS, self._KNOWN_RETRY_IDS)
+        result = check_secondary_execution_provenance_valid(raw, prov)
+        assert result.passed is True

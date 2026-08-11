@@ -14,7 +14,9 @@
   "num_disagreements": 0,
   "num_adjudicated": 0,
   "secondary_review_queue_sha256": "5ceceeb0cd3c8c07dad4e0cb8ee99304ad2b1ed27ffadb2925f15af85c44c600",
-  "secondary_raw_responses_sha256": "484493aaf7583d46413e68ed8faba0f87777b7bab175d1a2a7ab6732939ac99c",
+  "secondary_raw_responses_sha256": "8dc0978c7b7555b709fba451433a19f021a052b0a9d77c00fe6e72412ea21f09",
+  "secondary_execution_provenance_sha256": "d431f38ffb29c4203dbd11e940336d6cbafd59c25886e75d7e421e300ade4977",
+  "secondary_prompt_manifest_sha256": "12f662bd1c96d277962e9ac2b64606d1786974da6c54ef08a0346e043da933c9",
   "secondary_labels_sha256": "4765c31887504b51e2e8c1da845cd2a995f48be79a17f98c622c0a0a1c245872",
   "secondary_agreement_sha256": "c9c592e6577a4f2dd47b6ff43c5a1a88670a80d1886ad404d8df61cbe57d7c7e",
   "num_secondary_review_successful": 9,
@@ -22,6 +24,6 @@
   "num_unresolved": 0,
   "primary_labels_frozen_at": "2026-08-10T12:42:38.185619+00:00",
   "secondary_audit_frozen_at": "2026-08-10T22:19:45.188320+00:00",
-  "manifest_generated_at": "2026-08-11T03:32:54.255864+00:00",
+  "manifest_generated_at": "2026-08-11T11:45:00.000000+00:00",
   "agreement_report_sha256": "18f3e61e13bd82aca4ab05b544608dbcbc3ccb7ec4f65b4fba8a368f1bbfde12"
 }
