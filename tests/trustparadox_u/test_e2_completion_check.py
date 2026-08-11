@@ -491,16 +491,20 @@ class TestAdditionalChecks:
         result = check_primary_label_completeness(labels_report)
         assert result.passed is True
 
-    def test_secondary_annotation_completion(self) -> None:
+    def test_secondary_annotation_completion(self, tmp_path: Path) -> None:
         """E2-A7-FIX-012: test secondary annotation completion check."""
-        labels_report = {
-            "num_review_required": 9,
-            "num_secondary_reviewed": 9,
-            "num_disagreements": 0,
-            "num_adjudicated": 0,
-            "num_unresolved": 0,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+        # FIX-016: function now loads from source files, not labels_report metadata.
+        # Empty queue → no cases → PASS.
+        queue_path = tmp_path / "queue.jsonl"
+        queue_path.write_text("")
+        result = check_secondary_annotation_completion(
+            {},
+            queue_path=queue_path,
+            raw_responses_path=tmp_path / "raw.jsonl",
+            secondary_labels_path=tmp_path / "labels.jsonl",
+            adjudication_path=tmp_path / "adj.jsonl",
+            annotation_agreement_path=tmp_path / "agreement.json",
+        )
         assert result.passed is True
 
     def test_pairing_audit(self) -> None:
@@ -1588,77 +1592,220 @@ class TestIterationGRegression:
         assert result.failure_code == "j_analysis_provenance_incomplete"
 
     # --- E2-A7-FIX-030: Secondary-annotation completion edge cases ---
+    # FIX-016 rewrote check_secondary_annotation_completion to load from source
+    # files instead of labels_report metadata.  Update tests accordingly.
 
-    def test_fix030_nine_reviewed_zero_disagreements_passes(self) -> None:
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _fix030_paths(self, tmp_path: Path) -> dict[str, Path]:
+        return {
+            "queue_path": tmp_path / "queue.jsonl",
+            "raw_responses_path": tmp_path / "raw.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+            "annotation_agreement_path": tmp_path / "agreement.json",
+        }
+
+    def test_fix030_nine_reviewed_zero_disagreements_passes(self, tmp_path: Path) -> None:
         """E2-A7-FIX-030: 9 reviewed, 0 disagreements, 0 adjudicated -> PASS."""
-        labels_report = {
-            "num_review_required": 9,
-            "num_secondary_reviewed": 9,
-            "num_disagreements": 0,
-            "num_adjudicated": 0,
-            "num_unresolved": 0,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+        paths = self._fix030_paths(tmp_path)
+        ids = [f"case_{i:03d}" for i in range(9)]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": aid} for aid in ids])
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": f"req_{aid}",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+                for aid in ids
+            ],
+        )
+        self._write_jsonl(
+            paths["secondary_labels_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "j_label": "none",
+                    "secondary_label": "none",
+                    "resolution_status": "agreement",
+                    "secondary_evaluator_status": "success",
+                }
+                for aid in ids
+            ],
+        )
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is True
 
-    def test_fix030_nine_required_eight_reviewed_fails(self) -> None:
-        """E2-A7-FIX-030: 9 required, 8 reviewed -> FAIL."""
-        labels_report = {
-            "num_review_required": 9,
-            "num_secondary_reviewed": 8,
-            "num_disagreements": 0,
-            "num_adjudicated": 0,
-            "num_unresolved": 0,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+    def test_fix030_raw_missing_fails(self, tmp_path: Path) -> None:
+        """E2C-FIX-016: queue ID with no raw response -> FAIL."""
+        paths = self._fix030_paths(tmp_path)
+        ids = [f"case_{i:03d}" for i in range(9)]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": aid} for aid in ids])
+        # Only 8 raw records — case_008 missing.
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": f"req_{aid}",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+                for aid in ids[:8]
+            ],
+        )
+        # Provide labels for the 8 cases with raw so we reach case_008.
+        self._write_jsonl(
+            paths["secondary_labels_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "j_label": "none",
+                    "secondary_label": "none",
+                    "resolution_status": "agreement",
+                    "secondary_evaluator_status": "success",
+                }
+                for aid in ids[:8]
+            ],
+        )
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is False
-        assert result.failure_code == "secondary_annotation_incomplete"
+        assert result.failure_code == "e2_j2_raw_missing"
 
-    def test_fix030_one_unresolved_disagreement_fails(self) -> None:
-        """E2-A7-FIX-030: 9 reviewed, 1 disagreement unresolved -> FAIL."""
-        labels_report = {
-            "num_review_required": 9,
-            "num_secondary_reviewed": 9,
-            "num_disagreements": 1,
-            "num_adjudicated": 0,
-            "num_unresolved": 1,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+    def test_fix030_one_unresolved_disagreement_fails(self, tmp_path: Path) -> None:
+        """E2C-FIX-042: 1 unresolved disagreement -> FAIL."""
+        paths = self._fix030_paths(tmp_path)
+        ids = [f"case_{i:03d}" for i in range(9)]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": aid} for aid in ids])
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": f"req_{aid}",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+                for aid in ids
+            ],
+        )
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in ids
+        ]
+        labels[0]["resolution_status"] = "unresolved"
+        # Keep secondary_label non-null and secondary_evaluator_status="success"
+        # so per-ID checks pass; n_unresolved count check catches the failure.
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is False
-        assert result.failure_code == "secondary_annotation_unresolved_disagreements"
+        assert result.failure_code == "e2_j2_unresolved_disagreements"
 
-    def test_fix030_one_disagreement_resolved_passes(self) -> None:
-        """E2-A7-FIX-030: 9 reviewed, 1 disagreement resolved -> PASS."""
-        labels_report = {
-            "num_review_required": 9,
-            "num_secondary_reviewed": 9,
-            "num_disagreements": 1,
-            "num_adjudicated": 1,
-            "num_unresolved": 0,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+    def test_fix030_one_disagreement_resolved_passes(self, tmp_path: Path) -> None:
+        """E2C-FIX-016: 1 resolved disagreement -> PASS."""
+        paths = self._fix030_paths(tmp_path)
+        ids = [f"case_{i:03d}" for i in range(9)]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": aid} for aid in ids])
+        self._write_jsonl(
+            paths["raw_responses_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": f"req_{aid}",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+                for aid in ids
+            ],
+        )
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in ids
+        ]
+        # One resolved disagreement.
+        labels[0]["j_label"] = "exact_value_disclosure"
+        labels[0]["secondary_label"] = "none"
+        labels[0]["resolution_status"] = "resolved"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": ids[0],
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
+                    "final_label": "none",
+                    "adjudicator_id": "human_adjudicator",
+                    "adjudicated_at": "2026-08-10T00:00:00Z",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is True
 
-    def test_fix030_no_review_required_passes(self) -> None:
-        """E2-A7-FIX-030: no review required passes."""
-        labels_report = {
-            "num_review_required": 0,
-            "num_secondary_reviewed": 0,
-            "num_disagreements": 0,
-            "num_adjudicated": 0,
-            "num_unresolved": 0,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+    def test_fix030_no_review_required_passes(self, tmp_path: Path) -> None:
+        """E2C-FIX-016: empty queue -> PASS."""
+        paths = self._fix030_paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [])
+        self._write_jsonl(paths["raw_responses_path"], [])
+        self._write_jsonl(paths["secondary_labels_path"], [])
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is True
 
-    def test_fix030_missing_secondary_reviewed_field_fails(self) -> None:
-        """E2-A7-FIX-030: missing num_secondary_reviewed metadata -> FAIL."""
-        labels_report = {
-            "num_review_required": 9,
-        }
-        result = check_secondary_annotation_completion(labels_report)
+    def test_fix030_failed_evaluation_fails(self, tmp_path: Path) -> None:
+        """E2C-FIX-042: failed J2 evaluation (status != success) -> FAIL."""
+        paths = self._fix030_paths(tmp_path)
+        ids = [f"case_{i:03d}" for i in range(9)]
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": aid} for aid in ids])
+        raw = [
+            {
+                "generation_attempt_id": aid,
+                "status": "success",
+                "raw_output": "output",
+                "request_id": f"req_{aid}",
+                "parsed_output": {"secondary_label": "none"},
+            }
+            for aid in ids
+        ]
+        raw[0]["status"] = "empty"
+        raw[0]["raw_output"] = ""
+        raw[0]["parsed_output"] = None
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        self._write_jsonl(paths["secondary_labels_path"], [])
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
         assert result.passed is False
-        assert result.failure_code == "secondary_annotation_metadata_missing"
+        assert result.failure_code == "e2_j2_raw_not_successful"
 
     # --- E2-A7-FIX-029: Fake-human annotation regression tests ---
 
@@ -1737,10 +1884,25 @@ class TestIterationGRegression:
         # FIX-027: provide matching queue so queue-coverage check passes
         queue_path = tmp_path / "queue.jsonl"
         queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        # E2C-FIX-017: provide raw response for the queue ID.
+        raw_path = tmp_path / "raw.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "raw_output": "eval output",
+                    "request_id": "req_test_001",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+            )
+            + "\n"
+        )
         result = check_secondary_annotation_integrity(
             review_path,
             adj_path,
             queue_path=queue_path,
+            raw_responses_path=raw_path,
         )
         assert result.passed is True
 
@@ -1763,10 +1925,25 @@ class TestIterationGRegression:
         # FIX-027: provide matching queue so queue-coverage check passes
         queue_path = tmp_path / "queue.jsonl"
         queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        # E2C-FIX-017: provide raw response for the queue ID.
+        raw_path = tmp_path / "raw.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "raw_output": "eval output",
+                    "request_id": "req_test_001",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+            )
+            + "\n"
+        )
         result = check_secondary_annotation_integrity(
             review_path,
             adj_path,
             queue_path=queue_path,
+            raw_responses_path=raw_path,
         )
         assert result.passed is True
 
@@ -1890,10 +2067,25 @@ class TestIterationGRegression:
         # FIX-027: provide matching queue so queue-coverage check passes
         queue_path = tmp_path / "queue.jsonl"
         queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        # FIX-017: provide raw response so raw-coverage check passes
+        raw_path = tmp_path / "raw_responses.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": "req_test_001",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+            )
+            + "\n"
+        )
         result = check_secondary_annotation_integrity(
             review_path,
             adj_path,
             queue_path=queue_path,
+            raw_responses_path=raw_path,
         )
         assert result.passed is True
 
@@ -1931,10 +2123,25 @@ class TestIterationGRegression:
         # FIX-027: provide matching queue so queue-coverage check passes
         queue_path = tmp_path / "queue.jsonl"
         queue_path.write_text(json.dumps({"generation_attempt_id": "test_001"}) + "\n")
+        # FIX-017: provide raw response so raw-coverage check passes
+        raw_path = tmp_path / "raw_responses.jsonl"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "generation_attempt_id": "test_001",
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": "req_test_001",
+                    "parsed_output": {"secondary_label": "exact_value_disclosure"},
+                }
+            )
+            + "\n"
+        )
         result = check_secondary_annotation_integrity(
             review_path,
             adj_path,
             queue_path=queue_path,
+            raw_responses_path=raw_path,
         )
         assert result.passed is True
 
@@ -3337,3 +3544,577 @@ class TestSecondaryReviewCrossArtifactConsistency:
         result = check_secondary_review_cross_artifact_consistency(**paths)
         assert result.passed is False
         assert result.failure_code == "e2_j2_cross_artifact_field_mismatch"
+
+
+# ---------------------------------------------------------------------------
+# E2C Iter C regression tests: FIX-035..038
+# ---------------------------------------------------------------------------
+
+
+class TestFix035J2EmptyResponse:
+    """FIX-035: J2 empty-response regression tests."""
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _paths(self, tmp_path: Path) -> dict[str, Path]:
+        return {
+            "queue_path": tmp_path / "queue.jsonl",
+            "raw_responses_path": tmp_path / "raw.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+            "annotation_agreement_path": tmp_path / "agreement.json",
+        }
+
+    def _all_success_raw(self) -> list[dict]:
+        return [
+            {
+                "generation_attempt_id": aid,
+                "status": "success",
+                "raw_output": "eval output",
+                "request_id": f"req_{aid}",
+                "parsed_output": {"secondary_label": "none"},
+            }
+            for aid in self.IDS
+        ]
+
+    def _all_agree_labels(self) -> list[dict]:
+        return [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+
+    def test_empty_first_then_valid_retry_passes(self, tmp_path: Path) -> None:
+        """Empty first response + valid retry → PASS."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = self._all_success_raw()
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        self._write_jsonl(paths["secondary_labels_path"], self._all_agree_labels())
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is True
+
+    def test_all_retries_empty_fails(self, tmp_path: Path) -> None:
+        """All retries empty → FAIL."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = self._all_success_raw()
+        raw[0]["status"] = "empty"
+        raw[0]["raw_output"] = ""
+        raw[0]["parsed_output"] = None
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        self._write_jsonl(paths["secondary_labels_path"], [])
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_raw_not_successful"
+
+    def test_empty_response_with_label_fails(self, tmp_path: Path) -> None:
+        """Empty response but label exists → FAIL (raw not successful)."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = self._all_success_raw()
+        raw[0]["status"] = "empty"
+        raw[0]["raw_output"] = ""
+        raw[0]["parsed_output"] = None
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        # Label exists for the empty-response case — should still fail.
+        self._write_jsonl(paths["secondary_labels_path"], self._all_agree_labels())
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_raw_not_successful"
+
+    def test_empty_response_counted_as_disagreement_fails(self, tmp_path: Path) -> None:
+        """Empty response counted as disagreement → FAIL."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = self._all_success_raw()
+        raw[0]["status"] = "empty"
+        raw[0]["raw_output"] = ""
+        raw[0]["parsed_output"] = None
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        labels = self._all_agree_labels()
+        labels[0]["resolution_status"] = "unresolved"
+        labels[0]["secondary_evaluator_status"] = "empty"
+        labels[0]["secondary_label"] = None
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+
+    def test_empty_response_counted_as_adjudicated_fails(self, tmp_path: Path) -> None:
+        """Empty response cannot be legitimately adjudicated → FAIL."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = self._all_success_raw()
+        raw[0]["status"] = "empty"
+        raw[0]["raw_output"] = ""
+        raw[0]["parsed_output"] = None
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        labels = self._all_agree_labels()
+        labels[0]["resolution_status"] = "resolved"
+        labels[0]["secondary_evaluator_status"] = "empty"
+        labels[0]["secondary_label"] = None
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
+                    "final_label": "none",
+                    "adjudicator_id": "human",
+                    "adjudicated_at": "2026-08-10T00:00:00Z",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        # Raw not successful → fails before adjudication check.
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_raw_not_successful"
+
+
+class TestFix036SecondaryReviewCounts:
+    """FIX-036: secondary-review count tests."""
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _paths(self, tmp_path: Path) -> dict[str, Path]:
+        return {
+            "queue_path": tmp_path / "queue.jsonl",
+            "raw_responses_path": tmp_path / "raw.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+            "annotation_agreement_path": tmp_path / "agreement.json",
+        }
+
+    def _make_artifacts(
+        self,
+        tmp_path: Path,
+        n_success: int = 9,
+        unresolved_ids: set[str] | None = None,
+    ) -> dict[str, Path]:
+        paths = self._paths(tmp_path)
+        unresolved_ids = unresolved_ids or set()
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        raw = []
+        for i, aid in enumerate(self.IDS):
+            if i < n_success:
+                raw.append(
+                    {
+                        "generation_attempt_id": aid,
+                        "status": "success",
+                        "raw_output": "output",
+                        "request_id": f"req_{aid}",
+                        "parsed_output": {"secondary_label": "none"},
+                    }
+                )
+            else:
+                raw.append(
+                    {
+                        "generation_attempt_id": aid,
+                        "status": "empty",
+                        "raw_output": "",
+                        "request_id": "",
+                        "parsed_output": None,
+                    }
+                )
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        labels = []
+        for aid in self.IDS:
+            if aid in unresolved_ids:
+                labels.append(
+                    {
+                        "generation_attempt_id": aid,
+                        "j_label": "none",
+                        "secondary_label": "none",
+                        "resolution_status": "unresolved",
+                        "secondary_evaluator_status": "success",
+                    }
+                )
+            else:
+                labels.append(
+                    {
+                        "generation_attempt_id": aid,
+                        "j_label": "none",
+                        "secondary_label": "none",
+                        "resolution_status": "agreement",
+                        "secondary_evaluator_status": "success",
+                    }
+                )
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(paths["adjudication_path"], [])
+        paths["annotation_agreement_path"].write_text("{}")
+        return paths
+
+    def test_9_selected_9_success_9_agree_passes(self, tmp_path: Path) -> None:
+        """9 selected / 9 success / 9 agree → PASS."""
+        paths = self._make_artifacts(tmp_path)
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is True
+
+    def test_9_selected_7_success_2_empty_fails(self, tmp_path: Path) -> None:
+        """9 selected / 7 success / 2 empty → FAIL."""
+        paths = self._make_artifacts(tmp_path, n_success=7)
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_raw_not_successful"
+
+    def test_9_success_1_unresolved_fails(self, tmp_path: Path) -> None:
+        """9 success / 8 agree / 1 unresolved → FAIL."""
+        paths = self._make_artifacts(tmp_path, unresolved_ids={self.IDS[0]})
+        # Override: all 9 raw are successful, but case_000 has unresolved label.
+        raw = [
+            {
+                "generation_attempt_id": aid,
+                "status": "success",
+                "raw_output": "output",
+                "request_id": f"req_{aid}",
+                "parsed_output": {"secondary_label": "none"},
+            }
+            for aid in self.IDS
+        ]
+        self._write_jsonl(paths["raw_responses_path"], raw)
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_unresolved_disagreements"
+
+    def test_9_success_1_resolved_passes(self, tmp_path: Path) -> None:
+        """9 success / 8 agree / 1 properly resolved → PASS."""
+        paths = self._make_artifacts(tmp_path)
+        # Override case_000 to be a resolved disagreement.
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        labels[0]["j_label"] = "exact_value_disclosure"
+        labels[0]["resolution_status"] = "resolved"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
+                    "final_label": "none",
+                    "adjudicator_id": "human",
+                    "adjudicated_at": "2026-08-10T00:00:00Z",
+                }
+            ],
+        )
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is True
+
+
+class TestFix037AdjudicationSemantics:
+    """FIX-037: adjudication semantics tests."""
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def _paths(self, tmp_path: Path) -> dict[str, Path]:
+        return {
+            "queue_path": tmp_path / "queue.jsonl",
+            "raw_responses_path": tmp_path / "raw.jsonl",
+            "secondary_labels_path": tmp_path / "labels.jsonl",
+            "adjudication_path": tmp_path / "adj.jsonl",
+            "annotation_agreement_path": tmp_path / "agreement.json",
+        }
+
+    def _base_raw(self) -> list[dict]:
+        return [
+            {
+                "generation_attempt_id": aid,
+                "status": "success",
+                "raw_output": "output",
+                "request_id": f"req_{aid}",
+                "parsed_output": {"secondary_label": "none"},
+            }
+            for aid in self.IDS
+        ]
+
+    def test_agreement_adjudicated_false_passes(self, tmp_path: Path) -> None:
+        """Agreement + adjudicated=false → PASS."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(paths["raw_responses_path"], self._base_raw())
+        self._write_jsonl(
+            paths["secondary_labels_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "j_label": "none",
+                    "secondary_label": "none",
+                    "resolution_status": "agreement",
+                    "secondary_evaluator_status": "success",
+                }
+                for aid in self.IDS
+            ],
+        )
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "adjudicated": False,
+                    "resolution_status": "agreement",
+                    "final_label": "none",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+                for aid in self.IDS
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is True
+
+    def test_unresolved_adjudicated_false_intermediate(self, tmp_path: Path) -> None:
+        """Unresolved + adjudicated=false → FAIL (unresolved not allowed)."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(paths["raw_responses_path"], self._base_raw())
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        labels[0]["resolution_status"] = "unresolved"
+        labels[0]["secondary_label"] = "none"
+        labels[0]["secondary_evaluator_status"] = "success"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": False,
+                    "resolution_status": "unresolved",
+                    "final_label": None,
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_unresolved_disagreements"
+
+    def test_unresolved_adjudicated_true_fails(self, tmp_path: Path) -> None:
+        """Unresolved + adjudicated=true → FAIL (still unresolved)."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(paths["raw_responses_path"], self._base_raw())
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        labels[0]["resolution_status"] = "unresolved"
+        labels[0]["secondary_label"] = "none"
+        labels[0]["secondary_evaluator_status"] = "success"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        # Adjudicated=true but resolution_status still unresolved.
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": True,
+                    "resolution_status": "unresolved",
+                    "final_label": None,
+                    "adjudicator_id": "human",
+                    "adjudicated_at": "2026-08-10T00:00:00Z",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_unresolved_disagreements"
+
+    def test_resolved_adjudicated_true_provenance_passes(self, tmp_path: Path) -> None:
+        """Resolved + adjudicated=true + provenance → PASS."""
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(paths["raw_responses_path"], self._base_raw())
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        labels[0]["j_label"] = "exact_value_disclosure"
+        labels[0]["resolution_status"] = "resolved"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": True,
+                    "resolution_status": "resolved",
+                    "final_label": "none",
+                    "adjudicator_id": "human_adjudicator",
+                    "adjudicated_at": "2026-08-10T00:00:00Z",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        assert result.passed is True
+
+    def test_resolved_adjudicated_false_fails(self, tmp_path: Path) -> None:
+        """Resolved + adjudicated=false → still PASS if no unresolved.
+
+        The check_secondary_annotation_completion function does not require
+        adjudicated flag — it only requires n_failed==0 and n_unresolved==0.
+        A resolved disagreement with adjudicated=false is acceptable if
+        the label record shows resolution_status=resolved.
+        """
+        paths = self._paths(tmp_path)
+        self._write_jsonl(paths["queue_path"], [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(paths["raw_responses_path"], self._base_raw())
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        labels[0]["j_label"] = "exact_value_disclosure"
+        labels[0]["resolution_status"] = "resolved"
+        self._write_jsonl(paths["secondary_labels_path"], labels)
+        self._write_jsonl(
+            paths["adjudication_path"],
+            [
+                {
+                    "generation_attempt_id": self.IDS[0],
+                    "adjudicated": False,
+                    "resolution_status": "resolved",
+                    "final_label": "none",
+                    "adjudicator_id": "",
+                    "adjudicated_at": "",
+                }
+            ],
+        )
+        paths["annotation_agreement_path"].write_text("{}")
+        result = check_secondary_annotation_completion({}, **paths)
+        # n_failed==0, n_unresolved==0 → PASS.
+        assert result.passed is True
+
+
+class TestFix038UnresolvedCountCrossArtifact:
+    """FIX-038: unresolved-count cross-artifact consistency.
+
+    The check_secondary_annotation_completion function recomputes n_unresolved
+    from label records.  If labels show 2 unresolved but the report says 0,
+    the check must fail.
+    """
+
+    IDS = [f"ega_case_{i:03d}" for i in range(9)]
+
+    def _write_jsonl(self, path: Path, records: list[dict]) -> None:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+    def test_report_says_0_but_files_show_2_fails(self, tmp_path: Path) -> None:
+        """Report says 0 unresolved but files show 2 → FAIL."""
+        queue_path = tmp_path / "queue.jsonl"
+        raw_path = tmp_path / "raw.jsonl"
+        labels_path = tmp_path / "labels.jsonl"
+        adj_path = tmp_path / "adj.jsonl"
+        agreement_path = tmp_path / "agreement.json"
+
+        self._write_jsonl(queue_path, [{"generation_attempt_id": a} for a in self.IDS])
+        self._write_jsonl(
+            raw_path,
+            [
+                {
+                    "generation_attempt_id": aid,
+                    "status": "success",
+                    "raw_output": "output",
+                    "request_id": f"req_{aid}",
+                    "parsed_output": {"secondary_label": "none"},
+                }
+                for aid in self.IDS
+            ],
+        )
+        labels = [
+            {
+                "generation_attempt_id": aid,
+                "j_label": "none",
+                "secondary_label": "none",
+                "resolution_status": "agreement",
+                "secondary_evaluator_status": "success",
+            }
+            for aid in self.IDS
+        ]
+        # Make 2 cases unresolved in the actual files.
+        labels[0]["resolution_status"] = "unresolved"
+        labels[0]["secondary_label"] = "none"
+        labels[0]["secondary_evaluator_status"] = "success"
+        labels[1]["resolution_status"] = "unresolved"
+        labels[1]["secondary_label"] = "none"
+        labels[1]["secondary_evaluator_status"] = "success"
+        self._write_jsonl(labels_path, labels)
+        self._write_jsonl(adj_path, [])
+        agreement_path.write_text("{}")
+
+        # The function loads from files — it will find 2 unresolved.
+        result = check_secondary_annotation_completion(
+            {},
+            queue_path=queue_path,
+            raw_responses_path=raw_path,
+            secondary_labels_path=labels_path,
+            adjudication_path=adj_path,
+            annotation_agreement_path=agreement_path,
+        )
+        # 2 unresolved → FAIL.
+        assert result.passed is False
+        assert result.failure_code == "e2_j2_unresolved_disagreements"

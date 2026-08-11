@@ -148,6 +148,35 @@ E2_ARTIFACT_PATHS: dict[str, Path] = {
         / "e2_synthetic_regression"
         / "synthetic_regression_report.json"
     ),
+    # E2C-FIX-039: J2 secondary annotation artifacts.
+    "secondary_raw_responses": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_raw_responses.jsonl"
+    ),
+    "secondary_labels": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_labels.jsonl"
+    ),
+    "secondary_annotation_agreement": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_annotation_agreement.json"
+    ),
+    "secondary_prompt_manifest": (
+        _PROJECT_ROOT
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_prompt_manifest.json"
+    ),
 }
 
 #: E2R-FIX-019/020: directory containing synthetic release bundles.
@@ -1193,59 +1222,160 @@ def check_primary_label_completeness(labels_report: dict[str, Any]) -> CheckResu
     )
 
 
-def check_secondary_annotation_completion(labels_report: dict[str, Any]) -> CheckResult:
-    """E2-A7-FIX-012: check secondary annotation completion.
+def check_secondary_annotation_completion(
+    labels_report: dict[str, Any],
+    *,
+    queue_path: Path | None = None,
+    raw_responses_path: Path | None = None,
+    secondary_labels_path: Path | None = None,
+    adjudication_path: Path | None = None,
+    annotation_agreement_path: Path | None = None,
+) -> CheckResult:
+    """E2C-FIX-016: check secondary annotation completion from source evidence.
 
-    Replaces the scientifically incorrect check_human_review_completion.
-    Requires:
-    - secondary_reviewed == review_required
-    - all disagreement cases resolved or explicitly unresolved under protocol
+    Do not trust labeling_report.json summary counts.  Load and recompute from
+    the actual artifact files.  For every queue ID require:
+    - raw response exists
+    - raw status == success
+    - raw output nonempty
+    - request ID nonempty
+    - parsed output exists
+    - label record exists
+    - secondary label non-null
 
-    Nine reviewed agreements with zero adjudications PASS.
-    Missing secondary review FAILS.
-    Unresolved disagreements are counted explicitly.
+    Acceptance: current 53bcece evidence must pass this check.
     """
-    review_required = labels_report.get("num_review_required")
-    secondary_reviewed = labels_report.get("num_secondary_reviewed")
-    disagreements = labels_report.get("num_disagreements", 0)
-    adjudicated = labels_report.get("num_adjudicated", 0)
-    unresolved = labels_report.get("num_unresolved", 0)
+    if queue_path is None:
+        queue_path = _SECONDARY_REVIEW_QUEUE_PATH
+    if raw_responses_path is None:
+        raw_responses_path = _SECONDARY_RAW_RESPONSES_PATH
+    if secondary_labels_path is None:
+        secondary_labels_path = _SECONDARY_LABELS_PATH
+    if adjudication_path is None:
+        adjudication_path = _ADJUDICATION_LOG_PATH
+    if annotation_agreement_path is None:
+        annotation_agreement_path = _SECONDARY_ANNOTATION_AGREEMENT_PATH
 
-    if review_required is None or review_required == 0:
-        # No secondary review was required — acceptable
+    # Load source files.
+    queue_records = _load_jsonl(queue_path) if queue_path.exists() else []
+    raw_records = _load_jsonl(raw_responses_path) if raw_responses_path.exists() else []
+    label_records = _load_jsonl(secondary_labels_path) if secondary_labels_path.exists() else []
+    adj_records = _load_jsonl(adjudication_path) if adjudication_path.exists() else []
+    agreement = (
+        json.loads(annotation_agreement_path.read_text(encoding="utf-8"))
+        if annotation_agreement_path.exists()
+        else {}
+    )
+
+    # Build lookup maps.
+    raw_by_id = {str(r.get("generation_attempt_id")): r for r in raw_records}
+    label_by_id = {str(r.get("generation_attempt_id")): r for r in label_records}
+
+    queue_ids = {
+        str(r.get("generation_attempt_id")) for r in queue_records if r.get("generation_attempt_id")
+    }
+    if not queue_ids:
+        # No secondary review was required — acceptable.
         return CheckResult(
             check_name="secondary_annotation_completion",
             passed=True,
-            details={"num_review_required": 0, "num_secondary_reviewed": 0},
+            details={"queue_cases": 0},
         )
 
-    if secondary_reviewed is None:
+    # For each queue ID, verify all evidence is present.
+    for aid in sorted(queue_ids):
+        raw_rec = raw_by_id.get(aid)
+        if raw_rec is None:
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_raw_missing",
+                details={"generation_attempt_id": aid},
+            )
+        if raw_rec.get("status") != "success":
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_raw_not_successful",
+                details={"generation_attempt_id": aid, "status": raw_rec.get("status")},
+            )
+        if not raw_rec.get("raw_output"):
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_raw_output_empty",
+                details={"generation_attempt_id": aid},
+            )
+        if not raw_rec.get("request_id"):
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_request_id_empty",
+                details={"generation_attempt_id": aid},
+            )
+        if raw_rec.get("parsed_output") is None:
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_parsed_output_missing",
+                details={"generation_attempt_id": aid},
+            )
+        label_rec = label_by_id.get(aid)
+        if label_rec is None:
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_label_missing",
+                details={"generation_attempt_id": aid},
+            )
+        if label_rec.get("secondary_label") is None:
+            return CheckResult(
+                check_name="secondary_annotation_completion",
+                passed=False,
+                failure_code="e2_j2_secondary_label_null",
+                details={"generation_attempt_id": aid},
+            )
+
+    # All queue cases have complete evidence.
+    n_successful = sum(1 for r in label_records if r.get("secondary_evaluator_status") == "success")
+    n_failed = len(label_records) - n_successful
+    n_disagreed = sum(
+        1
+        for r in label_records
+        if r.get("secondary_evaluator_status") == "success"
+        and r.get("j_label") != r.get("secondary_label")
+    )
+    n_unresolved = sum(1 for r in label_records if r.get("resolution_status") == "unresolved")
+    n_adjudicated = sum(
+        1
+        for r in adj_records
+        if r.get("adjudicated") is True
+        and r.get("resolution_status") == "resolved"
+        and r.get("final_label") is not None
+        and r.get("adjudicator_id")
+        and r.get("adjudicated_at")
+    )
+
+    # E2C-FIX-042: strengthen all_passed — require n_failed==0 and n_unresolved==0.
+    if n_failed > 0:
         return CheckResult(
             check_name="secondary_annotation_completion",
             passed=False,
-            failure_code="secondary_annotation_metadata_missing",
-        )
-
-    if secondary_reviewed < review_required:
-        return CheckResult(
-            check_name="secondary_annotation_completion",
-            passed=False,
-            failure_code="secondary_annotation_incomplete",
+            failure_code="e2_j2_failed_evaluations",
             details={
-                "num_review_required": review_required,
-                "num_secondary_reviewed": secondary_reviewed,
+                "n_failed": n_failed,
+                "n_successful": n_successful,
+                "reason": "E2 pilot requires zero failed J2 evaluations",
             },
         )
-
-    # Check all disagreements are resolved
-    if unresolved > 0:
+    if n_unresolved > 0:
         return CheckResult(
             check_name="secondary_annotation_completion",
             passed=False,
-            failure_code="secondary_annotation_unresolved_disagreements",
+            failure_code="e2_j2_unresolved_disagreements",
             details={
-                "num_disagreements": disagreements,
-                "num_unresolved": unresolved,
+                "n_unresolved": n_unresolved,
+                "reason": "E2 pilot requires zero unresolved disagreements",
             },
         )
 
@@ -1253,11 +1383,13 @@ def check_secondary_annotation_completion(labels_report: dict[str, Any]) -> Chec
         check_name="secondary_annotation_completion",
         passed=True,
         details={
-            "num_review_required": review_required,
-            "num_secondary_reviewed": secondary_reviewed,
-            "num_disagreements": disagreements,
-            "num_adjudicated": adjudicated,
-            "num_unresolved": unresolved,
+            "queue_cases": len(queue_ids),
+            "n_successful": n_successful,
+            "n_failed": n_failed,
+            "n_disagreed": n_disagreed,
+            "n_unresolved": n_unresolved,
+            "n_adjudicated": n_adjudicated,
+            "annotation_source": agreement.get("annotation_source", "unknown"),
         },
     )
 
@@ -2716,8 +2848,16 @@ def check_secondary_annotation_integrity(
                     continue
                 queue_records.append(json.loads(line))
 
-    reviewed_ids = {rec.get("generation_attempt_id") for rec in review_records}
-    queue_ids = {rec.get("generation_attempt_id") for rec in queue_records}
+    reviewed_ids = {
+        str(rec.get("generation_attempt_id"))
+        for rec in review_records
+        if rec.get("generation_attempt_id")
+    }
+    queue_ids = {
+        str(rec.get("generation_attempt_id"))
+        for rec in queue_records
+        if rec.get("generation_attempt_id")
+    }
     missing_ids = queue_ids - reviewed_ids
     if missing_ids:
         return CheckResult(
@@ -2769,6 +2909,49 @@ def check_secondary_annotation_integrity(
                         "generation_attempt_id": rec.get("generation_attempt_id"),
                     },
                 )
+
+    # --- E2C-FIX-017: Verify all required audit cases have status==success ---
+    # Build raw_by_id map for queue-based lookup.
+    raw_by_id = {
+        str(r.get("generation_attempt_id")): r
+        for r in raw_responses
+        if r.get("generation_attempt_id")
+    }
+    for aid in sorted(queue_ids):
+        raw_rec = raw_by_id.get(aid)
+        if raw_rec is None:
+            return CheckResult(
+                check_name="secondary_annotation_integrity",
+                passed=False,
+                failure_code="e2_j2_evaluation_incomplete",
+                details={
+                    "reason": f"Required audit case {aid} has no raw response",
+                    "generation_attempt_id": aid,
+                },
+            )
+        status = raw_rec.get("status", "")
+        if status != "success":
+            # Map status to specific failure code.
+            if status == "empty" or not raw_rec.get("raw_output"):
+                failure_code = "e2_j2_empty_response"
+            elif status == "malformed":
+                failure_code = "e2_j2_malformed_response"
+            elif status == "provider_error":
+                failure_code = "e2_j2_provider_error"
+            elif status == "timeout":
+                failure_code = "e2_j2_timeout"
+            else:
+                failure_code = "e2_j2_evaluation_incomplete"
+            return CheckResult(
+                check_name="secondary_annotation_integrity",
+                passed=False,
+                failure_code=failure_code,
+                details={
+                    "reason": f"Required audit case {aid} has status={status!r}, expected 'success'",
+                    "generation_attempt_id": aid,
+                    "status": status,
+                },
+            )
 
     # --- E2-A7-FIX-027: Verify secondary prompt hash frozen ---
     _prompt_path = (
@@ -3199,7 +3382,10 @@ def check_secondary_review_evidence_consistency(
 
         # FIX-020: adjudication log must agree with the label record.
         adj_record = adj_by_id.get(aid)
-        if adj_record is not None and str(adj_record.get("resolution_status", "")) != resolution_status:
+        if (
+            adj_record is not None
+            and str(adj_record.get("resolution_status", "")) != resolution_status
+        ):
             return CheckResult(
                 check_name="secondary_review_evidence_consistency",
                 passed=False,
@@ -3684,6 +3870,35 @@ def transition_to_e2_complete(
         / "e2_primary_pilot_labels"
         / "secondary_review_labels.jsonl"
     )
+    # E2C-FIX-040: bind J2 secondary annotation artifacts.
+    secondary_raw_responses_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_raw_responses.jsonl"
+    )
+    secondary_labels_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_labels.jsonl"
+    )
+    secondary_agreement_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_annotation_agreement.json"
+    )
+    secondary_prompt_manifest_hash = sha256_file(
+        project_root
+        / "results"
+        / "empirical_v2"
+        / "e2_secondary_annotation"
+        / "secondary_prompt_manifest.json"
+    )
 
     new_phase: dict[str, Any] = {
         "schema_version": "1.1.0",
@@ -3704,6 +3919,11 @@ def transition_to_e2_complete(
         "completion_report_sha256": completion_hash,
         "secondary_review_queue_sha256": secondary_review_queue_hash,
         "secondary_review_labels_sha256": secondary_review_labels_hash,
+        # E2C-FIX-040: J2 artifact hashes.
+        "secondary_raw_responses_sha256": secondary_raw_responses_hash,
+        "secondary_labels_sha256": secondary_labels_hash,
+        "secondary_agreement_sha256": secondary_agreement_hash,
+        "secondary_prompt_manifest_sha256": secondary_prompt_manifest_hash,
     }
 
     phase_file_path.write_text(
