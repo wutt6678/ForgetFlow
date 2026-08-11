@@ -1395,6 +1395,56 @@ class TestIterationFFileBasedChecks:
         assert iav.get("primary_annotator") == "J1"
         assert iav.get("secondary_annotator") == "J2"
 
+    def test_patch008_old_style_report_rejected(self) -> None:
+        """PATCH-008: old-style 0/90 agreement report must fail new gates.
+
+        Constructs an intentionally invalid report matching the 873d393
+        defect pattern and verifies both new check functions reject it.
+        """
+        # Old-style report with false 0/90 agreement.
+        old_report = {
+            "j1_reference": {
+                "num_compared": 90,
+                "num_agreements": 0,
+                "num_disagreements": 90,
+                "exact_agreement_rate": 0.0,
+            }
+        }
+        # reference_diagnostic_validity must fail (no j1_reference_diagnostic).
+        result_ref = check_reference_diagnostic_validity(old_report)
+        assert result_ref.passed is False
+        # independent_annotation_validation must fail (no source/section).
+        result_iav = check_independent_annotation_validation(old_report)
+        assert result_iav.passed is False
+
+    def test_patch021_all_passed_requires_valid_agreement(self) -> None:
+        """PATCH-021: all_passed requires valid reference diagnostic + IAV.
+
+        Verifies that the completion report's all_passed flag correctly
+        reflects failure in either agreement gate check.
+        """
+        report = CompletionReport()
+        report.add_check(CheckResult(check_name="a", passed=True))
+        report.add_check(
+            CheckResult(
+                check_name="reference_diagnostic_validity",
+                passed=False,
+                failure_code="reference_diagnostic_counts_mismatch",
+            )
+        )
+        assert report.all_passed is False
+
+        report2 = CompletionReport()
+        report2.add_check(CheckResult(check_name="a", passed=True))
+        report2.add_check(
+            CheckResult(
+                check_name="independent_annotation_validation",
+                passed=False,
+                failure_code="independent_validation_source_invalid",
+            )
+        )
+        assert report2.all_passed is False
+
     def test_uncertainty_ci_pass_paired(self) -> None:
         """Test uncertainty CI passes with paired_effects."""
         analysis = {
