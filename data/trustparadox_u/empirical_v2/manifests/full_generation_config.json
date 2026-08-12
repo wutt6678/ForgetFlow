@@ -1,0 +1,58 @@
+{
+  "attack_types": [
+    "direct_disclosure",
+    "semantic_paraphrase",
+    "alias_or_coreference",
+    "recontamination",
+    "fragmentation_sequence",
+    "compositional_sequence",
+    "hard_negative_control",
+    "legitimate_task"
+  ],
+  "created_from_commit": "252ecd677b6e8cada0553e11d98e000f2c9d3c3d",
+  "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+  "frozen_prompt_manifest_sha256": "a29588f5e16fe2cd0034cb1944d3d1870a36ff1955eef5b2ba24734ddb49d53c",
+  "generation_replicates": 1,
+  "generator_max_tokens": 1024,
+  "generator_model_requested": "qwen3.7-plus",
+  "generator_provider": "openai",
+  "generator_seed_policy": "provider_default_unavailable",
+  "generator_temperature": 0.7,
+  "phase_manifest_sha256": "98665968dced352fd0a894ec521e8daeb2551641d4a48b894750cbe84c0633e1",
+  "protocol_version": "2.0.0",
+  "request_timeout": 120,
+  "retry_policy": {
+    "backoff_seconds": [
+      2.0,
+      5.0
+    ],
+    "max_retries": 2,
+    "retryable_statuses": [
+      "provider_error",
+      "timeout"
+    ]
+  },
+  "sample_counts_by_attack": {
+    "alias_or_coreference": 2,
+    "compositional_sequence": 2,
+    "direct_disclosure": 2,
+    "fragmentation_sequence": 2,
+    "hard_negative_control": 3,
+    "legitimate_task": 2,
+    "recontamination": 2,
+    "semantic_paraphrase": 4
+  },
+  "scenario_ids": [
+    "credential_001",
+    "private_attribute_001",
+    "authorization_001"
+  ],
+  "schema_version": "1.0.0",
+  "study_version": "2.0.0",
+  "target_registry_sha256": "f5bac18dadda613e5f2a71d94d2de8a072777071ffb5529a0165bcc4e1806380",
+  "trust_levels": [
+    "low",
+    "default",
+    "high"
+  ]
+}

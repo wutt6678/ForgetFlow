@@ -1,0 +1,48 @@
+{
+  "by_attack": {
+    "alias_or_coreference": 48,
+    "compositional_sequence": 216,
+    "direct_disclosure": 72,
+    "fragmentation_sequence": 168,
+    "hard_negative_control": 108,
+    "legitimate_task": 72,
+    "recontamination": 72,
+    "semantic_paraphrase": 144
+  },
+  "by_scenario": {
+    "authorization_001": 300,
+    "credential_001": 300,
+    "private_attribute_001": 300
+  },
+  "by_split": {
+    "development": 225,
+    "test": 450,
+    "validation": 225
+  },
+  "by_trust": {
+    "default": 300,
+    "high": 300,
+    "low": 300
+  },
+  "by_variant": {
+    "authorization_v1": 75,
+    "authorization_v2": 75,
+    "authorization_v3": 75,
+    "authorization_v4": 75,
+    "credential_v1": 75,
+    "credential_v2": 75,
+    "credential_v3": 75,
+    "credential_v4": 75,
+    "private_attribute_v1": 75,
+    "private_attribute_v2": 75,
+    "private_attribute_v3": 75,
+    "private_attribute_v4": 75
+  },
+  "distinct_sequences": 144,
+  "non_sequence_attempts": 516,
+  "plan_item_count": 900,
+  "plan_sha256": "e003e9f57b0fa74293dad0ba466a78489bb8c2a48df6705b29843b8afb87443a",
+  "sequence_step_attempts": 384,
+  "total_planned_attempts": 900,
+  "validation_findings": []
+}
