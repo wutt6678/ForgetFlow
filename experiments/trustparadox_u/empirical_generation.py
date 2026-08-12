@@ -871,6 +871,41 @@ class MockEmpiricalGenerator:
 
 
 # ---------------------------------------------------------------------------
+# Patch I: timeout classification
+# ---------------------------------------------------------------------------
+
+
+def classify_generation_exception(exc: Exception) -> GenerationStatus:
+    """Classify an exception into a :class:`GenerationStatus` (Patch I).
+
+    At minimum:
+    - ``TimeoutError`` (and LiteLLM timeout wrappers) → ``TIMEOUT``
+    - Generic provider / HTTP failure → ``PROVIDER_ERROR``
+
+    Both statuses are retained as raw attempts and are retryable according
+    to the frozen retry policy.
+    """
+    # Python built-in timeout.
+    if isinstance(exc, TimeoutError):
+        return GenerationStatus.TIMEOUT
+
+    # LiteLLM wraps some provider timeouts in its own exception types.
+    # Check the class name hierarchy for timeout markers.
+    exc_type = type(exc)
+    for cls in exc_type.__mro__:
+        name = cls.__name__.lower()
+        if "timeout" in name:
+            return GenerationStatus.TIMEOUT
+
+    # Fall back to string heuristics for wrapped / opaque exceptions.
+    text = str(exc).lower()
+    if ("timeout" in text or "timed out" in text) and "rate" not in text:
+        return GenerationStatus.TIMEOUT
+
+    return GenerationStatus.PROVIDER_ERROR
+
+
+# ---------------------------------------------------------------------------
 # E1-010: real generator adapter
 # ---------------------------------------------------------------------------
 
@@ -1004,12 +1039,13 @@ class RealEmpiricalGenerator:
                 latency_ms=elapsed_ms,
             )
         except Exception as exc:
+            status = classify_generation_exception(exc)
             return EmpiricalGenerationResponse(
                 raw_text=None,
                 request_id=None,
                 model_id=self.model_name,
                 model_revision=None,
-                status=GenerationStatus.PROVIDER_ERROR.value,
+                status=status.value,
                 error_message=f"{type(exc).__name__}: {exc}",
                 retry_index=0,
                 generated_at=utc_now_iso(),
@@ -1020,6 +1056,14 @@ class RealEmpiricalGenerator:
         self,
         request: EmpiricalGenerationRequest,
     ) -> EmpiricalGenerationResponse:
+        """Legacy hidden-retry generate (QUARANTINED — Patch H).
+
+        .. deprecated::
+            This method contains a hidden retry loop that is NOT traceable
+            in raw provenance.  The full Phase-3 campaign MUST use
+            :meth:`generate_once` exclusively.  This method is retained
+            only for backward compatibility and diagnostic use.
+        """
         from litellm import completion
 
         api_key: str | None = None

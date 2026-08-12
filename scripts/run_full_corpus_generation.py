@@ -101,13 +101,49 @@ def _check_frozen_hashes() -> str | None:
         summary_path = _CONFIG_PATH.parent / "full_generation_plan_summary.json"
         if summary_path.exists():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
-            plan_hash = summary.get("plan_sha256")
-            if plan_hash and _PLAN_PATH.exists():
-                computed = hashlib.sha256(_PLAN_PATH.read_bytes()).hexdigest()
-                if computed != plan_hash:
+            # Verify scientific (canonical) hash.
+            scientific_hash = summary.get("plan_scientific_sha256") or summary.get("plan_sha256")
+            if scientific_hash and _PLAN_PATH.exists():
+                from experiments.trustparadox_u.empirical_generation_plan import (
+                    GenerationPlanItem,
+                    plan_sha256,
+                )
+                items: list[GenerationPlanItem] = []
+                with _PLAN_PATH.open(encoding="utf-8") as fh:
+                    for line in fh:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        record = json.loads(line)
+                        items.append(
+                            GenerationPlanItem(
+                                plan_item_id=record["plan_item_id"],
+                                split=record["split"],
+                                scenario_id=record["scenario_id"],
+                                secret_variant_id=record["secret_variant_id"],
+                                trust_level=record["trust_level"],
+                                attack_type=record["attack_type"],
+                                sample_index=record["sample_index"],
+                                generation_replicate=record["generation_replicate"],
+                                sequence_id=record.get("sequence_id"),
+                                sequence_step_index=record.get("sequence_step_index"),
+                                sequence_step_count=record.get("sequence_step_count"),
+                            )
+                        )
+                computed_scientific = plan_sha256(items)
+                if computed_scientific != scientific_hash:
                     return (
-                        f"generation plan SHA256 mismatch: "
-                        f"recorded={plan_hash} computed={computed}"
+                        f"generation plan scientific SHA256 mismatch: "
+                        f"recorded={scientific_hash} computed={computed_scientific}"
+                    )
+            # Verify file hash separately (corruption check).
+            file_hash = summary.get("plan_file_sha256")
+            if file_hash and _PLAN_PATH.exists():
+                computed_file = hashlib.sha256(_PLAN_PATH.read_bytes()).hexdigest()
+                if computed_file != file_hash:
+                    return (
+                        f"generation plan file SHA256 mismatch: "
+                        f"recorded={file_hash} computed={computed_file}"
                     )
     return None
 
@@ -160,7 +196,7 @@ def _check_prerequisite_gate(split: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def run_split(split: str, plan_path: Path, output_dir: Path) -> int:
+def run_split(split: str, plan_path: Path, output_dir: Path, *, resume: bool = False) -> int:
     """Run generation for one split using frozen config (no CLI overrides)."""
     cmd = [
         sys.executable,
@@ -175,6 +211,8 @@ def run_split(split: str, plan_path: Path, output_dir: Path) -> int:
         "--output-dir",
         str(output_dir),
     ]
+    if resume:
+        cmd.append("--resume")
     print(f"\n{'=' * 70}")
     print(f"Running {split} split generation...")
     print(f"Output: {output_dir}")
@@ -209,6 +247,25 @@ def _write_generation_gate(split: str, generation_ok: bool) -> Path:
         encoding="utf-8",
     )
     return gate_path
+
+
+# ---------------------------------------------------------------------------
+# Patch F: existing-output protection
+# ---------------------------------------------------------------------------
+
+_CAMPAIGN_ARTIFACTS = (
+    "raw_generation_attempts.jsonl",
+    "accepted_candidates.jsonl",
+    "campaign_identity.json",
+    "corpus_manifest.json",
+)
+
+
+def _has_existing_campaign(output_dir: Path) -> bool:
+    """Return True if any campaign artifact exists in *output_dir*."""
+    if not output_dir.exists():
+        return False
+    return any((output_dir / name).exists() for name in _CAMPAIGN_ARTIFACTS)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +305,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--skip-preflight-checks",
         action="store_true",
         help="Skip pre-run safety checks (testing only; NOT for production).",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Resume an interrupted campaign (validates campaign identity).",
     )
     return parser
 
@@ -291,12 +354,32 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output_base / split
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # ---- Patch F: existing-output protection ----
+    has_existing = _has_existing_campaign(output_dir)
+    if has_existing and not args.resume:
+        print(
+            f"ERROR: existing campaign artifacts found in {output_dir}.\n"
+            f"Pass --resume to continue the campaign, or remove the output "
+            f"directory to start fresh.",
+            file=sys.stderr,
+        )
+        return 2
+    if not has_existing and args.resume:
+        print(
+            f"ERROR: --resume specified but no campaign artifacts found in "
+            f"{output_dir}. Nothing to resume.",
+            file=sys.stderr,
+        )
+        return 2
+
     print("Full Corpus Generation Campaign (Patch H)")
     print(f"  Split: {split}")
     print(f"  Plan:  {args.plan}")
     print(f"  Output: {output_dir}")
+    if args.resume:
+        print("  Mode: RESUME")
 
-    rc = run_split(split, args.plan, output_dir)
+    rc = run_split(split, args.plan, output_dir, resume=args.resume)
     _write_generation_gate(split, generation_ok=(rc == 0))
 
     if rc != 0:

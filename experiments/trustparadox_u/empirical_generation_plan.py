@@ -487,7 +487,12 @@ def write_generation_plan(
             fh.write(json.dumps(asdict(item), sort_keys=True, ensure_ascii=False) + "\n")
 
     summary = plan_summary(items)
-    summary["plan_sha256"] = plan_sha256(items)
+    summary["plan_scientific_sha256"] = plan_sha256(items)
+    summary["plan_file_sha256"] = hashlib.sha256(
+        plan_path.read_bytes()
+    ).hexdigest()
+    # Backward compatibility: plan_sha256 remains the scientific hash.
+    summary["plan_sha256"] = summary["plan_scientific_sha256"]
     summary["plan_item_count"] = len(items)
     summary["validation_findings"] = findings
 

@@ -25,6 +25,8 @@ import subprocess
 import sys
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from enum import Enum
 from pathlib import Path
 
 from experiments.trustparadox_u.artifact_provenance import (
@@ -75,6 +77,14 @@ from experiments.trustparadox_u.empirical_generation import (
     resolve_prompt_bundle,
     utc_now_iso,
     validate_trust_prompt_invariance,
+)
+from experiments.trustparadox_u.campaign_identity import (
+    CAMPAIGN_IDENTITY_FILENAME,
+    CampaignIdentityMismatchError,
+    compute_campaign_identity,
+    load_campaign_identity,
+    verify_campaign_identity,
+    write_campaign_identity,
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -143,6 +153,7 @@ def generate_with_retry(
     trust_prompt_hash: str | None,
     attack_prompt_hash: str | None,
     temperature: float,
+    start_retry_index: int = 0,
 ) -> list[EmpiricalGenerationAttempt]:
     """Call the provider with retry, writing every raw attempt (Patch C).
 
@@ -178,9 +189,9 @@ def generate_with_retry(
         retryable = tuple(retry_policy.get("retryable_statuses", ["provider_error"]))
 
     attempts: list[EmpiricalGenerationAttempt] = []
-    for retry_index in range(max_attempts):
-        response = generator.generate_once(request)  # type: ignore[attr-defined]
-        response.retry_index = retry_index
+    for retry_index in range(start_retry_index, max_attempts):
+        base_response = generator.generate_once(request)  # type: ignore[attr-defined]
+        response = replace(base_response, retry_index=retry_index)
 
         attempt = attempt_from_response(
             request,
@@ -497,8 +508,253 @@ def _is_sequence_complete(
 # ---------------------------------------------------------------------------
 
 
+def terminal_attempt_for_retry_chain(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+) -> EmpiricalGenerationAttempt:
+    """Reduce a retry chain to its single terminal scientific attempt.
+
+    Validates:
+    - All attempts share the same generation_attempt_id (one scientific unit).
+    - Retry indices are unique and consecutive from 0.
+    - No retry occurs after a success.
+    - Returns the attempt with the highest retry_index.
+    """
+    if not attempts:
+        raise ValueError("terminal_attempt_for_retry_chain: empty attempt list")
+    # All must share the same generation_attempt_id.
+    ids = {a.generation_attempt_id for a in attempts}
+    if len(ids) != 1:
+        raise ValueError(
+            f"terminal_attempt_for_retry_chain: mixed generation_attempt_ids: {ids}"
+        )
+    # Retry indices must be unique.
+    retry_indices = sorted(a.retry_index for a in attempts)
+    if len(set(retry_indices)) != len(retry_indices):
+        raise ValueError(
+            f"terminal_attempt_for_retry_chain: duplicate retry indices: {retry_indices}"
+        )
+    # Must start from 0 and be consecutive.
+    if retry_indices[0] != 0:
+        raise ValueError(
+            f"terminal_attempt_for_retry_chain: retry indices do not start at 0: {retry_indices}"
+        )
+    if retry_indices != list(range(len(retry_indices))):
+        raise ValueError(
+            f"terminal_attempt_for_retry_chain: retry indices not consecutive: {retry_indices}"
+        )
+    # No retry after success.
+    for a in sorted(attempts, key=lambda x: x.retry_index):
+        if a.generation_status == GenerationStatus.SUCCESS.value:
+            # This must be the last attempt.
+            if a.retry_index != retry_indices[-1]:
+                raise ValueError(
+                    f"terminal_attempt_for_retry_chain: retry after success at "
+                    f"retry_index={a.retry_index}"
+                )
+    return max(attempts, key=lambda a: a.retry_index)
+
+
+def terminal_attempts_by_sequence_step(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+    expected_step_count: int,
+) -> list[EmpiricalGenerationAttempt]:
+    """Group by sequence_step_index, reduce each chain to one terminal attempt.
+
+    Returns terminal attempts sorted by sequence_step_index.
+    """
+    step_groups: dict[int, list[EmpiricalGenerationAttempt]] = {}
+    for attempt in attempts:
+        step_idx = attempt.sequence_step_index
+        if step_idx is None:
+            raise ValueError(
+                "terminal_attempts_by_sequence_step: non-sequence attempt"
+            )
+        step_groups.setdefault(step_idx, []).append(attempt)
+    terminal_per_step: list[EmpiricalGenerationAttempt] = []
+    for step_idx in sorted(step_groups):
+        terminal_per_step.append(
+            terminal_attempt_for_retry_chain(step_groups[step_idx])
+        )
+    return terminal_per_step
+
+
+# ---------------------------------------------------------------------------
+# Patch D: unit-completion state model for resume
+# ---------------------------------------------------------------------------
+
+
+class UnitResumeState(str, Enum):
+    """Resume classification for a single scientific generation unit."""
+
+    NOT_STARTED = "not_started"
+    RETRY_PENDING = "retry_pending"
+    COMPLETE_SUCCESS = "complete_success"
+    COMPLETE_FAILURE = "complete_failure"
+    SEQUENCE_PARTIAL = "sequence_partial"
+    SEQUENCE_COMPLETE_SUCCESS = "sequence_complete_success"
+    SEQUENCE_COMPLETE_FAILURE = "sequence_complete_failure"
+
+
+def resolve_unit_resume_state(
+    unit_key: tuple,
+    existing_attempts: Sequence[EmpiricalGenerationAttempt],
+    *,
+    is_sequence: bool,
+    expected_step_count: int,
+    max_retries: int,
+    retryable_statuses: Sequence[str],
+) -> dict[str, object]:
+    """Classify the resume state for one generation unit.
+
+    Returns a dict with keys:
+    - ``state``: a :class:`UnitResumeState` value
+    - ``completed_step_indices``: set of step indices with terminal success
+    - ``pending_step_indices``: set of step indices that need generation/retry
+    - ``retry_index_to_continue_from``: int (for non-sequence retry continuation)
+    - ``retry_budget_remaining``: int
+    - ``terminal_status_by_step``: dict mapping step_index → status string
+    """
+    unit_attempts = [a for a in existing_attempts if _unit_key(a) == unit_key]
+
+    if not is_sequence:
+        return _resolve_non_sequence_state(
+            unit_attempts,
+            max_retries=max_retries,
+            retryable_statuses=retryable_statuses,
+        )
+    return _resolve_sequence_state(
+        unit_attempts,
+        expected_step_count=expected_step_count,
+        max_retries=max_retries,
+        retryable_statuses=retryable_statuses,
+    )
+
+
+def _resolve_non_sequence_state(
+    attempts: list[EmpiricalGenerationAttempt],
+    *,
+    max_retries: int,
+    retryable_statuses: Sequence[str],
+) -> dict[str, object]:
+    """Resolve resume state for a non-sequence unit."""
+    if not attempts:
+        return {
+            "state": UnitResumeState.NOT_STARTED,
+            "completed_step_indices": set(),
+            "pending_step_indices": set(),
+            "retry_index_to_continue_from": 0,
+            "retry_budget_remaining": max_retries + 1,
+            "terminal_status_by_step": {},
+        }
+
+    terminal = terminal_attempt_for_retry_chain(attempts)
+    max_retry = max(a.retry_index for a in attempts)
+    budget_remaining = max(0, max_retries - max_retry)
+
+    if terminal.generation_status == GenerationStatus.SUCCESS.value:
+        return {
+            "state": UnitResumeState.COMPLETE_SUCCESS,
+            "completed_step_indices": set(),
+            "pending_step_indices": set(),
+            "retry_index_to_continue_from": max_retry + 1,
+            "retry_budget_remaining": budget_remaining,
+            "terminal_status_by_step": {None: terminal.generation_status},
+        }
+
+    if terminal.generation_status in retryable_statuses and budget_remaining > 0:
+        return {
+            "state": UnitResumeState.RETRY_PENDING,
+            "completed_step_indices": set(),
+            "pending_step_indices": set(),
+            "retry_index_to_continue_from": max_retry + 1,
+            "retry_budget_remaining": budget_remaining,
+            "terminal_status_by_step": {None: terminal.generation_status},
+        }
+
+    return {
+        "state": UnitResumeState.COMPLETE_FAILURE,
+        "completed_step_indices": set(),
+        "pending_step_indices": set(),
+        "retry_index_to_continue_from": max_retry + 1,
+        "retry_budget_remaining": budget_remaining,
+        "terminal_status_by_step": {None: terminal.generation_status},
+    }
+
+
+def _resolve_sequence_state(
+    attempts: list[EmpiricalGenerationAttempt],
+    *,
+    expected_step_count: int,
+    max_retries: int,
+    retryable_statuses: Sequence[str],
+) -> dict[str, object]:
+    """Resolve resume state for a sequence unit."""
+    step_groups: dict[int, list[EmpiricalGenerationAttempt]] = {}
+    for a in attempts:
+        si = a.sequence_step_index
+        if si is not None:
+            step_groups.setdefault(si, []).append(a)
+
+    terminal_by_step: dict[int, EmpiricalGenerationAttempt] = {}
+    status_by_step: dict[int, str] = {}
+    for si, group in step_groups.items():
+        t = terminal_attempt_for_retry_chain(group)
+        terminal_by_step[si] = t
+        status_by_step[si] = t.generation_status
+
+    completed = {
+        si for si, t in terminal_by_step.items()
+        if t.generation_status == GenerationStatus.SUCCESS.value
+    }
+
+    if len(completed) == expected_step_count:
+        return {
+            "state": UnitResumeState.SEQUENCE_COMPLETE_SUCCESS,
+            "completed_step_indices": completed,
+            "pending_step_indices": set(),
+            "retry_index_to_continue_from": 0,
+            "retry_budget_remaining": 0,
+            "terminal_status_by_step": status_by_step,
+        }
+
+    pending: set[int] = set()
+    for si in range(expected_step_count):
+        if si in completed:
+            continue
+        if si not in terminal_by_step:
+            pending.add(si)
+            continue
+        terminal = terminal_by_step[si]
+        max_retry = max(a.retry_index for a in step_groups[si])
+        budget = max(0, max_retries - max_retry)
+        if terminal.generation_status in retryable_statuses and budget > 0:
+            pending.add(si)
+
+    if pending:
+        return {
+            "state": UnitResumeState.SEQUENCE_PARTIAL,
+            "completed_step_indices": completed,
+            "pending_step_indices": pending,
+            "retry_index_to_continue_from": 0,
+            "retry_budget_remaining": 0,
+            "terminal_status_by_step": status_by_step,
+        }
+
+    return {
+        "state": UnitResumeState.SEQUENCE_COMPLETE_FAILURE,
+        "completed_step_indices": completed,
+        "pending_step_indices": set(),
+        "retry_index_to_continue_from": 0,
+        "retry_budget_remaining": 0,
+        "terminal_status_by_step": status_by_step,
+    }
+
+
 def _terminal_attempt(attempts: list[EmpiricalGenerationAttempt]) -> EmpiricalGenerationAttempt:
-    """Return the attempt with the highest retry_index (last provider call)."""
+    """Return the attempt with the highest retry_index (last provider call).
+
+    .. deprecated:: Use :func:`terminal_attempt_for_retry_chain` instead.
+    """
     return max(attempts, key=lambda a: a.retry_index)
 
 
@@ -559,7 +815,7 @@ def rebuild_accepted_candidates(
             # Non-sequence: pick terminal attempt, run acceptance.
             group_key = (uk, None)
             chain = unit_step_groups.get(group_key, [])
-            terminal = _terminal_attempt(chain)
+            terminal = terminal_attempt_for_retry_chain(chain)
             result = accept_generation_attempt(terminal, spec)
             if result.accepted and result.candidate is not None:
                 accepted.append(result.candidate)
@@ -573,7 +829,7 @@ def rebuild_accepted_candidates(
             terminal_per_step: list[EmpiricalGenerationAttempt] = []
             for si in step_indices:
                 chain = unit_step_groups[(uk, si)]
-                terminal_per_step.append(_terminal_attempt(chain))
+                terminal_per_step.append(terminal_attempt_for_retry_chain(chain))
 
             expected = len(step_indices)
             complete, problems = _is_sequence_complete(terminal_per_step, expected)
@@ -673,6 +929,10 @@ def run_generation(
     plan_items: Sequence[GenerationPlanItem] | None = None,
     max_tokens: int | None = None,
     retry_policy: Mapping[str, object] | None = None,
+    plan_path: Path | None = None,
+    frozen_config: FrozenGenerationConfig | None = None,
+    frozen_config_path: Path | None = None,
+    phase_manifest_path: Path | None = None,
 ) -> dict[str, object]:
     """Generate, retain, and accept empirical attempts for one split.
 
@@ -688,9 +948,35 @@ def run_generation(
     assert_generation_split_unlocked(split)
     EmpiricalSplit(split)  # validates the split value
 
+    # Patch H: campaign guard — plan-driven real must use generate_once.
+    if mode == "real" and plan_items is not None:
+        if not hasattr(generator, "generate_once"):
+            raise RuntimeError(
+                "plan-driven real campaign requires generate_once(); "
+                "legacy generate() with hidden retry is not permitted"
+            )
+
     # E3-005: require clean committed tree for real generation campaigns.
     if mode == "real" and not working_tree_is_fully_clean():
         raise RuntimeError("refusing to start real generation with dirty working tree")
+
+    # Patch E: campaign identity protection.
+    if frozen_config is not None and mode == "real":
+        current_identity = compute_campaign_identity(
+            split=split,
+            plan_items=list(plan_items) if plan_items else None,
+            plan_path=plan_path,
+            config=frozen_config,
+            config_path=frozen_config_path,
+            phase_manifest_path=phase_manifest_path,
+        )
+        existing_identity = load_campaign_identity(output_dir)
+        if existing_identity is not None:
+            # Resume: verify identity matches.
+            verify_campaign_identity(existing_identity, current_identity)
+        else:
+            # First run: write identity before any provider request.
+            write_campaign_identity(output_dir, current_identity)
 
     attempts: list[EmpiricalGenerationAttempt] = []
     accepted: list[EmpiricalCandidate] = []
@@ -699,7 +985,6 @@ def run_generation(
 
     # E3-007: load existing attempts for resume.
     existing_attempts: list[EmpiricalGenerationAttempt] = []
-    attempted_keys: set[tuple] = set()
     if resume:
         existing_attempts = _load_attempts(output_dir / RAW_ATTEMPTS_FILENAME)
         # Patch D: rebuild accepted from complete raw history.
@@ -708,7 +993,12 @@ def run_generation(
         )
         accepted.extend(rebuilt_accepted)
         rejection_reasons.extend(rebuilt_rejections)
-        attempted_keys = {_unit_key(a) for a in existing_attempts}
+
+    # Patch D: derive retry policy parameters for resume-state classification.
+    _rp_max_retries = int(retry_policy.get("max_retries", 0)) if retry_policy else 0
+    _rp_retryable = tuple(
+        retry_policy.get("retryable_statuses", ["provider_error"])
+    ) if retry_policy else ("provider_error",)
 
     raw_writer = RawAttemptWriter(output_dir / RAW_ATTEMPTS_FILENAME)
 
@@ -742,8 +1032,6 @@ def run_generation(
 
         for _key, group in sorted(groups.items()):
             first = group[0]
-            if _key in attempted_keys:
-                continue
             spec_key = (first.scenario_id, first.secret_variant_id)
             spec = specs_by_key.get(spec_key)
             if spec is None:
@@ -760,6 +1048,32 @@ def run_generation(
             is_seq = AttackType(first.attack_type) in SEQUENCE_ATTACK_TYPES
             if is_seq:
                 planned_sequences += 1
+            # Patch D: resume-state classification.
+            skip_steps: frozenset[int] | None = None
+            start_retry_index = 0
+            if resume and existing_attempts:
+                step_count = sequence_step_count_for(first.attack_type, spec) if is_seq else 0
+                resume_info = resolve_unit_resume_state(
+                    _key,
+                    existing_attempts,
+                    is_sequence=is_seq,
+                    expected_step_count=step_count,
+                    max_retries=_rp_max_retries,
+                    retryable_statuses=_rp_retryable,
+                )
+                state = resume_info["state"]
+                if state in (
+                    UnitResumeState.COMPLETE_SUCCESS,
+                    UnitResumeState.COMPLETE_FAILURE,
+                    UnitResumeState.SEQUENCE_COMPLETE_SUCCESS,
+                    UnitResumeState.SEQUENCE_COMPLETE_FAILURE,
+                ):
+                    continue
+                if state is UnitResumeState.RETRY_PENDING:
+                    start_retry_index = int(resume_info["retry_index_to_continue_from"])
+                elif state is UnitResumeState.SEQUENCE_PARTIAL:
+                    completed = resume_info["completed_step_indices"]
+                    skip_steps = frozenset(completed)
             new = _generate_unit(
                 generator=generator,
                 spec=spec,
@@ -771,6 +1085,8 @@ def run_generation(
                 accepted=accepted,
                 rejection_reasons=rejection_reasons,
                 retry_policy=retry_policy,
+                skip_steps=skip_steps,
+                start_retry_index=start_retry_index,
             )
             attempts.extend(new)
             if is_seq:
@@ -798,8 +1114,34 @@ def run_generation(
                             sample_index,
                             0,
                         )
-                        if resume and unit_key in attempted_keys:
-                            continue
+                        # Patch D: resume-state classification.
+                        if resume and existing_attempts:
+                            step_count = sequence_step_count_for(attack_type, spec) if is_seq else 0
+                            resume_info = resolve_unit_resume_state(
+                                unit_key,
+                                existing_attempts,
+                                is_sequence=is_seq,
+                                expected_step_count=step_count,
+                                max_retries=_rp_max_retries,
+                                retryable_statuses=_rp_retryable,
+                            )
+                            state = resume_info["state"]
+                            if state in (
+                                UnitResumeState.COMPLETE_SUCCESS,
+                                UnitResumeState.COMPLETE_FAILURE,
+                                UnitResumeState.SEQUENCE_COMPLETE_SUCCESS,
+                                UnitResumeState.SEQUENCE_COMPLETE_FAILURE,
+                            ):
+                                continue
+                            skip_steps = None
+                            start_retry_index = 0
+                            if state is UnitResumeState.RETRY_PENDING:
+                                start_retry_index = int(resume_info["retry_index_to_continue_from"])
+                            elif state is UnitResumeState.SEQUENCE_PARTIAL:
+                                skip_steps = frozenset(resume_info["completed_step_indices"])
+                        else:
+                            skip_steps = None
+                            start_retry_index = 0
                         if is_seq:
                             planned_sequences += 1
                         new = _generate_unit(
@@ -813,6 +1155,8 @@ def run_generation(
                             accepted=accepted,
                             rejection_reasons=rejection_reasons,
                             retry_policy=retry_policy,
+                            skip_steps=skip_steps,
+                            start_retry_index=start_retry_index,
                         )
                         attempts.extend(new)
                         if is_seq:
@@ -893,6 +1237,8 @@ def _generate_unit(
     accepted: list[EmpiricalCandidate],
     rejection_reasons: list[str],
     retry_policy: Mapping[str, object] | None = None,
+    skip_steps: frozenset[int] | None = None,
+    start_retry_index: int = 0,
 ) -> list[EmpiricalGenerationAttempt]:
     """Generate one trial unit (one attempt, or one per sequence step).
 
@@ -906,71 +1252,92 @@ def _generate_unit(
     Patch B: ``max_tokens`` comes from ``generator.max_tokens``.
     Patch C: retry is handled at the campaign layer via
     :func:`generate_with_retry`.
+    Patch D: ``skip_steps`` allows partial-sequence resume (only generate
+    steps not in the skip set); ``start_retry_index`` continues a partial
+    retry chain.
     """
     is_sequence = AttackType(attack_type) in SEQUENCE_ATTACK_TYPES
     step_count = sequence_step_count_for(attack_type, spec) if is_sequence else None
-    steps = range(step_count) if step_count is not None else (None,)
+    if step_count is not None:
+        all_step_indices = list(range(step_count))
+        active_steps = [s for s in all_step_indices if skip_steps is None or s not in skip_steps]
+    else:
+        all_step_indices = [None]
+        active_steps = [None]
 
     gen_max_tokens = getattr(generator, "max_tokens", None)
-    unit_attempts: list[EmpiricalGenerationAttempt] = []
-    for step_index in steps:
-        # E3-005: resolve prompt bundle for per-component hashes.
-        bundle = resolve_prompt_bundle(
-            trust_level,
-            attack_type,
-            spec,
-            sequence_step_index=step_index,
-            sequence_step_count=step_count,
-        )
-        request = build_generation_request(
-            spec,
-            trust_level,
-            attack_type,
-            sample_index,
-            temperature=temperature,
-            sequence_step_index=step_index,
-            sequence_step_count=step_count,
-        )
-        step_attempts = generate_with_retry(
-            generator=generator,
-            request=request,
-            retry_policy=retry_policy,
-            raw_writer=raw_writer,
-            spec=spec,
-            trust_level=trust_level,
-            attack_type=attack_type,
-            sample_index=sample_index,
-            generation_mode=GenerationMode(generator.generation_mode).value,
-            transport=getattr(generator, "transport", None),
-            generator_model_requested=getattr(generator, "model_name", None),
-            max_tokens=gen_max_tokens,
-            trust_prompt_hash=prompt_sha256(bundle.trust_prompt),
-            attack_prompt_hash=prompt_sha256(bundle.attack_prompt),
-            temperature=temperature,
-        )
-        unit_attempts.extend(step_attempts)
+    new_attempts: list[EmpiricalGenerationAttempt] = []
+    terminal_by_step: dict[int | None, EmpiricalGenerationAttempt] = {}
+
+    for step_index in all_step_indices:
+        if step_index in active_steps:
+            # Generate this step.
+            bundle = resolve_prompt_bundle(
+                trust_level,
+                attack_type,
+                spec,
+                sequence_step_index=step_index,
+                sequence_step_count=step_count,
+            )
+            request = build_generation_request(
+                spec,
+                trust_level,
+                attack_type,
+                sample_index,
+                temperature=temperature,
+                sequence_step_index=step_index,
+                sequence_step_count=step_count,
+            )
+            step_retry_index = start_retry_index if not is_sequence else 0
+            step_attempts = generate_with_retry(
+                generator=generator,
+                request=request,
+                retry_policy=retry_policy,
+                raw_writer=raw_writer,
+                spec=spec,
+                trust_level=trust_level,
+                attack_type=attack_type,
+                sample_index=sample_index,
+                generation_mode=GenerationMode(generator.generation_mode).value,
+                transport=getattr(generator, "transport", None),
+                generator_model_requested=getattr(generator, "model_name", None),
+                max_tokens=gen_max_tokens,
+                trust_prompt_hash=prompt_sha256(bundle.trust_prompt),
+                attack_prompt_hash=prompt_sha256(bundle.attack_prompt),
+                temperature=temperature,
+                start_retry_index=step_retry_index,
+            )
+            new_attempts.extend(step_attempts)
+            if is_sequence:
+                terminal_by_step[step_index] = terminal_attempt_for_retry_chain(step_attempts)
+            else:
+                terminal_by_step[None] = terminal_attempt_for_retry_chain(step_attempts)
 
     if is_sequence:
+        # Collect terminal attempts for ALL steps (existing + new).
+        all_terminal: list[EmpiricalGenerationAttempt] = []
+        for si in sorted(terminal_by_step.keys(), key=lambda x: x if x is not None else -1):
+            if si in terminal_by_step:
+                all_terminal.append(terminal_by_step[si])
         # Patch E: truly atomic sequence acceptance (all-or-nothing).
-        assert step_count is not None
-        seq_ok, seq_candidates, seq_reasons = accept_sequence_attempts(
-            unit_attempts, spec,
-        )
-        if seq_ok:
-            accepted.extend(seq_candidates)
-        else:
-            rejection_reasons.extend(seq_reasons)
+        if len(all_terminal) == step_count:
+            seq_ok, seq_candidates, seq_reasons = accept_sequence_attempts(
+                all_terminal, spec,
+            )
+            if seq_ok:
+                accepted.extend(seq_candidates)
+            else:
+                rejection_reasons.extend(seq_reasons)
     else:
-        assert len(unit_attempts) >= 1
-        # Use the terminal attempt for acceptance decision.
-        terminal = unit_attempts[-1]
+        assert None in terminal_by_step
+        terminal = terminal_by_step[None]
         result = accept_generation_attempt(terminal, spec)
         if result.accepted and result.candidate is not None:
             accepted.append(result.candidate)
         else:
             rejection_reasons.append(result.reason)
 
-    return unit_attempts
+    return new_attempts
 
 
 def _write_jsonl(path: Path, records: Sequence[Mapping[str, object]]) -> None:
@@ -1024,7 +1391,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="openai",
         help="Serving provider recorded in attempt provenance (E2-002).",
     )
-    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--api-base", default=None)
     parser.add_argument("--api-key-env", default=None)
     # E3-007: resume and plan flags.
@@ -1097,11 +1464,27 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     generator: EmpiricalCandidateGenerator
     retry_policy: dict[str, object] | None = None
+    frozen_config: FrozenGenerationConfig | None = None
+    effective_temperature: float
     if args.mode == "mock":
         generator = MockEmpiricalGenerator()
+        effective_temperature = args.temperature if args.temperature is not None else 0.7
     elif args.plan is not None:
         # Patch B: full plan-driven real campaign uses frozen config only.
         frozen_config = load_frozen_generation_config()
+        # Patch G: reject incompatible temperature override.
+        if (
+            args.temperature is not None
+            and args.temperature != frozen_config.generator_temperature
+        ):
+            print(
+                f"ERROR: --temperature {args.temperature} conflicts with frozen "
+                f"config temperature {frozen_config.generator_temperature}. "
+                f"Plan-driven mode uses the frozen config only.",
+                file=sys.stderr,
+            )
+            return 2
+        effective_temperature = frozen_config.generator_temperature
         generator = RealEmpiricalGenerator.from_frozen_config(
             frozen_config,
             api_base=args.api_base,
@@ -1116,13 +1499,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.generator_model:
             print("--generator-model is required for --mode real", file=sys.stderr)
             return 2
+        effective_temperature = args.temperature if args.temperature is not None else 0.7
         generator = RealEmpiricalGenerator(
             provider=args.provider,
             model_name=args.generator_model,
-            temperature=args.temperature,
+            temperature=effective_temperature,
             api_base=args.api_base,
             api_key_env=args.api_key_env,
         )
+
+    # Patch E: paths for campaign identity computation.
+    _manifests_dir = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "manifests"
+    _frozen_config_path = _manifests_dir / "full_generation_config.json"
+    _phase_manifest_path = _manifests_dir / "empirical_phase.json"
 
     try:
         report = run_generation(
@@ -1134,11 +1523,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             samples=args.samples,
             output_dir=args.output_dir,
             generator=generator,
-            temperature=args.temperature,
+            temperature=effective_temperature,
             resume=args.resume,
             plan_items=plan_items,
             max_tokens=getattr(generator, "max_tokens", None),
             retry_policy=retry_policy,
+            plan_path=args.plan,
+            frozen_config=frozen_config,
+            frozen_config_path=_frozen_config_path,
+            phase_manifest_path=_phase_manifest_path,
         )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
