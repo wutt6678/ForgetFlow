@@ -28,7 +28,7 @@ from experiments.trustparadox_u.empirical_corpus import (
     validate_sequence_structure,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_BASE = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _OUTPUT_DIR = _CORPUS_BASE
 _REPORT_JSON = _OUTPUT_DIR / "full_corpus_validation_report.json"
