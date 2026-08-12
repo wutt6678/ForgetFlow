@@ -35,12 +35,55 @@ from experiments.trustparadox_u.empirical_generation import (
     build_prompt_manifest,
     prompt_manifest_sha256,
 )
-from experiments.trustparadox_u.generate_empirical_corpus import (
-    specs_for_split,
-)
+
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFESTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "manifests"
+
+# ---------------------------------------------------------------------------
+# E3-003b: typed frozen generation configuration loader
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FrozenGenerationConfig:
+    """Typed view of ``full_generation_config.json``.
+
+    This is the single source of truth for actual API request parameters
+    during the full-corpus generation campaign.
+    """
+
+    generator_provider: str
+    generator_model_requested: str
+    generator_temperature: float
+    generator_max_tokens: int
+    request_timeout: float
+    max_retries: int
+    backoff_seconds: tuple[float, ...]
+    retryable_statuses: tuple[str, ...]
+    generation_replicates: int
+    generator_seed_policy: str = "provider_default_unavailable"
+
+
+def load_frozen_generation_config(
+    path: Path = _MANIFESTS_DIR / "full_generation_config.json",
+) -> FrozenGenerationConfig:
+    """Load and parse the frozen generation config from disk."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    retry = data.get("retry_policy", {})
+    return FrozenGenerationConfig(
+        generator_provider=data["generator_provider"],
+        generator_model_requested=data["generator_model_requested"],
+        generator_temperature=float(data["generator_temperature"]),
+        generator_max_tokens=int(data["generator_max_tokens"]),
+        request_timeout=float(data["request_timeout"]),
+        max_retries=int(retry.get("max_retries", 2)),
+        backoff_seconds=tuple(float(s) for s in retry.get("backoff_seconds", [2.0, 5.0])),
+        retryable_statuses=tuple(retry.get("retryable_statuses", ["provider_error", "timeout"])),
+        generation_replicates=int(data.get("generation_replicates", 1)),
+        generator_seed_policy=data.get("generator_seed_policy", "provider_default_unavailable"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # E3-003: frozen generation configuration
@@ -250,6 +293,9 @@ def build_full_generation_plan(
     scenario_ids: Sequence[str] | None = None,
 ) -> list[GenerationPlanItem]:
     """Expand the full corpus generation plan across all splits."""
+    # Lazy import to break circular dependency with generate_empirical_corpus.
+    from experiments.trustparadox_u.generate_empirical_corpus import specs_for_split
+
     items: list[GenerationPlanItem] = []
     for split in splits:
         specs = specs_for_split(split, scenario_ids=scenario_ids)
@@ -309,7 +355,11 @@ def validate_generation_plan(items: Sequence[GenerationPlanItem]) -> list[str]:
 
 
 def plan_summary(items: Sequence[GenerationPlanItem]) -> dict[str, object]:
-    """Compute expected counts for the generation plan."""
+    """Compute expected counts for the generation plan.
+
+    Patch J: adds scientific unit counts that distinguish planned provider
+    calls from independent scientific generation units.
+    """
     by_split: dict[str, int] = dict(sorted(Counter(it.split for it in items).items()))
     by_scenario: dict[str, int] = dict(sorted(Counter(it.scenario_id for it in items).items()))
     by_variant: dict[str, int] = dict(sorted(Counter(it.secret_variant_id for it in items).items()))
@@ -324,11 +374,22 @@ def plan_summary(items: Sequence[GenerationPlanItem]) -> dict[str, object]:
         {(it.sequence_id, it.trust_level) for it in sequence_items if it.sequence_id}
     )
 
+    # Patch J: scientific unit counts.
+    # Each non-sequence item is one scientific unit.
+    # Each distinct (sequence_id, trust_level) group is one sequence scientific unit.
+    non_sequence_unit_count = len(non_sequence_items)
+    sequence_unit_count = distinct_sequences
+    scientific_unit_count = non_sequence_unit_count + sequence_unit_count
+
     return {
         "total_planned_attempts": len(items),
         "non_sequence_attempts": len(non_sequence_items),
         "sequence_step_attempts": len(sequence_items),
         "distinct_sequences": distinct_sequences,
+        "scientific_generation_unit_count": scientific_unit_count,
+        "planned_provider_call_minimum": len(items),
+        "sequence_scientific_unit_count": sequence_unit_count,
+        "non_sequence_scientific_unit_count": non_sequence_unit_count,
         "by_split": by_split,
         "by_scenario": by_scenario,
         "by_variant": by_variant,

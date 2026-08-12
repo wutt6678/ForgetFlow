@@ -15,6 +15,7 @@ Exit criterion — after a successful transition::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -64,6 +65,70 @@ _REQUIRED_BOOLEAN_GATES: tuple[str, ...] = (
     "full_corpus_generation_authorized",
 )
 
+# ---------------------------------------------------------------------------
+# Mapping from phase-manifest hash fields to the E2 artifact they must cover.
+# Patch G — every entry is recomputed and compared before transition.
+# ---------------------------------------------------------------------------
+
+_RESULTS_ROOT = _PROJECT_ROOT / "results" / "empirical_v2"
+
+E2_HASHED_ARTIFACTS: dict[str, Path] = {
+    "frozen_prompt_manifest_sha256": (
+        _RESULTS_ROOT / "e2_prompt_freeze" / "frozen_prompt_manifest.json"
+    ),
+    "completion_report_sha256": (
+        _RESULTS_ROOT / "e2_completion" / "e2_completion_report.json"
+    ),
+    "primary_labels_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "frozen_primary_labels.json"
+    ),
+    "agreement_report_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "label_agreement_report.json"
+    ),
+    "synthetic_regression_report_sha256": (
+        _RESULTS_ROOT / "e2_synthetic_regression" / "synthetic_regression_report.json"
+    ),
+    "secondary_prompt_manifest_sha256": (
+        _RESULTS_ROOT / "e2_secondary_annotation" / "secondary_prompt_manifest.json"
+    ),
+    "secondary_agreement_sha256": (
+        _RESULTS_ROOT / "e2_secondary_annotation" / "secondary_annotation_agreement.json"
+    ),
+    "secondary_labels_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "secondary_review_labels.jsonl"
+    ),
+    "secondary_execution_provenance_sha256": (
+        _RESULTS_ROOT / "e2_secondary_annotation" / "secondary_execution_provenance.json"
+    ),
+    "labeling_report_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "labeling_report.json"
+    ),
+    "pilot_analysis_sha256": (
+        _RESULTS_ROOT / "e2_pilot_analysis" / "pilot_analysis_report.json"
+    ),
+    "floor_effect_diagnostic_sha256": (
+        _RESULTS_ROOT / "e2_pilot_analysis" / "floor_effect_diagnostic.json"
+    ),
+    "bounded_revision_report_sha256": (
+        _RESULTS_ROOT / "e2_bounded_revision" / "bounded_revision_report.json"
+    ),
+    "raw_generation_sha256": (
+        _RESULTS_ROOT / "e2_primary_trust_pilot" / "raw_generation_attempts.jsonl"
+    ),
+    "secondary_review_queue_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "secondary_review_queue.jsonl"
+    ),
+    "secondary_review_labels_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "secondary_review_labels.jsonl"
+    ),
+    "secondary_raw_responses_sha256": (
+        _RESULTS_ROOT / "e2_secondary_annotation" / "secondary_raw_responses.jsonl"
+    ),
+    "primary_label_sha256": (
+        _RESULTS_ROOT / "e2_primary_pilot_labels" / "frozen_primary_labels.json"
+    ),
+}
+
 
 class TransitionError(RuntimeError):
     """Raised when a phase-transition prerequisite is not satisfied."""
@@ -83,6 +148,49 @@ def _repository_commit() -> str:
         check=False,
     )
     return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _file_sha256(path: Path) -> str:
+    """Return the hex SHA-256 digest of *path* contents."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _verify_e2_artifact_hashes(record: dict[str, object]) -> None:
+    """Recompute SHA-256 of every essential E2 artifact and compare.
+
+    Raises ``TransitionError`` on the first mismatch or missing artifact.
+    """
+    mismatches: list[str] = []
+    missing_artifacts: list[str] = []
+
+    for field, artifact_path in sorted(E2_HASHED_ARTIFACTS.items()):
+        recorded = record.get(field)
+        if not recorded:
+            # Already caught by the presence/emptiness check above, but
+            # skip gracefully if a field is not in the mapping scope.
+            continue
+        if not artifact_path.exists():
+            missing_artifacts.append(
+                f"{field}: artifact not found at {artifact_path}"
+            )
+            continue
+        computed = _file_sha256(artifact_path)
+        if computed != str(recorded):
+            mismatches.append(
+                f"{field}: recorded={recorded!r} "
+                f"computed={computed} ({artifact_path})"
+            )
+
+    if missing_artifacts:
+        raise TransitionError(
+            "E2 artifact verification failed — missing artifacts:\n  "
+            + "\n  ".join(missing_artifacts)
+        )
+    if mismatches:
+        raise TransitionError(
+            "E2 artifact verification failed — hash mismatches:\n  "
+            + "\n  ".join(mismatches)
+        )
 
 
 def _load_phase_record(path: Path = EMPIRICAL_PHASE_FILE) -> dict[str, object]:
@@ -133,6 +241,9 @@ def transition_to_e3_corpus_generation(
         raise TransitionError(f"missing E2 hash fields: {', '.join(missing)}")
     if empty:
         raise TransitionError(f"empty E2 hash fields: {', '.join(empty)}")
+
+    # 3b. Patch G — recompute every E2 artifact hash and compare.
+    _verify_e2_artifact_hashes(record)
 
     # 4. Clean working tree.
     if force_clean_tree_check and not working_tree_is_fully_clean():

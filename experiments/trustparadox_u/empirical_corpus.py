@@ -380,6 +380,34 @@ def generation_attempt_id(
     return base
 
 
+def provider_attempt_id(
+    *,
+    scenario_id: str,
+    secret_variant_id: str,
+    trust_level: str,
+    attack_type: str,
+    sample_index: int,
+    generation_replicate: int,
+    retry_index: int,
+    sequence_step_index: int | None = None,
+) -> str:
+    """Unique identity for each provider call (Patch C).
+
+    Distinct from :func:`generation_attempt_id` which identifies the
+    scientific generation unit.  Each retry appends ``_retry{N}``.
+    """
+    base = generation_attempt_id(
+        scenario_id=scenario_id,
+        secret_variant_id=secret_variant_id,
+        trust_level=trust_level,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sequence_step_index=sequence_step_index,
+    )
+    return f"{base}_retry{retry_index}"
+
+
 def empirical_candidate_family_id(
     *,
     scenario_id: str,
@@ -910,6 +938,10 @@ class EmpiricalGenerationAttempt:
     trust_prompt_hash: str | None = None
     attack_prompt_hash: str | None = None
     max_tokens: int | None = None
+
+    # Patch C: unique provider-call identity (additive; older records
+    # default to None so E1/E2 records still round-trip).
+    provider_attempt_id: str | None = None
 
     @property
     def is_sequence_attempt(self) -> bool:

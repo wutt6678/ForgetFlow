@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""E3-014: Full-corpus validation and audit.
+"""E3-014 / Patch F: Full-corpus validation and audit.
 
-Produces a blocking Phase-3 validation report covering:
-- Phase/provenance checks
-- Identity uniqueness
-- Split integrity
-- Raw-attempt completeness
-- Accepted corpus validity
-- Sequence completeness
-- Scientific coverage reporting
+Produces a blocking Phase-3 validation report covering all 11 audit
+sections required before a split corpus can be frozen:
+
+ 10.1  Phase / provenance
+ 10.2  Generation-plan completeness
+ 10.3  Split integrity
+ 10.4  Identity validation
+ 10.5  Variant consistency and contamination
+ 10.6  Config consistency
+ 10.7  Hash integrity
+ 10.8  Sequence atomicity
+ 10.9  Retry lineage
+ 10.10 Acceptance-independence
+ 10.11 Coverage statistics
 
 Output:
 - results/empirical_v2/corpus_generation/full_corpus_validation_report.json
@@ -17,6 +23,7 @@ Output:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -25,20 +32,55 @@ from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_PHASE,
     EMPIRICAL_SCHEMA_VERSION,
     EMPIRICAL_STUDY_VERSION,
+    EMPIRICAL_TARGET_REGISTRY,
+    SEQUENCE_ATTACK_TYPES,
+    AttackType,
+    EmpiricalCandidate,
+    EmpiricalGenerationAttempt,
+    EmpiricalSplit,
+    EmpiricalTargetSpec,
+    GenerationStatus,
+    accepted_candidates_scientific_hash,
+    compute_target_registry_hash,
+    detect_cross_variant_contamination,
+    raw_attempts_scientific_hash,
+    record_to_attempt,
+    record_to_candidate,
     validate_sequence_structure,
+    validate_target_registry,
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_MANIFESTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "manifests"
 _CORPUS_BASE = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _OUTPUT_DIR = _CORPUS_BASE
 _REPORT_JSON = _OUTPUT_DIR / "full_corpus_validation_report.json"
 _REPORT_MD = _OUTPUT_DIR / "full_corpus_validation_report.md"
 
+# Frozen split → variant mapping (from the target registry).
+_FROZEN_SPLIT_VARIANTS: dict[str, list[str]] = {
+    "development": ["credential_v1", "private_attribute_v1", "authorization_v1"],
+    "validation": ["credential_v2", "private_attribute_v2", "authorization_v2"],
+    "test": [
+        "credential_v3", "credential_v4",
+        "private_attribute_v3", "private_attribute_v4",
+        "authorization_v3", "authorization_v4",
+    ],
+}
 
-def _load_attempts(split: str) -> list:
+# All valid variant IDs.
+_ALL_VARIANT_IDS: set[str] = set()
+for _variants in _FROZEN_SPLIT_VARIANTS.values():
+    _ALL_VARIANT_IDS.update(_variants)
+
+
+# ---------------------------------------------------------------------------
+# Data loading helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_attempts(split: str) -> list[EmpiricalGenerationAttempt]:
     """Load raw attempts for a split."""
-    from experiments.trustparadox_u.empirical_corpus import record_to_attempt
-
     path = _CORPUS_BASE / split / "raw_generation_attempts.jsonl"
     if not path.exists():
         return []
@@ -46,10 +88,8 @@ def _load_attempts(split: str) -> list:
         return [record_to_attempt(json.loads(line)) for line in fh if line.strip()]
 
 
-def _load_candidates(split: str) -> list:
+def _load_candidates(split: str) -> list[EmpiricalCandidate]:
     """Load accepted candidates for a split."""
-    from experiments.trustparadox_u.empirical_corpus import record_to_candidate
-
     path = _CORPUS_BASE / split / "accepted_candidates.jsonl"
     if not path.exists():
         return []
@@ -57,176 +97,714 @@ def _load_candidates(split: str) -> list:
         return [record_to_candidate(json.loads(line)) for line in fh if line.strip()]
 
 
+def _load_manifest(split: str) -> dict | None:
+    """Load the corpus manifest for a split."""
+    path = _CORPUS_BASE / split / "corpus_manifest.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_frozen_config() -> dict | None:
+    path = _MANIFESTS_DIR / "full_generation_config.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_plan_items() -> list[dict]:
+    path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+    if not path.exists():
+        return []
+    items = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                items.append(json.loads(line))
+    return items
+
+
+def _file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _spec_for_variant(variant_id: str) -> EmpiricalTargetSpec | None:
+    for spec in EMPIRICAL_TARGET_REGISTRY:
+        if spec.secret_variant_id == variant_id:
+            return spec
+    return None
+
+
+def _spec_by_scenario_variant(scenario_id: str, variant_id: str) -> EmpiricalTargetSpec | None:
+    for spec in EMPIRICAL_TARGET_REGISTRY:
+        if spec.scenario_id == scenario_id and spec.secret_variant_id == variant_id:
+            return spec
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 10.1 Phase / provenance
+# ---------------------------------------------------------------------------
+
+
 def validate_phase_and_provenance() -> list[str]:
-    """Check phase and provenance."""
-    findings = []
+    """Check phase, required artifacts, and provenance fields."""
+    findings: list[str] = []
     if EMPIRICAL_PHASE != "E3_CORPUS_GENERATION":
         findings.append(f"phase is {EMPIRICAL_PHASE}, expected E3_CORPUS_GENERATION")
+
+    # Check required frozen manifests exist.
+    for name in (
+        "empirical_phase.json",
+        "full_generation_config.json",
+        "full_generation_plan.jsonl",
+        "full_generation_plan_summary.json",
+    ):
+        if not (_MANIFESTS_DIR / name).exists():
+            findings.append(f"frozen manifest missing: {name}")
+
+    # Check target registry is valid.
+    registry_problems = validate_target_registry(EMPIRICAL_TARGET_REGISTRY)
+    findings.extend(registry_problems)
+
     return findings
 
 
-def validate_identity_uniqueness() -> list[str]:
-    """Check for duplicate IDs."""
-    findings = []
-    all_attempt_ids = []
-    all_candidate_ids = []
+# ---------------------------------------------------------------------------
+# 10.2 Generation-plan completeness
+# ---------------------------------------------------------------------------
 
-    for split in ["development", "validation", "test"]:
-        attempts = _load_attempts(split)
-        candidates = _load_candidates(split)
-        all_attempt_ids.extend(a.generation_attempt_id for a in attempts)
-        all_candidate_ids.extend(c.candidate_id for c in candidates)
 
-    dup_attempts = [aid for aid, count in Counter(all_attempt_ids).items() if count > 1]
-    dup_candidates = [cid for cid, count in Counter(all_candidate_ids).items() if count > 1]
+def validate_plan_completeness(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Every planned scientific unit must be accounted for."""
+    findings: list[str] = []
+    plan_items = _load_plan_items()
+    if not plan_items:
+        findings.append("generation plan not found or empty")
+        return findings
 
-    if dup_attempts:
-        findings.append(f"duplicate attempt IDs: {len(dup_attempts)}")
+    # Build set of (scenario_id, variant_id, trust, attack, sample, replicate)
+    # from attempts to check coverage.
+    attempt_units: set[tuple] = set()
+    for a in all_attempts:
+        unit = (
+            a.scenario_id, a.secret_variant_id, a.trust_level,
+            a.attack_type, a.sample_index, a.generation_replicate,
+        )
+        attempt_units.add(unit)
+
+    planned_units: set[tuple] = set()
+    for item in plan_items:
+        unit = (
+            item["scenario_id"], item["secret_variant_id"],
+            item["trust_level"], item["attack_type"],
+            item["sample_index"], item["generation_replicate"],
+        )
+        planned_units.add(unit)
+
+    unaccounted = planned_units - attempt_units
+    if unaccounted:
+        findings.append(
+            f"plan completeness: {len(unaccounted)} planned units have no raw attempts"
+        )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.3 Split integrity
+# ---------------------------------------------------------------------------
+
+
+def validate_split_integrity(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Check every attempt/candidate belongs to its frozen split."""
+    findings: list[str] = []
+
+    # Build variant → expected split mapping from registry.
+    variant_to_split: dict[str, str] = {}
+    for spec in EMPIRICAL_TARGET_REGISTRY:
+        variant_to_split[spec.secret_variant_id] = spec.split
+
+    for attempt in all_attempts:
+        expected_split = variant_to_split.get(attempt.secret_variant_id)
+        if expected_split is None:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"unknown variant {attempt.secret_variant_id}"
+            )
+        elif attempt.split != expected_split:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"split={attempt.split} but variant "
+                f"{attempt.secret_variant_id} belongs to {expected_split}"
+            )
+
+    for candidate in all_candidates:
+        expected_split = variant_to_split.get(candidate.secret_variant_id)
+        if expected_split is None:
+            findings.append(
+                f"candidate {candidate.candidate_id}: "
+                f"unknown variant {candidate.secret_variant_id}"
+            )
+        elif candidate.split != expected_split:
+            findings.append(
+                f"candidate {candidate.candidate_id}: "
+                f"split={candidate.split} but variant "
+                f"{candidate.secret_variant_id} belongs to {expected_split}"
+            )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.4 Identity validation
+# ---------------------------------------------------------------------------
+
+
+def validate_identity_uniqueness(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Check globally unique IDs and correct sequence metadata."""
+    findings: list[str] = []
+
+    # Provider attempt IDs (or generation_attempt_id for older records).
+    provider_ids = [
+        getattr(a, "provider_attempt_id", None) or a.generation_attempt_id
+        for a in all_attempts
+    ]
+    dup_provider = [pid for pid, c in Counter(provider_ids).items() if c > 1]
+    if dup_provider:
+        findings.append(f"duplicate provider attempt IDs: {len(dup_provider)}")
+
+    # Scientific generation-attempt IDs may repeat (retries share the same
+    # generation_attempt_id), but provider_attempt_id must be unique.
+    dup_attempt = [
+        aid for aid, c in Counter(a.generation_attempt_id for a in all_attempts).items()
+        if c > 1 and not any(getattr(a, "provider_attempt_id", None) for a in all_attempts
+                             if a.generation_attempt_id == aid)
+    ]
+    if dup_attempt:
+        findings.append(f"duplicate generation_attempt_ids without provider IDs: {len(dup_attempt)}")
+
+    # Candidate IDs must be globally unique.
+    dup_candidates = [cid for cid, c in Counter(c.candidate_id for c in all_candidates).items() if c > 1]
     if dup_candidates:
         findings.append(f"duplicate candidate IDs: {len(dup_candidates)}")
 
-    return findings
-
-
-def validate_split_integrity() -> list[str]:
-    """Check split assignment."""
-    findings = []
-    # Each split should use only its assigned variants
-    # This is a placeholder — full implementation would check variant assignments
-    return findings
-
-
-def validate_raw_completeness() -> list[str]:
-    """Check raw attempt completeness."""
-    findings = []
-    for split in ["development", "validation", "test"]:
-        attempts = _load_attempts(split)
-        if not attempts:
-            findings.append(f"{split}: no raw attempts found")
-    return findings
-
-
-def validate_accepted_corpus() -> list[str]:
-    """Check accepted corpus validity."""
-    findings = []
-    for split in ["development", "validation", "test"]:
-        candidates = _load_candidates(split)
-        attempts = _load_attempts(split)
-        # Check that each candidate derives from a retained attempt
-        attempt_ids = {a.generation_attempt_id for a in attempts}
-        for c in candidates:
-            if c.source_generation_attempt_id not in attempt_ids:
-                findings.append(f"{split}: candidate {c.candidate_id} has no source attempt")
-    return findings
-
-
-def validate_sequences() -> list[str]:
-    """Check sequence completeness."""
-    findings = []
-    for split in ["development", "validation", "test"]:
-        attempts = _load_attempts(split)
-        # Group sequence attempts
-        seq_groups: dict[tuple[str, str], list] = {}
-        for a in attempts:
-            if a.is_sequence_attempt and a.sequence_family_id:
-                key = (a.sequence_family_id, a.trust_level)
-                seq_groups.setdefault(key, []).append(a)
-
-        for (family_id, trust), steps in seq_groups.items():
-            problems = validate_sequence_structure(steps)
-            if problems:
-                findings.append(f"{split}/{family_id}/{trust}: {problems}")
+    # Sequence ID correctness.
+    for candidate in all_candidates:
+        if candidate.sequence_family_id is not None:
+            if candidate.sequence_step_index is None or candidate.sequence_step_count is None:
+                findings.append(
+                    f"candidate {candidate.candidate_id}: sequence family set "
+                    f"but step metadata incomplete"
+                )
 
     return findings
 
 
-def compute_coverage_stats() -> dict:
-    """Compute acceptance rates and coverage stats."""
-    stats = {}
-    for split in ["development", "validation", "test"]:
-        attempts = _load_attempts(split)
-        candidates = _load_candidates(split)
-        status_counts = Counter(a.generation_status for a in attempts)
+# ---------------------------------------------------------------------------
+# 10.5 Variant consistency and contamination
+# ---------------------------------------------------------------------------
+
+
+def validate_variant_consistency(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Check target belongs to assigned variant; no cross-variant leaks."""
+    findings: list[str] = []
+    specs_by_key: dict[tuple[str, str], EmpiricalTargetSpec] = {
+        (s.scenario_id, s.secret_variant_id): s for s in EMPIRICAL_TARGET_REGISTRY
+    }
+
+    # Check successful attempts against their spec.
+    for attempt in all_attempts:
+        if attempt.generation_status != GenerationStatus.SUCCESS.value:
+            continue
+        spec = specs_by_key.get((attempt.scenario_id, attempt.secret_variant_id))
+        if spec is None:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"no spec for {attempt.scenario_id}/{attempt.secret_variant_id}"
+            )
+            continue
+        contamination = detect_cross_variant_contamination(
+            attempt.candidate_text or "", spec,
+        )
+        if contamination:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"cross-variant contamination from {contamination}"
+            )
+
+    # Check accepted candidates.
+    for candidate in all_candidates:
+        spec = specs_by_key.get((candidate.scenario_id, candidate.secret_variant_id))
+        if spec is None:
+            continue
+        contamination = detect_cross_variant_contamination(candidate.text, spec)
+        if contamination:
+            findings.append(
+                f"candidate {candidate.candidate_id}: "
+                f"cross-variant contamination from {contamination}"
+            )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.6 Config consistency
+# ---------------------------------------------------------------------------
+
+
+def validate_config_consistency(
+    all_attempts: list[EmpiricalGenerationAttempt],
+) -> list[str]:
+    """Real attempts must match frozen campaign configuration."""
+    findings: list[str] = []
+    config = _load_frozen_config()
+    if config is None:
+        findings.append("frozen generation config not found")
+        return findings
+
+    frozen_model = config.get("generator_model_requested")
+    frozen_provider = config.get("generator_provider")
+    frozen_temperature = config.get("generator_temperature")
+    frozen_max_tokens = config.get("generator_max_tokens")
+
+    for attempt in all_attempts:
+        if attempt.generation_mode != "real":
+            continue
+        if frozen_model and attempt.generator_model_requested != frozen_model:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"model_requested={attempt.generator_model_requested} "
+                f"!= frozen {frozen_model}"
+            )
+        if frozen_provider and attempt.generator_provider != frozen_provider:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"provider={attempt.generator_provider} != frozen {frozen_provider}"
+            )
+        if frozen_temperature is not None and attempt.temperature != frozen_temperature:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"temperature={attempt.temperature} != frozen {frozen_temperature}"
+            )
+        if frozen_max_tokens is not None and attempt.max_tokens != frozen_max_tokens:
+            findings.append(
+                f"attempt {attempt.generation_attempt_id}: "
+                f"max_tokens={attempt.max_tokens} != frozen {frozen_max_tokens}"
+            )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.7 Hash integrity
+# ---------------------------------------------------------------------------
+
+
+def validate_hash_integrity(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Recompute scientific hashes and compare with manifests."""
+    findings: list[str] = []
+
+    for split in ("development", "validation", "test"):
+        manifest = _load_manifest(split)
+        if manifest is None:
+            continue
+
+        split_attempts = _load_attempts(split)
+        split_candidates = _load_candidates(split)
+
+        # Raw generation hash.
+        computed_raw = raw_attempts_scientific_hash(split_attempts)
+        recorded_raw = manifest.get("raw_generation_sha256")
+        if recorded_raw and computed_raw != recorded_raw:
+            findings.append(f"{split}: raw_generation_sha256 mismatch")
+
+        # Accepted candidate hash.
+        computed_acc = accepted_candidates_scientific_hash(split_candidates)
+        recorded_acc = manifest.get("accepted_candidate_sha256")
+        if recorded_acc and computed_acc != recorded_acc:
+            findings.append(f"{split}: accepted_candidate_sha256 mismatch")
+
+        # Target registry hash.
+        computed_reg = compute_target_registry_hash(EMPIRICAL_TARGET_REGISTRY)
+        recorded_reg = manifest.get("target_registry_sha256")
+        if recorded_reg and computed_reg != recorded_reg:
+            findings.append(f"{split}: target_registry_sha256 mismatch")
+
+    # Plan hash.
+    plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+    summary_path = _MANIFESTS_DIR / "full_generation_plan_summary.json"
+    if summary_path.exists():
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        recorded_plan_hash = summary.get("plan_sha256")
+        if recorded_plan_hash and plan_path.exists():
+            computed_plan_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+            if computed_plan_hash != recorded_plan_hash:
+                findings.append("generation plan SHA256 mismatch")
+
+    # Config hash.
+    config_path = _MANIFESTS_DIR / "full_generation_config.json"
+    if config_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        recorded_config_hash = config.get("target_registry_sha256")
+        computed_config_hash = compute_target_registry_hash(EMPIRICAL_TARGET_REGISTRY)
+        if recorded_config_hash and computed_config_hash != recorded_config_hash:
+            findings.append("generation config target_registry_sha256 mismatch")
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.8 Sequence atomicity
+# ---------------------------------------------------------------------------
+
+
+def validate_sequence_atomicity(
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Every accepted sequence must have all steps present."""
+    findings: list[str] = []
+
+    # Group candidates by sequence family + trust.
+    seq_groups: dict[tuple[str, str], list[EmpiricalCandidate]] = {}
+    for c in all_candidates:
+        if c.sequence_family_id is not None:
+            key = (c.sequence_family_id, c.trust_level)
+            seq_groups.setdefault(key, []).append(c)
+
+    for (family_id, trust), candidates in sorted(seq_groups.items()):
+        step_count = candidates[0].sequence_step_count if candidates else None
+        if step_count is None:
+            findings.append(f"sequence {family_id}/{trust}: missing step_count")
+            continue
+        if len(candidates) != step_count:
+            findings.append(
+                f"sequence {family_id}/{trust}: "
+                f"accepted {len(candidates)} steps, expected {step_count}"
+            )
+        indices = sorted(c.sequence_step_index for c in candidates)
+        if indices != list(range(step_count)):
+            findings.append(
+                f"sequence {family_id}/{trust}: "
+                f"step indices {indices} != 0..{step_count - 1}"
+            )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.9 Retry lineage
+# ---------------------------------------------------------------------------
+
+
+def validate_retry_lineage(
+    all_attempts: list[EmpiricalGenerationAttempt],
+) -> list[str]:
+    """For each scientific unit, retry indices must be consecutive from 0."""
+    findings: list[str] = []
+
+    # Group by (scenario, variant, trust, attack, sample, replicate, step_or_none).
+    groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
+    for a in all_attempts:
+        step = a.sequence_step_index if a.is_sequence_attempt else None
+        key = (
+            a.scenario_id, a.secret_variant_id, a.trust_level,
+            a.attack_type, a.sample_index, a.generation_replicate, step,
+        )
+        groups.setdefault(key, []).append(a)
+
+    for key, chain in sorted(groups.items()):
+        sorted_chain = sorted(chain, key=lambda a: a.retry_index)
+        indices = [a.retry_index for a in sorted_chain]
+
+        # Must start at 0.
+        if indices[0] != 0:
+            findings.append(
+                f"unit {key}: retry indices start at {indices[0]}, expected 0"
+            )
+
+        # Must be consecutive.
+        for i in range(1, len(indices)):
+            if indices[i] != indices[i - 1] + 1:
+                findings.append(
+                    f"unit {key}: retry indices not consecutive: {indices}"
+                )
+                break
+
+        # At most one terminal success.
+        successes = [a for a in sorted_chain if a.generation_status == GenerationStatus.SUCCESS.value]
+        if len(successes) > 1:
+            findings.append(
+                f"unit {key}: {len(successes)} successes, expected at most 1"
+            )
+
+        # No retry after success.
+        for i, a in enumerate(sorted_chain):
+            if a.generation_status == GenerationStatus.SUCCESS.value and i < len(sorted_chain) - 1:
+                findings.append(
+                    f"unit {key}: retry after success at index {a.retry_index}"
+                )
+                break
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.10 Acceptance-independence
+# ---------------------------------------------------------------------------
+
+_FORBIDDEN_ACCEPTANCE_FIELDS = (
+    "firewall_condition",
+    "flowgate_decision",
+    "embedding_score",
+    "policy_action",
+    "pu_rer",
+    "crr",
+    "rr",
+)
+
+
+def validate_acceptance_independence(
+    all_candidates: list[EmpiricalCandidate],
+) -> list[str]:
+    """Corpus must not contain firewall/policy metadata as acceptance criteria."""
+    findings: list[str] = []
+    candidate_fields = set(EmpiricalCandidate.__dataclass_fields__.keys())
+    for field in _FORBIDDEN_ACCEPTANCE_FIELDS:
+        if field in candidate_fields:
+            findings.append(
+                f"acceptance-independence: EmpiricalCandidate has field {field!r}"
+            )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# 10.11 Coverage statistics
+# ---------------------------------------------------------------------------
+
+
+def compute_coverage_stats(
+    all_attempts: list[EmpiricalGenerationAttempt],
+    all_candidates: list[EmpiricalCandidate],
+    plan_items: list[dict] | None = None,
+) -> dict:
+    """Detailed coverage statistics by split, scenario, variant, etc."""
+    stats: dict[str, object] = {}
+
+    for split in ("development", "validation", "test"):
+        split_attempts = [a for a in all_attempts if a.split == split]
+        split_candidates = [c for c in all_candidates if c.split == split]
+        status_counts = Counter(a.generation_status for a in split_attempts)
+
+        # Scientific units: unique (scenario, variant, trust, attack, sample, replicate).
+        unit_keys = set()
+        for a in split_attempts:
+            unit_keys.add((
+                a.scenario_id, a.secret_variant_id, a.trust_level,
+                a.attack_type, a.sample_index, a.generation_replicate,
+            ))
+
+        # Retry rate: attempts with retry_index > 0.
+        retry_count = sum(1 for a in split_attempts if a.retry_index > 0)
+
         stats[split] = {
-            "raw_attempt_count": len(attempts),
-            "accepted_count": len(candidates),
-            "status_counts": dict(status_counts),
-            "acceptance_rate": (len(candidates) / len(attempts) if attempts else 0.0),
+            "raw_provider_attempts": len(split_attempts),
+            "scientific_unit_count": len(unit_keys),
+            "accepted_candidates": len(split_candidates),
+            "rejected_units": len(unit_keys) - sum(
+                1 for uk in unit_keys
+                if any(
+                    a.generation_status == GenerationStatus.SUCCESS.value
+                    for a in split_attempts
+                    if (a.scenario_id, a.secret_variant_id, a.trust_level,
+                        a.attack_type, a.sample_index, a.generation_replicate) == uk
+                )
+            ),
+            "status_counts": dict(sorted(status_counts.items())),
+            "acceptance_rate": (
+                len(split_candidates) / len(unit_keys) if unit_keys else 0.0
+            ),
+            "refusal_rate": (
+                status_counts.get(GenerationStatus.REFUSAL.value, 0) / len(split_attempts)
+                if split_attempts else 0.0
+            ),
+            "provider_failure_rate": (
+                status_counts.get(GenerationStatus.PROVIDER_ERROR.value, 0) / len(split_attempts)
+                if split_attempts else 0.0
+            ),
+            "retry_rate": retry_count / len(split_attempts) if split_attempts else 0.0,
+            "by_scenario": dict(sorted(Counter(
+                a.scenario_id for a in split_attempts
+            ).items())),
+            "by_variant": dict(sorted(Counter(
+                a.secret_variant_id for a in split_attempts
+            ).items())),
+            "by_trust": dict(sorted(Counter(
+                a.trust_level for a in split_attempts
+            ).items())),
+            "by_attack": dict(sorted(Counter(
+                a.attack_type for a in split_attempts
+            ).items())),
         }
+
+    if plan_items is not None:
+        stats["plan_item_count"] = len(plan_items)
+
     return stats
 
 
-def build_validation_report() -> dict:
-    """Build the full validation report."""
-    findings = []
-    findings.extend(validate_phase_and_provenance())
-    findings.extend(validate_identity_uniqueness())
-    findings.extend(validate_split_integrity())
-    findings.extend(validate_raw_completeness())
-    findings.extend(validate_accepted_corpus())
-    findings.extend(validate_sequences())
+# ---------------------------------------------------------------------------
+# Aggregated report builder
+# ---------------------------------------------------------------------------
 
-    coverage = compute_coverage_stats()
+
+def build_validation_report() -> dict:
+    """Build the full validation report with all 11 audit sections."""
+    # Load all data.
+    all_attempts: list[EmpiricalGenerationAttempt] = []
+    all_candidates: list[EmpiricalCandidate] = []
+    for split in ("development", "validation", "test"):
+        all_attempts.extend(_load_attempts(split))
+        all_candidates.extend(_load_candidates(split))
+
+    plan_items = _load_plan_items()
+
+    # Run all audit sections.
+    sections: dict[str, list[str]] = {}
+
+    sections["phase_provenance"] = validate_phase_and_provenance()
+    sections["plan_completeness"] = validate_plan_completeness(all_attempts, all_candidates)
+    sections["split_integrity"] = validate_split_integrity(all_attempts, all_candidates)
+    sections["identity_uniqueness"] = validate_identity_uniqueness(all_attempts, all_candidates)
+    sections["variant_consistency"] = validate_variant_consistency(all_attempts, all_candidates)
+    sections["config_consistency"] = validate_config_consistency(all_attempts)
+    sections["hash_integrity"] = validate_hash_integrity(all_attempts, all_candidates)
+    sections["sequence_atomicity"] = validate_sequence_atomicity(all_candidates)
+    sections["retry_lineage"] = validate_retry_lineage(all_attempts)
+    sections["acceptance_independence"] = validate_acceptance_independence(all_candidates)
+
+    # Collect all blocking findings.
+    all_findings: list[str] = []
+    for section_findings in sections.values():
+        all_findings.extend(section_findings)
+
+    coverage = compute_coverage_stats(all_attempts, all_candidates, plan_items)
 
     return {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "study_version": EMPIRICAL_STUDY_VERSION,
         "empirical_phase": EMPIRICAL_PHASE,
-        "validation_findings": findings,
-        "finding_count": len(findings),
+        "audit_sections": sections,
+        "validation_findings": all_findings,
+        "finding_count": len(all_findings),
+        "blocking_finding_count": len(all_findings),
         "coverage_stats": coverage,
-        "passed": len(findings) == 0,
+        "total_raw_attempts": len(all_attempts),
+        "total_accepted_candidates": len(all_candidates),
+        "passed": len(all_findings) == 0,
     }
+
+
+# ---------------------------------------------------------------------------
+# Markdown report
+# ---------------------------------------------------------------------------
 
 
 def write_markdown_report(report: dict) -> None:
     """Write a human-readable markdown report."""
     lines = [
-        "# Full Corpus Validation Report",
+        "# Full Corpus Validation Report (Patch F)",
         "",
         f"**Phase**: {report['empirical_phase']}",
         f"**Schema Version**: {report['schema_version']}",
         f"**Study Version**: {report['study_version']}",
         f"**Passed**: {report['passed']}",
-        f"**Finding Count**: {report['finding_count']}",
-        "",
-        "## Findings",
+        f"**Blocking Findings**: {report['blocking_finding_count']}",
+        f"**Total Raw Attempts**: {report['total_raw_attempts']}",
+        f"**Total Accepted Candidates**: {report['total_accepted_candidates']}",
         "",
     ]
 
+    # Per-section summary.
+    lines.append("## Audit Sections")
+    lines.append("")
+    sections = report.get("audit_sections", {})
+    for section_name, findings in sections.items():
+        status = "PASS" if not findings else f"FAIL ({len(findings)} findings)"
+        lines.append(f"- **{section_name}**: {status}")
+    lines.append("")
+
+    # All findings.
+    lines.append("## All Findings")
+    lines.append("")
     if report["validation_findings"]:
         for finding in report["validation_findings"]:
             lines.append(f"- {finding}")
     else:
-        lines.append("No findings. All validation checks passed.")
+        lines.append("No findings. All audit checks passed.")
+    lines.append("")
 
-    lines.extend(
-        [
+    # Coverage stats.
+    lines.append("## Coverage Statistics")
+    lines.append("")
+    coverage = report.get("coverage_stats", {})
+    for split in ("development", "validation", "test"):
+        split_stats = coverage.get(split, {})
+        if not split_stats:
+            continue
+        lines.extend([
+            f"### {split.capitalize()}",
             "",
-            "## Coverage Statistics",
+            f"- Raw provider attempts: {split_stats.get('raw_provider_attempts', 0)}",
+            f"- Scientific units: {split_stats.get('scientific_unit_count', 0)}",
+            f"- Accepted candidates: {split_stats.get('accepted_candidates', 0)}",
+            f"- Acceptance rate: {split_stats.get('acceptance_rate', 0):.2%}",
+            f"- Refusal rate: {split_stats.get('refusal_rate', 0):.2%}",
+            f"- Provider failure rate: {split_stats.get('provider_failure_rate', 0):.2%}",
+            f"- Retry rate: {split_stats.get('retry_rate', 0):.2%}",
             "",
-        ]
-    )
-
-    for split, stats in report["coverage_stats"].items():
-        lines.extend(
-            [
-                f"### {split.capitalize()}",
-                "",
-                f"- Raw attempts: {stats['raw_attempt_count']}",
-                f"- Accepted: {stats['accepted_count']}",
-                f"- Acceptance rate: {stats['acceptance_rate']:.2%}",
-                f"- Status counts: {stats['status_counts']}",
-                "",
-            ]
-        )
+        ])
 
     _REPORT_MD.write_text("\n".join(lines), encoding="utf-8")
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
 def main() -> int:
     """Run the full corpus validation."""
-    print("Running full corpus validation...")
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Full corpus audit (Patch F).")
+    parser.add_argument(
+        "--split",
+        choices=["development", "validation", "test", "all"],
+        default="all",
+        help="Audit a specific split or all splits.",
+    )
+    args = parser.parse_args()
+
+    print("Running full corpus validation (Patch F)...")
 
     report = build_validation_report()
 
@@ -240,7 +818,7 @@ def main() -> int:
     print(f"Validation report written to: {_REPORT_JSON}")
     print(f"Markdown report written to: {_REPORT_MD}")
     print(f"Passed: {report['passed']}")
-    print(f"Findings: {report['finding_count']}")
+    print(f"Blocking findings: {report['blocking_finding_count']}")
 
     return 0 if report["passed"] else 1
 

@@ -40,8 +40,12 @@
   },
   "distinct_sequences": 144,
   "non_sequence_attempts": 516,
+  "non_sequence_scientific_unit_count": 516,
   "plan_item_count": 900,
   "plan_sha256": "e003e9f57b0fa74293dad0ba466a78489bb8c2a48df6705b29843b8afb87443a",
+  "planned_provider_call_minimum": 900,
+  "scientific_generation_unit_count": 660,
+  "sequence_scientific_unit_count": 144,
   "sequence_step_attempts": 384,
   "total_planned_attempts": 900,
   "validation_findings": []

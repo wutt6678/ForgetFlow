@@ -31,6 +31,23 @@ from experiments.trustparadox_u.transition_empirical_phase import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _skip_e2_artifact_hash_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Patch G added real artifact hash recomputation to the transition.
+
+    The existing tests use synthetic hash values (``"a" * 64``) that do
+    not correspond to real artifact files on disk.  Mock the verification
+    helper as a no-op so the rest of the transition logic is exercised.
+    """
+    monkeypatch.setattr(
+        "experiments.trustparadox_u.transition_empirical_phase."
+        "_verify_e2_artifact_hashes",
+        lambda record: None,
+    )
+
+
 def _valid_e2_record() -> dict:
     """Return a minimal phase record that satisfies every E2 prerequisite."""
     record: dict = {

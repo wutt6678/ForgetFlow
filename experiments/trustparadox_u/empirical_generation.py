@@ -51,6 +51,7 @@ from experiments.trustparadox_u.empirical_corpus import (
     empirical_sequence_family_id,
     empirical_sequence_id,
     generation_attempt_id,
+    provider_attempt_id as _compute_provider_attempt_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -729,6 +730,16 @@ def attempt_from_response(
         else None
     )
     refusal, malformed, off_topic = _status_flags(GenerationStatus(response.status))
+    prov_attempt_id = _compute_provider_attempt_id(
+        scenario_id=spec.scenario_id,
+        secret_variant_id=spec.secret_variant_id,
+        trust_level=request.trust_level,
+        attack_type=request.attack_type,
+        sample_index=request.sample_index,
+        generation_replicate=request.generation_replicate,
+        retry_index=response.retry_index,
+        sequence_step_index=request.sequence_step_index,
+    )
     return EmpiricalGenerationAttempt(
         generation_attempt_id=attempt_id,
         scenario_id=spec.scenario_id,
@@ -768,6 +779,7 @@ def attempt_from_response(
         trust_prompt_hash=trust_prompt_hash,
         attack_prompt_hash=attack_prompt_hash,
         max_tokens=max_tokens,
+        provider_attempt_id=prov_attempt_id,
     )
 
 
@@ -893,6 +905,117 @@ class RealEmpiricalGenerator:
 
     generation_mode: str = field(default=GenerationMode.REAL.value, init=False)
 
+    @classmethod
+    def from_frozen_config(
+        cls,
+        config: "FrozenGenerationConfig",
+        *,
+        api_base: str | None = None,
+        api_key_env: str | None = None,
+    ) -> "RealEmpiricalGenerator":
+        """Construct from a :class:`FrozenGenerationConfig` (Patch B).
+
+        The frozen config is the single source of truth for actual API
+        request parameters during the full-corpus generation campaign.
+        """
+        return cls(
+            provider=config.generator_provider,
+            model_name=config.generator_model_requested,
+            temperature=config.generator_temperature,
+            max_tokens=config.generator_max_tokens,
+            timeout_seconds=config.request_timeout,
+            max_retries=config.max_retries,
+            api_base=api_base,
+            api_key_env=api_key_env,
+        )
+
+    def generate_once(
+        self,
+        request: EmpiricalGenerationRequest,
+    ) -> EmpiricalGenerationResponse:
+        """Perform exactly one API call with no hidden retry loop (Patch C).
+
+        Transient errors are caught and returned as ``PROVIDER_ERROR``
+        responses so the campaign layer can retain every provider attempt
+        in raw provenance.  Non-transient errors also produce a
+        ``PROVIDER_ERROR`` response — this method never raises.
+        """
+        from litellm import completion
+
+        api_key: str | None = None
+        if self.api_key_env:
+            api_key = os.environ.get(self.api_key_env)
+
+        messages = [
+            {"role": "system", "content": request.system_prompt},
+            {"role": "user", "content": request.user_prompt},
+        ]
+
+        try:
+            kwargs: dict[str, object] = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": request.temperature,
+                "max_tokens": self.max_tokens,
+                "timeout": self.timeout_seconds,
+            }
+            if self.api_base:
+                kwargs["api_base"] = self.api_base
+            if api_key:
+                kwargs["api_key"] = api_key
+
+            start = time.monotonic()
+            response = completion(**kwargs)  # type: ignore[arg-type]
+            elapsed_ms = (time.monotonic() - start) * 1000.0
+
+            returned_model = str(getattr(response, "model", "") or "")
+            requested_model_name = self.model_name.split("/")[-1]
+            returned_model_name = returned_model.split("/")[-1]
+            if returned_model and requested_model_name not in returned_model_name:
+                return EmpiricalGenerationResponse(
+                    raw_text=None,
+                    request_id=str(getattr(response, "id", "") or "") or None,
+                    model_id=returned_model,
+                    model_revision=None,
+                    status=GenerationStatus.PROVIDER_ERROR.value,
+                    error_message=(
+                        "provider/model mismatch: requested "
+                        f"{self.model_name!r}, received {returned_model!r}"
+                    ),
+                    retry_index=0,
+                    generated_at=utc_now_iso(),
+                    latency_ms=elapsed_ms,
+                )
+
+            text = response.choices[0].message.content
+            if not text or not text.strip():
+                raise ValueError("provider returned empty response")
+
+            revision = str(getattr(response, "system_fingerprint", "") or "") or None
+            logger.debug("Empirical generation completed in %.1f ms", elapsed_ms)
+            return EmpiricalGenerationResponse(
+                raw_text=str(text),
+                request_id=str(getattr(response, "id", "") or "") or None,
+                model_id=returned_model or self.model_name,
+                model_revision=revision,
+                status=GenerationStatus.SUCCESS.value,
+                retry_index=0,
+                generated_at=utc_now_iso(),
+                latency_ms=elapsed_ms,
+            )
+        except Exception as exc:
+            return EmpiricalGenerationResponse(
+                raw_text=None,
+                request_id=None,
+                model_id=self.model_name,
+                model_revision=None,
+                status=GenerationStatus.PROVIDER_ERROR.value,
+                error_message=f"{type(exc).__name__}: {exc}",
+                retry_index=0,
+                generated_at=utc_now_iso(),
+                latency_ms=None,
+            )
+
     def generate(
         self,
         request: EmpiricalGenerationRequest,
@@ -1001,8 +1124,12 @@ class RawAttemptWriter:
     """Append-only writer for ``raw_generation_attempts.jsonl``.
 
     Preserves every attempt (success, refusal, malformed, provider error),
-    flushes after each record, and rejects duplicate generation-attempt IDs —
+    flushes after each record, and rejects duplicate provider-attempt IDs —
     including IDs already present in a pre-existing file.
+
+    Patch C: uniqueness is enforced on ``provider_attempt_id`` (unique per
+    provider call) rather than ``generation_attempt_id`` (shared across
+    retries for the same scientific unit).
     """
 
     def __init__(self, path: Path | str) -> None:
@@ -1016,15 +1143,20 @@ class RawAttemptWriter:
                     if not line:
                         continue
                     record = json.loads(line)
-                    attempt_id = record.get("generation_attempt_id")
+                    # Patch C: prefer provider_attempt_id; fall back to
+                    # generation_attempt_id for backward compatibility with
+                    # pre-patch records.
+                    attempt_id = record.get("provider_attempt_id") or record.get(
+                        "generation_attempt_id"
+                    )
                     if not isinstance(attempt_id, str) or not attempt_id:
                         raise ValueError(
-                            f"{self.path} line {line_number}: missing generation_attempt_id"
+                            f"{self.path} line {line_number}: missing provider_attempt_id"
                         )
                     if attempt_id in self._seen:
                         raise ValueError(
                             f"{self.path} line {line_number}: duplicate "
-                            f"generation_attempt_id {attempt_id!r}"
+                            f"provider_attempt_id {attempt_id!r}"
                         )
                     self._seen.add(attempt_id)
         self._attempt_count = 0
@@ -1034,13 +1166,16 @@ class RawAttemptWriter:
         return self._attempt_count
 
     def write_attempt(self, attempt: EmpiricalGenerationAttempt) -> None:
-        if attempt.generation_attempt_id in self._seen:
-            raise ValueError(f"duplicate generation_attempt_id {attempt.generation_attempt_id!r}")
+        # Patch C: use provider_attempt_id when available, fall back to
+        # generation_attempt_id for backward compatibility.
+        dedup_key = attempt.provider_attempt_id or attempt.generation_attempt_id
+        if dedup_key in self._seen:
+            raise ValueError(f"duplicate provider_attempt_id {dedup_key!r}")
         record = attempt_to_record(attempt)
         line = json.dumps(record, sort_keys=True, ensure_ascii=False)
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(line + "\n")
             handle.flush()
             os.fsync(handle.fileno())
-        self._seen.add(attempt.generation_attempt_id)
+        self._seen.add(dedup_key)
         self._attempt_count += 1

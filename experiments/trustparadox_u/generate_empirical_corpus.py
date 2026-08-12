@@ -58,6 +58,10 @@ from experiments.trustparadox_u.empirical_corpus import (
     validate_sequence_structure,
     validate_target_registry,
 )
+from experiments.trustparadox_u.empirical_generation_plan import (
+    FrozenGenerationConfig,
+    load_frozen_generation_config,
+)
 from experiments.trustparadox_u.empirical_generation import (
     EmpiricalCandidateGenerator,
     MockEmpiricalGenerator,
@@ -90,6 +94,153 @@ ACCEPTED_CANDIDATES_FILENAME = "accepted_candidates.jsonl"
 CORPUS_MANIFEST_FILENAME = "corpus_manifest.json"
 PROMPT_MANIFEST_FILENAME = "prompt_manifest.json"
 VALIDATION_REPORT_FILENAME = "validation_report.json"
+
+
+# ---------------------------------------------------------------------------
+# Patch D: atomic file writing helpers
+# ---------------------------------------------------------------------------
+
+
+def _write_jsonl_atomic(path: Path, records: Sequence[Mapping[str, object]]) -> None:
+    """Write JSONL atomically: write to .tmp then rename (Patch D)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n")
+    tmp_path.rename(path)
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    """Write JSON atomically: write to .tmp then rename (Patch D)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True, ensure_ascii=False)
+        handle.write("\n")
+    tmp_path.rename(path)
+
+
+# ---------------------------------------------------------------------------
+# Patch C: campaign-layer retry with frozen policy
+# ---------------------------------------------------------------------------
+
+
+def generate_with_retry(
+    *,
+    generator: EmpiricalCandidateGenerator,
+    request: "EmpiricalGenerationRequest",
+    retry_policy: Mapping[str, object] | None,
+    raw_writer: RawAttemptWriter,
+    spec: EmpiricalTargetSpec,
+    trust_level: str,
+    attack_type: str,
+    sample_index: int,
+    generation_mode: str,
+    transport: str | None,
+    generator_model_requested: str | None,
+    max_tokens: int | None,
+    trust_prompt_hash: str | None,
+    attack_prompt_hash: str | None,
+    temperature: float,
+) -> list[EmpiricalGenerationAttempt]:
+    """Call the provider with retry, writing every raw attempt (Patch C).
+
+    If the generator exposes ``generate_once`` (single-call, never raises),
+    each provider attempt is written to *raw_writer* immediately.  Otherwise
+    falls back to the legacy ``generate()`` path (mock / single-shot).
+    """
+    import time as _time
+
+    if not hasattr(generator, "generate_once"):
+        response = generator.generate(request)
+        attempt = attempt_from_response(
+            request,
+            response,
+            generator_provider=getattr(generator, "provider", GenerationMode.MOCK.value),
+            generation_mode=generation_mode,
+            transport=transport,
+            generator_model_requested=generator_model_requested,
+            max_tokens=max_tokens,
+            trust_prompt_hash=trust_prompt_hash,
+            attack_prompt_hash=attack_prompt_hash,
+        )
+        raw_writer.write_attempt(attempt)
+        return [attempt]
+
+    if retry_policy is None:
+        max_attempts = 1
+        backoff: tuple[float, ...] = ()
+        retryable: tuple[str, ...] = ()
+    else:
+        max_attempts = 1 + int(retry_policy.get("max_retries", 0))
+        backoff = tuple(float(s) for s in retry_policy.get("backoff_seconds", []))
+        retryable = tuple(retry_policy.get("retryable_statuses", ["provider_error"]))
+
+    attempts: list[EmpiricalGenerationAttempt] = []
+    for retry_index in range(max_attempts):
+        response = generator.generate_once(request)  # type: ignore[attr-defined]
+        response.retry_index = retry_index
+
+        attempt = attempt_from_response(
+            request,
+            response,
+            generator_provider=getattr(generator, "provider", GenerationMode.REAL.value),
+            generation_mode=generation_mode,
+            transport=transport,
+            generator_model_requested=generator_model_requested,
+            max_tokens=max_tokens,
+            trust_prompt_hash=trust_prompt_hash,
+            attack_prompt_hash=attack_prompt_hash,
+        )
+        raw_writer.write_attempt(attempt)
+        attempts.append(attempt)
+
+        if response.status == GenerationStatus.SUCCESS.value:
+            break
+        if retry_index >= max_attempts - 1:
+            break
+        if response.status not in retryable:
+            break
+        if retry_index < len(backoff):
+            _time.sleep(backoff[retry_index])
+
+    return attempts
+
+
+# ---------------------------------------------------------------------------
+# Patch E: atomic sequence acceptance
+# ---------------------------------------------------------------------------
+
+
+def accept_sequence_attempts(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+    spec: EmpiricalTargetSpec,
+) -> tuple[bool, list[EmpiricalCandidate], list[str]]:
+    """All-or-nothing sequence acceptance (Patch E).
+
+    Returns ``(accepted, candidates, rejection_reasons)``.
+    If every step passes individual acceptance, all candidates are returned.
+    Otherwise NO candidates are returned.
+    """
+    expected = len(attempts)
+    complete, problems = _is_sequence_complete(list(attempts), expected)
+    if not complete:
+        reason = f"sequence_incomplete: {'; '.join(problems)}"
+        return False, [], [reason] * expected
+
+    candidates: list[EmpiricalCandidate] = []
+    step_reasons: list[str] = []
+    for attempt in attempts:
+        result = accept_generation_attempt(attempt, spec)
+        if result.accepted and result.candidate is not None:
+            candidates.append(result.candidate)
+        else:
+            step_reasons.append(result.reason)
+
+    if len(candidates) == expected:
+        return True, candidates, []
+    return False, [], step_reasons
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +492,115 @@ def _is_sequence_complete(
     return True, []
 
 
+# ---------------------------------------------------------------------------
+# Patch D: rebuild accepted corpus from raw attempts
+# ---------------------------------------------------------------------------
+
+
+def _terminal_attempt(attempts: list[EmpiricalGenerationAttempt]) -> EmpiricalGenerationAttempt:
+    """Return the attempt with the highest retry_index (last provider call)."""
+    return max(attempts, key=lambda a: a.retry_index)
+
+
+def rebuild_accepted_candidates(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+    target_registry: Sequence[EmpiricalTargetSpec],
+) -> tuple[list[EmpiricalCandidate], list[str]]:
+    """Rebuild the accepted corpus from the full raw attempt log (Patch D).
+
+    Treats ``raw_generation_attempts.jsonl`` as the authoritative event log
+    and ``accepted_candidates.jsonl`` as a deterministic materialized view.
+
+    Procedure:
+
+    1. Group provider retries into scientific generation units.
+    2. For non-sequence units, select the terminal successful attempt.
+    3. For sequence units, group steps, select terminal per step, then
+       apply sequence atomicity (all-or-nothing).
+    4. Apply frozen acceptance rules.
+    5. Return the full accepted corpus.
+    """
+    specs_by_key: dict[tuple[str, str], EmpiricalTargetSpec] = {
+        (s.scenario_id, s.secret_variant_id): s for s in target_registry
+    }
+
+    # Group attempts by (unit_key, sequence_step_index | None).
+    # For non-sequence: key = (unit_key, None)
+    # For sequence: key = (unit_key, step_index)
+    unit_step_groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
+    for attempt in attempts:
+        uk = _unit_key(attempt)
+        step = attempt.sequence_step_index if attempt.is_sequence_attempt else None
+        group_key = (uk, step)
+        unit_step_groups.setdefault(group_key, []).append(attempt)
+
+    # Collect unique unit keys and classify as sequence or not.
+    unit_keys_seen: dict[tuple, bool] = {}
+    for (uk, step) in unit_step_groups:
+        is_seq = step is not None
+        if uk in unit_keys_seen:
+            # Consistency: once marked sequence, always sequence.
+            if is_seq:
+                unit_keys_seen[uk] = True
+        else:
+            unit_keys_seen[uk] = is_seq
+
+    accepted: list[EmpiricalCandidate] = []
+    rejections: list[str] = []
+
+    for uk, is_sequence in sorted(unit_keys_seen.items()):
+        scenario_id, secret_variant_id, trust_level, attack_type, sample_index, gen_rep = uk
+        spec = specs_by_key.get((scenario_id, secret_variant_id))
+        if spec is None:
+            rejections.append(f"unknown_target_spec:{scenario_id}/{secret_variant_id}")
+            continue
+
+        if not is_sequence:
+            # Non-sequence: pick terminal attempt, run acceptance.
+            group_key = (uk, None)
+            chain = unit_step_groups.get(group_key, [])
+            terminal = _terminal_attempt(chain)
+            result = accept_generation_attempt(terminal, spec)
+            if result.accepted and result.candidate is not None:
+                accepted.append(result.candidate)
+            else:
+                rejections.append(result.reason)
+        else:
+            # Sequence: collect terminal attempt per step, then atomicity.
+            step_indices = sorted(
+                step for (_, step) in unit_step_groups if _ == uk and step is not None
+            )
+            terminal_per_step: list[EmpiricalGenerationAttempt] = []
+            for si in step_indices:
+                chain = unit_step_groups[(uk, si)]
+                terminal_per_step.append(_terminal_attempt(chain))
+
+            expected = len(step_indices)
+            complete, problems = _is_sequence_complete(terminal_per_step, expected)
+            if not complete:
+                reason = f"sequence_incomplete: {'; '.join(problems)}"
+                rejections.append(reason)
+                continue
+
+            # Apply acceptance to each terminal step.
+            step_candidates: list[EmpiricalCandidate] = []
+            step_failed = False
+            for step_attempt in terminal_per_step:
+                result = accept_generation_attempt(step_attempt, spec)
+                if result.accepted and result.candidate is not None:
+                    step_candidates.append(result.candidate)
+                else:
+                    rejections.append(result.reason)
+                    step_failed = True
+
+            if step_failed:
+                # Atomic: discard all candidates for this sequence.
+                continue
+            accepted.extend(step_candidates)
+
+    return accepted, rejections
+
+
 def _build_sequence_report(
     *,
     planned: int,
@@ -412,6 +672,7 @@ def run_generation(
     resume: bool = False,
     plan_items: Sequence[GenerationPlanItem] | None = None,
     max_tokens: int | None = None,
+    retry_policy: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Generate, retain, and accept empirical attempts for one split.
 
@@ -441,6 +702,12 @@ def run_generation(
     attempted_keys: set[tuple] = set()
     if resume:
         existing_attempts = _load_attempts(output_dir / RAW_ATTEMPTS_FILENAME)
+        # Patch D: rebuild accepted from complete raw history.
+        rebuilt_accepted, rebuilt_rejections = rebuild_accepted_candidates(
+            existing_attempts, EMPIRICAL_TARGET_REGISTRY,
+        )
+        accepted.extend(rebuilt_accepted)
+        rejection_reasons.extend(rebuilt_rejections)
         attempted_keys = {_unit_key(a) for a in existing_attempts}
 
     raw_writer = RawAttemptWriter(output_dir / RAW_ATTEMPTS_FILENAME)
@@ -458,7 +725,9 @@ def run_generation(
             attack_is_applicable,
         )
 
-        specs_by_id = {s.scenario_id: s for s in specs_for_split(split)}
+        specs_by_key = {
+            (s.scenario_id, s.secret_variant_id): s for s in specs_for_split(split)
+        }
         groups: dict[tuple, list[GenerationPlanItem]] = {}
         for item in plan_items:
             key = (
@@ -475,9 +744,17 @@ def run_generation(
             first = group[0]
             if _key in attempted_keys:
                 continue
-            spec = specs_by_id.get(first.scenario_id)
+            spec_key = (first.scenario_id, first.secret_variant_id)
+            spec = specs_by_key.get(spec_key)
             if spec is None:
-                continue
+                raise ValueError(
+                    f"generation plan references unknown target spec: "
+                    f"{first.scenario_id}/{first.secret_variant_id}"
+                )
+            # Hard invariants: plan item must match the resolved target spec.
+            assert spec.scenario_id == first.scenario_id
+            assert spec.secret_variant_id == first.secret_variant_id
+            assert spec.split == first.split
             if not attack_is_applicable(first.attack_type, spec):
                 continue
             is_seq = AttackType(first.attack_type) in SEQUENCE_ATTACK_TYPES
@@ -493,29 +770,17 @@ def run_generation(
                 raw_writer=raw_writer,
                 accepted=accepted,
                 rejection_reasons=rejection_reasons,
-                max_tokens=max_tokens,
+                retry_policy=retry_policy,
             )
             attempts.extend(new)
             if is_seq:
-                ok, probs = _is_sequence_complete(new, len(group))
-                if ok:
+                seq_ok, seq_cands, seq_reasons = accept_sequence_attempts(new, spec)
+                if seq_ok:
                     complete_sequences += 1
-                    seq_accepted = sum(
-                        1
-                        for a in new
-                        if any(
-                            c.source_generation_attempt_id == a.generation_attempt_id
-                            for c in accepted
-                        )
-                    )
-                    if seq_accepted > 0:
-                        accepted_sequences += 1
-                    else:
-                        rejected_sequences += 1
-                        sequence_rejection_reasons.append("all_steps_rejected_by_acceptance")
+                    accepted_sequences += 1
                 else:
                     rejected_sequences += 1
-                    sequence_rejection_reasons.append(f"sequence_incomplete: {'; '.join(probs)}")
+                    sequence_rejection_reasons.extend(seq_reasons)
     else:
         # Standard nested-loop iteration.
         target_specs = specs_for_split(split, scenarios)
@@ -547,46 +812,40 @@ def run_generation(
                             raw_writer=raw_writer,
                             accepted=accepted,
                             rejection_reasons=rejection_reasons,
-                            max_tokens=max_tokens,
+                            retry_policy=retry_policy,
                         )
                         attempts.extend(new)
                         if is_seq:
                             step_count = sequence_step_count_for(attack_type, spec)
-                            ok, probs = _is_sequence_complete(new, step_count)
-                            if ok:
+                            seq_ok, seq_cands, seq_reasons = accept_sequence_attempts(
+                                new, spec,
+                            )
+                            if seq_ok:
                                 complete_sequences += 1
-                                seq_accepted = sum(
-                                    1
-                                    for a in new
-                                    if any(
-                                        c.source_generation_attempt_id == a.generation_attempt_id
-                                        for c in accepted
-                                    )
-                                )
-                                if seq_accepted > 0:
-                                    accepted_sequences += 1
-                                else:
-                                    rejected_sequences += 1
-                                    sequence_rejection_reasons.append(
-                                        "all_steps_rejected_by_acceptance"
-                                    )
+                                accepted_sequences += 1
                             else:
                                 rejected_sequences += 1
-                                sequence_rejection_reasons.append(
-                                    f"sequence_incomplete: {'; '.join(probs)}"
-                                )
+                                sequence_rejection_reasons.extend(seq_reasons)
 
     # E3-007: all_attempts includes loaded + new for manifest/report.
     all_attempts = list(existing_attempts) + attempts
 
+    # Patch D: rebuild accepted from ALL raw attempts (materialized view).
+    if resume:
+        final_accepted, final_rejections = rebuild_accepted_candidates(
+            all_attempts, EMPIRICAL_TARGET_REGISTRY,
+        )
+        accepted.clear()
+        accepted.extend(final_accepted)
+
     accepted_sorted = sorted(accepted, key=lambda c: c.candidate_id)
-    _write_jsonl(
+    _write_jsonl_atomic(
         output_dir / ACCEPTED_CANDIDATES_FILENAME,
         [candidate_to_record(candidate) for candidate in accepted_sorted],
     )
 
     prompt_manifest = build_prompt_manifest()
-    _write_json(output_dir / PROMPT_MANIFEST_FILENAME, prompt_manifest)
+    _write_json_atomic(output_dir / PROMPT_MANIFEST_FILENAME, prompt_manifest)
 
     manifest = build_corpus_manifest(
         generation_mode=generator.generation_mode,
@@ -596,7 +855,7 @@ def run_generation(
         artifact_class=artifact_class,
         research_use=research_use,
     )
-    _write_json(output_dir / CORPUS_MANIFEST_FILENAME, manifest)
+    _write_json_atomic(output_dir / CORPUS_MANIFEST_FILENAME, manifest)
 
     report = build_validation_report(
         attempts=all_attempts,
@@ -607,7 +866,7 @@ def run_generation(
         output_dir=output_dir,
         phase_lock_valid=True,
     )
-    _write_json(output_dir / VALIDATION_REPORT_FILENAME, report)
+    _write_json_atomic(output_dir / VALIDATION_REPORT_FILENAME, report)
 
     # E3-006: sequence generation report.
     seq_report = _build_sequence_report(
@@ -617,7 +876,7 @@ def run_generation(
         rejected=rejected_sequences,
         rejection_reasons=sequence_rejection_reasons,
     )
-    _write_json(output_dir / SEQUENCE_GENERATION_REPORT_FILENAME, seq_report)
+    _write_json_atomic(output_dir / SEQUENCE_GENERATION_REPORT_FILENAME, seq_report)
 
     return report
 
@@ -633,7 +892,7 @@ def _generate_unit(
     raw_writer: RawAttemptWriter,
     accepted: list[EmpiricalCandidate],
     rejection_reasons: list[str],
-    max_tokens: int | None = None,
+    retry_policy: Mapping[str, object] | None = None,
 ) -> list[EmpiricalGenerationAttempt]:
     """Generate one trial unit (one attempt, or one per sequence step).
 
@@ -643,11 +902,16 @@ def _generate_unit(
     E3-006: sequence attempts are generated atomically — all steps are
     retained in the raw file, but none are accepted into the corpus
     unless the full sequence validates.
+
+    Patch B: ``max_tokens`` comes from ``generator.max_tokens``.
+    Patch C: retry is handled at the campaign layer via
+    :func:`generate_with_retry`.
     """
     is_sequence = AttackType(attack_type) in SEQUENCE_ATTACK_TYPES
     step_count = sequence_step_count_for(attack_type, spec) if is_sequence else None
     steps = range(step_count) if step_count is not None else (None,)
 
+    gen_max_tokens = getattr(generator, "max_tokens", None)
     unit_attempts: list[EmpiricalGenerationAttempt] = []
     for step_index in steps:
         # E3-005: resolve prompt bundle for per-component hashes.
@@ -667,40 +931,40 @@ def _generate_unit(
             sequence_step_index=step_index,
             sequence_step_count=step_count,
         )
-        response = generator.generate(request)
-        attempt = attempt_from_response(
-            request,
-            response,
-            generator_provider=getattr(generator, "provider", GenerationMode.MOCK.value),
+        step_attempts = generate_with_retry(
+            generator=generator,
+            request=request,
+            retry_policy=retry_policy,
+            raw_writer=raw_writer,
+            spec=spec,
+            trust_level=trust_level,
+            attack_type=attack_type,
+            sample_index=sample_index,
             generation_mode=GenerationMode(generator.generation_mode).value,
             transport=getattr(generator, "transport", None),
-            generator_model_requested=getattr(generator, "model_name", response.model_id),
-            max_tokens=max_tokens,
+            generator_model_requested=getattr(generator, "model_name", None),
+            max_tokens=gen_max_tokens,
             trust_prompt_hash=prompt_sha256(bundle.trust_prompt),
             attack_prompt_hash=prompt_sha256(bundle.attack_prompt),
+            temperature=temperature,
         )
-        raw_writer.write_attempt(attempt)
-        unit_attempts.append(attempt)
+        unit_attempts.extend(step_attempts)
 
     if is_sequence:
-        # E3-006: validate the complete sequence before accepting any steps.
+        # Patch E: truly atomic sequence acceptance (all-or-nothing).
         assert step_count is not None
-        complete, problems = _is_sequence_complete(unit_attempts, step_count)
-        if not complete:
-            reason = f"sequence_incomplete: {'; '.join(problems)}"
-            for _ in unit_attempts:
-                rejection_reasons.append(reason)
+        seq_ok, seq_candidates, seq_reasons = accept_sequence_attempts(
+            unit_attempts, spec,
+        )
+        if seq_ok:
+            accepted.extend(seq_candidates)
         else:
-            for attempt in unit_attempts:
-                result = accept_generation_attempt(attempt, spec)
-                if result.accepted and result.candidate is not None:
-                    accepted.append(result.candidate)
-                else:
-                    rejection_reasons.append(result.reason)
+            rejection_reasons.extend(seq_reasons)
     else:
-        assert len(unit_attempts) == 1
-        attempt = unit_attempts[0]
-        result = accept_generation_attempt(attempt, spec)
+        assert len(unit_attempts) >= 1
+        # Use the terminal attempt for acceptance decision.
+        terminal = unit_attempts[-1]
+        result = accept_generation_attempt(terminal, spec)
         if result.accepted and result.candidate is not None:
             accepted.append(result.candidate)
         else:
@@ -710,6 +974,7 @@ def _generate_unit(
 
 
 def _write_jsonl(path: Path, records: Sequence[Mapping[str, object]]) -> None:
+    """Write JSONL records (non-atomic; used for small diagnostic files)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
@@ -717,6 +982,7 @@ def _write_jsonl(path: Path, records: Sequence[Mapping[str, object]]) -> None:
 
 
 def _write_json(path: Path, payload: Mapping[str, object]) -> None:
+    """Write a JSON payload (non-atomic; used for small diagnostic files)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True, ensure_ascii=False)
@@ -830,8 +1096,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     generator: EmpiricalCandidateGenerator
+    retry_policy: dict[str, object] | None = None
     if args.mode == "mock":
         generator = MockEmpiricalGenerator()
+    elif args.plan is not None:
+        # Patch B: full plan-driven real campaign uses frozen config only.
+        frozen_config = load_frozen_generation_config()
+        generator = RealEmpiricalGenerator.from_frozen_config(
+            frozen_config,
+            api_base=args.api_base,
+            api_key_env=args.api_key_env,
+        )
+        retry_policy = {
+            "max_retries": frozen_config.max_retries,
+            "backoff_seconds": list(frozen_config.backoff_seconds),
+            "retryable_statuses": list(frozen_config.retryable_statuses),
+        }
     else:
         if not args.generator_model:
             print("--generator-model is required for --mode real", file=sys.stderr)
@@ -843,8 +1123,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             api_base=args.api_base,
             api_key_env=args.api_key_env,
         )
-
-    from experiments.trustparadox_u.empirical_generation_plan import GENERATOR_MAX_TOKENS
 
     try:
         report = run_generation(
@@ -859,7 +1137,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             temperature=args.temperature,
             resume=args.resume,
             plan_items=plan_items,
-            max_tokens=GENERATOR_MAX_TOKENS,
+            max_tokens=getattr(generator, "max_tokens", None),
+            retry_policy=retry_policy,
         )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
