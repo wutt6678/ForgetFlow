@@ -124,6 +124,29 @@ def development_spec_for_scenario(scenario_id: str) -> EmpiricalTargetSpec:
     return matches[0]
 
 
+def specs_for_split(
+    split: str,
+    scenario_ids: Sequence[str] | None = None,
+) -> tuple[EmpiricalTargetSpec, ...]:
+    """E3-002: return every target spec assigned to *split*.
+
+    Uses the frozen ``split`` field in the target-spec registry — never
+    infers the split from the variant suffix.  When *scenario_ids* is
+    given the result is filtered to those scenarios only.
+
+    Expected counts: development=3, validation=3, test=6.
+    """
+    split_value = EmpiricalSplit(split).value
+    matches = tuple(
+        spec
+        for spec in EMPIRICAL_TARGET_REGISTRY
+        if spec.split == split_value and (scenario_ids is None or spec.scenario_id in scenario_ids)
+    )
+    if not matches:
+        raise ValueError(f"no target specs found for split {split!r}")
+    return matches
+
+
 def sequence_step_count_for(attack_type: str, spec: EmpiricalTargetSpec) -> int:
     attack = AttackType(attack_type)
     if attack is AttackType.FRAGMENTATION_SEQUENCE:
@@ -314,8 +337,8 @@ def run_generation(
     duplicate_id_count = 0
 
     raw_writer = RawAttemptWriter(output_dir / RAW_ATTEMPTS_FILENAME)
-    for scenario_id in scenarios:
-        spec = development_spec_for_scenario(scenario_id)
+    target_specs = specs_for_split(split, scenarios)
+    for spec in target_specs:
         for trust_level in trust_levels:
             TrustLevel(trust_level)
             for attack_type in attack_types:
@@ -486,11 +509,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("--samples must be >= 1", file=sys.stderr)
         return 2
 
-    scenarios = args.scenario or [
-        spec.scenario_id
-        for spec in EMPIRICAL_TARGET_REGISTRY
-        if spec.split == EmpiricalSplit.DEVELOPMENT.value
-    ]
+    scenarios = args.scenario or sorted({spec.scenario_id for spec in specs_for_split(args.split)})
     trust_levels = args.trust or [level.value for level in TrustLevel]
     attack_types = args.attack or list(DEFAULT_SMOKE_ATTACKS)
 
