@@ -72,6 +72,7 @@ class TestRealProvenance:
         response.error_message = None
         response.retry_index = 0
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,
@@ -104,6 +105,7 @@ class TestRealProvenance:
         response.error_message = None
         response.retry_index = 0
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,
@@ -133,6 +135,7 @@ class TestRealProvenance:
         response.error_message = None
         response.retry_index = 0
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,
@@ -161,6 +164,7 @@ class TestRealProvenance:
         response.error_message = None
         response.retry_index = 0
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,
@@ -189,6 +193,7 @@ class TestRealProvenance:
         response.error_message = "provider/model mismatch"
         response.retry_index = 0
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,
@@ -218,6 +223,7 @@ class TestRealProvenance:
             response.error_message = None
             response.retry_index = retry_index
             response.generated_at = "1970-01-01T00:00:00+00:00"
+            response.latency_ms = None
 
             attempt = attempt_from_response(
                 request,
@@ -248,6 +254,7 @@ class TestRealProvenance:
         response.error_message = "timeout"
         response.retry_index = 2
         response.generated_at = "1970-01-01T00:00:00+00:00"
+        response.latency_ms = None
 
         attempt = attempt_from_response(
             request,

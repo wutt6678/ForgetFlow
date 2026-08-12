@@ -67,6 +67,8 @@ from experiments.trustparadox_u.empirical_generation import (
     build_generation_request,
     build_prompt_manifest,
     prompt_manifest_sha256,
+    prompt_sha256,
+    resolve_prompt_bundle,
     utc_now_iso,
     validate_trust_prompt_invariance,
 )
@@ -304,6 +306,91 @@ def build_validation_report(
     }
 
 
+SEQUENCE_GENERATION_REPORT_FILENAME = "sequence_generation_report.json"
+
+
+def _unit_key(attempt: EmpiricalGenerationAttempt) -> tuple:
+    """Stable key identifying a generation unit (ignoring sequence steps)."""
+    return (
+        attempt.scenario_id,
+        attempt.secret_variant_id,
+        attempt.trust_level,
+        attempt.attack_type,
+        attempt.sample_index,
+        attempt.generation_replicate,
+    )
+
+
+def _is_sequence_complete(
+    attempts: list[EmpiricalGenerationAttempt],
+    expected_step_count: int,
+) -> tuple[bool, list[str]]:
+    """E3-006: check whether all sequence steps are present and valid."""
+    if len(attempts) != expected_step_count:
+        return False, [f"expected {expected_step_count} steps, got {len(attempts)}"]
+    indices = sorted(
+        a.sequence_step_index if a.sequence_step_index is not None else 0 for a in attempts
+    )
+    if len(set(indices)) != len(indices):
+        return False, ["duplicate step indices"]
+    if indices != list(range(expected_step_count)):
+        return False, [f"missing step indices: expected 0..{expected_step_count - 1}"]
+    problems = validate_sequence_structure(attempts)
+    if problems:
+        return False, problems
+    return True, []
+
+
+def _build_sequence_report(
+    *,
+    planned: int,
+    complete: int,
+    accepted: int,
+    rejected: int,
+    rejection_reasons: list[str],
+) -> dict[str, object]:
+    """E3-006: build the sequence generation report."""
+    return {
+        "planned_sequence_count": planned,
+        "complete_sequence_count": complete,
+        "incomplete_sequence_count": planned - complete,
+        "accepted_sequence_count": accepted,
+        "rejected_sequence_count": rejected,
+        "rejection_reasons": dict(sorted(Counter(rejection_reasons).items())),
+    }
+
+
+def _load_generation_plan(path: Path, *, max_items: int | None = None) -> list["GenerationPlanItem"]:
+    """Load a generation plan from a JSONL file."""
+    from experiments.trustparadox_u.empirical_generation_plan import GenerationPlanItem
+
+    items: list[GenerationPlanItem] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            items.append(
+                GenerationPlanItem(
+                    plan_item_id=record["plan_item_id"],
+                    split=record["split"],
+                    scenario_id=record["scenario_id"],
+                    secret_variant_id=record["secret_variant_id"],
+                    trust_level=record["trust_level"],
+                    attack_type=record["attack_type"],
+                    sample_index=record["sample_index"],
+                    generation_replicate=record["generation_replicate"],
+                    sequence_id=record.get("sequence_id"),
+                    sequence_step_index=record.get("sequence_step_index"),
+                    sequence_step_count=record.get("sequence_step_count"),
+                )
+            )
+    if max_items is not None:
+        items = items[:max_items]
+    return items
+
+
 # ---------------------------------------------------------------------------
 # E1-020: generation runner
 # ---------------------------------------------------------------------------
@@ -322,29 +409,135 @@ def run_generation(
     temperature: float = 0.7,
     artifact_class: str = "development_smoke",
     research_use: str = "diagnostic_only",
+    resume: bool = False,
+    plan_items: Sequence[GenerationPlanItem] | None = None,
+    max_tokens: int | None = None,
 ) -> dict[str, object]:
     """Generate, retain, and accept empirical attempts for one split.
 
     E1-021: raises ``EmpiricalPhaseLockedError`` for validation/test while
     the empirical phase is E1.
+
+    E3-005: requires a clean working tree for real-mode campaigns.
+
+    E3-007: when *resume* is true, existing raw attempts are loaded and
+    completed units are skipped.  Accepted candidates are rebuilt from
+    all raw attempts using the current frozen acceptance code.
     """
     assert_generation_split_unlocked(split)
     EmpiricalSplit(split)  # validates the split value
+
+    # E3-005: require clean committed tree for real generation campaigns.
+    if mode == "real" and not working_tree_is_fully_clean():
+        raise RuntimeError("refusing to start real generation with dirty working tree")
 
     attempts: list[EmpiricalGenerationAttempt] = []
     accepted: list[EmpiricalCandidate] = []
     rejection_reasons: list[str] = []
     duplicate_id_count = 0
 
+    # E3-007: load existing attempts for resume.
+    existing_attempts: list[EmpiricalGenerationAttempt] = []
+    attempted_keys: set[tuple] = set()
+    if resume:
+        existing_attempts = _load_attempts(output_dir / RAW_ATTEMPTS_FILENAME)
+        attempted_keys = {_unit_key(a) for a in existing_attempts}
+
     raw_writer = RawAttemptWriter(output_dir / RAW_ATTEMPTS_FILENAME)
-    target_specs = specs_for_split(split, scenarios)
-    for spec in target_specs:
-        for trust_level in trust_levels:
-            TrustLevel(trust_level)
-            for attack_type in attack_types:
-                for sample_index in range(samples):
-                    attempts.extend(
-                        _generate_unit(
+
+    # Sequence tracking for E3-006 report.
+    planned_sequences = 0
+    complete_sequences = 0
+    accepted_sequences = 0
+    rejected_sequences = 0
+    sequence_rejection_reasons: list[str] = []
+
+    if plan_items is not None:
+        # Plan-driven iteration (E3-007): group by unit and process.
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            attack_is_applicable,
+        )
+
+        specs_by_id = {s.scenario_id: s for s in specs_for_split(split)}
+        groups: dict[tuple, list[GenerationPlanItem]] = {}
+        for item in plan_items:
+            key = (
+                item.scenario_id,
+                item.secret_variant_id,
+                item.trust_level,
+                item.attack_type,
+                item.sample_index,
+                item.generation_replicate,
+            )
+            groups.setdefault(key, []).append(item)
+
+        for _key, group in sorted(groups.items()):
+            first = group[0]
+            if _key in attempted_keys:
+                continue
+            spec = specs_by_id.get(first.scenario_id)
+            if spec is None:
+                continue
+            if not attack_is_applicable(first.attack_type, spec):
+                continue
+            is_seq = AttackType(first.attack_type) in SEQUENCE_ATTACK_TYPES
+            if is_seq:
+                planned_sequences += 1
+            new = _generate_unit(
+                generator=generator,
+                spec=spec,
+                trust_level=first.trust_level,
+                attack_type=first.attack_type,
+                sample_index=first.sample_index,
+                temperature=temperature,
+                raw_writer=raw_writer,
+                accepted=accepted,
+                rejection_reasons=rejection_reasons,
+                max_tokens=max_tokens,
+            )
+            attempts.extend(new)
+            if is_seq:
+                ok, probs = _is_sequence_complete(new, len(group))
+                if ok:
+                    complete_sequences += 1
+                    seq_accepted = sum(
+                        1
+                        for a in new
+                        if any(
+                            c.source_generation_attempt_id == a.generation_attempt_id
+                            for c in accepted
+                        )
+                    )
+                    if seq_accepted > 0:
+                        accepted_sequences += 1
+                    else:
+                        rejected_sequences += 1
+                        sequence_rejection_reasons.append("all_steps_rejected_by_acceptance")
+                else:
+                    rejected_sequences += 1
+                    sequence_rejection_reasons.append(f"sequence_incomplete: {'; '.join(probs)}")
+    else:
+        # Standard nested-loop iteration.
+        target_specs = specs_for_split(split, scenarios)
+        for spec in target_specs:
+            for trust_level in trust_levels:
+                TrustLevel(trust_level)
+                for attack_type in attack_types:
+                    is_seq = AttackType(attack_type) in SEQUENCE_ATTACK_TYPES
+                    for sample_index in range(samples):
+                        unit_key = (
+                            spec.scenario_id,
+                            spec.secret_variant_id,
+                            trust_level,
+                            attack_type,
+                            sample_index,
+                            0,
+                        )
+                        if resume and unit_key in attempted_keys:
+                            continue
+                        if is_seq:
+                            planned_sequences += 1
+                        new = _generate_unit(
                             generator=generator,
                             spec=spec,
                             trust_level=trust_level,
@@ -354,8 +547,37 @@ def run_generation(
                             raw_writer=raw_writer,
                             accepted=accepted,
                             rejection_reasons=rejection_reasons,
+                            max_tokens=max_tokens,
                         )
-                    )
+                        attempts.extend(new)
+                        if is_seq:
+                            step_count = sequence_step_count_for(attack_type, spec)
+                            ok, probs = _is_sequence_complete(new, step_count)
+                            if ok:
+                                complete_sequences += 1
+                                seq_accepted = sum(
+                                    1
+                                    for a in new
+                                    if any(
+                                        c.source_generation_attempt_id == a.generation_attempt_id
+                                        for c in accepted
+                                    )
+                                )
+                                if seq_accepted > 0:
+                                    accepted_sequences += 1
+                                else:
+                                    rejected_sequences += 1
+                                    sequence_rejection_reasons.append(
+                                        "all_steps_rejected_by_acceptance"
+                                    )
+                            else:
+                                rejected_sequences += 1
+                                sequence_rejection_reasons.append(
+                                    f"sequence_incomplete: {'; '.join(probs)}"
+                                )
+
+    # E3-007: all_attempts includes loaded + new for manifest/report.
+    all_attempts = list(existing_attempts) + attempts
 
     accepted_sorted = sorted(accepted, key=lambda c: c.candidate_id)
     _write_jsonl(
@@ -368,7 +590,7 @@ def run_generation(
 
     manifest = build_corpus_manifest(
         generation_mode=generator.generation_mode,
-        attempts=attempts,
+        attempts=all_attempts,
         accepted=accepted_sorted,
         prompt_manifest=prompt_manifest,
         artifact_class=artifact_class,
@@ -377,7 +599,7 @@ def run_generation(
     _write_json(output_dir / CORPUS_MANIFEST_FILENAME, manifest)
 
     report = build_validation_report(
-        attempts=attempts,
+        attempts=all_attempts,
         accepted=accepted_sorted,
         rejection_reasons=rejection_reasons,
         duplicate_id_count=duplicate_id_count,
@@ -386,6 +608,17 @@ def run_generation(
         phase_lock_valid=True,
     )
     _write_json(output_dir / VALIDATION_REPORT_FILENAME, report)
+
+    # E3-006: sequence generation report.
+    seq_report = _build_sequence_report(
+        planned=planned_sequences,
+        complete=complete_sequences,
+        accepted=accepted_sequences,
+        rejected=rejected_sequences,
+        rejection_reasons=sequence_rejection_reasons,
+    )
+    _write_json(output_dir / SEQUENCE_GENERATION_REPORT_FILENAME, seq_report)
+
     return report
 
 
@@ -400,14 +633,31 @@ def _generate_unit(
     raw_writer: RawAttemptWriter,
     accepted: list[EmpiricalCandidate],
     rejection_reasons: list[str],
+    max_tokens: int | None = None,
 ) -> list[EmpiricalGenerationAttempt]:
-    """Generate one trial unit (one attempt, or one per sequence step)."""
+    """Generate one trial unit (one attempt, or one per sequence step).
+
+    E3-005: records ``trust_prompt_hash``, ``attack_prompt_hash``, and
+    ``max_tokens`` on every attempt.
+
+    E3-006: sequence attempts are generated atomically — all steps are
+    retained in the raw file, but none are accepted into the corpus
+    unless the full sequence validates.
+    """
     is_sequence = AttackType(attack_type) in SEQUENCE_ATTACK_TYPES
     step_count = sequence_step_count_for(attack_type, spec) if is_sequence else None
     steps = range(step_count) if step_count is not None else (None,)
 
     unit_attempts: list[EmpiricalGenerationAttempt] = []
     for step_index in steps:
+        # E3-005: resolve prompt bundle for per-component hashes.
+        bundle = resolve_prompt_bundle(
+            trust_level,
+            attack_type,
+            spec,
+            sequence_step_index=step_index,
+            sequence_step_count=step_count,
+        )
         request = build_generation_request(
             spec,
             trust_level,
@@ -418,8 +668,6 @@ def _generate_unit(
             sequence_step_count=step_count,
         )
         response = generator.generate(request)
-        # E2-002: provider/transport/mode are recorded separately; the
-        # provider is never the generation mode ("mock"/"real").
         attempt = attempt_from_response(
             request,
             response,
@@ -427,15 +675,37 @@ def _generate_unit(
             generation_mode=GenerationMode(generator.generation_mode).value,
             transport=getattr(generator, "transport", None),
             generator_model_requested=getattr(generator, "model_name", response.model_id),
+            max_tokens=max_tokens,
+            trust_prompt_hash=prompt_sha256(bundle.trust_prompt),
+            attack_prompt_hash=prompt_sha256(bundle.attack_prompt),
         )
         raw_writer.write_attempt(attempt)
         unit_attempts.append(attempt)
 
+    if is_sequence:
+        # E3-006: validate the complete sequence before accepting any steps.
+        assert step_count is not None
+        complete, problems = _is_sequence_complete(unit_attempts, step_count)
+        if not complete:
+            reason = f"sequence_incomplete: {'; '.join(problems)}"
+            for _ in unit_attempts:
+                rejection_reasons.append(reason)
+        else:
+            for attempt in unit_attempts:
+                result = accept_generation_attempt(attempt, spec)
+                if result.accepted and result.candidate is not None:
+                    accepted.append(result.candidate)
+                else:
+                    rejection_reasons.append(result.reason)
+    else:
+        assert len(unit_attempts) == 1
+        attempt = unit_attempts[0]
         result = accept_generation_attempt(attempt, spec)
         if result.accepted and result.candidate is not None:
             accepted.append(result.candidate)
         else:
             rejection_reasons.append(result.reason)
+
     return unit_attempts
 
 
@@ -459,9 +729,7 @@ def _write_json(path: Path, payload: Mapping[str, object]) -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Development-only empirical corpus generation (E1)."
-    )
+    parser = argparse.ArgumentParser(description="Empirical corpus generation (E1/E3).")
     parser.add_argument("--split", required=True, choices=[s.value for s in EmpiricalSplit])
     parser.add_argument("--mode", required=True, choices=["mock", "real"])
     parser.add_argument(
@@ -493,6 +761,31 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--api-base", default=None)
     parser.add_argument("--api-key-env", default=None)
+    # E3-007: resume and plan flags.
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Resume an interrupted campaign without duplicating attempts.",
+    )
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        default=None,
+        help="Path to a generation plan JSONL (E3-004).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Print plan summary without generating.",
+    )
+    parser.add_argument(
+        "--max-plan-items",
+        type=int,
+        default=None,
+        help="Truncate the plan to N items (diagnostic/preflight only).",
+    )
     return parser
 
 
@@ -513,6 +806,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     trust_levels = args.trust or [level.value for level in TrustLevel]
     attack_types = args.attack or list(DEFAULT_SMOKE_ATTACKS)
 
+    # E3-007: load plan if provided.
+    plan_items: list[GenerationPlanItem] | None = None
+    if args.plan is not None:
+        plan_items = _load_generation_plan(args.plan, max_items=args.max_plan_items)
+
+    # E3-007: dry-run prints plan summary and exits.
+    if args.dry_run:
+        if plan_items is not None:
+            print(json.dumps({"dry_run": True, "plan_items": len(plan_items)}))
+        else:
+            print(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "scenarios": len(scenarios),
+                        "trust_levels": len(trust_levels),
+                        "attack_types": len(attack_types),
+                        "samples": args.samples,
+                    }
+                )
+            )
+        return 0
+
     generator: EmpiricalCandidateGenerator
     if args.mode == "mock":
         generator = MockEmpiricalGenerator()
@@ -528,17 +844,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             api_key_env=args.api_key_env,
         )
 
-    report = run_generation(
-        split=args.split,
-        mode=args.mode,
-        scenarios=sorted(set(scenarios)),
-        trust_levels=trust_levels,
-        attack_types=attack_types,
-        samples=args.samples,
-        output_dir=args.output_dir,
-        generator=generator,
-        temperature=args.temperature,
-    )
+    from experiments.trustparadox_u.empirical_generation_plan import GENERATOR_MAX_TOKENS
+
+    try:
+        report = run_generation(
+            split=args.split,
+            mode=args.mode,
+            scenarios=sorted(set(scenarios)),
+            trust_levels=trust_levels,
+            attack_types=attack_types,
+            samples=args.samples,
+            output_dir=args.output_dir,
+            generator=generator,
+            temperature=args.temperature,
+            resume=args.resume,
+            plan_items=plan_items,
+            max_tokens=GENERATOR_MAX_TOKENS,
+        )
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
     print(
         json.dumps(
             {

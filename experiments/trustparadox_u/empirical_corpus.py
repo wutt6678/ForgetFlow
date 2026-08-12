@@ -905,6 +905,12 @@ class EmpiricalGenerationAttempt:
     generator_model_requested: str | None = None
     generator_model_returned: str | None = None
 
+    # E3-005 provenance hardening (additive; older records default to None).
+    latency_ms: float | None = None
+    trust_prompt_hash: str | None = None
+    attack_prompt_hash: str | None = None
+    max_tokens: int | None = None
+
     @property
     def is_sequence_attempt(self) -> bool:
         return self.sequence_family_id is not None

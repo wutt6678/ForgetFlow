@@ -514,6 +514,7 @@ class EmpiricalGenerationResponse:
     error_message: str | None = None
     retry_index: int = 0
     generated_at: str = ""
+    latency_ms: float | None = None
 
 
 class EmpiricalCandidateGenerator(Protocol):
@@ -679,12 +680,18 @@ def attempt_from_response(
     generation_mode: str = GenerationMode.MOCK.value,
     transport: str | None = None,
     generator_model_requested: str | None = None,
+    max_tokens: int | None = None,
+    trust_prompt_hash: str | None = None,
+    attack_prompt_hash: str | None = None,
 ) -> EmpiricalGenerationAttempt:
     """Assemble the retained raw-attempt record from a request/response pair.
 
     E2-002: provider, transport, generation mode, and the requested vs
     returned model are recorded separately; ``generator_provider`` must
     never be "real".
+
+    E3-005: ``latency_ms``, ``trust_prompt_hash``, ``attack_prompt_hash``,
+    and ``max_tokens`` are populated when available.
     """
     spec = request.target_spec
     is_sequence = request.sequence_step_index is not None
@@ -757,6 +764,10 @@ def attempt_from_response(
         transport=transport,
         generator_model_requested=generator_model_requested,
         generator_model_returned=response.model_id,
+        latency_ms=response.latency_ms,
+        trust_prompt_hash=trust_prompt_hash,
+        attack_prompt_hash=attack_prompt_hash,
+        max_tokens=max_tokens,
     )
 
 
@@ -843,6 +854,7 @@ class MockEmpiricalGenerator:
             error_message=error_message,
             retry_index=0,
             generated_at=_MOCK_TIMESTAMP,
+            latency_ms=0.0,
         )
 
 
@@ -943,6 +955,7 @@ class RealEmpiricalGenerator:
                         ),
                         retry_index=retry_index,
                         generated_at=utc_now_iso(),
+                        latency_ms=elapsed_ms,
                     )
 
                 text = response.choices[0].message.content
@@ -959,6 +972,7 @@ class RealEmpiricalGenerator:
                     status=GenerationStatus.SUCCESS.value,
                     retry_index=retry_index,
                     generated_at=utc_now_iso(),
+                    latency_ms=elapsed_ms,
                 )
             except Exception as exc:
                 last_exc = exc
@@ -974,6 +988,7 @@ class RealEmpiricalGenerator:
             error_message=f"{type(last_exc).__name__}: {last_exc}" if last_exc else "unknown",
             retry_index=retry_index,
             generated_at=utc_now_iso(),
+            latency_ms=None,
         )
 
 
