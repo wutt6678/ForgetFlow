@@ -71,6 +71,20 @@ _DIAGNOSTIC_CELLS: list[tuple[str, bool]] = [
 
 
 # ---------------------------------------------------------------------------
+# Canonical target-registry hash helper (Patch H)
+# ---------------------------------------------------------------------------
+
+
+def _canonical_target_registry_hash() -> str:
+    """Return the canonical target-registry hash using compute_target_registry_hash."""
+    from experiments.trustparadox_u.empirical_corpus import (
+        EMPIRICAL_TARGET_REGISTRY,
+        compute_target_registry_hash,
+    )
+    return compute_target_registry_hash(EMPIRICAL_TARGET_REGISTRY)
+
+
+# ---------------------------------------------------------------------------
 # Pre-flight checks
 # ---------------------------------------------------------------------------
 
@@ -345,6 +359,8 @@ def verify_preflight(
     all_attempts: list,
     accepted: list,
     plan_items: list,
+    *,
+    plan_path: Path,
 ) -> list[str]:
     """Run all required preflight verification checks.
 
@@ -557,15 +573,146 @@ def verify_preflight(
         for plan_field in ("plan_file_sha256", "plan_scientific_sha256", "plan_item_count"):
             if manifest_data.get(plan_field) is None:
                 findings.append(f"corpus_manifest.json missing {plan_field}")
-        
-        # Validate plan scientific hash against actual plan items.
-        if manifest_data.get("plan_scientific_sha256"):
-            computed_plan_hash = compute_plan_scientific_hash(plan_items)
-            recorded_plan_hash = manifest_data.get("plan_scientific_sha256", "")
-            if computed_plan_hash != recorded_plan_hash:
+
+        # --- Patch B: verify plan scientific hash ---
+        computed_scientific = compute_plan_scientific_hash(plan_items)
+        recorded_scientific = manifest_data.get("plan_scientific_sha256", "")
+        if recorded_scientific and computed_scientific != recorded_scientific:
+            findings.append(
+                f"plan_scientific_sha256 mismatch in manifest "
+                f"(recorded={recorded_scientific!r}, computed={computed_scientific!r})"
+            )
+
+        # --- Patch B: verify plan file hash ---
+        recorded_file_hash = manifest_data.get("plan_file_sha256", "")
+        if recorded_file_hash:
+            if not plan_path.exists():
+                findings.append(f"plan file not found: {plan_path}")
+            else:
+                computed_file_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+                if computed_file_hash != recorded_file_hash:
+                    findings.append(
+                        f"plan_file_sha256 mismatch in manifest "
+                        f"(recorded={recorded_file_hash!r}, computed={computed_file_hash!r})"
+                    )
+
+        # --- Patch B: verify plan item count ---
+        recorded_count = manifest_data.get("plan_item_count")
+        if recorded_count is not None and recorded_count != len(plan_items):
+            findings.append(
+                f"plan_item_count mismatch in manifest "
+                f"(recorded={recorded_count!r}, computed={len(plan_items)!r})"
+            )
+
+        # --- Patch B: campaign identity cross-check ---
+        if loaded_identity is not None:
+            ci_file_hash = getattr(loaded_identity, "generation_plan_file_sha256", "")
+            ci_scientific_hash = getattr(loaded_identity, "generation_plan_scientific_sha256", "")
+            if ci_file_hash and plan_path.exists():
+                computed_file_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+                if ci_file_hash != computed_file_hash:
+                    findings.append(
+                        f"campaign_identity.generation_plan_file_sha256 mismatch "
+                        f"(identity={ci_file_hash!r}, computed={computed_file_hash!r})"
+                    )
+            if ci_scientific_hash and ci_scientific_hash != computed_scientific:
                 findings.append(
-                    f"plan_scientific_sha256 mismatch in manifest "
-                    f"(recorded={recorded_plan_hash!r}, computed={computed_plan_hash!r})"
+                    f"campaign_identity.generation_plan_scientific_sha256 mismatch "
+                    f"(identity={ci_scientific_hash!r}, computed={computed_scientific!r})"
+                )
+
+        # --- Patch G: require all retained-artifact hashes ---
+        for required_hash_field in (
+            "raw_generation_sha256",
+            "accepted_candidate_sha256",
+            "target_registry_sha256",
+        ):
+            if manifest_data.get(required_hash_field) is None:
+                findings.append(
+                    f"corpus_manifest.json missing {required_hash_field}"
+                )
+
+        # --- Patch D: verify retained raw scientific hash ---
+        from experiments.trustparadox_u.empirical_corpus import (
+            raw_attempts_scientific_hash,
+        )
+        recorded_raw_hash = manifest_data.get("raw_generation_sha256")
+        if recorded_raw_hash is not None:
+            computed_raw_hash = raw_attempts_scientific_hash(disk_attempts)
+            if computed_raw_hash != recorded_raw_hash:
+                findings.append(
+                    f"raw_generation_sha256 mismatch "
+                    f"(recorded={recorded_raw_hash!r}, computed={computed_raw_hash!r})"
+                )
+
+        # --- Patch C/E: load retained accepted candidates from disk ---
+        from experiments.trustparadox_u.empirical_corpus import (
+            accepted_candidates_scientific_hash,
+            record_to_candidate,
+        )
+        accepted_path = output_dir / "accepted_candidates.jsonl"
+        disk_candidates: list = []
+        if accepted_path.exists():
+            for line_no, line in enumerate(
+                accepted_path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                if line.strip():
+                    try:
+                        disk_candidates.append(record_to_candidate(json.loads(line)))
+                    except Exception as exc:
+                        findings.append(
+                            f"accepted_candidates.jsonl malformed at line {line_no}: {exc}"
+                        )
+        # --- Patch E: verify retained accepted-candidate scientific hash ---
+        recorded_accepted_hash = manifest_data.get("accepted_candidate_sha256")
+        if recorded_accepted_hash is not None and disk_candidates:
+            computed_accepted_hash = accepted_candidates_scientific_hash(disk_candidates)
+            if computed_accepted_hash != recorded_accepted_hash:
+                findings.append(
+                    f"accepted_candidate_sha256 mismatch "
+                    f"(recorded={recorded_accepted_hash!r}, computed={computed_accepted_hash!r})"
+                )
+
+        # --- Patch F: verify accepted file against deterministic rebuild ---
+        from experiments.trustparadox_u.empirical_corpus import (
+            EMPIRICAL_TARGET_REGISTRY,
+        )
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            rebuild_accepted_candidates,
+        )
+        rebuilt_candidates, _ = rebuild_accepted_candidates(
+            disk_attempts, EMPIRICAL_TARGET_REGISTRY,
+        )
+        if disk_candidates:
+            disk_hash = accepted_candidates_scientific_hash(disk_candidates)
+            rebuilt_hash = accepted_candidates_scientific_hash(rebuilt_candidates)
+            if disk_hash != rebuilt_hash:
+                disk_ids = {c.candidate_id for c in disk_candidates}
+                rebuilt_ids = {c.candidate_id for c in rebuilt_candidates}
+                findings.append(
+                    f"accepted deterministic rebuild mismatch "
+                    f"(disk_hash={disk_hash!r}, rebuilt_hash={rebuilt_hash!r}, "
+                    f"only_in_disk={disk_ids - rebuilt_ids}, only_in_rebuilt={rebuilt_ids - disk_ids})"
+                )
+
+        # --- Patch H: verify target-registry hash using canonical helper ---
+        from experiments.trustparadox_u.empirical_corpus import (
+            compute_target_registry_hash,
+        )
+        canonical_registry_hash = compute_target_registry_hash(EMPIRICAL_TARGET_REGISTRY)
+        recorded_registry_hash = manifest_data.get("target_registry_sha256")
+        if recorded_registry_hash and recorded_registry_hash != canonical_registry_hash:
+            findings.append(
+                f"target_registry_sha256 mismatch in manifest "
+                f"(recorded={recorded_registry_hash!r}, canonical={canonical_registry_hash!r})"
+            )
+        # Cross-check with campaign identity.
+        if loaded_identity is not None:
+            ci_registry_hash = getattr(loaded_identity, "target_registry_sha256", "")
+            if ci_registry_hash and ci_registry_hash != canonical_registry_hash:
+                findings.append(
+                    f"campaign_identity.target_registry_sha256 mismatch "
+                    f"(identity={ci_registry_hash!r}, canonical={canonical_registry_hash!r})"
                 )
 
     # --- audit has zero blocking findings ---
@@ -739,20 +886,7 @@ def main(argv: list[str] | None = None) -> int:
         "accepted_candidate_count": len(rebuilt_accepted),
         "raw_generation_sha256": raw_hash,
         "accepted_candidate_sha256": accepted_hash,
-        "target_registry_sha256": hashlib.sha256(
-            json.dumps(
-                sorted(
-                    [
-                        {"scenario_id": s.scenario_id, "secret_variant_id": s.secret_variant_id}
-                        for s in EMPIRICAL_TARGET_REGISTRY
-                    ],
-                    key=lambda r: (r["scenario_id"], r["secret_variant_id"]),
-                ),
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=False,
-            ).encode("utf-8")
-        ).hexdigest(),
+        "target_registry_sha256": _canonical_target_registry_hash(),
         "created_at": now_utc,
     }
     if _preflight_id_hash:
@@ -799,7 +933,10 @@ def main(argv: list[str] | None = None) -> int:
     # Run verification AFTER all data artifacts exist (Patch A)
     # ---------------------------------------------------------------------------
     print("\nVerifying preflight results...")
-    findings = verify_preflight(output_dir, all_attempts, rebuilt_accepted, plan_items)
+    findings = verify_preflight(
+        output_dir, all_attempts, rebuilt_accepted, plan_items,
+        plan_path=plan_path,
+    )
     if findings:
         print("Preflight verification findings:", file=sys.stderr)
         for f in findings:

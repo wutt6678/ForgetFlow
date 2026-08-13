@@ -15,6 +15,7 @@ import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -496,3 +497,306 @@ class TestCorpusManifestBindsCampaignIdentityHash:
         id1 = _base_identity(generator_temperature=0.7)
         id2 = _base_identity(generator_temperature=0.9)
         assert campaign_identity_sha256(id1) != campaign_identity_sha256(id2)
+
+
+# ===========================================================================
+# Test Patch I — full-plan hash verification in validate_manifest_provenance
+# ===========================================================================
+
+
+class TestPatchIFullPlanHash:
+    """Patch I: verify final full-plan hash value."""
+
+    def test_manifest_full_generation_plan_hash_correct_passes(
+        self, tmp_path: Path,
+    ) -> None:
+        """Correct full_generation_plan_sha256 → no finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+
+        items = _make_plan_items()
+        # Write frozen plan.
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        full_hash = plan_sha256(items)
+
+        # Write manifest + identity.
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=full_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": full_hash,
+            "full_generation_plan_sha256": full_hash,
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert not any("full_generation_plan_sha256 mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+    def test_manifest_full_generation_plan_hash_wrong_fails(
+        self, tmp_path: Path,
+    ) -> None:
+        """Wrong full_generation_plan_sha256 → finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+
+        items = _make_plan_items()
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        full_hash = plan_sha256(items)
+
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=full_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": full_hash,
+            "full_generation_plan_sha256": "WRONG_FULL_HASH",
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert any("full_generation_plan_sha256 mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+
+# ===========================================================================
+# Test Patch J — split plan item count verification
+# ===========================================================================
+
+
+class TestPatchJSplitPlanItemCount:
+    """Patch J: verify final split plan item count."""
+
+    def test_manifest_split_plan_item_count_correct_passes(
+        self, tmp_path: Path,
+    ) -> None:
+        """Correct split_plan_item_count → no finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            plan_items_for_split,
+        )
+
+        items = _make_plan_items()
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        full_hash = plan_sha256(items)
+        split_items = plan_items_for_split(items, "development")
+
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=full_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": full_hash,
+            "full_generation_plan_sha256": full_hash,
+            "split_plan_item_count": len(split_items),
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert not any("split_plan_item_count mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+    def test_manifest_split_plan_item_count_wrong_fails(
+        self, tmp_path: Path,
+    ) -> None:
+        """Wrong split_plan_item_count → finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+
+        items = _make_plan_items()
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        full_hash = plan_sha256(items)
+
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=full_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": full_hash,
+            "full_generation_plan_sha256": full_hash,
+            "split_plan_item_count": 999999,
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert any("split_plan_item_count mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+
+# ===========================================================================
+# Test Patch K — split plan hash directly verified against frozen plan
+# ===========================================================================
+
+
+class TestPatchKSplitPlanHash:
+    """Patch K: directly verify split plan hash against frozen plan."""
+
+    def test_manifest_split_plan_hash_matches_frozen_plan(
+        self, tmp_path: Path,
+    ) -> None:
+        """Manifest split hash == plan_sha256(split_items) → no finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            plan_items_for_split,
+        )
+
+        items = _make_plan_items()
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        split_items = plan_items_for_split(items, "development")
+        split_hash = plan_sha256(split_items)
+
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=split_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": split_hash,
+            "full_generation_plan_sha256": plan_sha256(items),
+            "split_plan_item_count": len(split_items),
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert not any("split_generation_plan_sha256" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+    def test_manifest_split_plan_hash_wrong_fails(
+        self, tmp_path: Path,
+    ) -> None:
+        """Wrong split_generation_plan_sha256 → finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import write_campaign_identity
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            plan_items_for_split,
+        )
+
+        items = _make_plan_items()
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        plan_path = manifests_dir / "full_generation_plan.jsonl"
+        _write_plan_jsonl(plan_path, items)
+        split_items = plan_items_for_split(items, "development")
+        split_hash = plan_sha256(split_items)
+
+        corpus_base = tmp_path / "corpus"
+        split_dir = corpus_base / "development"
+        split_dir.mkdir(parents=True)
+        identity = _base_identity(
+            generation_plan_scientific_sha256=split_hash,
+        )
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "split_generation_plan_sha256": "WRONG_SPLIT_HASH",
+            "full_generation_plan_sha256": plan_sha256(items),
+            "split_plan_item_count": len(split_items),
+            "campaign_identity_sha256": campaign_identity_sha256(identity),
+            "repository_commit": identity.created_from_commit,
+        }
+        (split_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        write_campaign_identity(split_dir, identity)
+
+        with (
+            patch.object(auditor, "_CORPUS_BASE", corpus_base),
+            patch.object(auditor, "_MANIFESTS_DIR", manifests_dir),
+        ):
+            findings = auditor.validate_manifest_provenance(
+                target_splits=("development",),
+            )
+        assert any("split_generation_plan_sha256" in f for f in findings), (
+            f"Findings: {findings}"
+        )

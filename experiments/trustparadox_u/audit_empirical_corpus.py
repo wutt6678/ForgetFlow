@@ -1163,6 +1163,44 @@ def validate_manifest_provenance(
                     f"created_from_commit: manifest={manifest_commit!r} "
                     f"identity={identity.created_from_commit!r}"
                 )
+
+        # --- Patch I: verify full-plan hash value ---
+        full_plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+        if is_empirical and full_plan_path.exists():
+            full_plan = load_generation_plan(full_plan_path)
+            expected_full_hash = plan_sha256(full_plan)
+            recorded_full_hash = manifest.get("full_generation_plan_sha256")
+            if recorded_full_hash and recorded_full_hash != expected_full_hash:
+                findings.append(
+                    f"{split}: manifest full_generation_plan_sha256 mismatch: "
+                    f"recorded={recorded_full_hash!r} expected={expected_full_hash!r}"
+                )
+
+            # --- Patch J: verify split plan item count ---
+            split_items = plan_items_for_split(full_plan, split)
+            recorded_split_count = manifest.get("split_plan_item_count")
+            if recorded_split_count is not None and recorded_split_count != len(split_items):
+                findings.append(
+                    f"{split}: manifest split_plan_item_count mismatch: "
+                    f"recorded={recorded_split_count!r} expected={len(split_items)!r}"
+                )
+
+            # --- Patch K: directly verify split plan hash ---
+            expected_split_hash = plan_sha256(split_items)
+            if manifest_split_plan_hash and manifest_split_plan_hash != expected_split_hash:
+                findings.append(
+                    f"{split}: manifest split_generation_plan_sha256 != "
+                    f"frozen split plan hash: manifest={manifest_split_plan_hash!r} "
+                    f"expected={expected_split_hash!r}"
+                )
+            if (identity.generation_plan_scientific_sha256
+                    and identity.generation_plan_scientific_sha256 != expected_split_hash):
+                findings.append(
+                    f"{split}: campaign identity scientific_sha256 != "
+                    f"frozen split plan hash: identity="
+                    f"{identity.generation_plan_scientific_sha256!r} "
+                    f"expected={expected_split_hash!r}"
+                )
     return findings
 
 
@@ -1177,6 +1215,8 @@ def validate_source_commit_consistency() -> list[str]:
     Collects ``campaign_identity.created_from_commit``,
     ``gate.source_commit``, and ``gate.audit_source_commit`` for every
     split that has a gate file.  All values must resolve to one commit.
+
+    Patch L (Phase 3 Final): missing any required field is a blocking finding.
     """
     findings: list[str] = []
     commits_seen: set[str] = set()
@@ -1190,15 +1230,24 @@ def validate_source_commit_consistency() -> list[str]:
         entry: dict[str, str] = {}
         gen_commit = gate.get("source_commit")
         audit_commit = gate.get("audit_source_commit")
-        if gen_commit:
+        # Patch L: require presence of source commit fields.
+        if not gen_commit:
+            findings.append(f"{split}: gate.source_commit missing")
+        else:
             entry["generation_commit"] = gen_commit
             commits_seen.add(gen_commit)
-        if audit_commit:
+        if not audit_commit:
+            findings.append(f"{split}: gate.audit_source_commit missing")
+        else:
             entry["audit_commit"] = audit_commit
             commits_seen.add(audit_commit)
         # Campaign identity commit.
         identity = load_campaign_identity(_CORPUS_BASE / split)
-        if identity is not None and identity.created_from_commit:
+        if identity is None:
+            findings.append(f"{split}: campaign identity missing")
+        elif not identity.created_from_commit:
+            findings.append(f"{split}: campaign_identity.created_from_commit missing")
+        else:
             entry["campaign_identity_commit"] = identity.created_from_commit
             commits_seen.add(identity.created_from_commit)
         if entry:
@@ -1545,32 +1594,42 @@ def main() -> int:
             )
             return 1
 
-        # Patch D (Phase 3 Final): require source-commit consistency
-        # before promoting audit_passed=true.
+        # Patch M (Phase 3 Final): require source provenance fields to exist
+        # and agree before promoting audit_passed=true.
         gate_source_commit = gate.get("source_commit", "")
-        identity_commit = identity.created_from_commit
+        identity_commit = identity.created_from_commit or ""
         if report["passed"]:
-            commit_mismatches: list[str] = []
-            if gate_source_commit and gate_source_commit != source_commit:
-                commit_mismatches.append(
-                    f"gate.source_commit={gate_source_commit!r} != HEAD={source_commit!r}"
+            commit_problems: list[str] = []
+            # Require presence of all source provenance fields.
+            if not gate_source_commit:
+                commit_problems.append(
+                    "gate.source_commit is missing or empty"
                 )
-            if identity_commit and identity_commit != source_commit:
-                commit_mismatches.append(
-                    f"campaign_identity.created_from_commit={identity_commit!r} != HEAD={source_commit!r}"
+            if not identity_commit:
+                commit_problems.append(
+                    "campaign_identity.created_from_commit is missing or empty"
                 )
-            if gate_source_commit and identity_commit and gate_source_commit != identity_commit:
-                commit_mismatches.append(
-                    f"gate.source_commit={gate_source_commit!r} != "
-                    f"campaign_identity.created_from_commit={identity_commit!r}"
+            if not source_commit:
+                commit_problems.append(
+                    "current HEAD commit could not be resolved"
                 )
-            if commit_mismatches:
+            # Require equality when all present.
+            if gate_source_commit and identity_commit and source_commit:
+                if gate_source_commit != source_commit:
+                    commit_problems.append(
+                        f"gate.source_commit={gate_source_commit!r} != HEAD={source_commit!r}"
+                    )
+                if identity_commit != source_commit:
+                    commit_problems.append(
+                        f"campaign_identity.created_from_commit={identity_commit!r} != HEAD={source_commit!r}"
+                    )
+            if commit_problems:
                 print(
                     f"ERROR: {split_scope}: audit promotion BLOCKED — "
-                    f"source commit inconsistency:",
+                    f"source provenance issues:",
                     file=sys.stderr,
                 )
-                for m in commit_mismatches:
+                for m in commit_problems:
                     print(f"  {m}", file=sys.stderr)
                 # Write the gate with audit_passed=false (diagnostic only).
                 update_generation_gate_after_audit(
@@ -1583,7 +1642,7 @@ def main() -> int:
                     campaign_identity_sha256=campaign_identity_sha,
                 )
                 print(
-                    f"Gate updated: {split_scope} audit FAILED (commit mismatch)",
+                    f"Gate updated: {split_scope} audit FAILED (source provenance)",
                 )
                 return 1
 
