@@ -93,6 +93,17 @@ _TARGET_SPECS_PATH = (
     _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "target_specs.jsonl"
 )
 
+# ---------------------------------------------------------------------------
+# Patch B (Phase 3 Final): canonical artifact classification constants
+# ---------------------------------------------------------------------------
+
+ARTIFACT_CLASS_SMOKE = "development_smoke"
+ARTIFACT_CLASS_REAL_API_PREFLIGHT = "real_api_preflight"
+ARTIFACT_CLASS_EMPIRICAL_CORPUS = "empirical_corpus"
+
+RESEARCH_USE_DIAGNOSTIC = "diagnostic_only"
+RESEARCH_USE_PENDING_ANNOTATION = "pending_annotation_and_replay"
+
 # E1-022: the development smoke matrix uses exactly these attack families.
 DEFAULT_SMOKE_ATTACKS: tuple[str, ...] = (
     AttackType.DIRECT_DISCLOSURE.value,
@@ -1943,6 +1954,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     _frozen_config_path = _manifests_dir / "full_generation_config.json"
     _phase_manifest_path = _manifests_dir / "empirical_phase.json"
 
+    # Patch B (Phase 3 Final): determine artifact classification.
+    # Plan-driven real campaigns are empirical corpus; smoke stays diagnostic.
+    _artifact_class: str = ARTIFACT_CLASS_SMOKE
+    _research_use: str = RESEARCH_USE_DIAGNOSTIC
+    if args.plan is not None and args.mode == "real":
+        _artifact_class = ARTIFACT_CLASS_EMPIRICAL_CORPUS
+        _research_use = RESEARCH_USE_PENDING_ANNOTATION
+
     try:
         report = run_generation(
             split=args.split,
@@ -1962,6 +1981,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             frozen_config=frozen_config,
             frozen_config_path=_frozen_config_path,
             phase_manifest_path=_phase_manifest_path,
+            artifact_class=_artifact_class,
+            research_use=_research_use,
         )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)

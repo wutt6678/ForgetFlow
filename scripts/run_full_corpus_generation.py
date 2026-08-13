@@ -96,7 +96,6 @@ def _check_frozen_hashes() -> str | None:
     """Verify frozen config and plan hashes match committed artifacts."""
     # Config self-hash (target_registry_sha256 is inside config).
     if _CONFIG_PATH.exists():
-        config = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
         # Check plan hash from plan summary.
         summary_path = _CONFIG_PATH.parent / "full_generation_plan_summary.json"
         if summary_path.exists():
@@ -172,11 +171,27 @@ def _load_gate(split: str) -> dict | None:
     return json.loads(gate_path.read_text(encoding="utf-8"))
 
 
+def _current_repository_commit() -> str:
+    """Return the current HEAD commit hash."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=_PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
 def _check_prerequisite_gate(split: str) -> str | None:
     """Return error if the prerequisite split gate is not satisfied.
 
     Patch O: also verifies the audit report file hash matches the gate's
     ``audit_report_sha256`` — boolean ``audit_passed`` alone is not enough.
+
+    Patch E (Phase 3 Final): also requires source commit consistency
+    between gate.source_commit, gate.audit_source_commit,
+    campaign_identity.created_from_commit, and current HEAD.
     """
     prereq = _SPLIT_PREREQUISITES.get(split)
     if prereq is None:
@@ -220,6 +235,42 @@ def _check_prerequisite_gate(split: str) -> str | None:
         return (
             f"prerequisite split {prereq!r} audit report SHA256 mismatch: "
             f"recorded={recorded_hash} computed={computed_hash}"
+        )
+    # Patch E (Phase 3 Final): source commit consistency.
+    current_commit = _current_repository_commit()
+    gate_source = gate.get("source_commit", "")
+    gate_audit = gate.get("audit_source_commit", "")
+    # Load campaign identity for the prerequisite split.
+    identity_commit = ""
+    identity_path = _OUTPUT_BASE / prereq / "campaign_identity.json"
+    if identity_path.exists():
+        try:
+            identity_data = json.loads(identity_path.read_text(encoding="utf-8"))
+            identity_commit = identity_data.get("created_from_commit", "")
+        except (json.JSONDecodeError, KeyError):
+            pass
+    mismatches: list[str] = []
+    if gate_source and gate_source != current_commit:
+        mismatches.append(
+            f"gate.source_commit={gate_source!r} != HEAD={current_commit!r}"
+        )
+    if gate_audit and gate_audit != current_commit:
+        mismatches.append(
+            f"gate.audit_source_commit={gate_audit!r} != HEAD={current_commit!r}"
+        )
+    if identity_commit and identity_commit != current_commit:
+        mismatches.append(
+            f"campaign_identity.created_from_commit={identity_commit!r} != HEAD={current_commit!r}"
+        )
+    if gate_source and identity_commit and gate_source != identity_commit:
+        mismatches.append(
+            f"gate.source_commit={gate_source!r} != "
+            f"campaign_identity.created_from_commit={identity_commit!r}"
+        )
+    if mismatches:
+        return (
+            f"prerequisite split {prereq!r} source commit inconsistency: "
+            + "; ".join(mismatches)
         )
     return None
 
@@ -278,23 +329,38 @@ def _write_generation_gate(
 
     Patch H/O: ``generation_completed`` is derived from exact plan
     completeness, not merely the subprocess exit code.
+
+    Patch D (Phase 3 Final): record ``source_commit`` (current HEAD).
+
+    Patch C (Phase 3 Final): clear stale audit evidence whenever corpus
+    state changes — a new generation invalidates prior audit.
     """
     gate_path = _GATE_DIR / f"{split}_generation_gate.json"
     now_utc = datetime.now(UTC).isoformat(timespec="seconds")
 
-    # Preserve existing gate fields (e.g. source_commit) if present.
+    # Preserve existing gate fields if present.
     existing: dict = {}
     if gate_path.exists():
         existing = json.loads(gate_path.read_text(encoding="utf-8"))
 
+    # Patch D (Phase 3 Final): record the source commit at generation time.
+    source_commit = _current_repository_commit()
+
     existing.update({
         "split": split,
+        "source_commit": source_commit,
         "generation_completed": generation_completed,
         "planned_plan_item_count": planned_plan_item_count,
         "accounted_plan_item_count": accounted_plan_item_count,
         "missing_plan_item_count": missing_plan_item_count,
         "generation_completed_at": now_utc,
-        "audit_passed": existing.get("audit_passed", False),
+        # Patch C (Phase 3 Final): new generation invalidates prior audit.
+        # Do NOT preserve audit_passed from a previous audit cycle.
+        "audit_passed": False,
+        "audit_report_sha256": None,
+        "audit_report_path": None,
+        "audit_source_commit": None,
+        "audited_at": None,
     })
     if missing_plan_item_ids:
         # Cap the stored list to avoid huge gate files.
@@ -429,6 +495,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # ---- Patch C (Phase 3 Final): reject resume after successful audit ----
+    if args.resume:
+        existing_gate = _load_gate(split)
+        if (
+            existing_gate is not None
+            and existing_gate.get("generation_completed") is True
+            and existing_gate.get("audit_passed") is True
+        ):
+            print(
+                f"ERROR: {split} has already passed audit.\n"
+                f"Generation cannot resume without invalidating the audit.\n"
+                f"Audited corpus splits are immutable in the Phase-3 campaign.",
+                file=sys.stderr,
+            )
+            return 2
+
     print("Full Corpus Generation Campaign (Patch H)")
     print(f"  Split: {split}")
     print(f"  Plan:  {args.plan}")
@@ -439,14 +521,14 @@ def main(argv: list[str] | None = None) -> int:
     rc = run_split(split, args.plan, output_dir, resume=args.resume)
 
     # Patch H/O: compute exact plan completeness for the gate.
+    from experiments.trustparadox_u.empirical_corpus import (
+        EmpiricalGenerationAttempt,
+        record_to_attempt,
+    )
     from experiments.trustparadox_u.empirical_generation_plan import (
+        compute_plan_completeness,
         load_generation_plan,
         plan_items_for_split,
-        compute_plan_completeness,
-    )
-    from experiments.trustparadox_u.empirical_corpus import (
-        record_to_attempt,
-        EmpiricalGenerationAttempt,
     )
 
     if rc != 0:

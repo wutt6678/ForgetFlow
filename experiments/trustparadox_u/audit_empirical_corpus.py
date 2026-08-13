@@ -52,6 +52,7 @@ from experiments.trustparadox_u.empirical_corpus import (
 )
 from experiments.trustparadox_u.empirical_generation_plan import (
     load_generation_plan,
+    plan_items_for_split,
     plan_sha256,
     generation_gate_path,
     load_generation_gate,
@@ -91,6 +92,17 @@ _CORPUS_BASE = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _OUTPUT_DIR = _CORPUS_BASE
 _REPORT_JSON = _OUTPUT_DIR / "full_corpus_validation_report.json"
 _REPORT_MD = _OUTPUT_DIR / "full_corpus_validation_report.md"
+
+# ---------------------------------------------------------------------------
+# Patch B (Phase 3 Final): canonical artifact classification constants
+# ---------------------------------------------------------------------------
+
+ARTIFACT_CLASS_SMOKE = "development_smoke"
+ARTIFACT_CLASS_REAL_API_PREFLIGHT = "real_api_preflight"
+ARTIFACT_CLASS_EMPIRICAL_CORPUS = "empirical_corpus"
+
+RESEARCH_USE_DIAGNOSTIC = "diagnostic_only"
+RESEARCH_USE_PENDING_ANNOTATION = "pending_annotation_and_replay"
 
 # Frozen split → variant mapping (from the target registry).
 _FROZEN_SPLIT_VARIANTS: dict[str, list[str]] = {
@@ -919,11 +931,13 @@ def validate_campaign_identity(
                     f"{split}: campaign_identity.json missing for generated split"
                 )
             continue
-        # Recompute current identity from frozen artifacts.
+        # Patch A (Phase 3 Final): filter to split-specific plan items so
+        # the scientific hash matches what generation computed.
         plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
-        plan_items = None
+        split_plan_items = None
         if plan_path.exists():
-            plan_items = load_generation_plan(plan_path)
+            full_plan_items = load_generation_plan(plan_path)
+            split_plan_items = plan_items_for_split(full_plan_items, split)
         try:
             frozen_config = load_frozen_generation_config()
         except (FileNotFoundError, KeyError):
@@ -934,7 +948,7 @@ def validate_campaign_identity(
         try:
             current = compute_campaign_identity(
                 split=split,
-                plan_items=plan_items,
+                plan_items=split_plan_items,
                 plan_path=plan_path if plan_path.exists() else None,
                 config=frozen_config,
                 config_path=config_path if config_path.exists() else None,
@@ -951,6 +965,146 @@ def validate_campaign_identity(
                     f"{split}: campaign identity mismatch: {field} "
                     f"recorded={vals['recorded']!r} current={vals['current']!r}"
                 )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Patch B (Phase 3 Final): artifact classification audit
+# ---------------------------------------------------------------------------
+
+
+def validate_artifact_classification(
+    *,
+    target_splits: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Reject final corpus splits labeled as smoke/diagnostic.
+
+    For every split with a corpus manifest, require:
+    - ``artifact_class == empirical_corpus``
+    - ``research_use == pending_annotation_and_replay``
+    """
+    findings: list[str] = []
+    splits_to_check = target_splits or ("development", "validation", "test")
+    for split in splits_to_check:
+        manifest = _load_manifest(split)
+        if manifest is None:
+            continue  # no manifest → nothing to check
+        ac = manifest.get("artifact_class", "")
+        ru = manifest.get("research_use", "")
+        if ac != ARTIFACT_CLASS_EMPIRICAL_CORPUS:
+            findings.append(
+                f"{split}: artifact_class is {ac!r}, "
+                f"expected {ARTIFACT_CLASS_EMPIRICAL_CORPUS!r}"
+            )
+        if ru != RESEARCH_USE_PENDING_ANNOTATION:
+            findings.append(
+                f"{split}: research_use is {ru!r}, "
+                f"expected {RESEARCH_USE_PENDING_ANNOTATION!r}"
+            )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Patch H (Phase 3 Final): manifest / campaign identity provenance
+# ---------------------------------------------------------------------------
+
+
+def validate_manifest_provenance(
+    *,
+    target_splits: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Cross-check manifest fields against campaign identity.
+
+    Verifies:
+    - ``manifest.campaign_identity_sha256 == SHA256(campaign_identity.json)``
+    - ``manifest.split_generation_plan_sha256 == campaign_identity.generation_plan_scientific_sha256``
+    - ``manifest.repository_commit == campaign_identity.created_from_commit``
+    """
+    findings: list[str] = []
+    splits_to_check = target_splits or ("development", "validation", "test")
+    for split in splits_to_check:
+        manifest = _load_manifest(split)
+        if manifest is None:
+            continue
+        split_dir = _CORPUS_BASE / split
+        identity = load_campaign_identity(split_dir)
+        if identity is None:
+            continue
+        # 1. campaign_identity_sha256 binding.
+        recorded_ci_hash = manifest.get("campaign_identity_sha256")
+        if recorded_ci_hash:
+            identity_path = split_dir / CAMPAIGN_IDENTITY_FILENAME
+            if identity_path.exists():
+                computed_ci_hash = campaign_identity_sha256(identity)
+                if computed_ci_hash != recorded_ci_hash:
+                    findings.append(
+                        f"{split}: manifest campaign_identity_sha256 mismatch: "
+                        f"recorded={recorded_ci_hash!r} computed={computed_ci_hash!r}"
+                    )
+        # 2. split-plan hash agreement.
+        manifest_split_plan_hash = manifest.get("split_generation_plan_sha256")
+        if manifest_split_plan_hash:
+            if identity.generation_plan_scientific_sha256 != manifest_split_plan_hash:
+                findings.append(
+                    f"{split}: manifest split_plan_sha256 != campaign identity "
+                    f"scientific_sha256: manifest={manifest_split_plan_hash!r} "
+                    f"identity={identity.generation_plan_scientific_sha256!r}"
+                )
+        # 3. repository_commit agreement.
+        manifest_commit = manifest.get("repository_commit")
+        if manifest_commit and identity.created_from_commit:
+            if manifest_commit != identity.created_from_commit:
+                findings.append(
+                    f"{split}: manifest repository_commit != campaign identity "
+                    f"created_from_commit: manifest={manifest_commit!r} "
+                    f"identity={identity.created_from_commit!r}"
+                )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Patch F (Phase 3 Final): source commit consistency audit
+# ---------------------------------------------------------------------------
+
+
+def validate_source_commit_consistency() -> list[str]:
+    """Require one source commit across all generated/audited splits.
+
+    Collects ``campaign_identity.created_from_commit``,
+    ``gate.source_commit``, and ``gate.audit_source_commit`` for every
+    split that has a gate file.  All values must resolve to one commit.
+    """
+    findings: list[str] = []
+    commits_seen: set[str] = set()
+    per_split: dict[str, dict[str, str]] = {}
+
+    for split in ("development", "validation", "test"):
+        gate_file = generation_gate_path(split, base=_CORPUS_BASE)
+        if not gate_file.exists():
+            continue
+        gate = json.loads(gate_file.read_text(encoding="utf-8"))
+        entry: dict[str, str] = {}
+        gen_commit = gate.get("source_commit")
+        audit_commit = gate.get("audit_source_commit")
+        if gen_commit:
+            entry["generation_commit"] = gen_commit
+            commits_seen.add(gen_commit)
+        if audit_commit:
+            entry["audit_commit"] = audit_commit
+            commits_seen.add(audit_commit)
+        # Campaign identity commit.
+        identity = load_campaign_identity(_CORPUS_BASE / split)
+        if identity is not None and identity.created_from_commit:
+            entry["campaign_identity_commit"] = identity.created_from_commit
+            commits_seen.add(identity.created_from_commit)
+        if entry:
+            per_split[split] = entry
+
+    if len(commits_seen) > 1:
+        findings.append(
+            f"source commit inconsistency: found {len(commits_seen)} distinct "
+            f"commits across splits: {sorted(commits_seen)}"
+        )
     return findings
 
 
@@ -1051,9 +1205,19 @@ def build_validation_report(
     sections["campaign_identity"] = validate_campaign_identity(
         target_splits=target_splits,
     )
+    # Patch B (Phase 3 Final): artifact classification audit.
+    sections["artifact_classification"] = validate_artifact_classification(
+        target_splits=target_splits,
+    )
+    # Patch H (Phase 3 Final): manifest / campaign identity provenance.
+    sections["manifest_provenance"] = validate_manifest_provenance(
+        target_splits=target_splits,
+    )
     # Patch L: final combined audit must verify all split gates.
     if split_scope == "all":
         sections["split_gate_progression"] = _validate_all_split_gates()
+        # Patch F (Phase 3 Final): source commit consistency.
+        sections["source_commit_consistency"] = validate_source_commit_consistency()
 
     # Collect all blocking findings.
     all_findings: list[str] = []
@@ -1216,6 +1380,49 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+
+        # Patch D (Phase 3 Final): require source-commit consistency
+        # before promoting audit_passed=true.
+        gate_source_commit = gate.get("source_commit", "")
+        identity = load_campaign_identity(_CORPUS_BASE / split_scope)
+        identity_commit = (
+            identity.created_from_commit if identity is not None else ""
+        )
+        if report["passed"]:
+            commit_mismatches: list[str] = []
+            if gate_source_commit and gate_source_commit != source_commit:
+                commit_mismatches.append(
+                    f"gate.source_commit={gate_source_commit!r} != HEAD={source_commit!r}"
+                )
+            if identity_commit and identity_commit != source_commit:
+                commit_mismatches.append(
+                    f"campaign_identity.created_from_commit={identity_commit!r} != HEAD={source_commit!r}"
+                )
+            if gate_source_commit and identity_commit and gate_source_commit != identity_commit:
+                commit_mismatches.append(
+                    f"gate.source_commit={gate_source_commit!r} != "
+                    f"campaign_identity.created_from_commit={identity_commit!r}"
+                )
+            if commit_mismatches:
+                print(
+                    f"ERROR: {split_scope}: audit promotion BLOCKED — "
+                    f"source commit inconsistency:",
+                    file=sys.stderr,
+                )
+                for m in commit_mismatches:
+                    print(f"  {m}", file=sys.stderr)
+                # Write the gate with audit_passed=false (diagnostic only).
+                update_generation_gate_after_audit(
+                    split=split_scope,
+                    audit_passed=False,
+                    audit_report_path=report_json_path.relative_to(_CORPUS_BASE),
+                    audit_report_sha256=audit_report_sha,
+                    source_commit=source_commit,
+                )
+                print(
+                    f"Gate updated: {split_scope} audit FAILED (commit mismatch)",
+                )
+                return 1
 
         update_generation_gate_after_audit(
             split=split_scope,
