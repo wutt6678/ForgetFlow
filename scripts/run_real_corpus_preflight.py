@@ -555,7 +555,7 @@ def verify_preflight(
                 findings.append("campaign_identity_sha256 mismatch in manifest")
         # Plan hashes are mandatory and must be CORRECT.
         for plan_field in ("plan_file_sha256", "plan_scientific_sha256", "plan_item_count"):
-            if not manifest_data.get(plan_field):
+            if manifest_data.get(plan_field) is None:
                 findings.append(f"corpus_manifest.json missing {plan_field}")
         
         # Validate plan scientific hash against actual plan items.
