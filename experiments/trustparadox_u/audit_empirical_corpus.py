@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -52,6 +53,9 @@ from experiments.trustparadox_u.empirical_corpus import (
 from experiments.trustparadox_u.empirical_generation_plan import (
     load_generation_plan,
     plan_sha256,
+    generation_gate_path,
+    load_generation_gate,
+    update_generation_gate_after_audit,
 )
 from experiments.trustparadox_u.campaign_identity import (
     CAMPAIGN_IDENTITY_FILENAME,
@@ -67,6 +71,19 @@ from experiments.trustparadox_u.empirical_generation_plan import (
     FrozenGenerationConfig,
     load_frozen_generation_config,
 )
+
+# ---------------------------------------------------------------------------
+# Patch C: explicit audit scope
+# ---------------------------------------------------------------------------
+
+AuditScope = str  # "development" | "validation" | "test" | "all"
+
+
+def audited_splits(scope: str) -> tuple[str, ...]:
+    """Return the tuple of split names covered by *scope*."""
+    if scope == "all":
+        return ("development", "validation", "test")
+    return (EmpiricalSplit(scope).value,)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFESTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "manifests"
@@ -199,37 +216,49 @@ def validate_phase_and_provenance() -> list[str]:
 def validate_plan_completeness(
     all_attempts: list[EmpiricalGenerationAttempt],
     all_candidates: list[EmpiricalCandidate],
+    *,
+    target_splits: tuple[str, ...] | None = None,
 ) -> list[str]:
-    """Every planned scientific unit must be accounted for."""
+    """Every planned plan_item_id must have a matching generation_attempt_id.
+
+    Patch F: uses exact ``plan_item_id`` \u2194 ``generation_attempt_id``
+    comparison instead of coarse scientific-unit identity.
+
+    Patch C: when *target_splits* is given, only plan items for those
+    splits are checked.
+    """
     findings: list[str] = []
-    plan_items = _load_plan_items()
-    if not plan_items:
-        findings.append("generation plan not found or empty")
+    plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+    if not plan_path.exists():
+        findings.append("generation plan not found")
         return findings
 
-    # Build set of (scenario_id, variant_id, trust, attack, sample, replicate)
-    # from attempts to check coverage.
-    attempt_units: set[tuple] = set()
-    for a in all_attempts:
-        unit = (
-            a.scenario_id, a.secret_variant_id, a.trust_level,
-            a.attack_type, a.sample_index, a.generation_replicate,
-        )
-        attempt_units.add(unit)
+    all_plan_items = load_generation_plan(plan_path)
+    if not all_plan_items:
+        findings.append("generation plan empty")
+        return findings
 
-    planned_units: set[tuple] = set()
-    for item in plan_items:
-        unit = (
-            item["scenario_id"], item["secret_variant_id"],
-            item["trust_level"], item["attack_type"],
-            item["sample_index"], item["generation_replicate"],
-        )
-        planned_units.add(unit)
+    # Filter plan items to the audited splits.
+    if target_splits is not None:
+        scope_plan = [it for it in all_plan_items if it.split in target_splits]
+    else:
+        scope_plan = all_plan_items
 
-    unaccounted = planned_units - attempt_units
-    if unaccounted:
+    planned_ids = {it.plan_item_id for it in scope_plan}
+    observed_ids = {a.generation_attempt_id for a in all_attempts}
+
+    missing = planned_ids - observed_ids
+    unexpected = observed_ids - planned_ids
+
+    if missing:
         findings.append(
-            f"plan completeness: {len(unaccounted)} planned units have no raw attempts"
+            f"plan completeness: {len(missing)} planned plan-item IDs "
+            f"have no raw attempts"
+        )
+    if unexpected:
+        findings.append(
+            f"plan completeness: {len(unexpected)} observed generation IDs "
+            f"are not in the planned set"
         )
 
     return findings
@@ -437,11 +466,18 @@ def validate_config_consistency(
 def validate_hash_integrity(
     all_attempts: list[EmpiricalGenerationAttempt],
     all_candidates: list[EmpiricalCandidate],
+    *,
+    target_splits: tuple[str, ...] | None = None,
 ) -> list[str]:
-    """Recompute scientific hashes and compare with manifests."""
+    """Recompute scientific hashes and compare with manifests.
+
+    Patch C: when *target_splits* is given, only check those splits'
+    per-split hashes.  Global hashes (plan, config) are always checked.
+    """
     findings: list[str] = []
 
-    for split in ("development", "validation", "test"):
+    splits_to_check = target_splits or ("development", "validation", "test")
+    for split in splits_to_check:
         manifest = _load_manifest(split)
         if manifest is None:
             continue
@@ -575,14 +611,13 @@ def validate_sequence_atomicity(
         )
 
         # Build plan-based expected step counts (Patch H).
+        # Patch I: when a frozen plan is available, inconsistent sequence
+        # definitions are fatal — propagate the error.
         plan_step_index: dict[tuple, int] = {}
         plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
         if plan_path.exists():
-            try:
-                typed_plan = load_generation_plan(plan_path)
-                plan_step_index = expected_sequence_steps_from_plan(typed_plan)
-            except (ValueError, Exception):
-                plan_step_index = {}
+            typed_plan = load_generation_plan(plan_path)
+            plan_step_index = expected_sequence_steps_from_plan(typed_plan)
 
         # Group raw attempts by full sequence scientific identity.
         raw_seq_groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
@@ -860,18 +895,21 @@ def compute_coverage_stats(
 # ---------------------------------------------------------------------------
 
 
-def validate_campaign_identity() -> list[str]:
+def validate_campaign_identity(
+    *,
+    target_splits: tuple[str, ...] | None = None,
+) -> list[str]:
     """Patch F: verify campaign identity for each split with artifacts.
 
     Loads ``campaign_identity.json`` from each split directory, recomputes
     the current identity from frozen artifacts, and compares all blocking
     fields.
 
-    Patch F: if a split has generated artifacts but no campaign identity,
-    that is a blocking provenance error.
+    Patch C: when *target_splits* is given, only audit those splits.
     """
     findings: list[str] = []
-    for split in ("development", "validation", "test"):
+    splits_to_check = target_splits or ("development", "validation", "test")
+    for split in splits_to_check:
         split_dir = _CORPUS_BASE / split
         existing = load_campaign_identity(split_dir)
         if existing is None:
@@ -916,45 +954,122 @@ def validate_campaign_identity() -> list[str]:
     return findings
 
 
-def build_validation_report() -> dict:
-    """Build the full validation report with all audit sections."""
-    # Load all data.
+# ---------------------------------------------------------------------------
+# Patch L: final combined audit — verify all split gates
+# ---------------------------------------------------------------------------
+
+
+def _validate_all_split_gates() -> list[str]:
+    """Check that every split gate has generation_completed and audit_passed.
+
+    Used only by the final combined audit (``--split all``).  Returns a
+    list of blocking findings (empty when all gates are valid).
+    """
+    findings: list[str] = []
+    for split in ("development", "validation", "test"):
+        gate_file = generation_gate_path(split, base=_CORPUS_BASE)
+        if not gate_file.exists():
+            findings.append(f"{split}: generation gate file missing")
+            continue
+        gate = json.loads(gate_file.read_text(encoding="utf-8"))
+        if gate.get("generation_completed") is not True:
+            findings.append(
+                f"{split}: gate generation_completed != true"
+            )
+        if gate.get("audit_passed") is not True:
+            findings.append(
+                f"{split}: gate audit_passed != true"
+            )
+        # Verify audit report hash is still valid.
+        audit_path_str = gate.get("audit_report_path")
+        recorded_hash = gate.get("audit_report_sha256")
+        if not audit_path_str or not recorded_hash:
+            findings.append(
+                f"{split}: gate missing audit report hash"
+            )
+            continue
+        audit_path = _CORPUS_BASE / audit_path_str
+        if not audit_path.exists():
+            findings.append(
+                f"{split}: audit report file not found at {audit_path}"
+            )
+            continue
+        computed = hashlib.sha256(audit_path.read_bytes()).hexdigest()
+        if computed != recorded_hash:
+            findings.append(
+                f"{split}: audit report SHA256 mismatch "
+                f"(recorded={recorded_hash!r}, computed={computed!r})"
+            )
+    return findings
+
+
+def build_validation_report(
+    *,
+    split_scope: str = "all",
+) -> dict:
+    """Build the full validation report with all audit sections.
+
+    Patch C/D: when *split_scope* is a single split name, only that
+    split's artifacts are loaded and audited.  ``"all"`` audits every
+    split (the original behaviour).
+    """
+    target_splits = audited_splits(split_scope)
+
+    # Load only the audited splits' data.
     all_attempts: list[EmpiricalGenerationAttempt] = []
     all_candidates: list[EmpiricalCandidate] = []
-    for split in ("development", "validation", "test"):
+    for split in target_splits:
         all_attempts.extend(_load_attempts(split))
         all_candidates.extend(_load_candidates(split))
 
-    plan_items = _load_plan_items()
+    # Filter frozen plan items to the audited splits.
+    all_plan_items_raw = _load_plan_items()
+    scope_plan_items = [
+        it for it in all_plan_items_raw
+        if it.get("split") in target_splits
+    ] if split_scope != "all" else all_plan_items_raw
 
     # Run all audit sections.
     # Patch G: audit order for sequence checks: lineage → atomicity.
     sections: dict[str, list[str]] = {}
 
     sections["phase_provenance"] = validate_phase_and_provenance()
-    sections["plan_completeness"] = validate_plan_completeness(all_attempts, all_candidates)
+    sections["plan_completeness"] = validate_plan_completeness(
+        all_attempts, all_candidates, target_splits=target_splits,
+    )
     sections["split_integrity"] = validate_split_integrity(all_attempts, all_candidates)
     sections["identity_uniqueness"] = validate_identity_uniqueness(all_attempts, all_candidates)
     sections["variant_consistency"] = validate_variant_consistency(all_attempts, all_candidates)
     sections["config_consistency"] = validate_config_consistency(all_attempts)
-    sections["hash_integrity"] = validate_hash_integrity(all_attempts, all_candidates)
+    sections["hash_integrity"] = validate_hash_integrity(
+        all_attempts, all_candidates, target_splits=target_splits,
+    )
     sections["retry_lineage"] = validate_retry_lineage(all_attempts)
     sections["sequence_atomicity"] = validate_sequence_atomicity(all_candidates, all_attempts)
     sections["acceptance_independence"] = validate_acceptance_independence(all_candidates)
     # Patch H: campaign identity verification.
-    sections["campaign_identity"] = validate_campaign_identity()
+    sections["campaign_identity"] = validate_campaign_identity(
+        target_splits=target_splits,
+    )
+    # Patch L: final combined audit must verify all split gates.
+    if split_scope == "all":
+        sections["split_gate_progression"] = _validate_all_split_gates()
 
     # Collect all blocking findings.
     all_findings: list[str] = []
     for section_findings in sections.values():
         all_findings.extend(section_findings)
 
-    coverage = compute_coverage_stats(all_attempts, all_candidates, plan_items)
+    coverage = compute_coverage_stats(
+        all_attempts, all_candidates, scope_plan_items,
+    )
 
     return {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "study_version": EMPIRICAL_STUDY_VERSION,
         "empirical_phase": EMPIRICAL_PHASE,
+        "audit_scope": split_scope,
+        "audited_splits": list(target_splits),
         "audit_sections": sections,
         "validation_findings": all_findings,
         "finding_count": len(all_findings),
@@ -971,7 +1086,7 @@ def build_validation_report() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def write_markdown_report(report: dict) -> None:
+def write_markdown_report(report: dict, *, md_path: Path | None = None) -> None:
     """Write a human-readable markdown report."""
     lines = [
         "# Full Corpus Validation Report (Patch F)",
@@ -1026,12 +1141,23 @@ def write_markdown_report(report: dict) -> None:
             "",
         ])
 
-    _REPORT_MD.write_text("\n".join(lines), encoding="utf-8")
+    (md_path or _REPORT_MD).write_text("\n".join(lines), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
+
+def _source_commit() -> str:
+    """Return the current repository HEAD commit hash."""
+    import subprocess
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=False,
+        cwd=_PROJECT_ROOT,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
 def main() -> int:
@@ -1047,21 +1173,60 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    print("Running full corpus validation (Patch F)...")
+    split_scope: str = args.split
+    print(f"Running full corpus validation (Patch F) — scope={split_scope}...")
 
-    report = build_validation_report()
+    report = build_validation_report(split_scope=split_scope)
 
-    _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    _REPORT_JSON.write_text(
+    # Determine output paths: split-specific or global.
+    if split_scope != "all":
+        split_dir = _CORPUS_BASE / split_scope
+        split_dir.mkdir(parents=True, exist_ok=True)
+        report_json_path = split_dir / "audit_report.json"
+        report_md_path = split_dir / "audit_report.md"
+    else:
+        report_json_path = _REPORT_JSON
+        report_md_path = _REPORT_MD
+
+    report_json_path.parent.mkdir(parents=True, exist_ok=True)
+    report_json_path.write_text(
         json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    write_markdown_report(report)
+    write_markdown_report(report, md_path=report_md_path)
 
-    print(f"Validation report written to: {_REPORT_JSON}")
-    print(f"Markdown report written to: {_REPORT_MD}")
+    print(f"Validation report written to: {report_json_path}")
+    print(f"Markdown report written to: {report_md_path}")
     print(f"Passed: {report['passed']}")
     print(f"Blocking findings: {report['blocking_finding_count']}")
+
+    # Patch E: audit-to-gate promotion for split-specific audits.
+    if split_scope != "all":
+        audit_report_sha = hashlib.sha256(
+            report_json_path.read_bytes(),
+        ).hexdigest()
+        source_commit = _source_commit()
+
+        # The generation gate must already exist with generation_completed=true.
+        gate = load_generation_gate(split_scope)
+        if gate is None or gate.get("generation_completed") is not True:
+            print(
+                f"ERROR: {split_scope}: generation gate missing or "
+                f"generation_completed != true — cannot promote audit result",
+                file=sys.stderr,
+            )
+            return 1
+
+        update_generation_gate_after_audit(
+            split=split_scope,
+            audit_passed=report["passed"],
+            audit_report_path=report_json_path.relative_to(_CORPUS_BASE),
+            audit_report_sha256=audit_report_sha,
+            source_commit=source_commit,
+        )
+        status = "PASSED" if report["passed"] else "FAILED"
+        print(f"Gate updated: {split_scope} audit {status}")
+        print(f"  audit_report_sha256: {audit_report_sha}")
 
     return 0 if report["passed"] else 1
 

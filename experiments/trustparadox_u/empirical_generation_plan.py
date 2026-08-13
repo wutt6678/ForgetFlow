@@ -25,6 +25,8 @@ from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_SCHEMA_VERSION,
     EMPIRICAL_STUDY_VERSION,
     AttackType,
+    EmpiricalGenerationAttempt,
+    EmpiricalSplit,
     EmpiricalTargetSpec,
     compute_target_registry_hash,
     empirical_candidate_family_id,
@@ -408,6 +410,153 @@ def plan_sha256(items: Sequence[GenerationPlanItem]) -> str:
         json.dumps(r, sort_keys=True, separators=(",", ":"), ensure_ascii=False) for r in records
     ]
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Patch A: canonical split selector for the frozen full plan
+# ---------------------------------------------------------------------------
+
+
+def plan_items_for_split(
+    plan_items: Sequence[GenerationPlanItem],
+    split: str,
+) -> list[GenerationPlanItem]:
+    """Return only the plan items belonging to *split*.
+
+    Validates the split value via :class:`EmpiricalSplit` and ensures at
+    least one item is selected.  This is the single canonical helper used
+    by every split-specific consumer of the frozen full plan.
+    """
+    split_value = EmpiricalSplit(split).value
+    selected = [
+        item
+        for item in plan_items
+        if item.split == split_value
+    ]
+    if not selected:
+        raise ValueError(
+            f"generation plan contains no items for split {split_value!r}"
+        )
+    if any(item.split != split_value for item in selected):
+        raise AssertionError(
+            f"plan_items_for_split returned items with split != {split_value!r}"
+        )
+    return selected
+
+
+# ---------------------------------------------------------------------------
+# Patch F: exact plan completeness at generation-attempt level
+# ---------------------------------------------------------------------------
+
+
+def planned_generation_ids(
+    plan_items: Sequence[GenerationPlanItem],
+) -> set[str]:
+    """Return the set of ``plan_item_id`` values from *plan_items*.
+
+    Each ``plan_item_id`` corresponds to one scientific generation attempt
+    (one provider-plan item).  For sequence steps each step has its own ID.
+    """
+    return {item.plan_item_id for item in plan_items}
+
+
+def observed_generation_ids(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+) -> set[str]:
+    """Return the set of distinct ``generation_attempt_id`` values.
+
+    Retries share the same ``generation_attempt_id``, so they collapse to
+    one observed ID — which is exactly what plan completeness needs.
+    """
+    return {a.generation_attempt_id for a in attempts}
+
+
+@dataclass(frozen=True)
+class PlanCompleteness:
+    """Result of comparing planned vs observed generation IDs."""
+
+    planned_count: int
+    observed_count: int
+    missing_ids: frozenset[str]
+    unexpected_ids: frozenset[str]
+
+    @property
+    def complete(self) -> bool:
+        """True when every planned ID is observed and nothing unexpected."""
+        return not self.missing_ids and not self.unexpected_ids
+
+
+def compute_plan_completeness(
+    plan_items: Sequence[GenerationPlanItem],
+    attempts: Sequence[EmpiricalGenerationAttempt],
+) -> PlanCompleteness:
+    """Compare planned plan-item IDs against observed generation-attempt IDs."""
+    planned = planned_generation_ids(plan_items)
+    observed = observed_generation_ids(attempts)
+    return PlanCompleteness(
+        planned_count=len(planned),
+        observed_count=len(observed),
+        missing_ids=frozenset(planned - observed),
+        unexpected_ids=frozenset(observed - planned),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Patch E: shared generation-gate helpers
+# ---------------------------------------------------------------------------
+
+_CORPUS_GENERATION_BASE = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
+
+
+def generation_gate_path(split: str, base: Path = _CORPUS_GENERATION_BASE) -> Path:
+    """Return the path to the generation gate file for *split*."""
+    return base / f"{split}_generation_gate.json"
+
+
+def load_generation_gate(
+    split: str,
+    base: Path = _CORPUS_GENERATION_BASE,
+) -> dict | None:
+    """Load the generation gate file for *split*, or ``None`` if missing."""
+    gate_path = generation_gate_path(split, base)
+    if not gate_path.exists():
+        return None
+    return json.loads(gate_path.read_text(encoding="utf-8"))
+
+
+def update_generation_gate_after_audit(
+    *,
+    split: str,
+    audit_passed: bool,
+    audit_report_path: Path,
+    audit_report_sha256: str,
+    source_commit: str,
+    base: Path = _CORPUS_GENERATION_BASE,
+) -> dict:
+    """Update the generation gate with audit evidence.
+
+    Loads the existing gate (which must have ``generation_completed=true``),
+    merges audit fields, and writes it back.  Returns the updated gate dict.
+    """
+    from datetime import UTC, datetime
+
+    gate_path = generation_gate_path(split, base)
+    existing = load_generation_gate(split, base)
+    if existing is None:
+        raise FileNotFoundError(
+            f"{split}: generation gate missing — cannot promote audit result"
+        )
+    now_utc = datetime.now(UTC).isoformat(timespec="seconds")
+    existing["audit_passed"] = audit_passed
+    existing["audit_report_sha256"] = audit_report_sha256
+    existing["audit_report_path"] = str(audit_report_path)
+    existing["audit_source_commit"] = source_commit
+    existing["audited_at"] = now_utc
+    gate_path.write_text(
+        json.dumps(existing, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return existing
 
 
 def load_generation_plan(path: Path) -> list[GenerationPlanItem]:

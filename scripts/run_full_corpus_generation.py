@@ -173,7 +173,11 @@ def _load_gate(split: str) -> dict | None:
 
 
 def _check_prerequisite_gate(split: str) -> str | None:
-    """Return error if the prerequisite split gate is not satisfied."""
+    """Return error if the prerequisite split gate is not satisfied.
+
+    Patch O: also verifies the audit report file hash matches the gate's
+    ``audit_report_sha256`` — boolean ``audit_passed`` alone is not enough.
+    """
     prereq = _SPLIT_PREREQUISITES.get(split)
     if prereq is None:
         return None  # development has no prerequisite
@@ -183,10 +187,39 @@ def _check_prerequisite_gate(split: str) -> str | None:
             f"prerequisite split {prereq!r} has no gate file; "
             f"run and audit {prereq} first"
         )
+    if gate.get("generation_completed") is not True:
+        return (
+            f"prerequisite split {prereq!r} generation_completed != true; "
+            f"cannot proceed with {split!r}"
+        )
     if gate.get("audit_passed") is not True:
         return (
             f"prerequisite split {prereq!r} gate audit_passed != true; "
             f"cannot proceed with {split!r}"
+        )
+    # Patch O: verify audit report hash.
+    audit_report_path_str = gate.get("audit_report_path")
+    recorded_hash = gate.get("audit_report_sha256")
+    if not audit_report_path_str or not recorded_hash:
+        return (
+            f"prerequisite split {prereq!r} gate missing audit report hash; "
+            f"re-audit {prereq}"
+        )
+    # Resolve the audit report path relative to the output base.
+    audit_path = _OUTPUT_BASE / audit_report_path_str
+    if not audit_path.exists():
+        # Also try as an absolute path.
+        audit_path = Path(audit_report_path_str)
+    if not audit_path.exists():
+        return (
+            f"prerequisite split {prereq!r} audit report file not found: "
+            f"{audit_report_path_str}"
+        )
+    computed_hash = hashlib.sha256(audit_path.read_bytes()).hexdigest()
+    if computed_hash != recorded_hash:
+        return (
+            f"prerequisite split {prereq!r} audit report SHA256 mismatch: "
+            f"recorded={recorded_hash} computed={computed_hash}"
         )
     return None
 
@@ -232,18 +265,42 @@ def run_split(split: str, plan_path: Path, output_dir: Path, *, resume: bool = F
 # ---------------------------------------------------------------------------
 
 
-def _write_generation_gate(split: str, generation_ok: bool) -> Path:
-    """Write a per-split gate file recording generation outcome."""
+def _write_generation_gate(
+    split: str,
+    *,
+    generation_completed: bool,
+    planned_plan_item_count: int,
+    accounted_plan_item_count: int,
+    missing_plan_item_count: int,
+    missing_plan_item_ids: list[str] | None = None,
+) -> Path:
+    """Write a per-split gate file recording generation outcome.
+
+    Patch H/O: ``generation_completed`` is derived from exact plan
+    completeness, not merely the subprocess exit code.
+    """
     gate_path = _GATE_DIR / f"{split}_generation_gate.json"
     now_utc = datetime.now(UTC).isoformat(timespec="seconds")
-    gate = {
+
+    # Preserve existing gate fields (e.g. source_commit) if present.
+    existing: dict = {}
+    if gate_path.exists():
+        existing = json.loads(gate_path.read_text(encoding="utf-8"))
+
+    existing.update({
         "split": split,
-        "generation_completed": generation_ok,
-        "audit_passed": False,  # updated by the audit step
-        "created_at": now_utc,
-    }
+        "generation_completed": generation_completed,
+        "planned_plan_item_count": planned_plan_item_count,
+        "accounted_plan_item_count": accounted_plan_item_count,
+        "missing_plan_item_count": missing_plan_item_count,
+        "generation_completed_at": now_utc,
+        "audit_passed": existing.get("audit_passed", False),
+    })
+    if missing_plan_item_ids:
+        # Cap the stored list to avoid huge gate files.
+        existing["missing_plan_item_sample"] = missing_plan_item_ids[:50]
     gate_path.write_text(
-        json.dumps(gate, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        json.dumps(existing, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     return gate_path
@@ -380,10 +437,28 @@ def main(argv: list[str] | None = None) -> int:
         print("  Mode: RESUME")
 
     rc = run_split(split, args.plan, output_dir, resume=args.resume)
-    _write_generation_gate(split, generation_ok=(rc == 0))
+
+    # Patch H/O: compute exact plan completeness for the gate.
+    from experiments.trustparadox_u.empirical_generation_plan import (
+        load_generation_plan,
+        plan_items_for_split,
+        compute_plan_completeness,
+    )
+    from experiments.trustparadox_u.empirical_corpus import (
+        record_to_attempt,
+        EmpiricalGenerationAttempt,
+    )
 
     if rc != 0:
-        print(f"\nGeneration gate for {split!r}: FAILED", file=sys.stderr)
+        # Subprocess failed — gate is incomplete.
+        _write_generation_gate(
+            split,
+            generation_completed=False,
+            planned_plan_item_count=0,
+            accounted_plan_item_count=0,
+            missing_plan_item_count=0,
+        )
+        print(f"\nGeneration gate for {split!r}: FAILED (exit code {rc})", file=sys.stderr)
         print(
             f"Run audit before proceeding: poetry run python -m "
             f"experiments.trustparadox_u.audit_empirical_corpus --split {split}",
@@ -391,7 +466,43 @@ def main(argv: list[str] | None = None) -> int:
         )
         return rc
 
-    print(f"\nGeneration gate for {split!r}: written")
+    # Load split plan items and raw attempts for exact completeness.
+    full_plan = load_generation_plan(args.plan)
+    split_plan = plan_items_for_split(full_plan, split)
+    raw_path = output_dir / "raw_generation_attempts.jsonl"
+    attempts: list[EmpiricalGenerationAttempt] = []
+    if raw_path.exists():
+        with raw_path.open(encoding="utf-8") as fh:
+            attempts = [
+                record_to_attempt(json.loads(line))
+                for line in fh
+                if line.strip()
+            ]
+    completeness = compute_plan_completeness(split_plan, attempts)
+
+    _write_generation_gate(
+        split,
+        generation_completed=completeness.complete,
+        planned_plan_item_count=completeness.planned_count,
+        accounted_plan_item_count=completeness.observed_count,
+        missing_plan_item_count=len(completeness.missing_ids),
+        missing_plan_item_ids=sorted(completeness.missing_ids)[:50],
+    )
+
+    if not completeness.complete:
+        print(
+            f"\nGeneration gate for {split!r}: INCOMPLETE "
+            f"({completeness.planned_count} planned, "
+            f"{completeness.observed_count} observed, "
+            f"{len(completeness.missing_ids)} missing)",
+            file=sys.stderr,
+        )
+        if completeness.missing_ids:
+            sample = sorted(completeness.missing_ids)[:10]
+            print(f"  missing sample: {sample}", file=sys.stderr)
+        return 1
+
+    print(f"\nGeneration gate for {split!r}: COMPLETE")
     print(
         f"Next step — run audit:\n"
         f"  poetry run python -m experiments.trustparadox_u.audit_empirical_corpus "

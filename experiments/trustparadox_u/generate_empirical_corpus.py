@@ -339,6 +339,9 @@ def build_corpus_manifest(
     artifact_class: str = "development_smoke",
     research_use: str = "diagnostic_only",
     campaign_identity_hash: str = "",
+    full_generation_plan_sha256: str | None = None,
+    split_generation_plan_sha256: str | None = None,
+    split_plan_item_count: int | None = None,
 ) -> dict[str, object]:
     status_counts = Counter(attempt.generation_status for attempt in attempts)
     result: dict[str, object] = {
@@ -371,6 +374,13 @@ def build_corpus_manifest(
     # Patch I: bind campaign identity hash when available.
     if campaign_identity_hash:
         result["campaign_identity_sha256"] = campaign_identity_hash
+    # Patch K: bind split-plan identity fields when available.
+    if full_generation_plan_sha256 is not None:
+        result["full_generation_plan_sha256"] = full_generation_plan_sha256
+    if split_generation_plan_sha256 is not None:
+        result["split_generation_plan_sha256"] = split_generation_plan_sha256
+    if split_plan_item_count is not None:
+        result["split_plan_item_count"] = split_plan_item_count
     return result
 
 
@@ -1043,12 +1053,11 @@ def build_sequence_generation_report_from_attempts(
     retry-chain reduction, not from incremental runtime counters.
     """
     # Build plan-based expected step count index (Patch H).
+    # Patch I: when a frozen plan is supplied, inconsistent sequence
+    # definitions are fatal — no silent fallback.
     plan_step_index: dict[tuple, int] = {}
     if plan_items is not None:
-        try:
-            plan_step_index = expected_sequence_steps_from_plan(plan_items)
-        except ValueError:
-            plan_step_index = {}  # Inconsistent plan → fall through to fallback.
+        plan_step_index = expected_sequence_steps_from_plan(plan_items)
 
     # Determine planned sequence count from the plan if available.
     planned_sequence_count = 0
@@ -1237,6 +1246,19 @@ def run_generation(
     """
     assert_generation_split_unlocked(split)
     EmpiricalSplit(split)  # validates the split value
+
+    # Patch B.3: defensive mixed-plan rejection.
+    if plan_items is not None:
+        foreign = [
+            item
+            for item in plan_items
+            if item.split != EmpiricalSplit(split).value
+        ]
+        if foreign:
+            raise ValueError(
+                f"run_generation received {len(foreign)} plan items "
+                f"for splits other than {split!r}"
+            )
 
     # Patch H: campaign guard — plan-driven real must use generate_once.
     if mode == "real" and plan_items is not None:
@@ -1496,6 +1518,21 @@ def run_generation(
     if _loaded_id is not None:
         _identity_hash = campaign_identity_sha256(_loaded_id)
 
+    # Patch K: compute split-plan identity hashes for the manifest.
+    _full_plan_sha: str | None = None
+    _split_plan_sha: str | None = None
+    _split_plan_count: int | None = None
+    if plan_items is not None:
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            load_generation_plan as _load_full_plan,
+            plan_sha256 as _plan_sha256,
+        )
+        _split_plan_sha = _plan_sha256(plan_items)
+        _split_plan_count = len(plan_items)
+        if plan_path is not None:
+            _full_plan = _load_full_plan(plan_path)
+            _full_plan_sha = _plan_sha256(_full_plan)
+
     manifest = build_corpus_manifest(
         generation_mode=generator.generation_mode,
         attempts=all_attempts,
@@ -1504,6 +1541,9 @@ def run_generation(
         artifact_class=artifact_class,
         research_use=research_use,
         campaign_identity_hash=_identity_hash,
+        full_generation_plan_sha256=_full_plan_sha,
+        split_generation_plan_sha256=_split_plan_sha,
+        split_plan_item_count=_split_plan_count,
     )
     _write_json_atomic(output_dir / CORPUS_MANIFEST_FILENAME, manifest)
 
@@ -1780,13 +1820,33 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # E3-007: load plan if provided.
     plan_items: list[GenerationPlanItem] | None = None
+    full_plan_items: list[GenerationPlanItem] | None = None
     if args.plan is not None:
-        plan_items = _load_generation_plan(args.plan, max_items=args.max_plan_items)
+        full_plan_items = _load_generation_plan(args.plan, max_items=args.max_plan_items)
+        # Patch B: filter to split-specific items before execution.
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            plan_items_for_split,
+        )
+        plan_items = plan_items_for_split(full_plan_items, args.split)
 
-    # E3-007: dry-run prints plan summary and exits.
+    # E3-007: dry-run reports plan summary and exits.
     if args.dry_run:
         if plan_items is not None:
-            print(json.dumps({"dry_run": True, "plan_items": len(plan_items)}))
+            from experiments.trustparadox_u.empirical_generation_plan import (
+                plan_summary as _plan_summary,
+            )
+            _split_summary = _plan_summary(plan_items)
+            print(json.dumps({
+                "dry_run": True,
+                "full_plan_item_count": len(full_plan_items) if full_plan_items else 0,
+                "selected_split_plan_item_count": len(plan_items),
+                "selected_split_scientific_unit_count": _split_summary.get(
+                    "scientific_generation_unit_count", 0
+                ),
+                "selected_split_sequence_count": _split_summary.get(
+                    "distinct_sequences", 0
+                ),
+            }))
         else:
             print(
                 json.dumps(
@@ -1800,6 +1860,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         return 0
+
+    # Patch J: write split execution-plan summary before any provider call.
+    if plan_items is not None and not args.dry_run:
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            plan_summary as _plan_summary,
+            plan_sha256 as _plan_sha256,
+        )
+        _summary = _plan_summary(plan_items)
+        _variants_in_split = len({it.secret_variant_id for it in plan_items})
+        _foreign = [it for it in (full_plan_items or []) if it.split != args.split]
+        exec_plan = {
+            "split": args.split,
+            "full_plan_item_count": len(full_plan_items) if full_plan_items else 0,
+            "selected_plan_item_count": len(plan_items),
+            "selected_sequence_step_item_count": _summary["sequence_step_attempts"],
+            "selected_non_sequence_item_count": _summary["non_sequence_attempts"],
+            "selected_scientific_sequence_count": _summary["distinct_sequences"],
+            "selected_secret_variant_count": _variants_in_split,
+            "foreign_plan_item_count": len(_foreign),
+            "full_plan_scientific_sha256": (
+                _plan_sha256(full_plan_items) if full_plan_items else None
+            ),
+            "split_plan_scientific_sha256": _plan_sha256(plan_items),
+        }
+        exec_plan_path = args.output_dir / "generation_execution_plan.json"
+        exec_plan_path.parent.mkdir(parents=True, exist_ok=True)
+        exec_plan_path.write_text(
+            json.dumps(exec_plan, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Execution plan written to: {exec_plan_path}")
 
     generator: EmpiricalCandidateGenerator
     retry_policy: dict[str, object] | None = None
