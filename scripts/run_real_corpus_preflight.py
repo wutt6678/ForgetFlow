@@ -604,18 +604,28 @@ def verify_preflight(
                 f"(recorded={recorded_count!r}, computed={len(plan_items)!r})"
             )
 
-        # --- Patch B: campaign identity cross-check ---
+        # --- Patch B (v2): campaign identity cross-check — mandatory ---
         if loaded_identity is not None:
             ci_file_hash = getattr(loaded_identity, "generation_plan_file_sha256", "")
             ci_scientific_hash = getattr(loaded_identity, "generation_plan_scientific_sha256", "")
-            if ci_file_hash and plan_path.exists():
+            # Patch E: generation_plan_file_sha256 is mandatory.
+            if not ci_file_hash:
+                findings.append(
+                    "campaign_identity.generation_plan_file_sha256 missing"
+                )
+            elif plan_path.exists():
                 computed_file_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
                 if ci_file_hash != computed_file_hash:
                     findings.append(
                         f"campaign_identity.generation_plan_file_sha256 mismatch "
                         f"(identity={ci_file_hash!r}, computed={computed_file_hash!r})"
                     )
-            if ci_scientific_hash and ci_scientific_hash != computed_scientific:
+            # Patch E: generation_plan_scientific_sha256 is mandatory.
+            if not ci_scientific_hash:
+                findings.append(
+                    "campaign_identity.generation_plan_scientific_sha256 missing"
+                )
+            elif ci_scientific_hash != computed_scientific:
                 findings.append(
                     f"campaign_identity.generation_plan_scientific_sha256 mismatch "
                     f"(identity={ci_scientific_hash!r}, computed={computed_scientific!r})"
@@ -665,7 +675,7 @@ def verify_preflight(
                         )
         # --- Patch E: verify retained accepted-candidate scientific hash ---
         recorded_accepted_hash = manifest_data.get("accepted_candidate_sha256")
-        if recorded_accepted_hash is not None and disk_candidates:
+        if recorded_accepted_hash is not None:
             computed_accepted_hash = accepted_candidates_scientific_hash(disk_candidates)
             if computed_accepted_hash != recorded_accepted_hash:
                 findings.append(
@@ -683,17 +693,40 @@ def verify_preflight(
         rebuilt_candidates, _ = rebuild_accepted_candidates(
             disk_attempts, EMPIRICAL_TARGET_REGISTRY,
         )
-        if disk_candidates:
-            disk_hash = accepted_candidates_scientific_hash(disk_candidates)
-            rebuilt_hash = accepted_candidates_scientific_hash(rebuilt_candidates)
-            if disk_hash != rebuilt_hash:
-                disk_ids = {c.candidate_id for c in disk_candidates}
-                rebuilt_ids = {c.candidate_id for c in rebuilt_candidates}
-                findings.append(
-                    f"accepted deterministic rebuild mismatch "
-                    f"(disk_hash={disk_hash!r}, rebuilt_hash={rebuilt_hash!r}, "
-                    f"only_in_disk={disk_ids - rebuilt_ids}, only_in_rebuilt={rebuilt_ids - disk_ids})"
-                )
+        # Always compare disk accepted with deterministic rebuild.
+        disk_hash = accepted_candidates_scientific_hash(disk_candidates)
+        rebuilt_hash = accepted_candidates_scientific_hash(rebuilt_candidates)
+        if disk_hash != rebuilt_hash:
+            disk_ids = {c.candidate_id for c in disk_candidates}
+            rebuilt_ids = {c.candidate_id for c in rebuilt_candidates}
+            findings.append(
+                f"accepted deterministic rebuild mismatch "
+                f"(disk_hash={disk_hash!r}, rebuilt_hash={rebuilt_hash!r}, "
+                f"only_in_disk={sorted(disk_ids - rebuilt_ids)}, "
+                f"only_in_rebuilt={sorted(rebuilt_ids - disk_ids)})"
+            )
+
+        # --- Patch C (v2): verify retained accepted count ---
+        recorded_accepted_count = manifest_data.get("accepted_candidate_count")
+        if recorded_accepted_count is None:
+            findings.append("corpus_manifest.json missing accepted_candidate_count")
+        elif recorded_accepted_count != len(disk_candidates):
+            findings.append(
+                f"accepted_candidate_count mismatch "
+                f"(recorded={recorded_accepted_count!r}, "
+                f"computed={len(disk_candidates)!r})"
+            )
+
+        # --- Patch D (v2): verify raw-attempt count ---
+        recorded_raw_count = manifest_data.get("raw_attempt_count")
+        if recorded_raw_count is None:
+            findings.append("corpus_manifest.json missing raw_attempt_count")
+        elif recorded_raw_count != len(disk_attempts):
+            findings.append(
+                f"raw_attempt_count mismatch "
+                f"(recorded={recorded_raw_count!r}, "
+                f"computed={len(disk_attempts)!r})"
+            )
 
         # --- Patch H: verify target-registry hash using canonical helper ---
         from experiments.trustparadox_u.empirical_corpus import (
@@ -706,10 +739,15 @@ def verify_preflight(
                 f"target_registry_sha256 mismatch in manifest "
                 f"(recorded={recorded_registry_hash!r}, canonical={canonical_registry_hash!r})"
             )
-        # Cross-check with campaign identity.
+        # Cross-check with campaign identity — mandatory.
         if loaded_identity is not None:
             ci_registry_hash = getattr(loaded_identity, "target_registry_sha256", "")
-            if ci_registry_hash and ci_registry_hash != canonical_registry_hash:
+            # Patch F: target_registry_sha256 is mandatory.
+            if not ci_registry_hash:
+                findings.append(
+                    "campaign_identity.target_registry_sha256 missing"
+                )
+            elif ci_registry_hash != canonical_registry_hash:
                 findings.append(
                     f"campaign_identity.target_registry_sha256 mismatch "
                     f"(identity={ci_registry_hash!r}, canonical={canonical_registry_hash!r})"
@@ -972,6 +1010,16 @@ def main(argv: list[str] | None = None) -> int:
             "manifest_identity_hash_match",
             "manifest_plan_hash_match",
             "sequence_report_present",
+            # --- Patch H: explicit verification evidence ---
+            "plan_scientific_hash",
+            "plan_file_hash",
+            "plan_item_count",
+            "raw_scientific_hash",
+            "raw_attempt_count",
+            "accepted_scientific_hash",
+            "accepted_candidate_count",
+            "accepted_deterministic_rebuild",
+            "target_registry_hash",
         ],
     }
     _write_json(output_dir / "validation_report.json", validation_report)

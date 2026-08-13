@@ -284,7 +284,7 @@ class TestSourceCommitConsistency:
         self, tmp_path: Path,
     ) -> None:
         """All splits with same commit → no findings."""
-        commit = "abc123"
+        commit = "a" * 40
         for split in ("development", "validation", "test"):
             split_dir = tmp_path / split
             split_dir.mkdir(parents=True, exist_ok=True)
@@ -330,8 +330,8 @@ class TestSourceCommitConsistency:
         self, tmp_path: Path,
     ) -> None:
         """One split with a different commit → blocking finding."""
-        commit_a = "aaa111"
-        commit_b = "bbb222"
+        commit_a = "a" * 40
+        commit_b = "b" * 40
         for split in ("development", "validation", "test"):
             split_dir = tmp_path / split
             split_dir.mkdir(parents=True, exist_ok=True)
@@ -730,9 +730,9 @@ class TestPatchLMissingSourceCommit:
         ``identity_commit`` to ``None`` to simulate a missing field,
         or to a string value to override the default.
         """
-        gen_commit = overrides.get("gen_commit", "abc123")
-        audit_commit = overrides.get("audit_commit", "abc123")
-        identity_commit = overrides.get("identity_commit", "abc123")
+        gen_commit = overrides.get("gen_commit", "a" * 40)
+        audit_commit = overrides.get("audit_commit", "a" * 40)
+        identity_commit = overrides.get("identity_commit", "a" * 40)
 
         for split in ("development", "validation", "test"):
             split_dir = tmp_path / split
@@ -825,13 +825,13 @@ class TestPatchLMissingSourceCommit:
         """One split with a different commit → inconsistency finding."""
         # This test is already covered by the existing
         # TestSourceCommitConsistency but is included here for completeness.
-        self._setup_splits(tmp_path, gen_commit="aaa111")
+        self._setup_splits(tmp_path, gen_commit="a" * 40)
         # Override test split to use a different commit.
         test_dir = tmp_path / "test"
         gate = {
             "split": "test",
-            "source_commit": "bbb222",
-            "audit_source_commit": "bbb222",
+            "source_commit": "b" * 40,
+            "audit_source_commit": "b" * 40,
             "generation_completed": True,
             "audit_passed": True,
         }
@@ -853,7 +853,7 @@ class TestPatchLMissingSourceCommit:
             generator_max_tokens=1024,
             request_timeout=30.0,
             max_retries=3,
-            created_from_commit="bbb222",
+            created_from_commit="b" * 40,
             created_at="2025-01-01T00:00:00",
         )
         write_campaign_identity(test_dir, identity)
@@ -1027,3 +1027,128 @@ class TestPatchMAuditPromotion:
             base=tmp_path,
         )
         assert updated["audit_passed"] is True
+
+
+# ---------------------------------------------------------------------------
+# V3: unresolved-source fail-closed regression tests
+# ---------------------------------------------------------------------------
+
+_VALID_COMMIT = "a" * 40
+
+
+class TestV3UnresolvedSourceFailClosed:
+    """V3: reject unresolved repository commits in source-consistency checks."""
+
+    def _setup_splits_with_commit(
+        self,
+        tmp_path: Path,
+        *,
+        gen_commit: str = _VALID_COMMIT,
+        audit_commit: str = _VALID_COMMIT,
+        identity_commit: str = _VALID_COMMIT,
+    ) -> None:
+        """Set up gates + identities with explicit commit values."""
+        for split in ("development", "validation", "test"):
+            split_dir = tmp_path / split
+            split_dir.mkdir(parents=True, exist_ok=True)
+            gate: dict = {
+                "split": split,
+                "generation_completed": True,
+                "audit_passed": True,
+            }
+            if gen_commit is not None:
+                gate["source_commit"] = gen_commit
+            if audit_commit is not None:
+                gate["audit_source_commit"] = audit_commit
+            (tmp_path / f"{split}_generation_gate.json").write_text(
+                json.dumps(gate), encoding="utf-8",
+            )
+            id_kwargs: dict = {
+                "schema_version": "1.0",
+                "split": split,
+                "generation_plan_scientific_sha256": "x",
+                "generation_plan_file_sha256": "y",
+                "generation_config_sha256": "z",
+                "target_registry_sha256": "t",
+                "prompt_manifest_sha256": "p",
+                "phase_manifest_sha256": "ph",
+                "generator_provider": "prov",
+                "generator_model_requested": "model",
+                "generator_temperature": 0.7,
+                "generator_max_tokens": 1024,
+                "request_timeout": 30.0,
+                "max_retries": 3,
+                "created_at": "2025-01-01T00:00:00",
+            }
+            if identity_commit is not None:
+                id_kwargs["created_from_commit"] = identity_commit
+            else:
+                id_kwargs["created_from_commit"] = ""
+            identity = CampaignIdentity(**id_kwargs)
+            write_campaign_identity(split_dir, identity)
+
+    def test_audit_promotion_rejects_unknown_head(
+        self, tmp_path: Path,
+    ) -> None:
+        """validate_source_commit_consistency rejects 'unknown' gate commit."""
+        self._setup_splits_with_commit(
+            tmp_path,
+            gen_commit="unknown",
+            audit_commit="unknown",
+            identity_commit="unknown",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_source_commit_consistency()
+        assert any(
+            "not a resolved commit" in f for f in findings
+        ), f"Findings: {findings}"
+
+    def test_audit_promotion_rejects_unknown_gate_source_commit(
+        self, tmp_path: Path,
+    ) -> None:
+        """'unknown' gate.source_commit → blocking finding."""
+        self._setup_splits_with_commit(
+            tmp_path,
+            gen_commit="unknown",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_source_commit_consistency()
+        assert any(
+            "gate.source_commit is not a resolved commit" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+    def test_audit_promotion_rejects_unknown_identity_source_commit(
+        self, tmp_path: Path,
+    ) -> None:
+        """'unknown' identity created_from_commit → blocking finding."""
+        self._setup_splits_with_commit(
+            tmp_path,
+            identity_commit="unknown",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_source_commit_consistency()
+        assert any(
+            "created_from_commit is not a resolved commit" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+    def test_final_source_consistency_rejects_unknown_commit(
+        self, tmp_path: Path,
+    ) -> None:
+        """Short/non-hex commit values → blocking finding."""
+        self._setup_splits_with_commit(
+            tmp_path,
+            gen_commit="abc123",
+            audit_commit="abc123",
+            identity_commit="abc123",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_source_commit_consistency()
+        assert any(
+            "not a resolved commit" in f for f in findings
+        ), f"Findings: {findings}"

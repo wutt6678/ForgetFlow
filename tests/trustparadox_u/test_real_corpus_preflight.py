@@ -660,6 +660,170 @@ class TestPatchFDeterministicRebuild:
 
 
 # ---------------------------------------------------------------------------
+# V1: Accepted-corpus fail-closed regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestV1AcceptedCorpusFailClosed:
+    """V1: ensure empty/non-empty accepted corpus cannot bypass verification."""
+
+    def test_preflight_truncated_empty_accepted_file_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Empty accepted file + non-empty rebuild → multiple findings."""
+        from experiments.trustparadox_u.empirical_corpus import (
+            EmpiricalCandidate,
+            candidate_to_record,
+            accepted_candidates_scientific_hash,
+        )
+        # Create a candidate that should be in the accepted file.
+        candidate = EmpiricalCandidate(
+            candidate_id="cand_fam1_low",
+            source_generation_attempt_id="att_001",
+            candidate_family_id="fam_1",
+            scenario_id="s1",
+            secret_variant_id="v1",
+            split="development",
+            trust_level="low",
+            attack_type="direct_disclosure",
+            sample_index=0,
+            generation_replicate=0,
+            sender_id="sender",
+            recipient_id="recipient",
+            sequence_family_id=None,
+            sequence_id=None,
+            sequence_step_index=None,
+            sequence_step_count=None,
+            text="secret",
+            normalized_text="secret",
+            content_sha256="abc",
+            accepted=True,
+            acceptance_reason="firewall_pass",
+            generator_provider="openai",
+            generator_model="gpt-4",
+            generator_revision=None,
+            system_prompt_hash="sys",
+            user_prompt_hash="usr",
+        )
+        # Setup with the candidate in accepted file.
+        accepted_line = json.dumps(candidate_to_record(candidate), sort_keys=True) + "\n"
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path, accepted_content=accepted_line,
+        )
+        # Now truncate the accepted file to empty.
+        (output_dir / "accepted_candidates.jsonl").write_text("", encoding="utf-8")
+        # Manifest still has hash for the candidate.
+        manifest = json.loads((output_dir / "corpus_manifest.json").read_text())
+        manifest["accepted_candidate_sha256"] = accepted_candidates_scientific_hash([candidate])
+        manifest["accepted_candidate_count"] = 1
+        (output_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        # Should fail because manifest expects 1 candidate but disk is empty.
+        assert any(
+            "accepted_candidate_sha256 mismatch" in f
+            or "accepted_candidate_count mismatch" in f
+            for f in findings
+        ), f"Expected failure for truncated accepted file. Findings: {findings}"
+
+    def test_preflight_extra_accepted_candidate_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Extra retained accepted candidate (no raw attempts) → failure."""
+        from experiments.trustparadox_u.empirical_corpus import (
+            EmpiricalCandidate,
+            candidate_to_record,
+            accepted_candidates_scientific_hash,
+        )
+        candidate = EmpiricalCandidate(
+            candidate_id="cand_extra",
+            source_generation_attempt_id="att_001",
+            candidate_family_id="fam_1",
+            scenario_id="s1",
+            secret_variant_id="v1",
+            split="development",
+            trust_level="low",
+            attack_type="direct_disclosure",
+            sample_index=0,
+            generation_replicate=0,
+            sender_id="sender",
+            recipient_id="recipient",
+            sequence_family_id=None,
+            sequence_id=None,
+            sequence_step_index=None,
+            sequence_step_count=None,
+            text="extra",
+            normalized_text="extra",
+            content_sha256="xyz",
+            accepted=True,
+            acceptance_reason="firewall_pass",
+            generator_provider="openai",
+            generator_model="gpt-4",
+            generator_revision=None,
+            system_prompt_hash="sys",
+            user_prompt_hash="usr",
+        )
+        accepted_line = json.dumps(candidate_to_record(candidate), sort_keys=True) + "\n"
+        # Setup with empty raw attempts (rebuild = []).
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path, accepted_content=accepted_line,
+        )
+        # Manifest has hash for the extra candidate.
+        manifest = json.loads((output_dir / "corpus_manifest.json").read_text())
+        manifest["accepted_candidate_sha256"] = accepted_candidates_scientific_hash([candidate])
+        manifest["accepted_candidate_count"] = 1
+        (output_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        # Should fail because rebuild is empty but disk has candidate.
+        assert any(
+            "rebuild" in f.lower()
+            or "accepted_candidate_sha256 mismatch" in f
+            for f in findings
+        ), f"Expected failure for extra accepted candidate. Findings: {findings}"
+
+    def test_preflight_empty_accepted_matches_empty_rebuild(
+        self, tmp_path: Path
+    ) -> None:
+        """Empty disk accepted + empty rebuild → PASS for accepted checks."""
+        output_dir, plan_file, _ = _setup_valid_preflight(tmp_path)
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        # No accepted-corpus findings.
+        assert not any(
+            "accepted_candidate_sha256" in f
+            or "rebuild" in f.lower()
+            or "accepted_candidate_count" in f
+            for f in findings
+        ), f"Empty/empty should pass. Findings: {findings}"
+
+    def test_preflight_accepted_candidate_count_mismatch_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Wrong accepted_candidate_count → finding."""
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path, manifest_overrides={"accepted_candidate_count": 999},
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        assert any("accepted_candidate_count mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+    def test_preflight_raw_attempt_count_mismatch_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Wrong raw_attempt_count → finding."""
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path, manifest_overrides={"raw_attempt_count": 999},
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        assert any("raw_attempt_count mismatch" in f for f in findings), (
+            f"Findings: {findings}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Patch H: canonical target-registry hash tests
 # ---------------------------------------------------------------------------
 
@@ -838,3 +1002,93 @@ class TestPatchPMutationTests:
             or "rebuild" in f.lower()
             for f in findings
         ), f"Findings: {findings}"
+
+
+# ---------------------------------------------------------------------------
+# V2: Mandatory identity provenance regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestV2MandatoryIdentityProvenance:
+    """V2: ensure empty identity plan/registry hashes produce blocking findings."""
+
+    def test_preflight_missing_identity_plan_file_hash_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Empty generation_plan_file_sha256 in identity → finding."""
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path,
+            identity_overrides={"generation_plan_file_sha256": ""},
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        assert any(
+            "campaign_identity.generation_plan_file_sha256 missing" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+    def test_preflight_missing_identity_plan_scientific_hash_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Empty generation_plan_scientific_sha256 in identity → finding."""
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path,
+            identity_overrides={"generation_plan_scientific_sha256": ""},
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        assert any(
+            "campaign_identity.generation_plan_scientific_sha256 missing" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+    def test_preflight_missing_identity_target_registry_hash_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Empty target_registry_sha256 in identity → finding."""
+        output_dir, plan_file, _ = _setup_valid_preflight(
+            tmp_path,
+            identity_overrides={"target_registry_sha256": ""},
+        )
+        findings = verify_preflight(output_dir, [], [], [], plan_path=plan_file)
+        assert any(
+            "campaign_identity.target_registry_sha256 missing" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+
+# ---------------------------------------------------------------------------
+# V4: Patch H — checks_run explicit evidence
+# ---------------------------------------------------------------------------
+
+
+class TestV4ChecksRunEvidence:
+    """V4: validation_report.json must explicitly record all required checks."""
+
+    # The 9 checks that must be explicitly recorded per spec Section 20.
+    _REQUIRED_CHECKS = frozenset([
+        "plan_scientific_hash",
+        "plan_file_hash",
+        "plan_item_count",
+        "raw_scientific_hash",
+        "raw_attempt_count",
+        "accepted_scientific_hash",
+        "accepted_candidate_count",
+        "accepted_deterministic_rebuild",
+        "target_registry_hash",
+    ])
+
+    def test_preflight_validation_report_lists_all_required_checks(
+        self,
+    ) -> None:
+        """The checks_run list in main() must include all 9 required checks."""
+        import ast
+        from scripts import run_real_corpus_preflight as mod
+        source = Path(mod.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        # Find the checks_run list literal inside main().
+        checks_found: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if node.value in self._REQUIRED_CHECKS:
+                    checks_found.add(node.value)
+        missing = self._REQUIRED_CHECKS - checks_found
+        assert not missing, f"checks_run missing required entries: {sorted(missing)}"

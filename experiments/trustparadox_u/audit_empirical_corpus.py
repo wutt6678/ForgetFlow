@@ -1205,6 +1205,23 @@ def validate_manifest_provenance(
 
 
 # ---------------------------------------------------------------------------
+# Patch G (Phase 3 Final): resolved-commit helper
+# ---------------------------------------------------------------------------
+
+
+def is_resolved_repository_commit(value: str | None) -> bool:
+    """Return True only if *value* is a valid 40-char hex Git SHA."""
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    if not normalized or normalized == "unknown":
+        return False
+    if len(normalized) != 40:
+        return False
+    return all(ch in "0123456789abcdef" for ch in normalized)
+
+
+# ---------------------------------------------------------------------------
 # Patch F (Phase 3 Final): source commit consistency audit
 # ---------------------------------------------------------------------------
 
@@ -1233,11 +1250,21 @@ def validate_source_commit_consistency() -> list[str]:
         # Patch L: require presence of source commit fields.
         if not gen_commit:
             findings.append(f"{split}: gate.source_commit missing")
+        elif not is_resolved_repository_commit(gen_commit):
+            findings.append(
+                f"{split}: gate.source_commit is not a resolved commit "
+                f"(value={gen_commit!r})"
+            )
         else:
             entry["generation_commit"] = gen_commit
             commits_seen.add(gen_commit)
         if not audit_commit:
             findings.append(f"{split}: gate.audit_source_commit missing")
+        elif not is_resolved_repository_commit(audit_commit):
+            findings.append(
+                f"{split}: gate.audit_source_commit is not a resolved commit "
+                f"(value={audit_commit!r})"
+            )
         else:
             entry["audit_commit"] = audit_commit
             commits_seen.add(audit_commit)
@@ -1247,6 +1274,12 @@ def validate_source_commit_consistency() -> list[str]:
             findings.append(f"{split}: campaign identity missing")
         elif not identity.created_from_commit:
             findings.append(f"{split}: campaign_identity.created_from_commit missing")
+        elif not is_resolved_repository_commit(identity.created_from_commit):
+            findings.append(
+                f"{split}: campaign_identity.created_from_commit is not a "
+                f"resolved commit "
+                f"(value={identity.created_from_commit!r})"
+            )
         else:
             entry["campaign_identity_commit"] = identity.created_from_commit
             commits_seen.add(identity.created_from_commit)
@@ -1430,6 +1463,27 @@ def build_validation_report(
         "coverage_stats": coverage,
         "total_raw_attempts": len(all_attempts),
         "total_accepted_candidates": len(all_candidates),
+        # Patch H: explicit evidence of which checks were run.
+        "checks_run": [
+            "phase_provenance",
+            "plan_completeness",
+            "split_integrity",
+            "identity_uniqueness",
+            "variant_consistency",
+            "config_consistency",
+            "hash_integrity",
+            "retry_lineage",
+            "sequence_atomicity",
+            "acceptance_independence",
+            "campaign_identity",
+            "artifact_classification",
+            "manifest_provenance",
+            "empirical_corpus_required_fields",
+            *([
+                "split_gate_progression",
+                "source_commit_consistency",
+            ] if split_scope == "all" else []),
+        ],
         "passed": len(all_findings) == 0,
     }
 
@@ -1605,13 +1659,28 @@ def main() -> int:
                 commit_problems.append(
                     "gate.source_commit is missing or empty"
                 )
+            elif not is_resolved_repository_commit(gate_source_commit):
+                commit_problems.append(
+                    f"gate.source_commit is not a resolved commit "
+                    f"(value={gate_source_commit!r})"
+                )
             if not identity_commit:
                 commit_problems.append(
                     "campaign_identity.created_from_commit is missing or empty"
                 )
+            elif not is_resolved_repository_commit(identity_commit):
+                commit_problems.append(
+                    f"campaign_identity.created_from_commit is not a resolved "
+                    f"commit (value={identity_commit!r})"
+                )
             if not source_commit:
                 commit_problems.append(
                     "current HEAD commit could not be resolved"
+                )
+            elif not is_resolved_repository_commit(source_commit):
+                commit_problems.append(
+                    f"current HEAD commit is not a resolved commit "
+                    f"(value={source_commit!r})"
                 )
             # Require equality when all present.
             if gate_source_commit and identity_commit and source_commit:

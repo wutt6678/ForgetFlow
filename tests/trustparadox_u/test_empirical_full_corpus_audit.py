@@ -800,3 +800,62 @@ class TestPatchKSplitPlanHash:
         assert any("split_generation_plan_sha256" in f for f in findings), (
             f"Findings: {findings}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Patch H: checks_run explicit evidence in validation report
+# ---------------------------------------------------------------------------
+
+
+class TestPatchHChecksRun:
+    """Patch H: build_validation_report must include checks_run evidence."""
+
+    def test_validation_report_includes_checks_run(self) -> None:
+        """build_validation_report() return value must contain checks_run."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+
+        with (
+            patch.object(auditor, "_load_attempts", return_value=[]),
+            patch.object(auditor, "_load_candidates", return_value=[]),
+            patch.object(auditor, "_load_plan_items", return_value=[]),
+            patch.object(auditor, "validate_phase_and_provenance", return_value=[]),
+            patch.object(auditor, "validate_plan_completeness", return_value=[]),
+            patch.object(auditor, "validate_split_integrity", return_value=[]),
+            patch.object(auditor, "validate_identity_uniqueness", return_value=[]),
+            patch.object(auditor, "validate_variant_consistency", return_value=[]),
+            patch.object(auditor, "validate_config_consistency", return_value=[]),
+            patch.object(auditor, "validate_hash_integrity", return_value=[]),
+            patch.object(auditor, "validate_retry_lineage", return_value=[]),
+            patch.object(auditor, "validate_sequence_atomicity", return_value=[]),
+            patch.object(auditor, "validate_acceptance_independence", return_value=[]),
+            patch.object(auditor, "validate_campaign_identity", return_value=[]),
+            patch.object(auditor, "validate_artifact_classification", return_value=[]),
+            patch.object(auditor, "validate_manifest_provenance", return_value=[]),
+            patch.object(
+                auditor, "validate_empirical_corpus_required_fields",
+                return_value=[],
+            ),
+            patch.object(auditor, "_validate_all_split_gates", return_value=[]),
+            patch.object(
+                auditor, "validate_source_commit_consistency", return_value=[],
+            ),
+            patch.object(
+                auditor, "compute_coverage_stats", return_value={},
+            ),
+        ):
+            report = auditor.build_validation_report(split_scope="all")
+
+        assert "checks_run" in report, "validation report must include checks_run"
+        checks = report["checks_run"]
+        assert isinstance(checks, list)
+        # Core audit sections must appear in checks_run.
+        for expected in [
+            "phase_provenance",
+            "plan_completeness",
+            "hash_integrity",
+            "campaign_identity",
+            "manifest_provenance",
+            "split_gate_progression",
+            "source_commit_consistency",
+        ]:
+            assert expected in checks, f"checks_run missing {expected!r}"
