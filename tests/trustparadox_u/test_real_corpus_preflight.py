@@ -87,7 +87,7 @@ class TestFreshPreflightOrdering:
             assert (output_dir / "raw_generation_attempts.jsonl").exists()
             assert (output_dir / "accepted_candidates.jsonl").exists()
             assert (output_dir / "corpus_manifest.json").exists()
-            assert (output_dir / "sequence_report.json").exists()
+            assert (output_dir / "sequence_generation_report.json").exists()
 
     def test_preflight_manifest_missing_fails(self, tmp_path: Path) -> None:
         """verify_preflight() must FAIL if corpus_manifest.json is missing."""
