@@ -67,10 +67,13 @@ class TestFreshPreflightOrdering:
             (output_dir / "campaign_identity.json").write_text(
                 json.dumps(asdict(identity), indent=2), encoding="utf-8"
             )
+
+            # Pre-write empty raw_generation_attempts.jsonl (mocked run_preflight_generation won't write it).
+            (output_dir / "raw_generation_attempts.jsonl").write_text("", encoding="utf-8")
     
-            # Run preflight with a minimal plan.
+            # Run preflight with a minimal (empty) plan.
             plan_path = tmp_path / "plan.jsonl"
-            plan_path.write_text("[]\n", encoding="utf-8")
+            plan_path.write_text("", encoding="utf-8")
     
             rc = preflight_main([
                 "--plan", str(plan_path),
@@ -308,6 +311,6 @@ class TestFreshPreflightOrdering:
 
         # verify_preflight should FAIL.
         findings = verify_preflight(output_dir, [], [], [])
-        assert any("plan hash" in f.lower() for f in findings), (
+        assert any("plan_scientific_sha256 mismatch" in f for f in findings), (
             "verify_preflight did not report plan hash mismatch"
         )
