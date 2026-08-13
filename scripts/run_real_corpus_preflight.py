@@ -559,7 +559,7 @@ def verify_preflight(
                 findings.append(f"corpus_manifest.json missing {plan_field}")
         
         # Validate plan scientific hash against actual plan items.
-        if plan_items and manifest_data.get("plan_scientific_sha256"):
+        if manifest_data.get("plan_scientific_sha256"):
             computed_plan_hash = compute_plan_scientific_hash(plan_items)
             recorded_plan_hash = manifest_data.get("plan_scientific_sha256", "")
             if computed_plan_hash != recorded_plan_hash:
@@ -615,6 +615,18 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip pre-run safety checks (testing only).",
     )
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        default=None,
+        help="Path to generation plan file (optional, for testing).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Output directory for artifacts (optional, for testing).",
+    )
     return parser
 
 
@@ -624,7 +636,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    output_dir = _PREFLIGHT_DIR
+    output_dir = args.output_dir if args.output_dir else _PREFLIGHT_DIR
 
     # Pre-run checks.
     if not args.skip_preflight_checks:
@@ -641,10 +653,22 @@ def main(argv: list[str] | None = None) -> int:
 
     # Build diagnostic plan.
     print("Building diagnostic plan...")
-    plan_items, plan_dicts = _build_diagnostic_plan_items()
-    plan_path, file_hash, scientific_hash = _write_diagnostic_plan(
-        plan_items, plan_dicts,
-    )
+    if args.plan:
+        # Load plan from provided file.
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            GenerationPlanItem,
+            load_generation_plan,
+        )
+        plan_items = load_generation_plan(args.plan)
+        plan_dicts = [asdict(pi) for pi in plan_items]
+        plan_path, file_hash, scientific_hash = _write_diagnostic_plan(
+            plan_items, plan_dicts,
+        )
+    else:
+        plan_items, plan_dicts = _build_diagnostic_plan_items()
+        plan_path, file_hash, scientific_hash = _write_diagnostic_plan(
+            plan_items, plan_dicts,
+        )
     print(f"  Plan: {plan_path}")
     print(f"  File hash:       {file_hash}")
     print(f"  Scientific hash: {scientific_hash}")
