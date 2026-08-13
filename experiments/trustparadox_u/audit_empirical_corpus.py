@@ -56,8 +56,10 @@ from experiments.trustparadox_u.empirical_generation_plan import (
 from experiments.trustparadox_u.campaign_identity import (
     CAMPAIGN_IDENTITY_FILENAME,
     CampaignIdentity,
+    campaign_identity_sha256,
     compute_campaign_identity,
     load_campaign_identity,
+    split_has_artifacts,
     verify_campaign_identity,
     CampaignIdentityMismatchError,
 )
@@ -465,6 +467,31 @@ def validate_hash_integrity(
         if recorded_reg and computed_reg != recorded_reg:
             findings.append(f"{split}: target_registry_sha256 mismatch")
 
+        # Patch I: campaign identity hash.
+        recorded_id_hash = manifest.get("campaign_identity_sha256")
+        if recorded_id_hash:
+            loaded_id = load_campaign_identity(_CORPUS_BASE / split)
+            if loaded_id is None:
+                findings.append(
+                    f"{split}: campaign_identity_sha256 in manifest "
+                    f"but campaign_identity.json missing"
+                )
+            else:
+                computed_id_hash = campaign_identity_sha256(loaded_id)
+                if computed_id_hash != recorded_id_hash:
+                    findings.append(
+                        f"{split}: campaign_identity_sha256 mismatch"
+                    )
+        elif (
+            manifest.get("artifact_class") != "development_smoke"
+            or manifest.get("empirical_phase") == "E3_CORPUS_GENERATION"
+        ):
+            # E3 corpus manifests must have campaign identity hash.
+            if split_has_artifacts(_CORPUS_BASE / split):
+                findings.append(
+                    f"{split}: missing campaign_identity_sha256 in manifest"
+                )
+
     # Plan hash — scientific and file hashes verified separately (Patch C).
     plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
     summary_path = _MANIFESTS_DIR / "full_generation_plan_summary.json"
@@ -542,9 +569,22 @@ def validate_sequence_atomicity(
     if all_attempts is not None:
         from experiments.trustparadox_u.generate_empirical_corpus import (
             terminal_attempts_by_sequence_step,
+            terminal_attempt_for_retry_chain,
+            expected_sequence_steps_from_plan,
             _unit_key,
         )
-        # Group raw attempts by sequence scientific identity.
+
+        # Build plan-based expected step counts (Patch H).
+        plan_step_index: dict[tuple, int] = {}
+        plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+        if plan_path.exists():
+            try:
+                typed_plan = load_generation_plan(plan_path)
+                plan_step_index = expected_sequence_steps_from_plan(typed_plan)
+            except (ValueError, Exception):
+                plan_step_index = {}
+
+        # Group raw attempts by full sequence scientific identity.
         raw_seq_groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
         for a in all_attempts:
             if a.is_sequence_attempt and a.sequence_family_id is not None:
@@ -554,17 +594,101 @@ def validate_sequence_atomicity(
                     a.sequence_family_id,
                 )
                 raw_seq_groups.setdefault(key, []).append(a)
-        # For each accepted sequence family, check raw terminal completeness.
-        accepted_families: set[tuple[str, str]] = set(seq_groups.keys())
-        raw_families: dict[tuple[str, str], list[EmpiricalGenerationAttempt]] = {}
-        for key, attempts in raw_seq_groups.items():
-            fam_key = (key[-1], key[2])  # (family_id, trust_level)
-            raw_families.setdefault(fam_key, []).extend(attempts)
-        for fam_key in accepted_families:
-            if fam_key not in raw_families:
+
+        # Build accepted sequence groups by full scientific identity.
+        accepted_seq_groups: dict[tuple, list[EmpiricalCandidate]] = {}
+        for c in all_candidates:
+            if c.sequence_family_id is not None:
+                key = (
+                    c.scenario_id, c.secret_variant_id, c.trust_level,
+                    c.attack_type, c.sample_index, c.generation_replicate,
+                    c.sequence_family_id,
+                )
+                accepted_seq_groups.setdefault(key, []).append(c)
+
+        for acc_key, acc_candidates in sorted(accepted_seq_groups.items()):
+            family_id = acc_key[-1]
+
+            # 14.2: raw attempts must exist.
+            raw_attempts = raw_seq_groups.get(acc_key)
+            if raw_attempts is None:
                 findings.append(
-                    f"sequence {fam_key[0]}/{fam_key[1]}: "
+                    f"sequence {family_id}/{acc_key[2]}: "
                     f"accepted but no raw attempts found"
+                )
+                continue
+
+            # 14.3: validate retry lineage per step.
+            step_groups: dict[int, list[EmpiricalGenerationAttempt]] = {}
+            for a in raw_attempts:
+                step_idx = a.sequence_step_index
+                if step_idx is not None:
+                    step_groups.setdefault(step_idx, []).append(a)
+
+            lineage_valid = True
+            for step_idx in sorted(step_groups):
+                chain = sorted(step_groups[step_idx], key=lambda a: a.retry_index)
+                try:
+                    terminal_attempt_for_retry_chain(chain)
+                except (ValueError, Exception) as exc:
+                    findings.append(
+                        f"sequence {family_id}/{acc_key[2]} step {step_idx}: "
+                        f"invalid retry lineage: {exc}"
+                    )
+                    lineage_valid = False
+
+            if not lineage_valid:
+                continue
+
+            # 14.4: determine expected step count.
+            plan_expected = plan_step_index.get(acc_key)
+            if plan_expected is not None:
+                expected_steps = plan_expected
+            elif acc_candidates and acc_candidates[0].sequence_step_count is not None:
+                expected_steps = acc_candidates[0].sequence_step_count
+            else:
+                continue  # Cannot determine expected steps.
+
+            # 14.5: require complete terminal step indexes 0..N-1.
+            terminal_step_indices = sorted(step_groups.keys())
+            if terminal_step_indices != list(range(expected_steps)):
+                findings.append(
+                    f"sequence {family_id}/{acc_key[2]}: "
+                    f"raw terminal steps {terminal_step_indices} "
+                    f"!= expected 0..{expected_steps - 1}"
+                )
+                continue
+
+            # 14.6: validate scientific sequence structure.
+            try:
+                terminal_steps = terminal_attempts_by_sequence_step(raw_attempts)
+            except (ValueError, Exception) as exc:
+                findings.append(
+                    f"sequence {family_id}/{acc_key[2]}: "
+                    f"cannot reduce terminal steps: {exc}"
+                )
+                continue
+
+            structure_problems = validate_sequence_structure(terminal_steps)
+            if structure_problems:
+                findings.append(
+                    f"sequence {family_id}/{acc_key[2]}: "
+                    f"structure invalid: {'; '.join(structure_problems)}"
+                )
+                continue
+
+            # 14.7: cross-check accepted candidates.
+            acc_step_count = len(acc_candidates)
+            if acc_step_count != expected_steps:
+                findings.append(
+                    f"sequence {family_id}/{acc_key[2]}: "
+                    f"accepted {acc_step_count} steps, expected {expected_steps}"
+                )
+            acc_indices = sorted(c.sequence_step_index for c in acc_candidates)
+            if acc_indices != list(range(expected_steps)):
+                findings.append(
+                    f"sequence {family_id}/{acc_key[2]}: "
+                    f"accepted step indices {acc_indices} != 0..{expected_steps - 1}"
                 )
 
     return findings
@@ -737,18 +861,26 @@ def compute_coverage_stats(
 
 
 def validate_campaign_identity() -> list[str]:
-    """Patch H: verify campaign identity for each split with artifacts.
+    """Patch F: verify campaign identity for each split with artifacts.
 
     Loads ``campaign_identity.json`` from each split directory, recomputes
     the current identity from frozen artifacts, and compares all blocking
     fields.
+
+    Patch F: if a split has generated artifacts but no campaign identity,
+    that is a blocking provenance error.
     """
     findings: list[str] = []
     for split in ("development", "validation", "test"):
         split_dir = _CORPUS_BASE / split
         existing = load_campaign_identity(split_dir)
         if existing is None:
-            continue  # No campaign identity → no check needed.
+            # Patch F: if artifacts exist but identity is missing → blocking.
+            if split_has_artifacts(split_dir):
+                findings.append(
+                    f"{split}: campaign_identity.json missing for generated split"
+                )
+            continue
         # Recompute current identity from frozen artifacts.
         plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
         plan_items = None

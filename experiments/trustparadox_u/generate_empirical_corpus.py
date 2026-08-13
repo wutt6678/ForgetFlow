@@ -81,6 +81,7 @@ from experiments.trustparadox_u.empirical_generation import (
 from experiments.trustparadox_u.campaign_identity import (
     CAMPAIGN_IDENTITY_FILENAME,
     CampaignIdentityMismatchError,
+    campaign_identity_sha256,
     compute_campaign_identity,
     load_campaign_identity,
     verify_campaign_identity,
@@ -337,9 +338,10 @@ def build_corpus_manifest(
     prompt_manifest: Mapping[str, object],
     artifact_class: str = "development_smoke",
     research_use: str = "diagnostic_only",
+    campaign_identity_hash: str = "",
 ) -> dict[str, object]:
     status_counts = Counter(attempt.generation_status for attempt in attempts)
-    return {
+    result: dict[str, object] = {
         "schema_version": EMPIRICAL_SCHEMA_VERSION,
         "protocol_version": EMPIRICAL_PROTOCOL_VERSION,
         "study_version": EMPIRICAL_STUDY_VERSION,
@@ -366,6 +368,10 @@ def build_corpus_manifest(
         "scenario_counts": _counts_by([a.scenario_id for a in attempts]),
         "generated_at": utc_now_iso(),
     }
+    # Patch I: bind campaign identity hash when available.
+    if campaign_identity_hash:
+        result["campaign_identity_sha256"] = campaign_identity_hash
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -567,6 +573,70 @@ def terminal_attempt_for_retry_chain(
             if a.retry_index != retry_indices[-1]:
                 raise ValueError(
                     f"terminal_attempt_for_retry_chain: retry after success at "
+                    f"retry_index={a.retry_index}"
+                )
+    return max(attempts, key=lambda a: a.retry_index)
+
+
+def terminal_attempt_for_retry_segment(
+    attempts: Sequence[EmpiricalGenerationAttempt],
+    *,
+    expected_start_retry_index: int,
+) -> EmpiricalGenerationAttempt:
+    """Reduce a *newly generated* retry segment to its terminal attempt.
+
+    Unlike :func:`terminal_attempt_for_retry_chain`, this validator is used
+    inside ``_generate_unit()`` for the segment produced during the *current*
+    invocation.  A resumed segment may legitimately begin at ``retry1`` or
+    ``retry2`` (whatever the resume state dictated), so the strict
+    "must start at 0" rule from the complete-chain helper does not apply.
+
+    Validates:
+    - Segment is non-empty.
+    - All attempts share the same ``generation_attempt_id``.
+    - Retry indices are unique.
+    - First retry index equals *expected_start_retry_index*.
+    - Indices are consecutive within the segment.
+    - No retry after success within the segment.
+    - Returns the attempt with the highest retry_index.
+    """
+    if not attempts:
+        raise ValueError("terminal_attempt_for_retry_segment: empty segment")
+    # All must share the same generation_attempt_id.
+    ids = {a.generation_attempt_id for a in attempts}
+    if len(ids) != 1:
+        raise ValueError(
+            f"terminal_attempt_for_retry_segment: mixed generation_attempt_ids: {ids}"
+        )
+    # Retry indices must be unique.
+    retry_indices = sorted(a.retry_index for a in attempts)
+    if len(set(retry_indices)) != len(retry_indices):
+        raise ValueError(
+            f"terminal_attempt_for_retry_segment: duplicate retry indices: "
+            f"{retry_indices}"
+        )
+    # Must start at the expected index.
+    if retry_indices[0] != expected_start_retry_index:
+        raise ValueError(
+            f"terminal_attempt_for_retry_segment: expected start retry "
+            f"{expected_start_retry_index}, got {retry_indices[0]}"
+        )
+    # Must be consecutive within the segment.
+    expected = list(range(
+        expected_start_retry_index,
+        expected_start_retry_index + len(retry_indices),
+    ))
+    if retry_indices != expected:
+        raise ValueError(
+            f"terminal_attempt_for_retry_segment: retry indices not consecutive: "
+            f"{retry_indices}"
+        )
+    # No retry after success within the segment.
+    for a in sorted(attempts, key=lambda x: x.retry_index):
+        if a.generation_status == GenerationStatus.SUCCESS.value:
+            if a.retry_index != retry_indices[-1]:
+                raise ValueError(
+                    f"terminal_attempt_for_retry_segment: retry after success at "
                     f"retry_index={a.retry_index}"
                 )
     return max(attempts, key=lambda a: a.retry_index)
@@ -928,6 +998,39 @@ def _build_sequence_report(
     }
 
 
+def expected_sequence_steps_from_plan(
+    plan_items: Sequence["GenerationPlanItem"],
+) -> dict[tuple, int]:
+    """Patch H: build a mapping from sequence scientific key to expected step count.
+
+    For every planned sequence, all plan items must agree on
+    ``sequence_step_count``.  If they disagree, raise a fatal error.
+
+    Returns a dict keyed by
+    ``(scenario_id, secret_variant_id, trust_level, attack_type,
+      sample_index, generation_replicate, sequence_id)``
+    mapping to the expected step count.
+    """
+    index: dict[tuple, int] = {}
+    for item in plan_items:
+        if item.sequence_id is None or item.sequence_step_count is None:
+            continue
+        seq_key = (
+            item.scenario_id, item.secret_variant_id, item.trust_level,
+            item.attack_type, item.sample_index, item.generation_replicate,
+            item.sequence_id,
+        )
+        if seq_key in index:
+            if index[seq_key] != item.sequence_step_count:
+                raise ValueError(
+                    f"inconsistent sequence_step_count for {seq_key}: "
+                    f"{index[seq_key]} vs {item.sequence_step_count}"
+                )
+        else:
+            index[seq_key] = item.sequence_step_count
+    return index
+
+
 def build_sequence_generation_report_from_attempts(
     *,
     attempts: Sequence[EmpiricalGenerationAttempt],
@@ -939,6 +1042,14 @@ def build_sequence_generation_report_from_attempts(
     Derives all sequence statistics from the full raw attempt log after
     retry-chain reduction, not from incremental runtime counters.
     """
+    # Build plan-based expected step count index (Patch H).
+    plan_step_index: dict[tuple, int] = {}
+    if plan_items is not None:
+        try:
+            plan_step_index = expected_sequence_steps_from_plan(plan_items)
+        except ValueError:
+            plan_step_index = {}  # Inconsistent plan → fall through to fallback.
+
     # Determine planned sequence count from the plan if available.
     planned_sequence_count = 0
     sequence_plan_keys: set[tuple] = set()
@@ -983,9 +1094,22 @@ def build_sequence_generation_report_from_attempts(
 
     for key, group_attempts in sorted(seq_groups.items()):
         family_id = key[-1]
-        # Determine expected step count from attempts.
-        step_indices_seen = {a.sequence_step_index for a in group_attempts}
-        expected_steps = max(step_indices_seen) + 1 if step_indices_seen else 0
+        # Patch H: expected step count from frozen plan, not observed max.
+        plan_expected = plan_step_index.get(key)
+        if plan_expected is not None:
+            expected_steps = plan_expected
+        else:
+            # Fallback: use sequence_step_count recorded on attempts if all agree.
+            attempt_step_counts = {
+                a.sequence_step_count for a in group_attempts
+                if a.sequence_step_count is not None
+            }
+            if len(attempt_step_counts) == 1:
+                expected_steps = attempt_step_counts.pop()
+            else:
+                # Last-resort diagnostic fallback.
+                step_indices_seen = {a.sequence_step_index for a in group_attempts}
+                expected_steps = max(step_indices_seen) + 1 if step_indices_seen else 0
         if expected_steps == 0:
             incomplete_count += 1
             status_counts["incomplete"] = status_counts.get("incomplete", 0) + 1
@@ -1256,6 +1380,7 @@ def run_generation(
                 skip_steps=skip_steps,
                 start_retry_index=start_retry_index,
                 retry_start_by_step=retry_start_by_step,
+                existing_attempts=existing_attempts,
             )
             attempts.extend(new)
             if is_seq:
@@ -1330,6 +1455,7 @@ def run_generation(
                             skip_steps=skip_steps,
                             start_retry_index=start_retry_index,
                             retry_start_by_step=retry_start_by_step_loop,
+                            existing_attempts=existing_attempts,
                         )
                         attempts.extend(new)
                         if is_seq:
@@ -1364,6 +1490,12 @@ def run_generation(
     prompt_manifest = build_prompt_manifest()
     _write_json_atomic(output_dir / PROMPT_MANIFEST_FILENAME, prompt_manifest)
 
+    # Patch I: compute campaign identity hash for the manifest.
+    _identity_hash = ""
+    _loaded_id = load_campaign_identity(output_dir)
+    if _loaded_id is not None:
+        _identity_hash = campaign_identity_sha256(_loaded_id)
+
     manifest = build_corpus_manifest(
         generation_mode=generator.generation_mode,
         attempts=all_attempts,
@@ -1371,6 +1503,7 @@ def run_generation(
         prompt_manifest=prompt_manifest,
         artifact_class=artifact_class,
         research_use=research_use,
+        campaign_identity_hash=_identity_hash,
     )
     _write_json_atomic(output_dir / CORPUS_MANIFEST_FILENAME, manifest)
 
@@ -1411,6 +1544,7 @@ def _generate_unit(
     skip_steps: frozenset[int] | None = None,
     start_retry_index: int = 0,
     retry_start_by_step: Mapping[int, int] | None = None,
+    existing_attempts: Sequence[EmpiricalGenerationAttempt] = (),
 ) -> list[EmpiricalGenerationAttempt]:
     """Generate one trial unit (one attempt, or one per sequence step).
 
@@ -1488,9 +1622,35 @@ def _generate_unit(
             )
             new_attempts.extend(step_attempts)
             if is_sequence:
-                terminal_by_step[step_index] = terminal_attempt_for_retry_chain(step_attempts)
+                terminal_by_step[step_index] = terminal_attempt_for_retry_segment(
+                    step_attempts,
+                    expected_start_retry_index=step_retry_index,
+                )
             else:
-                terminal_by_step[None] = terminal_attempt_for_retry_chain(step_attempts)
+                terminal_by_step[None] = terminal_attempt_for_retry_segment(
+                    step_attempts,
+                    expected_start_retry_index=step_retry_index,
+                )
+
+    # Patch C: populate terminal_by_step for skipped steps from existing
+    # attempts so that sequence completeness checks see all steps.
+    if skip_steps and existing_attempts:
+        for a in existing_attempts:
+            si = a.sequence_step_index
+            if si in skip_steps:
+                # Group existing attempts by skipped step and pick terminal.
+                step_chain = [
+                    e for e in existing_attempts
+                    if e.sequence_step_index == si
+                    and e.scenario_id == spec.scenario_id
+                    and e.secret_variant_id == spec.secret_variant_id
+                    and e.trust_level == trust_level
+                    and e.attack_type == attack_type
+                    and e.sample_index == sample_index
+                    and e.generation_replicate == (getattr(a, 'generation_replicate', 0))
+                ]
+                if step_chain and si not in terminal_by_step:
+                    terminal_by_step[si] = terminal_attempt_for_retry_chain(step_chain)
 
     if is_sequence:
         # Collect terminal attempts for ALL steps (existing + new).

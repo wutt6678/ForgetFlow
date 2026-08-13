@@ -515,6 +515,31 @@ def verify_preflight(
                     f"potential API secret in campaign_identity.json: {indicator!r}"
                 )
 
+    # --- Patch J: campaign identity present ---
+    from experiments.trustparadox_u.campaign_identity import (
+        CAMPAIGN_IDENTITY_FILENAME,
+        campaign_identity_sha256,
+        load_campaign_identity,
+    )
+
+    loaded_identity = load_campaign_identity(output_dir)
+    if loaded_identity is None:
+        findings.append("campaign_identity.json missing from preflight output")
+    else:
+        # --- Patch J: manifest identity hash matches ---
+        manifest_path = output_dir / "corpus_manifest.json"
+        if manifest_path.exists():
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            recorded_id_hash = manifest_data.get("campaign_identity_sha256")
+            if not recorded_id_hash:
+                findings.append(
+                    "corpus_manifest.json missing campaign_identity_sha256"
+                )
+            else:
+                computed_id_hash = campaign_identity_sha256(loaded_identity)
+                if computed_id_hash != recorded_id_hash:
+                    findings.append("campaign_identity_sha256 mismatch in manifest")
+
     # --- audit has zero blocking findings ---
     # The preflight report itself summarizes these; blocking findings
     # are listed in the validation_report.json.
@@ -652,6 +677,16 @@ def main(argv: list[str] | None = None) -> int:
     accepted_hash = accepted_candidates_scientific_hash(rebuilt_accepted)
     now_utc = datetime.now(UTC).isoformat(timespec="seconds")
 
+    # Patch J: include campaign identity hash in manifest.
+    from experiments.trustparadox_u.campaign_identity import (
+        campaign_identity_sha256,
+        load_campaign_identity,
+    )
+    _preflight_id = load_campaign_identity(output_dir)
+    _preflight_id_hash = ""
+    if _preflight_id is not None:
+        _preflight_id_hash = campaign_identity_sha256(_preflight_id)
+
     manifest = {
         "artifact_class": "real_api_preflight",
         "research_use": "diagnostic_only",
@@ -679,6 +714,8 @@ def main(argv: list[str] | None = None) -> int:
         ).hexdigest(),
         "created_at": now_utc,
     }
+    if _preflight_id_hash:
+        manifest["campaign_identity_sha256"] = _preflight_id_hash
     _write_json(output_dir / "corpus_manifest.json", manifest)
 
     # 3. validation_report.json
@@ -700,6 +737,8 @@ def main(argv: list[str] | None = None) -> int:
             "sequence_acceptance_atomic",
             "prompt_hashes_present",
             "no_api_credentials_serialized",
+            "campaign_identity_present",
+            "manifest_identity_hash_match",
         ],
     }
     _write_json(output_dir / "validation_report.json", validation_report)

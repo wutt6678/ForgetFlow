@@ -3,6 +3,8 @@ ci/
 results/single_target_smoke*/
 results/multi_target_smoke*/
 results/smoke_test_*/
+results/empirical_v2/corpus_generation/
+results/empirical_v2/real_api_preflight/
 __pycache__/
 *.pyc
 .mypy_cache/

@@ -8,6 +8,8 @@ Tests that partial sequence retry resume works correctly:
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Sequence
 
@@ -15,6 +17,18 @@ from experiments.trustparadox_u.empirical_corpus import (
     EMPIRICAL_TARGET_REGISTRY,
     EmpiricalGenerationAttempt,
     EmpiricalTargetSpec,
+    empirical_candidate_family_id,
+    empirical_sequence_family_id,
+    empirical_sequence_id,
+    generation_attempt_id as canonical_generation_attempt_id,
+    validate_sequence_structure,
+)
+from experiments.trustparadox_u.empirical_generation import EmpiricalGenerationResponse
+from experiments.trustparadox_u.empirical_generation_plan import GenerationPlanItem
+from experiments.trustparadox_u.generate_empirical_corpus import (
+    RAW_ATTEMPTS_FILENAME,
+    run_generation,
+    terminal_attempt_for_retry_chain,
 )
 
 # ---------------------------------------------------------------------------
@@ -465,3 +479,499 @@ class TestEndToEndPartialSequenceResume:
             target_registry=EMPIRICAL_TARGET_REGISTRY,
         )
         assert int(report["complete_sequence_count"]) >= 1 or int(report["planned_sequence_count"]) >= 1
+
+
+# ===========================================================================
+# Patch A — terminal_attempt_for_retry_segment unit tests
+# ===========================================================================
+
+
+class TestTerminalAttemptForRetrySegment:
+    """Unit tests for the retry-segment terminal helper."""
+
+    def test_retry_segment_can_start_at_retry1(self) -> None:
+        """A resumed segment [retry1] is valid when expected_start=1."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_segment,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=1, status="success"),
+        ]
+        terminal = terminal_attempt_for_retry_segment(
+            attempts, expected_start_retry_index=1,
+        )
+        assert terminal.retry_index == 1
+        assert terminal.generation_status == "success"
+
+    def test_retry_segment_can_start_at_retry2(self) -> None:
+        """A resumed segment [retry2] is valid when expected_start=2."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_segment,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=2, status="provider_error"),
+        ]
+        terminal = terminal_attempt_for_retry_segment(
+            attempts, expected_start_retry_index=2,
+        )
+        assert terminal.retry_index == 2
+
+    def test_retry_segment_multi_attempt(self) -> None:
+        """Segment [retry1, retry2] valid when expected_start=1."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_segment,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=1, status="provider_error"),
+            _make_attempt(retry_index=2, status="success"),
+        ]
+        terminal = terminal_attempt_for_retry_segment(
+            attempts, expected_start_retry_index=1,
+        )
+        assert terminal.retry_index == 2
+
+    def test_retry_segment_rejects_wrong_start_index(self) -> None:
+        """Segment [retry0] is rejected when expected_start=1."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_segment,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=0, status="success"),
+        ]
+        import pytest
+        with pytest.raises(ValueError, match="expected start retry"):
+            terminal_attempt_for_retry_segment(
+                attempts, expected_start_retry_index=1,
+            )
+
+    def test_retry_segment_requires_consecutive_indices(self) -> None:
+        """Segment [retry2, retry4] is rejected (gap)."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_segment,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=2, status="provider_error"),
+            _make_attempt(retry_index=4, status="success"),
+        ]
+        import pytest
+        with pytest.raises(ValueError, match="not consecutive"):
+            terminal_attempt_for_retry_segment(
+                attempts, expected_start_retry_index=2,
+            )
+
+    def test_complete_retry_chain_still_requires_retry0(self) -> None:
+        """The strict complete-chain helper still rejects [retry1]."""
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempt_for_retry_chain,
+        )
+
+        attempts = [
+            _make_attempt(retry_index=1, status="success"),
+        ]
+        import pytest
+        with pytest.raises(ValueError, match="do not start at 0"):
+            terminal_attempt_for_retry_chain(attempts)
+
+
+# ===========================================================================
+# Patch B — true execution-path non-sequence retry resume
+# ===========================================================================
+
+
+class _ScriptedGenerator:
+    """Mock generator with generate_once that cycles through scripted statuses."""
+
+    generation_mode = "mock"
+    provider = "mock"
+    model_name = "mock-model"
+    transport = None
+
+    def __init__(self, statuses: list[str]) -> None:
+        self._statuses = statuses
+        self._call_count = 0
+
+    def generate_once(self, request: object) -> EmpiricalGenerationResponse:
+        status = self._statuses[self._call_count % len(self._statuses)]
+        self._call_count += 1
+        return EmpiricalGenerationResponse(
+            raw_text="5163" if status == "success" else None,
+            request_id=f"mock-req-{self._call_count}",
+            model_id="mock-model",
+            model_revision=None,
+            status=status,
+            error_message="mock error" if status == "provider_error" else None,
+            retry_index=0,
+            generated_at="2025-01-01T00:00:00Z",
+            latency_ms=0.0,
+        )
+
+
+class TestTrueExecutionPathNonSequenceRetryResume:
+    """Patch B: prove non-sequence retry resumes through run_generation()."""
+
+    def test_run_generation_resumes_non_sequence_retry(self, tmp_path: Path) -> None:
+        """Historical retry0 provider_error -> resume produces retry1 success."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Write historical raw file with retry0 provider_error.
+        historical = _make_attempt(
+            scenario_id="credential_001",
+            variant_id="credential_v1",
+            trust_level="low",
+            attack_type="direct_disclosure",
+            sample_index=0,
+            generation_replicate=0,
+            retry_index=0,
+            status="provider_error",
+            split="development",
+        )
+        raw_path = output_dir / RAW_ATTEMPTS_FILENAME
+        with raw_path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(historical)) + "\n")
+
+        # Scripted generator: resume call -> success.
+        generator = _ScriptedGenerator(["success"])
+
+        retry_policy = {
+            "max_retries": 2,
+            "backoff_seconds": [],
+            "retryable_statuses": ["provider_error"],
+        }
+
+        # Execute run_generation with resume=True.
+        report = run_generation(
+            split="development",
+            mode="mock",
+            scenarios=["credential_001"],
+            trust_levels=["low"],
+            attack_types=["direct_disclosure"],
+            samples=1,
+            output_dir=output_dir,
+            generator=generator,
+            resume=True,
+            retry_policy=retry_policy,
+        )
+
+        # Verify exactly 2 raw attempts in the file.
+        with raw_path.open(encoding="utf-8") as f:
+            records = [json.loads(line) for line in f if line.strip()]
+        assert len(records) == 2, f"expected 2 raw attempts, got {len(records)}"
+
+        # Verify no duplicate provider_attempt_id.
+        provider_ids = [r["provider_attempt_id"] for r in records]
+        assert len(provider_ids) == len(set(provider_ids)), "duplicate provider IDs"
+
+        # Verify retry0 error + retry1 success.
+        sorted_records = sorted(records, key=lambda r: r["retry_index"])
+        assert sorted_records[0]["retry_index"] == 0
+        assert sorted_records[0]["generation_status"] == "provider_error"
+        assert sorted_records[1]["retry_index"] == 1
+        assert sorted_records[1]["generation_status"] == "success"
+
+        # Verify provider was called exactly once during resume.
+        assert generator._call_count == 1, "provider should be called once during resume"
+
+        # Verify accepted corpus contains the successful candidate.
+        accepted_path = output_dir / "accepted_candidates.jsonl"
+        with accepted_path.open(encoding="utf-8") as f:
+            accepted = [json.loads(line) for line in f if line.strip()]
+        assert len(accepted) == 1, f"expected 1 accepted candidate, got {len(accepted)}"
+        assert accepted[0]["source_generation_attempt_id"] == sorted_records[1]["generation_attempt_id"]
+
+        # Verify complete retry chain validates.
+        all_attempts = [EmpiricalGenerationAttempt(**r) for r in records]
+        terminal = terminal_attempt_for_retry_chain(all_attempts)
+        assert terminal.retry_index == 1
+        assert terminal.generation_status == "success"
+
+        # Verify report was generated.
+        assert report is not None
+        assert "duplicate_id_count" in report
+        assert report["duplicate_id_count"] == 0
+
+
+# ===========================================================================
+# Patch C — true execution-path partial-sequence resume
+# ===========================================================================
+
+
+def _make_valid_sequence_attempt(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    trust_level: str,
+    attack_type: str,
+    sample_index: int,
+    generation_replicate: int,
+    sequence_step_index: int,
+    sequence_step_count: int,
+    retry_index: int,
+    status: str,
+    candidate_text: str | None,
+    split: str = "development",
+) -> EmpiricalGenerationAttempt:
+    """Build an attempt with canonical identity functions (passes validate_identity)."""
+    seq_family = empirical_sequence_family_id(
+        scenario_id=scenario_id,
+        secret_variant_id=variant_id,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+    )
+    seq_id = empirical_sequence_id(seq_family, trust_level)
+    attempt_id = canonical_generation_attempt_id(
+        scenario_id=scenario_id,
+        secret_variant_id=variant_id,
+        trust_level=trust_level,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sequence_step_index=sequence_step_index,
+    )
+    family_id = empirical_candidate_family_id(
+        scenario_id=scenario_id,
+        secret_variant_id=variant_id,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sequence_step_index=sequence_step_index,
+    )
+    provider_id = f"{attempt_id}_retry{retry_index}"
+    return EmpiricalGenerationAttempt(
+        generation_attempt_id=attempt_id,
+        provider_attempt_id=provider_id,
+        scenario_id=scenario_id,
+        secret_variant_id=variant_id,
+        trust_level=trust_level,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sender_id="CK",
+        recipient_id="SK",
+        candidate_family_id=family_id,
+        sequence_family_id=seq_family,
+        sequence_id=seq_id,
+        sequence_step_index=sequence_step_index,
+        sequence_step_count=sequence_step_count,
+        candidate_text=candidate_text,
+        generation_status=status,
+        refusal=False,
+        malformed=False,
+        off_topic=False,
+        generator_provider="mock",
+        generator_model="mock-model",
+        generator_revision=None,
+        temperature=0.7,
+        seed=None,
+        system_prompt_hash="",
+        user_prompt_hash="",
+        request_id=None,
+        retry_index=retry_index,
+        generated_at="2025-01-01T00:00:00Z",
+        split=split,
+    )
+
+
+class TestTrueExecutionPathPartialSequenceResume:
+    """Patch C: prove partial-sequence resume through run_generation()."""
+
+    def test_run_generation_resumes_partial_sequence(self, tmp_path: Path) -> None:
+        """Historical step0 success + step1 error -> resume completes step1 + step2."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Parameters for a 3-step fragmentation_sequence on credential_001.
+        scenario = "credential_001"
+        variant = "credential_v1"
+        trust = "low"
+        attack = "fragmentation_sequence"
+        sample = 0
+        rep = 0
+        step_count = 3  # credential_v1 has 3 fragments
+
+        seq_family = empirical_sequence_family_id(
+            scenario_id=scenario,
+            secret_variant_id=variant,
+            attack_type=attack,
+            sample_index=sample,
+            generation_replicate=rep,
+        )
+        seq_id = empirical_sequence_id(seq_family, trust)
+
+        # Historical raw state:
+        #   step0: retry0 success
+        #   step1: retry0 provider_error
+        #   step2: no attempts
+        hist_step0 = _make_valid_sequence_attempt(
+            scenario_id=scenario, variant_id=variant, trust_level=trust,
+            attack_type=attack, sample_index=sample, generation_replicate=rep,
+            sequence_step_index=0, sequence_step_count=step_count,
+            retry_index=0, status="success", candidate_text="5163",
+        )
+        hist_step1 = _make_valid_sequence_attempt(
+            scenario_id=scenario, variant_id=variant, trust_level=trust,
+            attack_type=attack, sample_index=sample, generation_replicate=rep,
+            sequence_step_index=1, sequence_step_count=step_count,
+            retry_index=0, status="provider_error", candidate_text=None,
+        )
+        raw_path = output_dir / RAW_ATTEMPTS_FILENAME
+        with raw_path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(hist_step0)) + "\n")
+            f.write(json.dumps(asdict(hist_step1)) + "\n")
+
+        # Mock provider: every call returns success.
+        generator = _ScriptedGenerator(["success"])
+
+        retry_policy = {
+            "max_retries": 2,
+            "backoff_seconds": [],
+            "retryable_statuses": ["provider_error"],
+        }
+
+        # Build mini sequence plan (3 steps).
+        plan_items = [
+            GenerationPlanItem(
+                plan_item_id=f"gpi_{scenario}_{variant}_{trust}_{attack}_{sample:03d}_r{rep}_st{i}",
+                split="development",
+                scenario_id=scenario,
+                secret_variant_id=variant,
+                trust_level=trust,
+                attack_type=attack,
+                sample_index=sample,
+                generation_replicate=rep,
+                sequence_id=seq_id,
+                sequence_step_index=i,
+                sequence_step_count=step_count,
+            )
+            for i in range(step_count)
+        ]
+
+        # Execute run_generation with resume=True.
+        report = run_generation(
+            split="development",
+            mode="mock",
+            scenarios=[scenario],
+            trust_levels=[trust],
+            attack_types=[attack],
+            samples=1,
+            output_dir=output_dir,
+            generator=generator,
+            resume=True,
+            plan_items=plan_items,
+            retry_policy=retry_policy,
+        )
+
+        # --- Expected raw history: exactly 4 records ---
+        with raw_path.open(encoding="utf-8") as f:
+            records = [json.loads(line) for line in f if line.strip()]
+        assert len(records) == 4, f"expected 4 raw attempts, got {len(records)}"
+
+        # Index by (step, retry).
+        by_step_retry = {
+            (r["sequence_step_index"], r["retry_index"]): r for r in records
+        }
+
+        # step0 retry0 success (historical, untouched).
+        assert (0, 0) in by_step_retry
+        assert by_step_retry[(0, 0)]["generation_status"] == "success"
+
+        # step1 retry0 provider_error (historical).
+        assert (1, 0) in by_step_retry
+        assert by_step_retry[(1, 0)]["generation_status"] == "provider_error"
+
+        # step1 retry1 success (resumed).
+        assert (1, 1) in by_step_retry
+        assert by_step_retry[(1, 1)]["generation_status"] == "success"
+
+        # step2 retry0 success (new).
+        assert (2, 0) in by_step_retry
+        assert by_step_retry[(2, 0)]["generation_status"] == "success"
+
+        # --- Negative assertions ---
+        assert (0, 1) not in by_step_retry, "step0 must not have retry1"
+        # No duplicate step1 retry0 (only one record with key (1,0)).
+        step1_retry0 = [r for r in records if r["sequence_step_index"] == 1 and r["retry_index"] == 0]
+        assert len(step1_retry0) == 1, "step1 retry0 must not be duplicated"
+        assert (2, 1) not in by_step_retry, "step2 must not have retry1"
+
+        # --- Scientific assertions ---
+        all_attempts = [EmpiricalGenerationAttempt(**r) for r in records]
+
+        # 3 terminal sequence steps.
+        terminal_steps = []
+        for si in range(step_count):
+            step_records = [a for a in all_attempts if a.sequence_step_index == si]
+            terminal = terminal_attempt_for_retry_chain(step_records)
+            terminal_steps.append(terminal)
+        assert len(terminal_steps) == 3
+        for t in terminal_steps:
+            assert t.generation_status == "success"
+
+        # Full retry lineage valid (already proven by terminal_attempt_for_retry_chain above).
+
+        # Sequence structurally complete.
+        problems = validate_sequence_structure(terminal_steps)
+        assert problems == [], f"sequence structure problems: {problems}"
+
+        # Sequence accepted atomically — verify via accepted candidates file.
+        accepted_path = output_dir / "accepted_candidates.jsonl"
+        with accepted_path.open(encoding="utf-8") as f:
+            accepted = [json.loads(line) for line in f if line.strip()]
+        assert len(accepted) == step_count, (
+            f"expected {step_count} accepted candidates, got {len(accepted)}"
+        )
+
+        # Accepted candidate IDs stable.
+        candidate_ids = sorted(c["candidate_id"] for c in accepted)
+        assert len(candidate_ids) == len(set(candidate_ids)), "duplicate candidate IDs"
+
+        # Sequence report says complete.
+        seq_report_path = output_dir / "sequence_generation_report.json"
+        with seq_report_path.open(encoding="utf-8") as f:
+            seq_report = json.load(f)
+        assert seq_report["complete_sequence_count"] == 1
+        assert seq_report["accepted_sequence_count"] == 1
+        assert seq_report["rejected_sequence_count"] == 0
+        assert seq_report["invalid_retry_lineage_count"] == 0
+
+        # --- Uninterrupted control ---
+        control_dir = tmp_path / "control"
+        control_dir.mkdir()
+        control_gen = _ScriptedGenerator(["success"])
+        run_generation(
+            split="development",
+            mode="mock",
+            scenarios=[scenario],
+            trust_levels=[trust],
+            attack_types=[attack],
+            samples=1,
+            output_dir=control_dir,
+            generator=control_gen,
+            plan_items=plan_items,
+            retry_policy=retry_policy,
+        )
+
+        # Compare accepted candidate scientific fields.
+        with (control_dir / "accepted_candidates.jsonl").open(encoding="utf-8") as f:
+            control_accepted = [json.loads(line) for line in f if line.strip()]
+        control_ids = sorted(c["candidate_id"] for c in control_accepted)
+        assert candidate_ids == control_ids, "candidate IDs differ: resumed vs control"
+
+        # Compare content hashes.
+        resumed_hashes = sorted(c["content_sha256"] for c in accepted)
+        control_hashes = sorted(c["content_sha256"] for c in control_accepted)
+        assert resumed_hashes == control_hashes, "content hashes differ"
+
+        # Compare sequence report scientific fields.
+        with (control_dir / "sequence_generation_report.json").open(encoding="utf-8") as f:
+            control_seq_report = json.load(f)
+        assert seq_report["complete_sequence_count"] == control_seq_report["complete_sequence_count"]
+        assert seq_report["accepted_sequence_count"] == control_seq_report["accepted_sequence_count"]
+        assert seq_report["rejected_sequence_count"] == control_seq_report["rejected_sequence_count"]
+        assert seq_report["invalid_retry_lineage_count"] == control_seq_report["invalid_retry_lineage_count"]

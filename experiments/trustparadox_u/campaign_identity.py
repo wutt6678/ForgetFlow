@@ -2,6 +2,33 @@
 
 Computes, writes, and verifies ``campaign_identity.json`` to ensure that
 a resumed campaign matches the original campaign definition exactly.
+
+Campaign Lifecycle
+------------------
+
+The campaign lifecycle defines when identity is created and how it is used:
+
+1. **Preflight** (diagnostic_only):
+   - Uses its own output directory and identity.
+   - Not resumable into the final development campaign.
+
+2. **E3 Transition**:
+   - After preflight PASS, transition phase and commit.
+   - This commit becomes SOURCE_COMMIT for the final corpus campaign.
+
+3. **Full Corpus Campaign**:
+   - Every split records:
+     - created_from_commit = SOURCE_COMMIT
+     - phase_manifest_sha256 = E3 committed phase manifest
+   - Plan/config/prompts/targets must be identical across splits.
+
+4. **During Splits** (development → validation → test):
+   - Generated outputs remain ignored/untracked.
+   - Strict same-commit identity is maintained.
+
+5. **Final Artifact Packaging**:
+   - Only after all splits PASS + combined audit + corpus freeze.
+   - If committed, record artifact_commit separately.
 """
 
 from __future__ import annotations
@@ -30,6 +57,20 @@ from experiments.trustparadox_u.empirical_generation_plan import (
 
 CAMPAIGN_IDENTITY_FILENAME = "campaign_identity.json"
 CAMPAIGN_IDENTITY_SCHEMA_VERSION = "1.0"
+
+# Campaign lifecycle phases.
+CAMPAIGN_PHASE_PREFLIGHT = "preflight"
+CAMPAIGN_PHASE_E3_TRANSITION = "e3_transition"
+CAMPAIGN_PHASE_CORPUS_CAMPAIGN = "corpus_campaign"
+CAMPAIGN_PHASE_ARTIFACT_PACKAGING = "artifact_packaging"
+
+# Split artifact filenames that trigger identity requirement (Patch F).
+SPLIT_ARTIFACT_FILENAMES: tuple[str, ...] = (
+    "raw_generation_attempts.jsonl",
+    "accepted_candidates.jsonl",
+    "corpus_manifest.json",
+    "validation_report.json",
+)
 
 # Fields that block resume on mismatch.
 _BLOCKING_FIELDS: frozenset[str] = frozenset({
@@ -208,3 +249,22 @@ def verify_campaign_identity(
             mismatches[field] = {"recorded": old_val, "current": new_val}
     if mismatches:
         raise CampaignIdentityMismatchError(mismatches)
+
+
+def campaign_identity_sha256(identity: CampaignIdentity) -> str:
+    """Compute SHA-256 of the canonical campaign-identity JSON.
+
+    The canonical form is ``dataclass``-serialised JSON with sorted keys
+    and compact separators, matching :func:`write_campaign_identity`.
+    """
+    payload = asdict(identity)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def split_has_artifacts(split_dir: Path) -> bool:
+    """Return True if any split artifact file exists in *split_dir*."""
+    for fname in SPLIT_ARTIFACT_FILENAMES:
+        if (split_dir / fname).exists():
+            return True
+    return False
