@@ -373,3 +373,218 @@ class TestSourceCommitConsistency:
             findings = auditor.validate_source_commit_consistency()
         assert len(findings) > 0
         assert any("source commit inconsistency" in f for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Patch N: audited-corpus tampering progression tests
+# ---------------------------------------------------------------------------
+
+
+class TestTamperingProgression:
+    """Verify that post-audit tampering blocks validation."""
+
+    def test_manifest_mutation_after_audit_blocks_validation(
+        self, tmp_path: Path
+    ) -> None:
+        """Mutating corpus_manifest.json after audit must block validation."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            update_generation_gate_after_audit,
+            generation_gate_path,
+        )
+
+        split_dir = tmp_path / "development"
+        split_dir.mkdir()
+
+        # Write valid corpus_manifest.json.
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "research_use": "pending_annotation_and_replay",
+            "empirical_phase": "E3_CORPUS_GENERATION",
+            "generation_mode": "real",
+            "repository_commit": "abc123",
+            "repository_clean": True,
+            "campaign_identity_sha256": "identity_hash",
+            "split_generation_plan_sha256": "plan_hash",
+        }
+        manifest_path = split_dir / "corpus_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        # Write campaign_identity.json.
+        identity = {
+            "campaign_id": "test",
+            "created_from_commit": "abc123",
+            "generation_plan_scientific_sha256": "plan_hash",
+        }
+        identity_path = split_dir / "campaign_identity.json"
+        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+
+        # Write generation gate with audit evidence.
+        gate_dir = tmp_path
+        gate_path = gate_dir / "development_generation_gate.json"
+        gate = {
+            "split": "development",
+            "generation_completed": True,
+            "audit_passed": True,
+            "audit_report_sha256": "audit_hash",
+            "audit_report_path": "development/audit_report.json",
+            "corpus_manifest_sha256": hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest(),
+            "campaign_identity_sha256": "identity_hash_computed",
+        }
+        gate_path.write_text(json.dumps(gate, indent=2), encoding="utf-8")
+
+        # Write audit report.
+        audit_report_path = split_dir / "audit_report.json"
+        audit_report_path.write_text('{"passed": true}', encoding="utf-8")
+
+        # Mutate corpus_manifest.json.
+        manifest["repository_commit"] = "MUTATED_COMMIT"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        # Validate — should BLOCK.
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor._validate_all_split_gates()
+
+        assert len(findings) > 0, "Tampered manifest should block validation"
+        assert any("corpus_manifest" in f.lower() for f in findings), (
+            "Should report corpus_manifest SHA256 mismatch"
+        )
+
+    def test_campaign_identity_mutation_after_audit_blocks_validation(
+        self, tmp_path: Path
+    ) -> None:
+        """Mutating campaign_identity.json after audit must block validation."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+
+        split_dir = tmp_path / "development"
+        split_dir.mkdir()
+
+        # Write valid corpus_manifest.json.
+        manifest = {
+            "artifact_class": "empirical_corpus",
+            "campaign_identity_sha256": "identity_hash",
+        }
+        manifest_path = split_dir / "corpus_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        # Write campaign_identity.json.
+        identity = {
+            "campaign_id": "test",
+            "created_from_commit": "abc123",
+            "generation_plan_scientific_sha256": "plan_hash",
+        }
+        identity_path = split_dir / "campaign_identity.json"
+        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+        original_identity_sha = hashlib.sha256(
+            identity_path.read_bytes()
+        ).hexdigest()
+
+        # Write generation gate with audit evidence.
+        gate_path = tmp_path / "development_generation_gate.json"
+        gate = {
+            "split": "development",
+            "generation_completed": True,
+            "audit_passed": True,
+            "audit_report_sha256": "audit_hash",
+            "audit_report_path": "development/audit_report.json",
+            "corpus_manifest_sha256": "manifest_hash",
+            "campaign_identity_sha256": original_identity_sha,
+        }
+        gate_path.write_text(json.dumps(gate, indent=2), encoding="utf-8")
+
+        # Write audit report.
+        audit_report_path = split_dir / "audit_report.json"
+        audit_report_path.write_text('{"passed": true}', encoding="utf-8")
+
+        # Mutate campaign_identity.json.
+        identity["created_from_commit"] = "MUTATED_COMMIT"
+        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+
+        # Validate — should BLOCK.
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor._validate_all_split_gates()
+
+        assert len(findings) > 0, "Tampered identity should block validation"
+        assert any("campaign_identity" in f.lower() for f in findings), (
+            "Should report campaign_identity SHA256 mismatch"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Patch O: required-manifest-field tests
+# ---------------------------------------------------------------------------
+
+
+class TestRequiredManifestFields:
+    """Verify that removing required fields produces blocking findings."""
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "campaign_identity_sha256",
+            "full_generation_plan_sha256",
+            "split_generation_plan_sha256",
+            "split_plan_item_count",
+            "raw_generation_sha256",
+            "accepted_candidate_sha256",
+            "repository_commit",
+            "prompt_manifest_sha256",
+            "environment_lock_hash",
+        ],
+    )
+    def test_empirical_corpus_manifest_requires_core_provenance_fields(
+        self, tmp_path: Path, field: str
+    ) -> None:
+        """Removing a required field must produce a blocking finding."""
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+
+        split_dir = tmp_path / "development"
+        split_dir.mkdir()
+
+        # Write a valid empirical_corpus manifest with all required fields.
+        manifest = {
+            "schema_version": "1.0",
+            "protocol_version": "1.0",
+            "study_version": "1.0",
+            "empirical_phase": "E3_CORPUS_GENERATION",
+            "generation_mode": "real",
+            "artifact_class": "empirical_corpus",
+            "research_use": "pending_annotation_and_replay",
+            "repository_commit": "abc123",
+            "repository_clean": True,
+            "environment_lock_hash": "lock123",
+            "target_spec_sha256": "target123",
+            "prompt_manifest_sha256": "prompt123",
+            "campaign_identity_sha256": "identity123",
+            "full_generation_plan_sha256": "full_plan123",
+            "split_generation_plan_sha256": "split_plan123",
+            "split_plan_item_count": 225,
+            "raw_generation_sha256": "raw123",
+            "accepted_candidate_sha256": "acc123",
+            "attempt_count": 100,
+            "accepted_candidate_count": 50,
+            "split_counts": {"development": 50},
+            "trust_counts": {"high": 30},
+            "attack_counts": {"credential": 20},
+            "scenario_counts": {"scenario1": 10},
+            "generated_at": "2026-08-02T00:00:00Z",
+        }
+
+        # Remove the field under test.
+        del manifest[field]
+
+        manifest_path = split_dir / "corpus_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        # Validate — should produce a blocking finding.
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_empirical_corpus_required_fields()
+
+        assert len(findings) > 0, (
+            f"Removing {field!r} should produce a blocking finding"
+        )
+        assert any(field in f for f in findings), (
+            f"Finding should mention the missing field {field!r}"
+        )

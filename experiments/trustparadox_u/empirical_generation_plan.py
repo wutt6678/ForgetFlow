@@ -531,12 +531,17 @@ def update_generation_gate_after_audit(
     audit_report_path: Path,
     audit_report_sha256: str,
     source_commit: str,
+    corpus_manifest_sha256: str,
+    campaign_identity_sha256: str,
     base: Path = _CORPUS_GENERATION_BASE,
 ) -> dict:
     """Update the generation gate with audit evidence.
 
     Loads the existing gate (which must have ``generation_completed=true``),
     merges audit fields, and writes it back.  Returns the updated gate dict.
+
+    Patch F+G (Phase 3 Final): bind exact corpus_manifest and campaign_identity
+    hashes to the gate so that any tampering invalidates the audit.
     """
     from datetime import UTC, datetime
 
@@ -552,6 +557,9 @@ def update_generation_gate_after_audit(
     existing["audit_report_path"] = str(audit_report_path)
     existing["audit_source_commit"] = source_commit
     existing["audited_at"] = now_utc
+    # Patch F+G (Phase 3 Final): bind exact artifact hashes.
+    existing["corpus_manifest_sha256"] = corpus_manifest_sha256
+    existing["campaign_identity_sha256"] = campaign_identity_sha256
     gate_path.write_text(
         json.dumps(existing, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",

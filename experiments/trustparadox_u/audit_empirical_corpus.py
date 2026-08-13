@@ -1005,6 +1005,93 @@ def validate_artifact_classification(
 
 
 # ---------------------------------------------------------------------------
+# Patch J (Phase 3 Final): required fields for empirical_corpus manifests
+# ---------------------------------------------------------------------------
+
+# Required fields for empirical_corpus artifact class.
+_EMPIRICAL_CORPUS_REQUIRED_FIELDS: tuple[str, ...] = (
+    "schema_version",
+    "protocol_version",
+    "study_version",
+    "empirical_phase",
+    "generation_mode",
+    "artifact_class",
+    "research_use",
+    "repository_commit",
+    "repository_clean",
+    "environment_lock_hash",
+    "target_spec_sha256",
+    "prompt_manifest_sha256",
+    "campaign_identity_sha256",
+    "full_generation_plan_sha256",
+    "split_generation_plan_sha256",
+    "split_plan_item_count",
+    "raw_generation_sha256",
+    "accepted_candidate_sha256",
+    "attempt_count",
+    "accepted_candidate_count",
+    "split_counts",
+    "trust_counts",
+    "attack_counts",
+    "scenario_counts",
+    "generated_at",
+)
+
+
+def validate_empirical_corpus_required_fields(
+    *,
+    target_splits: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Require all mandatory fields for empirical_corpus manifests.
+
+    Patch J (Phase 3 Final): any missing required field is a blocking finding.
+    Also validates that the manifest has the correct empirical_corpus values:
+    - generation_mode == real
+    - artifact_class == empirical_corpus
+    - research_use == pending_annotation_and_replay
+    - empirical_phase == E3_CORPUS_GENERATION
+    - repository_clean == true
+    """
+    findings: list[str] = []
+    splits_to_check = target_splits or ("development", "validation", "test")
+    for split in splits_to_check:
+        manifest = _load_manifest(split)
+        if manifest is None:
+            continue  # no manifest → nothing to check
+        # Check artifact_class first — only apply these rules to empirical_corpus.
+        if manifest.get("artifact_class") != ARTIFACT_CLASS_EMPIRICAL_CORPUS:
+            continue
+        # Check all required fields are present and non-empty.
+        missing_fields: list[str] = []
+        for field in _EMPIRICAL_CORPUS_REQUIRED_FIELDS:
+            value = manifest.get(field)
+            if value is None or value == "":
+                missing_fields.append(field)
+        if missing_fields:
+            findings.append(
+                f"{split}: empirical_corpus manifest missing required fields: "
+                + ", ".join(missing_fields)
+            )
+        # Validate required values.
+        if manifest.get("generation_mode") != "real":
+            findings.append(
+                f"{split}: empirical_corpus generation_mode must be 'real', "
+                f"got {manifest.get('generation_mode')!r}"
+            )
+        if manifest.get("empirical_phase") != EMPIRICAL_PHASE:
+            findings.append(
+                f"{split}: empirical_corpus empirical_phase must be "
+                f"{EMPIRICAL_PHASE!r}, got {manifest.get('empirical_phase')!r}"
+            )
+        if manifest.get("repository_clean") is not True:
+            findings.append(
+                f"{split}: empirical_corpus repository_clean must be true, "
+                f"got {manifest.get('repository_clean')!r}"
+            )
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Patch H (Phase 3 Final): manifest / campaign identity provenance
 # ---------------------------------------------------------------------------
 
@@ -1019,6 +1106,9 @@ def validate_manifest_provenance(
     - ``manifest.campaign_identity_sha256 == SHA256(campaign_identity.json)``
     - ``manifest.split_generation_plan_sha256 == campaign_identity.generation_plan_scientific_sha256``
     - ``manifest.repository_commit == campaign_identity.created_from_commit``
+
+    Patch K (Phase 3 Final): for empirical_corpus manifests, all checks are
+    mandatory — missing fields are blocking findings.
     """
     findings: list[str] = []
     splits_to_check = target_splits or ("development", "validation", "test")
@@ -1030,8 +1120,14 @@ def validate_manifest_provenance(
         identity = load_campaign_identity(split_dir)
         if identity is None:
             continue
+        # Only apply mandatory checks to empirical_corpus manifests.
+        is_empirical = manifest.get("artifact_class") == ARTIFACT_CLASS_EMPIRICAL_CORPUS
         # 1. campaign_identity_sha256 binding.
         recorded_ci_hash = manifest.get("campaign_identity_sha256")
+        if is_empirical and not recorded_ci_hash:
+            findings.append(
+                f"{split}: empirical_corpus manifest missing campaign_identity_sha256"
+            )
         if recorded_ci_hash:
             identity_path = split_dir / CAMPAIGN_IDENTITY_FILENAME
             if identity_path.exists():
@@ -1043,6 +1139,10 @@ def validate_manifest_provenance(
                     )
         # 2. split-plan hash agreement.
         manifest_split_plan_hash = manifest.get("split_generation_plan_sha256")
+        if is_empirical and not manifest_split_plan_hash:
+            findings.append(
+                f"{split}: empirical_corpus manifest missing split_generation_plan_sha256"
+            )
         if manifest_split_plan_hash:
             if identity.generation_plan_scientific_sha256 != manifest_split_plan_hash:
                 findings.append(
@@ -1052,6 +1152,10 @@ def validate_manifest_provenance(
                 )
         # 3. repository_commit agreement.
         manifest_commit = manifest.get("repository_commit")
+        if is_empirical and not manifest_commit:
+            findings.append(
+                f"{split}: empirical_corpus manifest missing repository_commit"
+            )
         if manifest_commit and identity.created_from_commit:
             if manifest_commit != identity.created_from_commit:
                 findings.append(
@@ -1154,6 +1258,38 @@ def _validate_all_split_gates() -> list[str]:
                 f"{split}: audit report SHA256 mismatch "
                 f"(recorded={recorded_hash!r}, computed={computed!r})"
             )
+        # Patch L (Phase 3 Final): verify corpus_manifest_sha256 binding.
+        recorded_manifest_sha = gate.get("corpus_manifest_sha256")
+        if not recorded_manifest_sha:
+            findings.append(f"{split}: gate missing corpus_manifest_sha256")
+        else:
+            manifest_path = _CORPUS_BASE / split / "corpus_manifest.json"
+            if not manifest_path.exists():
+                findings.append(f"{split}: corpus_manifest.json not found")
+            else:
+                computed_manifest = hashlib.sha256(
+                    manifest_path.read_bytes()
+                ).hexdigest()
+                if computed_manifest != recorded_manifest_sha:
+                    findings.append(
+                        f"{split}: corpus_manifest SHA256 mismatch "
+                        f"(recorded={recorded_manifest_sha!r}, computed={computed_manifest!r})"
+                    )
+        # Patch L (Phase 3 Final): verify campaign_identity_sha256 binding.
+        recorded_identity_sha = gate.get("campaign_identity_sha256")
+        if not recorded_identity_sha:
+            findings.append(f"{split}: gate missing campaign_identity_sha256")
+        else:
+            identity = load_campaign_identity(_CORPUS_BASE / split)
+            if identity is None:
+                findings.append(f"{split}: campaign_identity.json not found or malformed")
+            else:
+                computed_identity = campaign_identity_sha256(identity)
+                if computed_identity != recorded_identity_sha:
+                    findings.append(
+                        f"{split}: campaign_identity SHA256 mismatch "
+                        f"(recorded={recorded_identity_sha!r}, computed={computed_identity!r})"
+                    )
     return findings
 
 
@@ -1211,6 +1347,10 @@ def build_validation_report(
     )
     # Patch H (Phase 3 Final): manifest / campaign identity provenance.
     sections["manifest_provenance"] = validate_manifest_provenance(
+        target_splits=target_splits,
+    )
+    # Patch J (Phase 3 Final): required fields for empirical_corpus manifests.
+    sections["empirical_corpus_required_fields"] = validate_empirical_corpus_required_fields(
         target_splits=target_splits,
     )
     # Patch L: final combined audit must verify all split gates.
@@ -1371,6 +1511,30 @@ def main() -> int:
         ).hexdigest()
         source_commit = _source_commit()
 
+        # Patch F+G (Phase 3 Final): compute exact artifact hashes for gate binding.
+        split_dir = _CORPUS_BASE / split_scope
+        corpus_manifest_path = split_dir / "corpus_manifest.json"
+        if not corpus_manifest_path.exists():
+            print(
+                f"ERROR: {split_scope}: corpus_manifest.json not found — "
+                f"cannot bind audit to exact artifacts",
+                file=sys.stderr,
+            )
+            return 1
+        corpus_manifest_sha = hashlib.sha256(
+            corpus_manifest_path.read_bytes(),
+        ).hexdigest()
+
+        identity = load_campaign_identity(split_dir)
+        if identity is None:
+            print(
+                f"ERROR: {split_scope}: campaign_identity.json not found or "
+                f"malformed — cannot bind audit to exact artifacts",
+                file=sys.stderr,
+            )
+            return 1
+        campaign_identity_sha = campaign_identity_sha256(identity)
+
         # The generation gate must already exist with generation_completed=true.
         gate = load_generation_gate(split_scope)
         if gate is None or gate.get("generation_completed") is not True:
@@ -1384,10 +1548,7 @@ def main() -> int:
         # Patch D (Phase 3 Final): require source-commit consistency
         # before promoting audit_passed=true.
         gate_source_commit = gate.get("source_commit", "")
-        identity = load_campaign_identity(_CORPUS_BASE / split_scope)
-        identity_commit = (
-            identity.created_from_commit if identity is not None else ""
-        )
+        identity_commit = identity.created_from_commit
         if report["passed"]:
             commit_mismatches: list[str] = []
             if gate_source_commit and gate_source_commit != source_commit:
@@ -1418,6 +1579,8 @@ def main() -> int:
                     audit_report_path=report_json_path.relative_to(_CORPUS_BASE),
                     audit_report_sha256=audit_report_sha,
                     source_commit=source_commit,
+                    corpus_manifest_sha256=corpus_manifest_sha,
+                    campaign_identity_sha256=campaign_identity_sha,
                 )
                 print(
                     f"Gate updated: {split_scope} audit FAILED (commit mismatch)",
@@ -1430,10 +1593,14 @@ def main() -> int:
             audit_report_path=report_json_path.relative_to(_CORPUS_BASE),
             audit_report_sha256=audit_report_sha,
             source_commit=source_commit,
+            corpus_manifest_sha256=corpus_manifest_sha,
+            campaign_identity_sha256=campaign_identity_sha,
         )
         status = "PASSED" if report["passed"] else "FAILED"
         print(f"Gate updated: {split_scope} audit {status}")
         print(f"  audit_report_sha256: {audit_report_sha}")
+        print(f"  corpus_manifest_sha256: {corpus_manifest_sha}")
+        print(f"  campaign_identity_sha256: {campaign_identity_sha}")
 
     return 0 if report["passed"] else 1
 

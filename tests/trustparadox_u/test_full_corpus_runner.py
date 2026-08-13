@@ -254,6 +254,8 @@ class TestStaleAuditEvidenceClearing:
             "audit_source_commit": "old_commit",
             "audited_at": "2025-01-01T00:00:00",
             "source_commit": "old_source",
+            "corpus_manifest_sha256": "old_manifest_hash",
+            "campaign_identity_sha256": "old_identity_hash",
         }
         gate_path.write_text(json.dumps(old_gate), encoding="utf-8")
 
@@ -276,6 +278,9 @@ class TestStaleAuditEvidenceClearing:
         assert new_gate["audit_report_path"] is None
         assert new_gate["audit_source_commit"] is None
         assert new_gate["audited_at"] is None
+        # Patch I: corpus/identity bindings must be cleared.
+        assert new_gate["corpus_manifest_sha256"] is None
+        assert new_gate["campaign_identity_sha256"] is None
         # Source commit must be updated.
         assert new_gate["source_commit"] == "new_commit"
 
@@ -332,10 +337,14 @@ class TestSourceCommitInGate:
                 audit_report_path=Path("development/audit_report.json"),
                 audit_report_sha256="report_hash",
                 source_commit="abc123",
+                corpus_manifest_sha256="manifest_hash",
+                campaign_identity_sha256="identity_hash",
                 base=tmp_path,
             )
         assert updated["audit_source_commit"] == "abc123"
         assert updated["source_commit"] == "abc123"
+        assert updated["corpus_manifest_sha256"] == "manifest_hash"
+        assert updated["campaign_identity_sha256"] == "identity_hash"
 
 
 # ---------------------------------------------------------------------------
@@ -365,6 +374,8 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
+            "corpus_manifest_sha256": "manifest_hash",
+            "campaign_identity_sha256": "identity_hash",
         }
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
@@ -380,6 +391,10 @@ class TestPrerequisiteSourceCommit:
         }
         (audit_dir / "campaign_identity.json").write_text(
             json.dumps(identity), encoding="utf-8",
+        )
+        # Create corpus_manifest.json.
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
         )
 
         with (
@@ -408,6 +423,8 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
+            "corpus_manifest_sha256": "manifest_hash",
+            "campaign_identity_sha256": "identity_hash",
         }
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
@@ -417,6 +434,9 @@ class TestPrerequisiteSourceCommit:
         (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
         (audit_dir / "campaign_identity.json").write_text(
             json.dumps({"created_from_commit": "commit_A"}), encoding="utf-8",
+        )
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
         )
 
         with (
@@ -446,6 +466,8 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
+            "corpus_manifest_sha256": "manifest_hash",
+            "campaign_identity_sha256": "identity_hash",
         }
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
@@ -456,6 +478,9 @@ class TestPrerequisiteSourceCommit:
         # Identity has a DIFFERENT commit from gate.
         (audit_dir / "campaign_identity.json").write_text(
             json.dumps({"created_from_commit": "commit_C"}), encoding="utf-8",
+        )
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
         )
 
         with (

@@ -236,36 +236,104 @@ def _check_prerequisite_gate(split: str) -> str | None:
             f"prerequisite split {prereq!r} audit report SHA256 mismatch: "
             f"recorded={recorded_hash} computed={computed_hash}"
         )
-    # Patch E (Phase 3 Final): source commit consistency.
+    # Patch H (Phase 3 Final): verify corpus_manifest_sha256 binding.
+    recorded_manifest_sha = gate.get("corpus_manifest_sha256")
+    if not recorded_manifest_sha:
+        return (
+            f"prerequisite split {prereq!r} gate missing corpus_manifest_sha256; "
+            f"re-audit {prereq}"
+        )
+    prereq_manifest_path = _OUTPUT_BASE / prereq / "corpus_manifest.json"
+    if not prereq_manifest_path.exists():
+        return (
+            f"prerequisite split {prereq!r} corpus_manifest.json not found"
+        )
+    computed_manifest_sha = hashlib.sha256(
+        prereq_manifest_path.read_bytes()
+    ).hexdigest()
+    if computed_manifest_sha != recorded_manifest_sha:
+        return (
+            f"prerequisite split {prereq!r} corpus_manifest SHA256 mismatch: "
+            f"recorded={recorded_manifest_sha!r} computed={computed_manifest_sha!r}"
+        )
+    # Patch H (Phase 3 Final): verify campaign_identity_sha256 binding.
+    recorded_identity_sha = gate.get("campaign_identity_sha256")
+    if not recorded_identity_sha:
+        return (
+            f"prerequisite split {prereq!r} gate missing campaign_identity_sha256; "
+            f"re-audit {prereq}"
+        )
+    prereq_identity_path = _OUTPUT_BASE / prereq / "campaign_identity.json"
+    if not prereq_identity_path.exists():
+        return (
+            f"prerequisite split {prereq!r} campaign_identity.json not found"
+        )
+    try:
+        from experiments.trustparadox_u.campaign_identity import (
+            campaign_identity_sha256,
+            load_campaign_identity,
+        )
+        prereq_identity = load_campaign_identity(_OUTPUT_BASE / prereq)
+        if prereq_identity is None:
+            return (
+                f"prerequisite split {prereq!r} campaign_identity.json "
+                f"failed to load"
+            )
+        computed_identity_sha = campaign_identity_sha256(prereq_identity)
+        if computed_identity_sha != recorded_identity_sha:
+            return (
+                f"prerequisite split {prereq!r} campaign_identity SHA256 mismatch: "
+                f"recorded={recorded_identity_sha!r} computed={computed_identity_sha!r}"
+            )
+    except Exception as exc:
+        return (
+            f"prerequisite split {prereq!r} campaign_identity verification "
+            f"error: {exc}"
+        )
+    # Patch E (Phase 3 Final): source commit consistency — all fields mandatory.
     current_commit = _current_repository_commit()
     gate_source = gate.get("source_commit", "")
     gate_audit = gate.get("audit_source_commit", "")
-    # Load campaign identity for the prerequisite split.
-    identity_commit = ""
+    # Load campaign identity for the prerequisite split — MANDATORY.
     identity_path = _OUTPUT_BASE / prereq / "campaign_identity.json"
-    if identity_path.exists():
-        try:
-            identity_data = json.loads(identity_path.read_text(encoding="utf-8"))
-            identity_commit = identity_data.get("created_from_commit", "")
-        except (json.JSONDecodeError, KeyError):
-            pass
+    if not identity_path.exists():
+        return (
+            f"prerequisite split {prereq!r} campaign_identity.json missing; "
+            f"cannot proceed with {split!r}"
+        )
+    try:
+        identity_data = json.loads(identity_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, KeyError) as exc:
+        return (
+            f"prerequisite split {prereq!r} campaign_identity.json malformed: {exc}"
+        )
+    identity_commit = identity_data.get("created_from_commit", "")
+    # All commit fields are mandatory (non-empty).
+    missing_fields: list[str] = []
+    if not gate_source:
+        missing_fields.append("gate.source_commit")
+    if not gate_audit:
+        missing_fields.append("gate.audit_source_commit")
+    if not identity_commit:
+        missing_fields.append("campaign_identity.created_from_commit")
+    if missing_fields:
+        return (
+            f"prerequisite split {prereq!r} missing required source commit: "
+            + ", ".join(missing_fields)
+        )
+    # Four-way commit equality: all must equal HEAD.
     mismatches: list[str] = []
-    if gate_source and gate_source != current_commit:
+    if gate_source != current_commit:
         mismatches.append(
             f"gate.source_commit={gate_source!r} != HEAD={current_commit!r}"
         )
-    if gate_audit and gate_audit != current_commit:
+    if gate_audit != current_commit:
         mismatches.append(
             f"gate.audit_source_commit={gate_audit!r} != HEAD={current_commit!r}"
         )
-    if identity_commit and identity_commit != current_commit:
+    if identity_commit != current_commit:
         mismatches.append(
             f"campaign_identity.created_from_commit={identity_commit!r} != HEAD={current_commit!r}"
-        )
-    if gate_source and identity_commit and gate_source != identity_commit:
-        mismatches.append(
-            f"gate.source_commit={gate_source!r} != "
-            f"campaign_identity.created_from_commit={identity_commit!r}"
         )
     if mismatches:
         return (
@@ -361,6 +429,9 @@ def _write_generation_gate(
         "audit_report_path": None,
         "audit_source_commit": None,
         "audited_at": None,
+        # Patch I (Phase 3 Final): clear corpus/identity bindings.
+        "corpus_manifest_sha256": None,
+        "campaign_identity_sha256": None,
     })
     if missing_plan_item_ids:
         # Cap the stored list to avoid huge gate files.

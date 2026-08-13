@@ -515,7 +515,18 @@ def verify_preflight(
                     f"potential API secret in campaign_identity.json: {indicator!r}"
                 )
 
-    # --- Patch J: campaign identity present ---
+    # --- Patch B (Phase 3 Final): mandatory artifact presence ---
+    for required_name in (
+        "campaign_identity.json",
+        "raw_generation_attempts.jsonl",
+        "accepted_candidates.jsonl",
+        "corpus_manifest.json",
+        "sequence_generation_report.json",
+    ):
+        if not (output_dir / required_name).exists():
+            findings.append(f"{required_name} missing")
+
+    # --- Patch C: campaign identity present ---
     from experiments.trustparadox_u.campaign_identity import (
         CAMPAIGN_IDENTITY_FILENAME,
         campaign_identity_sha256,
@@ -525,20 +536,27 @@ def verify_preflight(
     loaded_identity = load_campaign_identity(output_dir)
     if loaded_identity is None:
         findings.append("campaign_identity.json missing from preflight output")
+
+    # --- Patch C: mandatory manifest <-> identity binding ---
+    manifest_path = output_dir / "corpus_manifest.json"
+    if not manifest_path.exists():
+        findings.append("corpus_manifest.json missing")
     else:
-        # --- Patch J: manifest identity hash matches ---
-        manifest_path = output_dir / "corpus_manifest.json"
-        if manifest_path.exists():
-            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            recorded_id_hash = manifest_data.get("campaign_identity_sha256")
-            if not recorded_id_hash:
-                findings.append(
-                    "corpus_manifest.json missing campaign_identity_sha256"
-                )
-            else:
-                computed_id_hash = campaign_identity_sha256(loaded_identity)
-                if computed_id_hash != recorded_id_hash:
-                    findings.append("campaign_identity_sha256 mismatch in manifest")
+        manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        # campaign_identity_sha256 is mandatory.
+        recorded_id_hash = manifest_data.get("campaign_identity_sha256")
+        if not recorded_id_hash:
+            findings.append(
+                "corpus_manifest.json missing campaign_identity_sha256"
+            )
+        elif loaded_identity is not None:
+            computed_id_hash = campaign_identity_sha256(loaded_identity)
+            if computed_id_hash != recorded_id_hash:
+                findings.append("campaign_identity_sha256 mismatch in manifest")
+        # Plan hashes are mandatory.
+        for plan_field in ("plan_file_sha256", "plan_scientific_sha256", "plan_item_count"):
+            if not manifest_data.get(plan_field):
+                findings.append(f"corpus_manifest.json missing {plan_field}")
 
     # --- audit has zero blocking findings ---
     # The preflight report itself summarizes these; blocking findings
@@ -654,18 +672,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Accepted: {len(rebuilt_accepted)}")
     print(f"  Rejected: {len(rebuilt_rejections)}")
 
-    # Verify preflight results.
-    print("\nVerifying preflight results...")
-    findings = verify_preflight(output_dir, all_attempts, rebuilt_accepted, plan_items)
-    if findings:
-        print("Preflight verification findings:", file=sys.stderr)
-        for f in findings:
-            print(f"  - {f}", file=sys.stderr)
-    else:
-        print("  All checks passed.")
-
     # ---------------------------------------------------------------------------
-    # Write all required artifacts
+    # Write data artifacts BEFORE verification (Patch A)
     # ---------------------------------------------------------------------------
 
     # 1. accepted_candidates.jsonl
@@ -677,7 +685,6 @@ def main(argv: list[str] | None = None) -> int:
     accepted_hash = accepted_candidates_scientific_hash(rebuilt_accepted)
     now_utc = datetime.now(UTC).isoformat(timespec="seconds")
 
-    # Patch J: include campaign identity hash in manifest.
     from experiments.trustparadox_u.campaign_identity import (
         campaign_identity_sha256,
         load_campaign_identity,
@@ -718,7 +725,59 @@ def main(argv: list[str] | None = None) -> int:
         manifest["campaign_identity_sha256"] = _preflight_id_hash
     _write_json(output_dir / "corpus_manifest.json", manifest)
 
-    # 3. validation_report.json
+    # 3. sequence_generation_report.json (before verification — Patch A)
+    from experiments.trustparadox_u.empirical_corpus import (
+        SEQUENCE_ATTACK_TYPES,
+        AttackType,
+    )
+
+    seq_plan_items = [
+        pi for pi in plan_items
+        if AttackType(pi.attack_type) in SEQUENCE_ATTACK_TYPES
+    ]
+    seq_unit_keys = set()
+    for pi in seq_plan_items:
+        seq_unit_keys.add((
+            pi.scenario_id, pi.secret_variant_id,
+            pi.trust_level, pi.attack_type,
+        ))
+    planned_seq_count = len(seq_unit_keys)
+
+    accepted_seq_keys = set()
+    for c in rebuilt_accepted:
+        if c.sequence_family_id is not None:
+            accepted_seq_keys.add((
+                c.scenario_id, c.secret_variant_id,
+                c.trust_level, c.attack_type,
+            ))
+
+    _write_json(
+        output_dir / "sequence_generation_report.json",
+        {
+            "planned_sequence_count": planned_seq_count,
+            "accepted_sequence_count": len(accepted_seq_keys),
+            "rejected_sequence_count": planned_seq_count - len(accepted_seq_keys),
+            "rejection_reasons": list(rebuilt_rejections),
+        },
+    )
+
+    # ---------------------------------------------------------------------------
+    # Run verification AFTER all data artifacts exist (Patch A)
+    # ---------------------------------------------------------------------------
+    print("\nVerifying preflight results...")
+    findings = verify_preflight(output_dir, all_attempts, rebuilt_accepted, plan_items)
+    if findings:
+        print("Preflight verification findings:", file=sys.stderr)
+        for f in findings:
+            print(f"  - {f}", file=sys.stderr)
+    else:
+        print("  All checks passed.")
+
+    # ---------------------------------------------------------------------------
+    # Write verification reports (after verification)
+    # ---------------------------------------------------------------------------
+
+    # 4. validation_report.json
     validation_report = {
         "preflight_validation": True,
         "findings": findings,
@@ -738,47 +797,13 @@ def main(argv: list[str] | None = None) -> int:
             "prompt_hashes_present",
             "no_api_credentials_serialized",
             "campaign_identity_present",
+            "corpus_manifest_present",
             "manifest_identity_hash_match",
+            "manifest_plan_hash_match",
+            "sequence_report_present",
         ],
     }
     _write_json(output_dir / "validation_report.json", validation_report)
-
-    # 4. sequence_generation_report.json
-    from experiments.trustparadox_u.empirical_corpus import (
-        SEQUENCE_ATTACK_TYPES,
-        AttackType,
-    )
-
-    seq_plan_items = [
-        pi for pi in plan_items
-        if AttackType(pi.attack_type) in SEQUENCE_ATTACK_TYPES
-    ]
-    seq_unit_keys = set()
-    for pi in seq_plan_items:
-        seq_unit_keys.add((
-            pi.scenario_id, pi.secret_variant_id,
-            pi.trust_level, pi.attack_type,
-        ))
-    planned_seq_count = len(seq_unit_keys)
-
-    # Check which sequences have all steps accepted.
-    accepted_seq_keys = set()
-    for c in rebuilt_accepted:
-        if c.sequence_family_id is not None:
-            accepted_seq_keys.add((
-                c.scenario_id, c.secret_variant_id,
-                c.trust_level, c.attack_type,
-            ))
-
-    _write_json(
-        output_dir / "sequence_generation_report.json",
-        {
-            "planned_sequence_count": planned_seq_count,
-            "accepted_sequence_count": len(accepted_seq_keys),
-            "rejected_sequence_count": planned_seq_count - len(accepted_seq_keys),
-            "rejection_reasons": list(rebuilt_rejections),
-        },
-    )
 
     # 5. preflight_report.json
     preflight_report = {
