@@ -49,6 +49,22 @@ from experiments.trustparadox_u.empirical_corpus import (
     validate_sequence_structure,
     validate_target_registry,
 )
+from experiments.trustparadox_u.empirical_generation_plan import (
+    load_generation_plan,
+    plan_sha256,
+)
+from experiments.trustparadox_u.campaign_identity import (
+    CAMPAIGN_IDENTITY_FILENAME,
+    CampaignIdentity,
+    compute_campaign_identity,
+    load_campaign_identity,
+    verify_campaign_identity,
+    CampaignIdentityMismatchError,
+)
+from experiments.trustparadox_u.empirical_generation_plan import (
+    FrozenGenerationConfig,
+    load_frozen_generation_config,
+)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFESTS_DIR = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "manifests"
@@ -449,16 +465,26 @@ def validate_hash_integrity(
         if recorded_reg and computed_reg != recorded_reg:
             findings.append(f"{split}: target_registry_sha256 mismatch")
 
-    # Plan hash.
+    # Plan hash — scientific and file hashes verified separately (Patch C).
     plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
     summary_path = _MANIFESTS_DIR / "full_generation_plan_summary.json"
-    if summary_path.exists():
+    if summary_path.exists() and plan_path.exists():
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        recorded_plan_hash = summary.get("plan_sha256")
-        if recorded_plan_hash and plan_path.exists():
-            computed_plan_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
-            if computed_plan_hash != recorded_plan_hash:
-                findings.append("generation plan SHA256 mismatch")
+        items = load_generation_plan(plan_path)
+        computed_scientific = plan_sha256(items)
+        computed_file = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+        # Scientific hash check.
+        recorded_scientific = summary.get("plan_scientific_sha256")
+        if recorded_scientific and computed_scientific != recorded_scientific:
+            findings.append("generation plan scientific SHA256 mismatch")
+        # File hash check.
+        recorded_file = summary.get("plan_file_sha256")
+        if recorded_file and computed_file != recorded_file:
+            findings.append("generation plan file SHA256 mismatch")
+        # Backward-compatible alias: plan_sha256 must equal scientific hash.
+        recorded_alias = summary.get("plan_sha256")
+        if recorded_alias and recorded_scientific and recorded_alias != recorded_scientific:
+            findings.append("generation plan plan_sha256 alias != plan_scientific_sha256")
 
     # Config hash.
     config_path = _MANIFESTS_DIR / "full_generation_config.json"
@@ -479,8 +505,13 @@ def validate_hash_integrity(
 
 def validate_sequence_atomicity(
     all_candidates: list[EmpiricalCandidate],
+    all_attempts: list[EmpiricalGenerationAttempt] | None = None,
 ) -> list[str]:
-    """Every accepted sequence must have all steps present."""
+    """Every accepted sequence must have all steps present.
+
+    Patch G: if *all_attempts* is provided, also cross-check that every
+    accepted sequence corresponds to a complete valid terminal raw sequence.
+    """
     findings: list[str] = []
 
     # Group candidates by sequence family + trust.
@@ -506,6 +537,35 @@ def validate_sequence_atomicity(
                 f"sequence {family_id}/{trust}: "
                 f"step indices {indices} != 0..{step_count - 1}"
             )
+
+    # Patch G: cross-check accepted sequences against complete raw terminal sequences.
+    if all_attempts is not None:
+        from experiments.trustparadox_u.generate_empirical_corpus import (
+            terminal_attempts_by_sequence_step,
+            _unit_key,
+        )
+        # Group raw attempts by sequence scientific identity.
+        raw_seq_groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
+        for a in all_attempts:
+            if a.is_sequence_attempt and a.sequence_family_id is not None:
+                key = (
+                    a.scenario_id, a.secret_variant_id, a.trust_level,
+                    a.attack_type, a.sample_index, a.generation_replicate,
+                    a.sequence_family_id,
+                )
+                raw_seq_groups.setdefault(key, []).append(a)
+        # For each accepted sequence family, check raw terminal completeness.
+        accepted_families: set[tuple[str, str]] = set(seq_groups.keys())
+        raw_families: dict[tuple[str, str], list[EmpiricalGenerationAttempt]] = {}
+        for key, attempts in raw_seq_groups.items():
+            fam_key = (key[-1], key[2])  # (family_id, trust_level)
+            raw_families.setdefault(fam_key, []).extend(attempts)
+        for fam_key in accepted_families:
+            if fam_key not in raw_families:
+                findings.append(
+                    f"sequence {fam_key[0]}/{fam_key[1]}: "
+                    f"accepted but no raw attempts found"
+                )
 
     return findings
 
@@ -676,8 +736,56 @@ def compute_coverage_stats(
 # ---------------------------------------------------------------------------
 
 
+def validate_campaign_identity() -> list[str]:
+    """Patch H: verify campaign identity for each split with artifacts.
+
+    Loads ``campaign_identity.json`` from each split directory, recomputes
+    the current identity from frozen artifacts, and compares all blocking
+    fields.
+    """
+    findings: list[str] = []
+    for split in ("development", "validation", "test"):
+        split_dir = _CORPUS_BASE / split
+        existing = load_campaign_identity(split_dir)
+        if existing is None:
+            continue  # No campaign identity → no check needed.
+        # Recompute current identity from frozen artifacts.
+        plan_path = _MANIFESTS_DIR / "full_generation_plan.jsonl"
+        plan_items = None
+        if plan_path.exists():
+            plan_items = load_generation_plan(plan_path)
+        try:
+            frozen_config = load_frozen_generation_config()
+        except (FileNotFoundError, KeyError):
+            findings.append(f"{split}: cannot load frozen generation config for identity check")
+            continue
+        config_path = _MANIFESTS_DIR / "full_generation_config.json"
+        phase_path = _MANIFESTS_DIR / "empirical_phase.json"
+        try:
+            current = compute_campaign_identity(
+                split=split,
+                plan_items=plan_items,
+                plan_path=plan_path if plan_path.exists() else None,
+                config=frozen_config,
+                config_path=config_path if config_path.exists() else None,
+                phase_manifest_path=phase_path if phase_path.exists() else None,
+            )
+        except Exception as exc:
+            findings.append(f"{split}: cannot compute current campaign identity: {exc}")
+            continue
+        try:
+            verify_campaign_identity(existing, current)
+        except CampaignIdentityMismatchError as exc:
+            for field, vals in sorted(exc.mismatches.items()):
+                findings.append(
+                    f"{split}: campaign identity mismatch: {field} "
+                    f"recorded={vals['recorded']!r} current={vals['current']!r}"
+                )
+    return findings
+
+
 def build_validation_report() -> dict:
-    """Build the full validation report with all 11 audit sections."""
+    """Build the full validation report with all audit sections."""
     # Load all data.
     all_attempts: list[EmpiricalGenerationAttempt] = []
     all_candidates: list[EmpiricalCandidate] = []
@@ -688,6 +796,7 @@ def build_validation_report() -> dict:
     plan_items = _load_plan_items()
 
     # Run all audit sections.
+    # Patch G: audit order for sequence checks: lineage → atomicity.
     sections: dict[str, list[str]] = {}
 
     sections["phase_provenance"] = validate_phase_and_provenance()
@@ -697,9 +806,11 @@ def build_validation_report() -> dict:
     sections["variant_consistency"] = validate_variant_consistency(all_attempts, all_candidates)
     sections["config_consistency"] = validate_config_consistency(all_attempts)
     sections["hash_integrity"] = validate_hash_integrity(all_attempts, all_candidates)
-    sections["sequence_atomicity"] = validate_sequence_atomicity(all_candidates)
     sections["retry_lineage"] = validate_retry_lineage(all_attempts)
+    sections["sequence_atomicity"] = validate_sequence_atomicity(all_candidates, all_attempts)
     sections["acceptance_independence"] = validate_acceptance_independence(all_candidates)
+    # Patch H: campaign identity verification.
+    sections["campaign_identity"] = validate_campaign_identity()
 
     # Collect all blocking findings.
     all_findings: list[str] = []

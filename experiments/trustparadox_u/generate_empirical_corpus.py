@@ -399,16 +399,34 @@ def manifest_hashes_valid(output_dir: Path, manifest: Mapping[str, object]) -> b
 
 
 def sequence_validation_failures(attempts: Sequence[EmpiricalGenerationAttempt]) -> list[str]:
-    """Group sequence attempts and apply the E1-017 structural validator."""
-    groups: dict[tuple[str, str], list[EmpiricalGenerationAttempt]] = {}
+    """Group sequence attempts by stable scientific identity, reduce retries,
+    then apply the E1-017 structural validator."""
+    # Group by stable scientific identity (not just family_id).
+    groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
     for attempt in attempts:
         if attempt.is_sequence_attempt and attempt.sequence_family_id is not None:
-            key = (attempt.sequence_family_id, attempt.trust_level)
+            key = (
+                attempt.scenario_id,
+                attempt.secret_variant_id,
+                attempt.trust_level,
+                attempt.attack_type,
+                attempt.sample_index,
+                attempt.generation_replicate,
+                attempt.sequence_family_id,
+            )
             groups.setdefault(key, []).append(attempt)
-    problems: list[str] = []
-    for (family_id, trust_level), steps in sorted(groups.items()):
-        ordered = sorted(steps, key=lambda a: a.sequence_step_index or 0)
-        for problem in validate_sequence_structure(ordered):
+    problems: list[str]
+    problems = []
+    for key, steps in sorted(groups.items()):
+        family_id = key[-1]
+        trust_level = key[2]
+        # Collapse retries to terminal attempt per step.
+        try:
+            terminal_steps = terminal_attempts_by_sequence_step(steps)
+        except ValueError as exc:
+            problems.append(f"{family_id}/{trust_level}: retry-lineage error: {exc}")
+            continue
+        for problem in validate_sequence_structure(terminal_steps):
             problems.append(f"{family_id}/{trust_level}: {problem}")
     return problems
 
@@ -556,11 +574,16 @@ def terminal_attempt_for_retry_chain(
 
 def terminal_attempts_by_sequence_step(
     attempts: Sequence[EmpiricalGenerationAttempt],
-    expected_step_count: int,
+    expected_step_count: int | None = None,
+    *,
+    require_complete: bool = False,
 ) -> list[EmpiricalGenerationAttempt]:
     """Group by sequence_step_index, reduce each chain to one terminal attempt.
 
     Returns terminal attempts sorted by sequence_step_index.
+
+    If *expected_step_count* is given and *require_complete* is true,
+    verifies that step indices == 0..expected_step_count-1.
     """
     step_groups: dict[int, list[EmpiricalGenerationAttempt]] = {}
     for attempt in attempts:
@@ -575,6 +598,14 @@ def terminal_attempts_by_sequence_step(
         terminal_per_step.append(
             terminal_attempt_for_retry_chain(step_groups[step_idx])
         )
+    if require_complete and expected_step_count is not None:
+        actual_indices = sorted(step_groups.keys())
+        expected_indices = list(range(expected_step_count))
+        if actual_indices != expected_indices:
+            raise ValueError(
+                f"terminal_attempts_by_sequence_step: incomplete sequence: "
+                f"expected steps {expected_indices}, got {actual_indices}"
+            )
     return terminal_per_step
 
 
@@ -688,7 +719,17 @@ def _resolve_sequence_state(
     max_retries: int,
     retryable_statuses: Sequence[str],
 ) -> dict[str, object]:
-    """Resolve resume state for a sequence unit."""
+    """Resolve resume state for a sequence unit.
+
+    Returns a dict with keys:
+    - ``state``: a :class:`UnitResumeState` value
+    - ``completed_step_indices``: set of step indices with terminal success
+    - ``pending_step_indices``: set of step indices that need generation/retry
+    - ``retry_start_by_step``: dict mapping each pending step to its retry start index
+    - ``retry_index_to_continue_from``: int (kept for backward compat)
+    - ``retry_budget_remaining``: int
+    - ``terminal_status_by_step``: dict mapping step_index → status string
+    """
     step_groups: dict[int, list[EmpiricalGenerationAttempt]] = {}
     for a in attempts:
         si = a.sequence_step_index
@@ -712,29 +753,35 @@ def _resolve_sequence_state(
             "state": UnitResumeState.SEQUENCE_COMPLETE_SUCCESS,
             "completed_step_indices": completed,
             "pending_step_indices": set(),
+            "retry_start_by_step": {},
             "retry_index_to_continue_from": 0,
             "retry_budget_remaining": 0,
             "terminal_status_by_step": status_by_step,
         }
 
     pending: set[int] = set()
+    retry_start_by_step: dict[int, int] = {}
     for si in range(expected_step_count):
         if si in completed:
             continue
         if si not in terminal_by_step:
+            # Missing step: start at retry 0.
             pending.add(si)
+            retry_start_by_step[si] = 0
             continue
         terminal = terminal_by_step[si]
         max_retry = max(a.retry_index for a in step_groups[si])
         budget = max(0, max_retries - max_retry)
         if terminal.generation_status in retryable_statuses and budget > 0:
             pending.add(si)
+            retry_start_by_step[si] = max_retry + 1
 
     if pending:
         return {
             "state": UnitResumeState.SEQUENCE_PARTIAL,
             "completed_step_indices": completed,
             "pending_step_indices": pending,
+            "retry_start_by_step": retry_start_by_step,
             "retry_index_to_continue_from": 0,
             "retry_budget_remaining": 0,
             "terminal_status_by_step": status_by_step,
@@ -744,6 +791,7 @@ def _resolve_sequence_state(
         "state": UnitResumeState.SEQUENCE_COMPLETE_FAILURE,
         "completed_step_indices": completed,
         "pending_step_indices": set(),
+        "retry_start_by_step": {},
         "retry_index_to_continue_from": 0,
         "retry_budget_remaining": 0,
         "terminal_status_by_step": status_by_step,
@@ -865,7 +913,11 @@ def _build_sequence_report(
     rejected: int,
     rejection_reasons: list[str],
 ) -> dict[str, object]:
-    """E3-006: build the sequence generation report."""
+    """E3-006: build the sequence generation report.
+
+    .. deprecated:: Use :func:`build_sequence_generation_report_from_attempts`
+       for the authoritative report derived from complete raw history.
+    """
     return {
         "planned_sequence_count": planned,
         "complete_sequence_count": complete,
@@ -876,32 +928,146 @@ def _build_sequence_report(
     }
 
 
-def _load_generation_plan(path: Path, *, max_items: int | None = None) -> list["GenerationPlanItem"]:
-    """Load a generation plan from a JSONL file."""
-    from experiments.trustparadox_u.empirical_generation_plan import GenerationPlanItem
+def build_sequence_generation_report_from_attempts(
+    *,
+    attempts: Sequence[EmpiricalGenerationAttempt],
+    plan_items: Sequence["GenerationPlanItem"] | None,
+    target_registry: Sequence[EmpiricalTargetSpec],
+) -> dict[str, object]:
+    """Patch D: build the sequence report from complete raw history.
 
-    items: list[GenerationPlanItem] = []
-    with path.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            record = json.loads(line)
-            items.append(
-                GenerationPlanItem(
-                    plan_item_id=record["plan_item_id"],
-                    split=record["split"],
-                    scenario_id=record["scenario_id"],
-                    secret_variant_id=record["secret_variant_id"],
-                    trust_level=record["trust_level"],
-                    attack_type=record["attack_type"],
-                    sample_index=record["sample_index"],
-                    generation_replicate=record["generation_replicate"],
-                    sequence_id=record.get("sequence_id"),
-                    sequence_step_index=record.get("sequence_step_index"),
-                    sequence_step_count=record.get("sequence_step_count"),
+    Derives all sequence statistics from the full raw attempt log after
+    retry-chain reduction, not from incremental runtime counters.
+    """
+    # Determine planned sequence count from the plan if available.
+    planned_sequence_count = 0
+    sequence_plan_keys: set[tuple] = set()
+    if plan_items is not None:
+        for item in plan_items:
+            if item.sequence_id is not None and item.sequence_step_index is not None:
+                seq_key = (
+                    item.scenario_id, item.secret_variant_id, item.trust_level,
+                    item.attack_type, item.sample_index, item.generation_replicate,
+                    item.sequence_id,
                 )
+                sequence_plan_keys.add(seq_key)
+        planned_sequence_count = len(sequence_plan_keys)
+
+    # Group raw attempts by sequence scientific identity.
+    seq_groups: dict[tuple, list[EmpiricalGenerationAttempt]] = {}
+    for a in attempts:
+        if a.is_sequence_attempt and a.sequence_family_id is not None:
+            key = (
+                a.scenario_id, a.secret_variant_id, a.trust_level,
+                a.attack_type, a.sample_index, a.generation_replicate,
+                a.sequence_family_id,
             )
+            seq_groups.setdefault(key, []).append(a)
+
+    # If no plan, derive planned count from raw groups.
+    if planned_sequence_count == 0:
+        planned_sequence_count = len(seq_groups)
+
+    # Classify each sequence.
+    complete_count = 0
+    incomplete_count = 0
+    accepted_count = 0
+    rejected_count = 0
+    invalid_lineage_count = 0
+    rejection_reasons: list[str] = []
+    status_counts: dict[str, int] = {}
+
+    specs_by_key: dict[tuple[str, str], EmpiricalTargetSpec] = {
+        (s.scenario_id, s.secret_variant_id): s for s in target_registry
+    }
+
+    for key, group_attempts in sorted(seq_groups.items()):
+        family_id = key[-1]
+        # Determine expected step count from attempts.
+        step_indices_seen = {a.sequence_step_index for a in group_attempts}
+        expected_steps = max(step_indices_seen) + 1 if step_indices_seen else 0
+        if expected_steps == 0:
+            incomplete_count += 1
+            status_counts["incomplete"] = status_counts.get("incomplete", 0) + 1
+            continue
+
+        # Collapse retries per step.
+        try:
+            terminal_steps = terminal_attempts_by_sequence_step(group_attempts)
+        except ValueError:
+            invalid_lineage_count += 1
+            status_counts["invalid_retry_lineage"] = status_counts.get("invalid_retry_lineage", 0) + 1
+            rejection_reasons.append(f"sequence {family_id}: invalid retry lineage")
+            continue
+
+        # Check completeness.
+        terminal_step_indices = sorted(a.sequence_step_index for a in terminal_steps)
+        if terminal_step_indices != list(range(expected_steps)):
+            incomplete_count += 1
+            status_counts["incomplete"] = status_counts.get("incomplete", 0) + 1
+            rejection_reasons.append(f"sequence {family_id}: incomplete steps")
+            continue
+
+        complete_count += 1
+
+        # Check structural validity.
+        problems = validate_sequence_structure(terminal_steps)
+        if problems:
+            rejected_count += 1
+            status_counts["complete_rejected"] = status_counts.get("complete_rejected", 0) + 1
+            rejection_reasons.append(f"sequence {family_id}: {'; '.join(problems)}")
+            continue
+
+        # Check acceptance for each step.
+        scenario_id, secret_variant_id = key[0], key[1]
+        spec = specs_by_key.get((scenario_id, secret_variant_id))
+        if spec is None:
+            rejected_count += 1
+            status_counts["complete_rejected"] = status_counts.get("complete_rejected", 0) + 1
+            rejection_reasons.append(f"sequence {family_id}: unknown target spec")
+            continue
+
+        all_accepted = True
+        for step_attempt in terminal_steps:
+            result = accept_generation_attempt(step_attempt, spec)
+            if not result.accepted:
+                all_accepted = False
+                rejection_reasons.append(result.reason)
+                break
+
+        if all_accepted:
+            accepted_count += 1
+            status_counts["complete_accepted"] = status_counts.get("complete_accepted", 0) + 1
+        else:
+            rejected_count += 1
+            status_counts["complete_rejected"] = status_counts.get("complete_rejected", 0) + 1
+
+    # Account for planned sequences with no attempts yet.
+    incomplete_count = planned_sequence_count - complete_count
+    if incomplete_count < 0:
+        incomplete_count = 0
+
+    return {
+        "planned_sequence_count": planned_sequence_count,
+        "complete_sequence_count": complete_count,
+        "incomplete_sequence_count": incomplete_count,
+        "accepted_sequence_count": accepted_count,
+        "rejected_sequence_count": rejected_count,
+        "invalid_retry_lineage_count": invalid_lineage_count,
+        "rejection_reasons": dict(sorted(Counter(rejection_reasons).items())),
+        "sequence_status_counts": dict(sorted(status_counts.items())),
+    }
+
+
+def _load_generation_plan(path: Path, *, max_items: int | None = None) -> list["GenerationPlanItem"]:
+    """Load a generation plan from a JSONL file.
+
+    Delegates to the canonical :func:`load_generation_plan` in
+    ``empirical_generation_plan``.
+    """
+    from experiments.trustparadox_u.empirical_generation_plan import load_generation_plan
+
+    items = load_generation_plan(path)
     if max_items is not None:
         items = items[:max_items]
     return items
@@ -1051,6 +1217,7 @@ def run_generation(
             # Patch D: resume-state classification.
             skip_steps: frozenset[int] | None = None
             start_retry_index = 0
+            retry_start_by_step: Mapping[int, int] | None = None
             if resume and existing_attempts:
                 step_count = sequence_step_count_for(first.attack_type, spec) if is_seq else 0
                 resume_info = resolve_unit_resume_state(
@@ -1074,6 +1241,7 @@ def run_generation(
                 elif state is UnitResumeState.SEQUENCE_PARTIAL:
                     completed = resume_info["completed_step_indices"]
                     skip_steps = frozenset(completed)
+                    retry_start_by_step = resume_info["retry_start_by_step"]
             new = _generate_unit(
                 generator=generator,
                 spec=spec,
@@ -1087,6 +1255,7 @@ def run_generation(
                 retry_policy=retry_policy,
                 skip_steps=skip_steps,
                 start_retry_index=start_retry_index,
+                retry_start_by_step=retry_start_by_step,
             )
             attempts.extend(new)
             if is_seq:
@@ -1135,13 +1304,16 @@ def run_generation(
                                 continue
                             skip_steps = None
                             start_retry_index = 0
+                            retry_start_by_step_loop: Mapping[int, int] | None = None
                             if state is UnitResumeState.RETRY_PENDING:
                                 start_retry_index = int(resume_info["retry_index_to_continue_from"])
                             elif state is UnitResumeState.SEQUENCE_PARTIAL:
                                 skip_steps = frozenset(resume_info["completed_step_indices"])
+                                retry_start_by_step_loop = resume_info["retry_start_by_step"]
                         else:
                             skip_steps = None
                             start_retry_index = 0
+                            retry_start_by_step_loop = None
                         if is_seq:
                             planned_sequences += 1
                         new = _generate_unit(
@@ -1157,6 +1329,7 @@ def run_generation(
                             retry_policy=retry_policy,
                             skip_steps=skip_steps,
                             start_retry_index=start_retry_index,
+                            retry_start_by_step=retry_start_by_step_loop,
                         )
                         attempts.extend(new)
                         if is_seq:
@@ -1212,13 +1385,11 @@ def run_generation(
     )
     _write_json_atomic(output_dir / VALIDATION_REPORT_FILENAME, report)
 
-    # E3-006: sequence generation report.
-    seq_report = _build_sequence_report(
-        planned=planned_sequences,
-        complete=complete_sequences,
-        accepted=accepted_sequences,
-        rejected=rejected_sequences,
-        rejection_reasons=sequence_rejection_reasons,
+    # E3-006 / Patch D: sequence generation report from complete raw history.
+    seq_report = build_sequence_generation_report_from_attempts(
+        attempts=all_attempts,
+        plan_items=plan_items,
+        target_registry=EMPIRICAL_TARGET_REGISTRY,
     )
     _write_json_atomic(output_dir / SEQUENCE_GENERATION_REPORT_FILENAME, seq_report)
 
@@ -1239,6 +1410,7 @@ def _generate_unit(
     retry_policy: Mapping[str, object] | None = None,
     skip_steps: frozenset[int] | None = None,
     start_retry_index: int = 0,
+    retry_start_by_step: Mapping[int, int] | None = None,
 ) -> list[EmpiricalGenerationAttempt]:
     """Generate one trial unit (one attempt, or one per sequence step).
 
@@ -1288,7 +1460,14 @@ def _generate_unit(
                 sequence_step_index=step_index,
                 sequence_step_count=step_count,
             )
-            step_retry_index = start_retry_index if not is_sequence else 0
+            if is_sequence:
+                step_retry_index = (
+                    retry_start_by_step.get(step_index, 0)
+                    if retry_start_by_step is not None
+                    else 0
+                )
+            else:
+                step_retry_index = start_retry_index
             step_attempts = generate_with_retry(
                 generator=generator,
                 request=request,

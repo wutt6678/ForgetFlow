@@ -410,6 +410,38 @@ def plan_sha256(items: Sequence[GenerationPlanItem]) -> str:
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
+def load_generation_plan(path: Path) -> list[GenerationPlanItem]:
+    """Canonical loader for generation plan JSONL files.
+
+    Returns a list of :class:`GenerationPlanItem` records parsed from *path*.
+    This is the single public helper used by the safe runner, audit, CLI,
+    and tests.
+    """
+    items: list[GenerationPlanItem] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            items.append(
+                GenerationPlanItem(
+                    plan_item_id=record["plan_item_id"],
+                    split=record["split"],
+                    scenario_id=record["scenario_id"],
+                    secret_variant_id=record["secret_variant_id"],
+                    trust_level=record["trust_level"],
+                    attack_type=record["attack_type"],
+                    sample_index=record["sample_index"],
+                    generation_replicate=record["generation_replicate"],
+                    sequence_id=record.get("sequence_id"),
+                    sequence_step_index=record.get("sequence_step_index"),
+                    sequence_step_count=record.get("sequence_step_count"),
+                )
+            )
+    return items
+
+
 # ---------------------------------------------------------------------------
 # Config + plan writers
 # ---------------------------------------------------------------------------

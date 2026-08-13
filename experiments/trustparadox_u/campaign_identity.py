@@ -34,9 +34,11 @@ CAMPAIGN_IDENTITY_SCHEMA_VERSION = "1.0"
 # Fields that block resume on mismatch.
 _BLOCKING_FIELDS: frozenset[str] = frozenset({
     "generation_plan_scientific_sha256",
+    "generation_plan_file_sha256",
     "generation_config_sha256",
     "target_registry_sha256",
     "prompt_manifest_sha256",
+    "phase_manifest_sha256",
     "split",
     "generator_provider",
     "generator_model_requested",
@@ -44,6 +46,7 @@ _BLOCKING_FIELDS: frozenset[str] = frozenset({
     "generator_max_tokens",
     "request_timeout",
     "max_retries",
+    "created_from_commit",
 })
 
 
