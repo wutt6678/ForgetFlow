@@ -1,10 +1,13 @@
-"""E1-032 / E2-044 / E2R-037: development-split lock tests.
+"""E1-032 / E2-044 / E2R-037 / E3-001: development-split lock tests.
 
 Only ``E3_CORPUS_GENERATION`` may unlock non-development generation; in
 E1_FOUNDATION, E2_TRUST_PILOT, E2_PROMPTS_FROZEN, and E2_COMPLETE
 validation/test generation must raise ``EmpiricalPhaseLockedError`` and
 the CLI must exit non-zero. Unknown phase strings are rejected and no
 override flag may silently bypass the lock.
+
+After the E3 transition the global phase is E3_CORPUS_GENERATION, so
+validation and test splits are now unlocked for generation.
 """
 
 from __future__ import annotations
@@ -30,19 +33,24 @@ class TestPhaseLock:
     def test_development_allowed(self) -> None:
         assert_generation_split_unlocked(EmpiricalSplit.DEVELOPMENT.value)
 
-    def test_validation_rejected(self) -> None:
+    def test_validation_rejected_in_e2(self) -> None:
+        # E3-001: validation is locked in E2 phases; pass explicit phase.
         with pytest.raises(EmpiricalPhaseLockedError):
-            assert_generation_split_unlocked(EmpiricalSplit.VALIDATION.value)
+            assert_generation_split_unlocked(
+                EmpiricalSplit.VALIDATION.value, phase=EmpiricalPhase.E2_COMPLETE
+            )
 
-    def test_test_rejected(self) -> None:
+    def test_test_rejected_in_e2(self) -> None:
+        # E3-001: test is locked in E2 phases; pass explicit phase.
         with pytest.raises(EmpiricalPhaseLockedError):
-            assert_generation_split_unlocked(EmpiricalSplit.TEST.value)
+            assert_generation_split_unlocked(
+                EmpiricalSplit.TEST.value, phase=EmpiricalPhase.E2_COMPLETE
+            )
 
-    def test_phase_is_e2_complete_after_certification(self) -> None:
-        # E2B-FIX-001: phase re-locked to E2_PROMPTS_FROZEN during the final
-        # evidence-integrity repair; restored to E2_COMPLETE by the
-        # programmatic recertification transition (E2B-FIX-043 / E2C-FIX-041).
-        assert EMPIRICAL_PHASE is EmpiricalPhase.E2_COMPLETE
+    def test_phase_is_e3_corpus_generation(self) -> None:
+        # E3-001: after the E3 transition the global phase is
+        # E3_CORPUS_GENERATION, unlocking validation and test splits.
+        assert EMPIRICAL_PHASE is EmpiricalPhase.E3_CORPUS_GENERATION
 
     @pytest.mark.parametrize(
         "phase",
@@ -105,7 +113,8 @@ class TestPhaseLock:
 
 class TestRunnerLock:
     @pytest.mark.parametrize("split", ["validation", "test"])
-    def test_cli_rejects_locked_splits(self, split: str, tmp_path: Path) -> None:
+    def test_cli_allows_unlocked_splits_in_e3(self, split: str, tmp_path: Path) -> None:
+        # E3-001: in E3_CORPUS_GENERATION validation and test are unlocked.
         exit_code = main(
             [
                 "--split",
@@ -118,8 +127,8 @@ class TestRunnerLock:
                 str(tmp_path / "out"),
             ]
         )
-        assert exit_code == 2
-        assert not (tmp_path / "out").exists()
+        assert exit_code == 0
+        assert (tmp_path / "out" / "raw_generation_attempts.jsonl").exists()
 
     def test_cli_allows_development(self, tmp_path: Path) -> None:
         exit_code = main(
