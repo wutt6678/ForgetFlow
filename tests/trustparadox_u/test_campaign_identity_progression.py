@@ -11,6 +11,7 @@ Also covers:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -410,14 +411,36 @@ class TestTamperingProgression:
         manifest_path = split_dir / "corpus_manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-        # Write campaign_identity.json.
-        identity = {
-            "campaign_id": "test",
-            "created_from_commit": "abc123",
-            "generation_plan_scientific_sha256": "plan_hash",
-        }
+        # Write campaign_identity.json with proper schema.
+        from experiments.trustparadox_u.campaign_identity import (
+            CampaignIdentity,
+            campaign_identity_sha256,
+        )
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="file_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="abc123",
+            created_at="2026-08-02T00:00:00+00:00",
+        )
         identity_path = split_dir / "campaign_identity.json"
-        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+        from dataclasses import asdict
+        identity_path.write_text(
+            json.dumps(asdict(identity_obj), indent=2), encoding="utf-8"
+        )
+        identity_hash = campaign_identity_sha256(identity_obj)
 
         # Write generation gate with audit evidence.
         gate_dir = tmp_path
@@ -431,7 +454,7 @@ class TestTamperingProgression:
             "corpus_manifest_sha256": hashlib.sha256(
                 manifest_path.read_bytes()
             ).hexdigest(),
-            "campaign_identity_sha256": "identity_hash_computed",
+            "campaign_identity_sha256": identity_hash,
         }
         gate_path.write_text(json.dumps(gate, indent=2), encoding="utf-8")
 
@@ -469,17 +492,36 @@ class TestTamperingProgression:
         manifest_path = split_dir / "corpus_manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-        # Write campaign_identity.json.
-        identity = {
-            "campaign_id": "test",
-            "created_from_commit": "abc123",
-            "generation_plan_scientific_sha256": "plan_hash",
-        }
+        # Write campaign_identity.json with proper schema.
+        from experiments.trustparadox_u.campaign_identity import (
+            CampaignIdentity,
+            campaign_identity_sha256,
+        )
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="file_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="abc123",
+            created_at="2026-08-02T00:00:00+00:00",
+        )
         identity_path = split_dir / "campaign_identity.json"
-        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
-        original_identity_sha = hashlib.sha256(
-            identity_path.read_bytes()
-        ).hexdigest()
+        from dataclasses import asdict
+        identity_path.write_text(
+            json.dumps(asdict(identity_obj), indent=2), encoding="utf-8"
+        )
+        original_identity_sha = campaign_identity_sha256(identity_obj)
 
         # Write generation gate with audit evidence.
         gate_path = tmp_path / "development_generation_gate.json"
@@ -497,10 +539,13 @@ class TestTamperingProgression:
         # Write audit report.
         audit_report_path = split_dir / "audit_report.json"
         audit_report_path.write_text('{"passed": true}', encoding="utf-8")
-
-        # Mutate campaign_identity.json.
-        identity["created_from_commit"] = "MUTATED_COMMIT"
-        identity_path.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+        
+        # Mutate campaign_identity.json by updating identity object and rewriting file
+        from dataclasses import replace
+        mutated_identity = replace(identity_obj, created_from_commit="MUTATED_COMMIT")
+        identity_path.write_text(
+            json.dumps(asdict(mutated_identity), indent=2), encoding="utf-8"
+        )
 
         # Validate — should BLOCK.
         with patch.object(auditor, "_CORPUS_BASE", tmp_path):

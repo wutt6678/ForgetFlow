@@ -11,7 +11,9 @@ Covers:
 
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -360,12 +362,54 @@ class TestPrerequisiteSourceCommit:
     ) -> None:
         """Validation is blocked when development was audited under a different commit."""
         from scripts.run_full_corpus_generation import _check_prerequisite_gate
+        from experiments.trustparadox_u.campaign_identity import campaign_identity_sha256
 
         output_base = tmp_path
         # Create development gate with old commit.
         gate_dir = tmp_path
         # SHA256 of b"report" (the audit report content).
         _audit_sha = "845e91831319e89c4d656bdb80c278ac09a7230d61e5dfd2e1b1fbb436ac8917"
+        
+        # Create audit report file.
+        audit_dir = tmp_path / "development"
+        audit_dir.mkdir()
+        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
+        
+        # Create corpus_manifest.json and compute real hash
+        manifest = {"artifact_class": "empirical_corpus"}
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        manifest_sha = hashlib.sha256(
+            (audit_dir / "corpus_manifest.json").read_bytes()
+        ).hexdigest()
+        
+        # Create campaign identity with old commit and compute real hash
+        from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="file_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="old_commit",  # Old commit to trigger mismatch
+            created_at="2026-08-02T00:00:00+00:00",
+        )
+        (audit_dir / "campaign_identity.json").write_text(
+            json.dumps(asdict(identity_obj)), encoding="utf-8",
+        )
+        identity_sha = campaign_identity_sha256(identity_obj)
+        
         dev_gate = {
             "split": "development",
             "source_commit": "old_commit",
@@ -374,27 +418,14 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
-            "corpus_manifest_sha256": "manifest_hash",
-            "campaign_identity_sha256": "identity_hash",
+            "corpus_manifest_sha256": manifest_sha,
+            "campaign_identity_sha256": identity_sha,
         }
+        
+        # Write gate file
+        gate_dir.mkdir(parents=True, exist_ok=True)
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
-        )
-        # Create audit report file.
-        audit_dir = tmp_path / "development"
-        audit_dir.mkdir()
-        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
-        # Create campaign identity with old commit.
-        identity = {
-            "created_from_commit": "old_commit",
-            "split": "development",
-        }
-        (audit_dir / "campaign_identity.json").write_text(
-            json.dumps(identity), encoding="utf-8",
-        )
-        # Create corpus_manifest.json.
-        (audit_dir / "corpus_manifest.json").write_text(
-            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
         )
 
         with (
@@ -411,10 +442,52 @@ class TestPrerequisiteSourceCommit:
     ) -> None:
         """Gate source_commit != HEAD blocks next split."""
         from scripts.run_full_corpus_generation import _check_prerequisite_gate
+        from experiments.trustparadox_u.campaign_identity import campaign_identity_sha256
 
         output_base = tmp_path
         gate_dir = tmp_path
         _audit_sha = "845e91831319e89c4d656bdb80c278ac09a7230d61e5dfd2e1b1fbb436ac8917"
+        
+        # Create audit report file.
+        audit_dir = tmp_path / "development"
+        audit_dir.mkdir()
+        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
+        
+        # Create corpus_manifest.json and compute real hash
+        manifest = {"artifact_class": "empirical_corpus"}
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        manifest_sha = hashlib.sha256(
+            (audit_dir / "corpus_manifest.json").read_bytes()
+        ).hexdigest()
+        
+        # Create campaign identity with commit_A and compute real hash
+        from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="file_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="commit_A",
+            created_at="2026-08-02T00:00:00+00:00",
+        )
+        (audit_dir / "campaign_identity.json").write_text(
+            json.dumps(asdict(identity_obj)), encoding="utf-8",
+        )
+        identity_sha = campaign_identity_sha256(identity_obj)
+        
         dev_gate = {
             "split": "development",
             "source_commit": "commit_A",
@@ -423,20 +496,11 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
-            "corpus_manifest_sha256": "manifest_hash",
-            "campaign_identity_sha256": "identity_hash",
+            "corpus_manifest_sha256": manifest_sha,
+            "campaign_identity_sha256": identity_sha,
         }
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
-        )
-        audit_dir = tmp_path / "development"
-        audit_dir.mkdir()
-        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
-        (audit_dir / "campaign_identity.json").write_text(
-            json.dumps({"created_from_commit": "commit_A"}), encoding="utf-8",
-        )
-        (audit_dir / "corpus_manifest.json").write_text(
-            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
         )
 
         with (
@@ -454,10 +518,26 @@ class TestPrerequisiteSourceCommit:
     ) -> None:
         """Campaign identity commit != HEAD blocks next split."""
         from scripts.run_full_corpus_generation import _check_prerequisite_gate
+        from experiments.trustparadox_u.campaign_identity import campaign_identity_sha256
 
         output_base = tmp_path
         gate_dir = tmp_path
         _audit_sha = "845e91831319e89c4d656bdb80c278ac09a7230d61e5dfd2e1b1fbb436ac8917"
+        
+        # Create audit report file.
+        audit_dir = tmp_path / "development"
+        audit_dir.mkdir()
+        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
+        
+        # Create corpus_manifest.json and compute real hash
+        manifest = {"artifact_class": "empirical_corpus"}
+        (audit_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        manifest_sha = hashlib.sha256(
+            (audit_dir / "corpus_manifest.json").read_bytes()
+        ).hexdigest()
+        
         dev_gate = {
             "split": "development",
             "source_commit": "commit_A",
@@ -466,21 +546,47 @@ class TestPrerequisiteSourceCommit:
             "audit_passed": True,
             "audit_report_sha256": _audit_sha,
             "audit_report_path": "development/audit_report.json",
-            "corpus_manifest_sha256": "manifest_hash",
-            "campaign_identity_sha256": "identity_hash",
+            "corpus_manifest_sha256": manifest_sha,
+            "campaign_identity_sha256": "placeholder_hash",
         }
         (gate_dir / "development_generation_gate.json").write_text(
             json.dumps(dev_gate), encoding="utf-8",
         )
-        audit_dir = tmp_path / "development"
-        audit_dir.mkdir()
-        (audit_dir / "audit_report.json").write_text("report", encoding="utf-8")
-        # Identity has a DIFFERENT commit from gate.
-        (audit_dir / "campaign_identity.json").write_text(
-            json.dumps({"created_from_commit": "commit_C"}), encoding="utf-8",
+        
+        # Identity has a DIFFERENT commit from gate. Compute real hash for it.
+        from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="file_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="commit_C",  # Different from gate's commit_A
+            created_at="2026-08-02T00:00:00+00:00",
         )
-        (audit_dir / "corpus_manifest.json").write_text(
-            json.dumps({"artifact_class": "empirical_corpus"}), encoding="utf-8",
+        (audit_dir / "campaign_identity.json").write_text(
+            json.dumps(asdict(identity_obj)), encoding="utf-8",
+        )
+        identity_sha = campaign_identity_sha256(identity_obj)
+        # Update gate with REAL identity hash so hash check passes,
+        # but commit mismatch will be detected
+        dev_gate["campaign_identity_sha256"] = identity_sha
+        
+        # Update gate with REAL identity hash so hash check passes,
+        # but commit mismatch will be detected
+        dev_gate["campaign_identity_sha256"] = identity_sha
+        (gate_dir / "development_generation_gate.json").write_text(
+            json.dumps(dev_gate), encoding="utf-8",
         )
 
         with (

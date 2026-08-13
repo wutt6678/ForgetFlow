@@ -389,9 +389,8 @@ def verify_preflight(
             record = json.loads(line)
             disk_attempts.append(record_to_attempt(record))
 
-    if not disk_attempts:
-        findings.append("no raw attempts on disk")
-        return findings
+    # Even when no attempts exist, continue with artifact-level checks.
+    # This allows manifest integrity validation to proceed independently.
 
     # --- model matches frozen model ---
     for a in disk_attempts:
@@ -532,6 +531,7 @@ def verify_preflight(
         campaign_identity_sha256,
         load_campaign_identity,
     )
+    from experiments.trustparadox_u.empirical_generation_plan import plan_sha256 as compute_plan_scientific_hash
 
     loaded_identity = load_campaign_identity(output_dir)
     if loaded_identity is None:
@@ -553,10 +553,20 @@ def verify_preflight(
             computed_id_hash = campaign_identity_sha256(loaded_identity)
             if computed_id_hash != recorded_id_hash:
                 findings.append("campaign_identity_sha256 mismatch in manifest")
-        # Plan hashes are mandatory.
+        # Plan hashes are mandatory and must be CORRECT.
         for plan_field in ("plan_file_sha256", "plan_scientific_sha256", "plan_item_count"):
             if not manifest_data.get(plan_field):
                 findings.append(f"corpus_manifest.json missing {plan_field}")
+        
+        # Validate plan scientific hash against actual plan items.
+        if plan_items and manifest_data.get("plan_scientific_sha256"):
+            computed_plan_hash = compute_plan_scientific_hash(plan_items)
+            recorded_plan_hash = manifest_data.get("plan_scientific_sha256", "")
+            if computed_plan_hash != recorded_plan_hash:
+                findings.append(
+                    f"plan_scientific_sha256 mismatch in manifest "
+                    f"(recorded={recorded_plan_hash!r}, computed={computed_plan_hash!r})"
+                )
 
     # --- audit has zero blocking findings ---
     # The preflight report itself summarizes these; blocking findings

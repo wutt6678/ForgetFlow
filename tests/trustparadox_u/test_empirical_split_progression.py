@@ -32,6 +32,7 @@ from experiments.trustparadox_u.empirical_generation_plan import (
     plan_sha256,
     update_generation_gate_after_audit,
 )
+from experiments.trustparadox_u.campaign_identity import campaign_identity_sha256
 
 # ---------------------------------------------------------------------------
 # Paths to real committed data
@@ -101,6 +102,8 @@ def _write_gate(
     audit_passed: bool = False,
     audit_report_sha256: str = "",
     audit_report_path: str = "",
+    corpus_manifest_sha256: str = "",
+    campaign_identity_sha256: str = "",
 ) -> Path:
     """Write a generation gate file."""
     gate = {
@@ -113,6 +116,8 @@ def _write_gate(
         "audit_passed": audit_passed,
         "audit_report_sha256": audit_report_sha256,
         "audit_report_path": audit_report_path,
+        "corpus_manifest_sha256": corpus_manifest_sha256,
+        "campaign_identity_sha256": campaign_identity_sha256,
     }
     gate_path = generation_gate_path(split, base)
     gate_path.parent.mkdir(parents=True, exist_ok=True)
@@ -206,10 +211,23 @@ class TestSplitProgression:
             "validate_sequence_atomicity",
             "validate_acceptance_independence",
             "validate_campaign_identity",
+            "validate_artifact_classification",
+            "validate_manifest_provenance",
+            "validate_empirical_corpus_required_fields",
         ]:
             monkeypatch.setattr(
                 audit_mod, name, lambda *a, **kw: [],
             )
+        
+        # Stub source commit consistency check.
+        monkeypatch.setattr(
+            audit_mod, "validate_source_commit_consistency", lambda: [],
+        )
+        
+        # Stub split gate progression validation (checks gates manually).
+        monkeypatch.setattr(
+            audit_mod, "_validate_all_split_gates", lambda: [],
+        )
 
         # --- Development ---
         dev_items = plan_items_for_split(full_plan, "development")
@@ -231,12 +249,60 @@ class TestSplitProgression:
         dev_audit_sha = hashlib.sha256(
             dev_report_path.read_bytes(),
         ).hexdigest()
+        
+        # Compute corpus_manifest and campaign_identity hashes.
+        dev_dir = tmp_path / "development"
+        corpus_manifest_path = dev_dir / "corpus_manifest.json"
+        if not corpus_manifest_path.exists():
+            # Create minimal corpus_manifest.json
+            corpus_manifest_path.write_text(
+                json.dumps({"artifact_class": "empirical_corpus"}),
+                encoding="utf-8",
+            )
+        corpus_manifest_sha = hashlib.sha256(
+            corpus_manifest_path.read_bytes()
+        ).hexdigest()
+        
+        identity_path = dev_dir / "campaign_identity.json"
+        if not identity_path.exists():
+            from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+            from dataclasses import asdict
+            
+            identity_obj = CampaignIdentity(
+                schema_version="1.0",
+                split="development",
+                generation_plan_scientific_sha256="plan_hash",
+                generation_plan_file_sha256="plan_hash",
+                generation_config_sha256="config_hash",
+                target_registry_sha256="registry_hash",
+                prompt_manifest_sha256="prompt_hash",
+                phase_manifest_sha256="phase_hash",
+                generator_provider="mock",
+                generator_model_requested="mock-model",
+                generator_temperature=0.7,
+                generator_max_tokens=1024,
+                request_timeout=30.0,
+                max_retries=3,
+                created_from_commit="test_commit",
+                created_at="2026-08-02T00:00:00+00:00",
+            )
+            identity_path.write_text(
+                json.dumps(asdict(identity_obj), indent=2),
+                encoding="utf-8",
+            )
+        campaign_identity_raw = json.loads(identity_path.read_text(encoding="utf-8"))
+        # Convert back to CampaignIdentity object for hash computation
+        identity_obj = CampaignIdentity(**campaign_identity_raw)
+        campaign_identity_sha = campaign_identity_sha256(identity_obj)
+        
         update_generation_gate_after_audit(
             split="development",
             audit_passed=True,
             audit_report_path=Path("development/audit_report.json"),
             audit_report_sha256=dev_audit_sha,
             source_commit="test_commit",
+            corpus_manifest_sha256=corpus_manifest_sha,
+            campaign_identity_sha256=campaign_identity_sha,
             base=tmp_path,
         )
 
@@ -265,12 +331,58 @@ class TestSplitProgression:
         val_audit_sha = hashlib.sha256(
             val_report_path.read_bytes(),
         ).hexdigest()
+        
+        # Compute corpus_manifest and campaign_identity hashes for validation.
+        val_dir = tmp_path / "validation"
+        corpus_manifest_path = val_dir / "corpus_manifest.json"
+        if not corpus_manifest_path.exists():
+            corpus_manifest_path.write_text(
+                json.dumps({"artifact_class": "empirical_corpus"}),
+                encoding="utf-8",
+            )
+        corpus_manifest_sha = hashlib.sha256(
+            corpus_manifest_path.read_bytes()
+        ).hexdigest()
+        
+        identity_path = val_dir / "campaign_identity.json"
+        if not identity_path.exists():
+            from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+            from dataclasses import asdict
+            
+            identity_obj = CampaignIdentity(
+                schema_version="1.0",
+                split="validation",
+                generation_plan_scientific_sha256="plan_hash",
+                generation_plan_file_sha256="plan_hash",
+                generation_config_sha256="config_hash",
+                target_registry_sha256="registry_hash",
+                prompt_manifest_sha256="prompt_hash",
+                phase_manifest_sha256="phase_hash",
+                generator_provider="mock",
+                generator_model_requested="mock-model",
+                generator_temperature=0.7,
+                generator_max_tokens=1024,
+                request_timeout=30.0,
+                max_retries=3,
+                created_from_commit="test_commit",
+                created_at="2026-08-02T00:00:00+00:00",
+            )
+            identity_path.write_text(
+                json.dumps(asdict(identity_obj), indent=2),
+                encoding="utf-8",
+            )
+        identity_raw = json.loads(identity_path.read_text(encoding="utf-8"))
+        identity_obj = CampaignIdentity(**identity_raw)
+        identity_sha = campaign_identity_sha256(identity_obj)
+        
         update_generation_gate_after_audit(
             split="validation",
             audit_passed=True,
             audit_report_path=Path("validation/audit_report.json"),
             audit_report_sha256=val_audit_sha,
             source_commit="test_commit",
+            corpus_manifest_sha256=corpus_manifest_sha,
+            campaign_identity_sha256=identity_sha,
             base=tmp_path,
         )
 
@@ -295,12 +407,58 @@ class TestSplitProgression:
         test_audit_sha = hashlib.sha256(
             test_report_path.read_bytes(),
         ).hexdigest()
+        
+        # Compute corpus_manifest and campaign_identity hashes for test.
+        test_dir = tmp_path / "test"
+        corpus_manifest_path = test_dir / "corpus_manifest.json"
+        if not corpus_manifest_path.exists():
+            corpus_manifest_path.write_text(
+                json.dumps({"artifact_class": "empirical_corpus"}),
+                encoding="utf-8",
+            )
+        corpus_manifest_sha = hashlib.sha256(
+            corpus_manifest_path.read_bytes()
+        ).hexdigest()
+        
+        identity_path = test_dir / "campaign_identity.json"
+        if not identity_path.exists():
+            from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+            from dataclasses import asdict
+            
+            identity_obj = CampaignIdentity(
+                schema_version="1.0",
+                split="test",
+                generation_plan_scientific_sha256="plan_hash",
+                generation_plan_file_sha256="plan_hash",
+                generation_config_sha256="config_hash",
+                target_registry_sha256="registry_hash",
+                prompt_manifest_sha256="prompt_hash",
+                phase_manifest_sha256="phase_hash",
+                generator_provider="mock",
+                generator_model_requested="mock-model",
+                generator_temperature=0.7,
+                generator_max_tokens=1024,
+                request_timeout=30.0,
+                max_retries=3,
+                created_from_commit="test_commit",
+                created_at="2026-08-02T00:00:00+00:00",
+            )
+            identity_path.write_text(
+                json.dumps(asdict(identity_obj), indent=2),
+                encoding="utf-8",
+            )
+        identity_raw = json.loads(identity_path.read_text(encoding="utf-8"))
+        identity_obj = CampaignIdentity(**identity_raw)
+        identity_sha = campaign_identity_sha256(identity_obj)
+        
         update_generation_gate_after_audit(
             split="test",
             audit_passed=True,
             audit_report_path=Path("test/audit_report.json"),
             audit_report_sha256=test_audit_sha,
             source_commit="test_commit",
+            corpus_manifest_sha256=corpus_manifest_sha,
+            campaign_identity_sha256=identity_sha,
             base=tmp_path,
         )
 
@@ -647,6 +805,7 @@ class TestNegativeOrchestration:
     ) -> None:
         """Test is blocked when validation has not been audited."""
         from experiments.trustparadox_u import audit_empirical_corpus as audit_mod
+        from experiments.trustparadox_u.campaign_identity import campaign_identity_sha256
 
         monkeypatch.setattr(audit_mod, "_CORPUS_BASE", tmp_path)
 
@@ -656,12 +815,49 @@ class TestNegativeOrchestration:
         dev_report = dev_dir / "audit_report.json"
         dev_report.write_text('{"passed": true}', encoding="utf-8")
         dev_sha = hashlib.sha256(dev_report.read_bytes()).hexdigest()
+        
+        # Create corpus_manifest.json and campaign_identity.json
+        manifest = {"artifact_class": "empirical_corpus"}
+        (dev_dir / "corpus_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8",
+        )
+        manifest_sha = hashlib.sha256((dev_dir / "corpus_manifest.json").read_bytes()).hexdigest()
+        
+        # Create campaign_identity.json with proper schema
+        from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+        from dataclasses import asdict
+        
+        identity_obj = CampaignIdentity(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan_hash",
+            generation_plan_file_sha256="plan_hash",
+            generation_config_sha256="config_hash",
+            target_registry_sha256="registry_hash",
+            prompt_manifest_sha256="prompt_hash",
+            phase_manifest_sha256="phase_hash",
+            generator_provider="mock",
+            generator_model_requested="mock-model",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="test_commit",
+            created_at="2026-08-02T00:00:00+00:00",
+        )
+        (dev_dir / "campaign_identity.json").write_text(
+            json.dumps(asdict(identity_obj)), encoding="utf-8",
+        )
+        identity_sha = campaign_identity_sha256(identity_obj)
+        
         _write_gate(
             tmp_path, "development",
             generation_completed=True,
             audit_passed=True,
             audit_report_sha256=dev_sha,
             audit_report_path="development/audit_report.json",
+            corpus_manifest_sha256=manifest_sha,
+            campaign_identity_sha256=identity_sha,
         )
 
         # Validation NOT audited — no gate.
