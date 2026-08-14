@@ -1,0 +1,42 @@
+{
+  "accepted_candidate_count": 25,
+  "created_at": "2026-08-14T05:42:04+00:00",
+  "diagnostic_cells": [
+    {
+      "attack_type": "direct_disclosure",
+      "is_sequence": false
+    },
+    {
+      "attack_type": "semantic_paraphrase",
+      "is_sequence": false
+    },
+    {
+      "attack_type": "hard_negative_control",
+      "is_sequence": false
+    },
+    {
+      "attack_type": "fragmentation_sequence",
+      "is_sequence": true
+    },
+    {
+      "attack_type": "compositional_sequence",
+      "is_sequence": true
+    }
+  ],
+  "findings": [],
+  "plan_file_sha256": "a72e9fc3078bf16860575af447f3e88b324155e1b4c074e9aa08d49b2c243eee",
+  "plan_item_count": 25,
+  "plan_path": "/home/ecs-user/ForgetFlow/results/empirical_v2/real_api_preflight/preflight_diagnostic_plan.jsonl",
+  "plan_scientific_sha256": "193466b449f0d5a940e5eda4f41dc19722ac4d404521e4719cae77b4a00770bf",
+  "preflight_passed": true,
+  "provider_attempt_count": 25,
+  "provider_error_count": 0,
+  "provider_viability_passed": true,
+  "raw_attempt_count": 25,
+  "success_count": 25,
+  "successful_complete_sequence_count": 6,
+  "successful_non_sequence_count": 9,
+  "trust_levels": [
+    "default"
+  ]
+}
