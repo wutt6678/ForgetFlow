@@ -987,8 +987,15 @@ class RealEmpiricalGenerator:
         ]
 
         try:
+            # When using a custom OpenAI-compatible endpoint (api_base set),
+            # litellm requires the model name to be prefixed with the provider
+            # (e.g., "openai/qwen3.7-plus").
+            litellm_model = self.model_name
+            if self.api_base and "/" not in litellm_model:
+                litellm_model = f"{self.provider}/{litellm_model}"
+
             kwargs: dict[str, object] = {
-                "model": self.model_name,
+                "model": litellm_model,
                 "messages": messages,
                 "temperature": request.temperature,
                 "max_tokens": self.max_tokens,
@@ -1087,8 +1094,14 @@ class RealEmpiricalGenerator:
                     self.model_name,
                 )
             try:
+                # When using a custom OpenAI-compatible endpoint (api_base set),
+                # litellm requires the model name to be prefixed with the provider.
+                litellm_model = self.model_name
+                if self.api_base and "/" not in litellm_model:
+                    litellm_model = f"{self.provider}/{litellm_model}"
+
                 kwargs: dict[str, object] = {
-                    "model": self.model_name,
+                    "model": litellm_model,
                     "messages": messages,
                     "temperature": request.temperature,
                     "max_tokens": self.max_tokens,

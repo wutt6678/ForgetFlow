@@ -1,0 +1,61 @@
+{
+  "accepted_candidate_count": 0,
+  "blocking_finding_count": 4,
+  "checks_run": [
+    "model_match",
+    "temperature_match",
+    "max_tokens_match",
+    "provider_ids_retained",
+    "no_duplicate_provider_ids",
+    "accepted_corpus_rebuild",
+    "sequences_use_terminal_attempts",
+    "sequence_acceptance_atomic",
+    "prompt_hashes_present",
+    "no_api_credentials_serialized",
+    "campaign_identity_present",
+    "corpus_manifest_present",
+    "manifest_identity_hash_match",
+    "manifest_plan_hash_match",
+    "sequence_report_present",
+    "plan_scientific_hash",
+    "plan_file_hash",
+    "plan_item_count",
+    "raw_scientific_hash",
+    "raw_attempt_count",
+    "accepted_scientific_hash",
+    "accepted_candidate_count",
+    "accepted_deterministic_rebuild",
+    "target_registry_hash",
+    "provider_viability_gate"
+  ],
+  "findings": [
+    "campaign_identity.generation_plan_file_sha256 missing",
+    "real-provider viability failure: zero successful provider generations",
+    "real-provider viability failure: no successful non-sequence generation",
+    "real-provider viability failure: no complete successful sequence generation"
+  ],
+  "plan_item_count": 25,
+  "preflight_validation": true,
+  "provider_viability": {
+    "malformed_count": 0,
+    "passed": false,
+    "provider_attempt_count": 75,
+    "provider_error_count": 75,
+    "provider_error_rate": 1.0,
+    "refusal_count": 0,
+    "retry_index_counts": {
+      "0": 25,
+      "1": 25,
+      "2": 25
+    },
+    "status_counts": {
+      "provider_error": 75
+    },
+    "success_count": 0,
+    "success_rate": 0.0,
+    "successful_complete_sequence_count": 0,
+    "successful_non_sequence_count": 0,
+    "timeout_count": 0
+  },
+  "raw_attempt_count": 75
+}

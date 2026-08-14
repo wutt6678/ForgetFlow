@@ -51,6 +51,7 @@ from collections import Counter
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Sequence
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _MANIFESTS_DIR = (
@@ -229,6 +230,10 @@ def _write_diagnostic_plan(
 def run_preflight_generation(
     plan_items: list,
     output_dir: Path,
+    *,
+    plan_path: Path | None = None,
+    api_base: str | None = None,
+    api_key_env: str | None = None,
 ) -> list:
     """Run preflight generation using the exact campaign APIs.
 
@@ -262,7 +267,9 @@ def run_preflight_generation(
     )
 
     config = load_frozen_generation_config()
-    generator = RealEmpiricalGenerator.from_frozen_config(config)
+    generator = RealEmpiricalGenerator.from_frozen_config(
+        config, api_base=api_base, api_key_env=api_key_env,
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -281,7 +288,7 @@ def run_preflight_generation(
     identity = compute_campaign_identity(
         split="development",
         plan_items=plan_items,
-        plan_path=output_dir / "preflight_diagnostic_plan.jsonl",
+        plan_path=plan_path if plan_path is not None else output_dir / "preflight_diagnostic_plan.jsonl",
         config=config,
         config_path=_CONFIG_PATH,
         phase_manifest_path=_PHASE_FILE,
@@ -785,6 +792,105 @@ def _write_jsonl(path: Path, records: list) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Provider outcome summary helper (Patch J)
+# ---------------------------------------------------------------------------
+
+
+def summarize_provider_outcomes(
+    attempts: Sequence,
+) -> dict:
+    """Summarize provider outcomes from a list of EmpiricalGenerationAttempt.
+
+    Computes provider-viability statistics required by Patches C–K.
+    Does not modify the attempts or interact with firewall logic.
+    """
+    from experiments.trustparadox_u.empirical_corpus import (
+        GenerationStatus,
+    )
+
+    total = len(attempts)
+    status_counts: dict[str, int] = {}
+    retry_index_counts: dict[int, int] = {}
+    for a in attempts:
+        status_counts[a.generation_status] = (
+            status_counts.get(a.generation_status, 0) + 1
+        )
+        retry_index_counts[a.retry_index] = (
+            retry_index_counts.get(a.retry_index, 0) + 1
+        )
+
+    success_count = status_counts.get(GenerationStatus.SUCCESS.value, 0)
+    provider_error_count = status_counts.get(
+        GenerationStatus.PROVIDER_ERROR.value, 0
+    )
+    refusal_count = status_counts.get(GenerationStatus.REFUSAL.value, 0)
+    malformed_count = status_counts.get(GenerationStatus.MALFORMED.value, 0)
+    timeout_count = status_counts.get(GenerationStatus.TIMEOUT.value, 0)
+
+    # Non-sequence viability: successful attempts with no sequence family.
+    successful_non_sequence = sum(
+        1
+        for a in attempts
+        if a.generation_status == GenerationStatus.SUCCESS.value
+        and a.sequence_family_id is None
+    )
+
+    # Sequence viability: count sequence families where ALL planned steps
+    # have at least one successful terminal attempt.
+    seq_attempts_by_key: dict[tuple, list] = {}
+    for a in attempts:
+        if a.sequence_family_id is not None:
+            seq_key = (
+                a.scenario_id,
+                a.secret_variant_id,
+                a.trust_level,
+                a.attack_type,
+                a.sequence_id,
+            )
+            seq_attempts_by_key.setdefault(seq_key, []).append(a)
+
+    successful_complete_seq_count = 0
+    for seq_key, seq_att_list in seq_attempts_by_key.items():
+        step_count = seq_att_list[0].sequence_step_count
+        if step_count is None:
+            continue
+        # Group by step index and find the terminal (max retry) attempt.
+        by_step: dict[int, list] = {}
+        for a in seq_att_list:
+            by_step.setdefault(a.sequence_step_index, []).append(a)
+        # Check all planned steps have a successful terminal attempt.
+        all_steps_success = True
+        for step_idx in range(step_count):
+            step_attempts = by_step.get(step_idx, [])
+            if not step_attempts:
+                all_steps_success = False
+                break
+            terminal = max(step_attempts, key=lambda a: a.retry_index)
+            if terminal.generation_status != GenerationStatus.SUCCESS.value:
+                all_steps_success = False
+                break
+        if all_steps_success:
+            successful_complete_seq_count += 1
+
+    return {
+        "provider_attempt_count": total,
+        "status_counts": status_counts,
+        "retry_index_counts": {
+            str(k): v for k, v in sorted(retry_index_counts.items())
+        },
+        "success_count": success_count,
+        "provider_error_count": provider_error_count,
+        "refusal_count": refusal_count,
+        "malformed_count": malformed_count,
+        "timeout_count": timeout_count,
+        "success_rate": (success_count / total) if total > 0 else 0.0,
+        "provider_error_rate": (provider_error_count / total) if total > 0 else 0.0,
+        "successful_non_sequence_count": successful_non_sequence,
+        "successful_complete_sequence_count": successful_complete_seq_count,
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -811,6 +917,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Output directory for artifacts (optional, for testing).",
+    )
+    parser.add_argument(
+        "--api-base",
+        default=None,
+        help="Base URL for the OpenAI-compatible endpoint.",
+    )
+    parser.add_argument(
+        "--api-key-env",
+        default=None,
+        help="Name of the environment variable holding the API key.",
     )
     return parser
 
@@ -869,7 +985,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Output: {output_dir}")
     print(f"{'=' * 70}\n")
 
-    all_attempts = run_preflight_generation(plan_items, output_dir)
+    all_attempts = run_preflight_generation(
+        plan_items, output_dir,
+        plan_path=plan_path,
+        api_base=args.api_base, api_key_env=args.api_key_env,
+    )
     print(f"\nTotal raw attempts: {len(all_attempts)}")
 
     # Rebuild accepted candidates from raw attempts (Patch L).
@@ -983,17 +1103,60 @@ def main(argv: list[str] | None = None) -> int:
         print("  All checks passed.")
 
     # ---------------------------------------------------------------------------
+    # Compute provider viability (Patches C–K)
+    # ---------------------------------------------------------------------------
+    viability = summarize_provider_outcomes(all_attempts)
+    viability_findings: list[str] = []
+    viability_passed = True
+
+    if viability["provider_attempt_count"] > 0:
+        if viability["success_count"] == 0:
+            viability_findings.append(
+                "real-provider viability failure: "
+                "zero successful provider generations"
+            )
+            viability_passed = False
+        if viability["successful_non_sequence_count"] == 0:
+            viability_findings.append(
+                "real-provider viability failure: "
+                "no successful non-sequence generation"
+            )
+            viability_passed = False
+        if viability["successful_complete_sequence_count"] == 0:
+            viability_findings.append(
+                "real-provider viability failure: "
+                "no complete successful sequence generation"
+            )
+            viability_passed = False
+
+    viability["passed"] = viability_passed
+
+    # Merge viability findings into verification findings.
+    all_findings = list(findings) + viability_findings
+
+    if viability_findings:
+        print("Provider viability findings:", file=sys.stderr)
+        for f in viability_findings:
+            print(f"  - {f}", file=sys.stderr)
+    else:
+        if viability["provider_attempt_count"] > 0:
+            print("  Provider viability: PASSED")
+        else:
+            print("  Provider viability: N/A (no attempts)")
+
+    # ---------------------------------------------------------------------------
     # Write verification reports (after verification)
     # ---------------------------------------------------------------------------
 
     # 4. validation_report.json
     validation_report = {
         "preflight_validation": True,
-        "findings": findings,
-        "blocking_finding_count": len(findings),
+        "findings": all_findings,
+        "blocking_finding_count": len(all_findings),
         "raw_attempt_count": len(all_attempts),
         "accepted_candidate_count": len(rebuilt_accepted),
         "plan_item_count": len(plan_items),
+        "provider_viability": viability,
         "checks_run": [
             "model_match",
             "temperature_match",
@@ -1020,13 +1183,16 @@ def main(argv: list[str] | None = None) -> int:
             "accepted_candidate_count",
             "accepted_deterministic_rebuild",
             "target_registry_hash",
+            # --- Provider viability gate ---
+            "provider_viability_gate",
         ],
     }
     _write_json(output_dir / "validation_report.json", validation_report)
 
     # 5. preflight_report.json
     preflight_report = {
-        "preflight_passed": len(findings) == 0,
+        "preflight_passed": len(all_findings) == 0,
+        "provider_viability_passed": viability_passed,
         "plan_path": str(plan_path),
         "plan_file_sha256": file_hash,
         "plan_scientific_sha256": scientific_hash,
@@ -1038,15 +1204,20 @@ def main(argv: list[str] | None = None) -> int:
         ],
         "raw_attempt_count": len(all_attempts),
         "accepted_candidate_count": len(rebuilt_accepted),
-        "findings": findings,
+        "provider_attempt_count": viability["provider_attempt_count"],
+        "success_count": viability["success_count"],
+        "provider_error_count": viability["provider_error_count"],
+        "successful_non_sequence_count": viability["successful_non_sequence_count"],
+        "successful_complete_sequence_count": viability["successful_complete_sequence_count"],
+        "findings": all_findings,
         "created_at": now_utc,
     }
     _write_json(output_dir / "preflight_report.json", preflight_report)
 
     # Summary.
     print(f"\n{'=' * 70}")
-    if findings:
-        print(f"Preflight COMPLETED with {len(findings)} finding(s).")
+    if all_findings:
+        print(f"Preflight COMPLETED with {len(all_findings)} finding(s).")
         print(f"Results: {output_dir}")
         print("Review validation_report.json for details.")
         return 4

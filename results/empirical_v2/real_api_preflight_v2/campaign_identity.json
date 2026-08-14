@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-08-14T05:11:55+00:00",
+  "created_from_commit": "2b85aa0595e9776d132a6c38a3762be8056f7e82",
+  "generation_config_sha256": "fdb2d97b941a24b826760cc0bd543b8ea90a84736850569934e31080781e8efc",
+  "generation_plan_file_sha256": "",
+  "generation_plan_scientific_sha256": "193466b449f0d5a940e5eda4f41dc19722ac4d404521e4719cae77b4a00770bf",
+  "generator_max_tokens": 1024,
+  "generator_model_requested": "qwen3.7-plus",
+  "generator_provider": "openai",
+  "generator_temperature": 0.7,
+  "max_retries": 2,
+  "phase_manifest_sha256": "37410caf0e4eda7b880dceb70699f15f6f65aa6091dae6f5396b4d7aaf254522",
+  "prompt_manifest_sha256": "a29588f5e16fe2cd0034cb1944d3d1870a36ff1955eef5b2ba24734ddb49d53c",
+  "request_timeout": 120.0,
+  "schema_version": "1.0",
+  "split": "development",
+  "target_registry_sha256": "f5bac18dadda613e5f2a71d94d2de8a072777071ffb5529a0165bcc4e1806380"
+}

@@ -1092,3 +1092,475 @@ class TestV4ChecksRunEvidence:
                     checks_found.add(node.value)
         missing = self._REQUIRED_CHECKS - checks_found
         assert not missing, f"checks_run missing required entries: {sorted(missing)}"
+
+
+# ---------------------------------------------------------------------------
+# Helpers for provider-viability regression tests (Patches C–K)
+# ---------------------------------------------------------------------------
+
+
+def _make_attempt(
+    *,
+    attempt_id: str = "att_001",
+    scenario_id: str = "s001",
+    secret_variant_id: str = "v001",
+    split: str = "development",
+    trust_level: str = "default",
+    attack_type: str = "direct_disclosure",
+    sample_index: int = 0,
+    generation_replicate: int = 0,
+    sender_id: str = "sender_01",
+    recipient_id: str = "recipient_01",
+    candidate_family_id: str = "fam_001",
+    sequence_family_id: str | None = None,
+    sequence_id: str | None = None,
+    sequence_step_index: int | None = None,
+    sequence_step_count: int | None = None,
+    candidate_text: str | None = "test output",
+    generation_status: str = "success",
+    refusal: bool = False,
+    malformed: bool = False,
+    off_topic: bool = False,
+    generator_provider: str = "openai",
+    generator_model: str = "qwen3.7-plus",
+    generator_revision: str | None = None,
+    temperature: float = 0.7,
+    seed: int | None = 42,
+    system_prompt_hash: str = "sph_001",
+    user_prompt_hash: str = "uph_001",
+    request_id: str | None = "req_001",
+    retry_index: int = 0,
+    generated_at: str = "2026-08-02T00:00:00+00:00",
+    generation_mode: str = "real",
+    transport: str | None = "litellm",
+    generator_model_requested: str = "qwen3.7-plus",
+    generator_model_returned: str | None = "qwen3.7-plus",
+    latency_ms: float | None = 100.0,
+    trust_prompt_hash: str | None = "tph_001",
+    attack_prompt_hash: str | None = "aph_001",
+    max_tokens: int | None = 1024,
+    provider_attempt_id: str | None = "prov_001",
+) -> "EmpiricalGenerationAttempt":
+    """Build a minimal EmpiricalGenerationAttempt for viability tests."""
+    from experiments.trustparadox_u.empirical_corpus import (
+        EmpiricalGenerationAttempt,
+    )
+    return EmpiricalGenerationAttempt(
+        generation_attempt_id=attempt_id,
+        scenario_id=scenario_id,
+        secret_variant_id=secret_variant_id,
+        split=split,
+        trust_level=trust_level,
+        attack_type=attack_type,
+        sample_index=sample_index,
+        generation_replicate=generation_replicate,
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        candidate_family_id=candidate_family_id,
+        sequence_family_id=sequence_family_id,
+        sequence_id=sequence_id,
+        sequence_step_index=sequence_step_index,
+        sequence_step_count=sequence_step_count,
+        candidate_text=candidate_text,
+        generation_status=generation_status,
+        refusal=refusal,
+        malformed=malformed,
+        off_topic=off_topic,
+        generator_provider=generator_provider,
+        generator_model=generator_model,
+        generator_revision=generator_revision,
+        temperature=temperature,
+        seed=seed,
+        system_prompt_hash=system_prompt_hash,
+        user_prompt_hash=user_prompt_hash,
+        request_id=request_id,
+        retry_index=retry_index,
+        generated_at=generated_at,
+        generation_mode=generation_mode,
+        transport=transport,
+        generator_model_requested=generator_model_requested,
+        generator_model_returned=generator_model_returned,
+        latency_ms=latency_ms,
+        trust_prompt_hash=trust_prompt_hash,
+        attack_prompt_hash=attack_prompt_hash,
+        max_tokens=max_tokens,
+        provider_attempt_id=provider_attempt_id,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Regression test A — 100% provider_error must fail viability
+# ---------------------------------------------------------------------------
+
+
+class TestProviderViabilityAllProviderErrors:
+    """Regression test A: all provider_error → viability gate FAILS."""
+
+    def test_preflight_all_provider_error_fails_viability(self) -> None:
+        """25 units × 3 provider_error attempts each, 0 success → FAIL."""
+        from scripts.run_real_corpus_preflight import summarize_provider_outcomes
+
+        attempts = []
+        for unit_idx in range(25):
+            for retry in range(3):
+                attempts.append(_make_attempt(
+                    attempt_id=f"att_{unit_idx:03d}_{retry}",
+                    generation_status="provider_error",
+                    retry_index=retry,
+                    provider_attempt_id=f"prov_{unit_idx:03d}_{retry}",
+                    latency_ms=None,
+                    candidate_text=None,
+                ))
+
+        viability = summarize_provider_outcomes(attempts)
+
+        assert viability["provider_attempt_count"] == 75
+        assert viability["success_count"] == 0
+        assert viability["provider_error_count"] == 75
+        assert viability["success_rate"] == 0.0
+        assert viability["provider_error_rate"] == 1.0
+        assert viability["successful_non_sequence_count"] == 0
+        assert viability["successful_complete_sequence_count"] == 0
+
+        # The viability gate logic from main():
+        viability_passed = True
+        findings = []
+        if viability["provider_attempt_count"] > 0:
+            if viability["success_count"] == 0:
+                findings.append(
+                    "real-provider viability failure: "
+                    "zero successful provider generations"
+                )
+                viability_passed = False
+            if viability["successful_non_sequence_count"] == 0:
+                findings.append(
+                    "real-provider viability failure: "
+                    "no successful non-sequence generation"
+                )
+                viability_passed = False
+            if viability["successful_complete_sequence_count"] == 0:
+                findings.append(
+                    "real-provider viability failure: "
+                    "no complete successful sequence generation"
+                )
+                viability_passed = False
+
+        assert viability_passed is False
+        assert len(findings) == 3
+        assert any("zero successful" in f for f in findings)
+        assert any("non-sequence" in f for f in findings)
+        assert any("sequence generation" in f for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Regression test B — non-sequence success but no complete sequence
+# ---------------------------------------------------------------------------
+
+
+class TestProviderViabilityNoCompleteSequence:
+    """Regression test B: non-sequence success but all sequences fail."""
+
+    def test_preflight_no_successful_sequence_fails_viability(self) -> None:
+        """≥1 successful non-sequence, all sequence families fail → FAIL."""
+        from scripts.run_real_corpus_preflight import summarize_provider_outcomes
+
+        attempts = []
+        # 1 successful non-sequence attempt.
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_success",
+            generation_status="success",
+            attack_type="direct_disclosure",
+            sequence_family_id=None,
+            retry_index=0,
+        ))
+        # Sequence family with 2 steps, all steps fail (provider_error).
+        for step_idx in range(2):
+            attempts.append(_make_attempt(
+                attempt_id=f"att_seq_fail_{step_idx}",
+                generation_status="provider_error",
+                attack_type="fragmentation_sequence",
+                sequence_family_id="seq_fam_001",
+                sequence_id="seq_001",
+                sequence_step_index=step_idx,
+                sequence_step_count=2,
+                retry_index=0,
+                provider_attempt_id=f"prov_seq_fail_{step_idx}",
+                latency_ms=None,
+                candidate_text=None,
+            ))
+
+        viability = summarize_provider_outcomes(attempts)
+
+        assert viability["success_count"] == 1
+        assert viability["successful_non_sequence_count"] == 1
+        assert viability["successful_complete_sequence_count"] == 0
+
+        # Apply the gate logic.
+        viability_passed = True
+        findings = []
+        if viability["provider_attempt_count"] > 0:
+            if viability["success_count"] == 0:
+                findings.append("zero successful")
+                viability_passed = False
+            if viability["successful_non_sequence_count"] == 0:
+                findings.append("no non-sequence")
+                viability_passed = False
+            if viability["successful_complete_sequence_count"] == 0:
+                findings.append(
+                    "real-provider viability failure: "
+                    "no complete successful sequence generation"
+                )
+                viability_passed = False
+
+        assert viability_passed is False
+        assert any("sequence generation" in f for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Regression test C — sequence success but no non-sequence success
+# ---------------------------------------------------------------------------
+
+
+class TestProviderViabilityNoNonSequence:
+    """Regression test C: sequence success but no non-sequence success."""
+
+    def test_preflight_no_successful_non_sequence_fails_viability(self) -> None:
+        """Complete successful sequence but all non-sequence fail → FAIL."""
+        from scripts.run_real_corpus_preflight import summarize_provider_outcomes
+
+        attempts = []
+        # All non-sequence attempts fail.
+        for i in range(3):
+            attempts.append(_make_attempt(
+                attempt_id=f"att_ns_fail_{i}",
+                generation_status="provider_error",
+                attack_type="direct_disclosure",
+                sequence_family_id=None,
+                retry_index=0,
+                provider_attempt_id=f"prov_ns_fail_{i}",
+                latency_ms=None,
+                candidate_text=None,
+            ))
+        # Complete successful sequence (2 steps, each with success at retry 0).
+        for step_idx in range(2):
+            attempts.append(_make_attempt(
+                attempt_id=f"att_seq_ok_{step_idx}",
+                generation_status="success",
+                attack_type="fragmentation_sequence",
+                sequence_family_id="seq_fam_001",
+                sequence_id="seq_001",
+                sequence_step_index=step_idx,
+                sequence_step_count=2,
+                retry_index=0,
+            ))
+
+        viability = summarize_provider_outcomes(attempts)
+
+        assert viability["success_count"] == 2
+        assert viability["successful_non_sequence_count"] == 0
+        assert viability["successful_complete_sequence_count"] == 1
+
+        # Apply the gate logic.
+        viability_passed = True
+        findings = []
+        if viability["provider_attempt_count"] > 0:
+            if viability["success_count"] == 0:
+                findings.append("zero successful")
+                viability_passed = False
+            if viability["successful_non_sequence_count"] == 0:
+                findings.append(
+                    "real-provider viability failure: "
+                    "no successful non-sequence generation"
+                )
+                viability_passed = False
+            if viability["successful_complete_sequence_count"] == 0:
+                findings.append("no complete sequence")
+                viability_passed = False
+
+        assert viability_passed is False
+        assert any("non-sequence" in f for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Regression test D — mixed realistic outcomes can pass
+# ---------------------------------------------------------------------------
+
+
+class TestProviderViabilityMixedOutcomes:
+    """Regression test D: mixed outcomes with both paths succeeding → PASS."""
+
+    def test_preflight_mixed_provider_outcomes_pass_viability(self) -> None:
+        """Some success, some refusal, some provider_error → PASS."""
+        from scripts.run_real_corpus_preflight import summarize_provider_outcomes
+
+        attempts = []
+        # Successful non-sequence attempt.
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_ok",
+            generation_status="success",
+            attack_type="direct_disclosure",
+            sequence_family_id=None,
+            retry_index=0,
+        ))
+        # Refusal non-sequence attempt.
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_refusal",
+            generation_status="refusal",
+            attack_type="semantic_paraphrase",
+            sequence_family_id=None,
+            retry_index=0,
+            refusal=True,
+            candidate_text=None,
+        ))
+        # Provider error non-sequence attempt.
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_err",
+            generation_status="provider_error",
+            attack_type="hard_negative_control",
+            sequence_family_id=None,
+            retry_index=0,
+            provider_attempt_id="prov_err_001",
+            latency_ms=None,
+            candidate_text=None,
+        ))
+        # Complete successful sequence (2 steps, each with success).
+        for step_idx in range(2):
+            attempts.append(_make_attempt(
+                attempt_id=f"att_seq_ok_{step_idx}",
+                generation_status="success",
+                attack_type="fragmentation_sequence",
+                sequence_family_id="seq_fam_001",
+                sequence_id="seq_001",
+                sequence_step_index=step_idx,
+                sequence_step_count=2,
+                retry_index=0,
+            ))
+        # Failed sequence (provider_error at step 0).
+        attempts.append(_make_attempt(
+            attempt_id="att_seq_fail",
+            generation_status="provider_error",
+            attack_type="compositional_sequence",
+            sequence_family_id="seq_fam_002",
+            sequence_id="seq_002",
+            sequence_step_index=0,
+            sequence_step_count=2,
+            retry_index=0,
+            provider_attempt_id="prov_seq_err",
+            latency_ms=None,
+            candidate_text=None,
+        ))
+
+        viability = summarize_provider_outcomes(attempts)
+
+        assert viability["provider_attempt_count"] == 6
+        assert viability["success_count"] == 3
+        assert viability["provider_error_count"] == 2
+        assert viability["refusal_count"] == 1
+        assert viability["successful_non_sequence_count"] == 1
+        assert viability["successful_complete_sequence_count"] == 1
+
+        # Apply the gate logic.
+        viability_passed = True
+        if viability["provider_attempt_count"] > 0:
+            if viability["success_count"] == 0:
+                viability_passed = False
+            if viability["successful_non_sequence_count"] == 0:
+                viability_passed = False
+            if viability["successful_complete_sequence_count"] == 0:
+                viability_passed = False
+
+        assert viability_passed is True
+
+
+# ---------------------------------------------------------------------------
+# Regression test E — retries remain valid
+# ---------------------------------------------------------------------------
+
+
+class TestProviderViabilityRetriesValid:
+    """Regression test E: retry 0 → provider_error, retry 1 → success."""
+
+    def test_preflight_retry_produces_valid_viability(self) -> None:
+        """A unit where retry 0 fails but retry 1 succeeds is valid."""
+        from scripts.run_real_corpus_preflight import summarize_provider_outcomes
+
+        attempts = []
+        # Non-sequence: retry 0 → provider_error, retry 1 → success.
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_retry0",
+            generation_status="provider_error",
+            attack_type="direct_disclosure",
+            sequence_family_id=None,
+            retry_index=0,
+            provider_attempt_id="prov_ns_r0",
+            latency_ms=None,
+            candidate_text=None,
+        ))
+        attempts.append(_make_attempt(
+            attempt_id="att_ns_retry1",
+            generation_status="success",
+            attack_type="direct_disclosure",
+            sequence_family_id=None,
+            retry_index=1,
+            provider_attempt_id="prov_ns_r1",
+        ))
+        # Sequence: step 0 retry 0 → error, step 0 retry 1 → success;
+        #           step 1 retry 0 → success.
+        attempts.append(_make_attempt(
+            attempt_id="att_seq_s0_r0",
+            generation_status="provider_error",
+            attack_type="fragmentation_sequence",
+            sequence_family_id="seq_fam_001",
+            sequence_id="seq_001",
+            sequence_step_index=0,
+            sequence_step_count=2,
+            retry_index=0,
+            provider_attempt_id="prov_seq_s0_r0",
+            latency_ms=None,
+            candidate_text=None,
+        ))
+        attempts.append(_make_attempt(
+            attempt_id="att_seq_s0_r1",
+            generation_status="success",
+            attack_type="fragmentation_sequence",
+            sequence_family_id="seq_fam_001",
+            sequence_id="seq_001",
+            sequence_step_index=0,
+            sequence_step_count=2,
+            retry_index=1,
+            provider_attempt_id="prov_seq_s0_r1",
+        ))
+        attempts.append(_make_attempt(
+            attempt_id="att_seq_s1_r0",
+            generation_status="success",
+            attack_type="fragmentation_sequence",
+            sequence_family_id="seq_fam_001",
+            sequence_id="seq_001",
+            sequence_step_index=1,
+            sequence_step_count=2,
+            retry_index=0,
+            provider_attempt_id="prov_seq_s1_r0",
+        ))
+
+        viability = summarize_provider_outcomes(attempts)
+
+        assert viability["provider_attempt_count"] == 5
+        assert viability["success_count"] == 3
+        assert viability["provider_error_count"] == 2
+        # The successful non-sequence is the retry 1 attempt.
+        assert viability["successful_non_sequence_count"] == 1
+        # The sequence is complete: step 0 terminal (retry 1) = success,
+        # step 1 terminal (retry 0) = success.
+        assert viability["successful_complete_sequence_count"] == 1
+
+        # Apply the gate logic.
+        viability_passed = True
+        if viability["provider_attempt_count"] > 0:
+            if viability["success_count"] == 0:
+                viability_passed = False
+            if viability["successful_non_sequence_count"] == 0:
+                viability_passed = False
+            if viability["successful_complete_sequence_count"] == 0:
+                viability_passed = False
+
+        assert viability_passed is True

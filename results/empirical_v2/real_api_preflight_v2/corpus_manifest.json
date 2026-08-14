@@ -1,0 +1,15 @@
+{
+  "accepted_candidate_count": 0,
+  "accepted_candidate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "artifact_class": "real_api_preflight",
+  "campaign_identity_sha256": "7bd635e0b622daacd6b65341502af76b3de4dde2b8a7d338b1447ad8b89b211b",
+  "created_at": "2026-08-14T05:14:52+00:00",
+  "plan_file_sha256": "a72e9fc3078bf16860575af447f3e88b324155e1b4c074e9aa08d49b2c243eee",
+  "plan_item_count": 25,
+  "plan_scientific_sha256": "193466b449f0d5a940e5eda4f41dc19722ac4d404521e4719cae77b4a00770bf",
+  "raw_attempt_count": 75,
+  "raw_generation_sha256": "4cef2696b1dcaef8c64b0ecf058cdae2ebba299f65cc006aa438017539893d17",
+  "research_use": "diagnostic_only",
+  "split": "development",
+  "target_registry_sha256": "f5bac18dadda613e5f2a71d94d2de8a072777071ffb5529a0165bcc4e1806380"
+}

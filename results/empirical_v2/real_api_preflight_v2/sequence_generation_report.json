@@ -1,0 +1,32 @@
+{
+  "accepted_sequence_count": 0,
+  "planned_sequence_count": 6,
+  "rejected_sequence_count": 6,
+  "rejection_reasons": [
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success",
+    "generation_status_not_success"
+  ]
+}
