@@ -1478,6 +1478,61 @@ class TestProviderViabilityMixedOutcomes:
         assert viability_passed is True
 
 
+# ---------------------------------------------------------------------------
+# Patch R — zero-attempt viability CLI-level regression
+# ---------------------------------------------------------------------------
+
+
+class TestViabilityZeroAttemptsCLIRegression:
+    """CLI-level regression: zero provider attempts → exit code != 0."""
+
+    def test_preflight_zero_provider_attempts_returns_nonzero(
+        self, tmp_path: Path, monkeypatch,
+    ) -> None:
+        """Invoke main() with mocked generation returning [].
+
+        Expected:
+        - preflight_passed = false
+        - provider_viability_passed = false
+        - finding contains 'zero provider attempts'
+        - exit code != 0
+        """
+        from scripts.run_real_corpus_preflight import main
+        from unittest.mock import patch
+
+        # Mock run_preflight_generation to return empty list (zero attempts).
+        with patch(
+            "scripts.run_real_corpus_preflight.run_preflight_generation",
+            return_value=[],
+        ):
+            exit_code = main([
+                "--skip-preflight-checks",
+                "--output-dir", str(tmp_path),
+            ])
+
+        # Exit code must be non-zero.
+        assert exit_code != 0, f"Expected non-zero exit code, got {exit_code}"
+
+        # Read the preflight report.
+        report_path = tmp_path / "preflight_report.json"
+        assert report_path.exists(), "preflight_report.json not written"
+        import json
+        report = json.loads(report_path.read_text())
+
+        assert report["preflight_passed"] is False
+        assert report["provider_viability_passed"] is False
+        assert report["provider_attempt_count"] == 0
+        assert any(
+            "zero provider attempts" in f for f in report["findings"]
+        ), f"Findings: {report['findings']}"
+
+        # Also check validation report.
+        val_path = tmp_path / "validation_report.json"
+        assert val_path.exists(), "validation_report.json not written"
+        val_report = json.loads(val_path.read_text())
+        assert val_report["provider_viability"]["passed"] is False
+
+
 class TestViabilityZeroAttemptsRegression:
     """Regression: zero provider attempts must FAIL viability, not N/A."""
 

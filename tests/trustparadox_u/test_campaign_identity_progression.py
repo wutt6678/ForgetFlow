@@ -20,7 +20,9 @@ import pytest
 
 from experiments.trustparadox_u.campaign_identity import (
     CampaignIdentity,
+    CampaignIdentityMismatchError,
     campaign_identity_sha256,
+    canonicalize_serving_endpoint,
     compute_campaign_identity,
     verify_campaign_identity,
     write_campaign_identity,
@@ -1152,3 +1154,197 @@ class TestV3UnresolvedSourceFailClosed:
         assert any(
             "not a resolved commit" in f for f in findings
         ), f"Findings: {findings}"
+
+
+# ---------------------------------------------------------------------------
+# Patch J: endpoint host drift blocks resume
+# ---------------------------------------------------------------------------
+
+
+class TestEndpointDriftBlocksResume:
+    """Endpoint provenance fields are blocking on resume."""
+
+    def _make_identity(self, **overrides: str) -> CampaignIdentity:
+        """Build a minimal CampaignIdentity with endpoint fields."""
+        defaults = dict(
+            schema_version="1.0",
+            split="development",
+            generation_plan_scientific_sha256="plan",
+            generation_plan_file_sha256="plan_file",
+            generation_config_sha256="config",
+            target_registry_sha256="registry",
+            prompt_manifest_sha256="prompt",
+            phase_manifest_sha256="phase",
+            generator_provider="openai",
+            generator_model_requested="gpt-4",
+            generator_temperature=0.7,
+            generator_max_tokens=1024,
+            request_timeout=30.0,
+            max_retries=3,
+            created_from_commit="a" * 40,
+            created_at="2026-08-02T00:00:00+00:00",
+            serving_endpoint_host="endpoint-a.example",
+            serving_endpoint_sha256=hashlib.sha256(
+                b"https://endpoint-a.example/v1"
+            ).hexdigest(),
+            api_protocol="openai_compatible",
+        )
+        defaults.update(overrides)
+        return CampaignIdentity(**defaults)
+
+    def test_campaign_identity_endpoint_change_blocks_resume(self) -> None:
+        """Host drift → CampaignIdentityMismatchError."""
+        existing = self._make_identity()
+        current = self._make_identity(
+            serving_endpoint_host="endpoint-b.example",
+            serving_endpoint_sha256=hashlib.sha256(
+                b"https://endpoint-b.example/v1"
+            ).hexdigest(),
+        )
+        with pytest.raises(CampaignIdentityMismatchError):
+            verify_campaign_identity(existing, current)
+
+    def test_campaign_identity_endpoint_path_change_blocks_resume(self) -> None:
+        """Same host, different path → different SHA → resume blocked."""
+        existing = self._make_identity(
+            serving_endpoint_sha256=hashlib.sha256(
+                b"https://example.com/v1"
+            ).hexdigest(),
+        )
+        current = self._make_identity(
+            serving_endpoint_sha256=hashlib.sha256(
+                b"https://example.com/compatible-mode/v1"
+            ).hexdigest(),
+        )
+        # Host is the same but SHA differs → blocking.
+        assert existing.serving_endpoint_host == current.serving_endpoint_host
+        assert existing.serving_endpoint_sha256 != current.serving_endpoint_sha256
+        with pytest.raises(CampaignIdentityMismatchError):
+            verify_campaign_identity(existing, current)
+
+    def test_campaign_identity_protocol_change_blocks_resume(self) -> None:
+        """Protocol drift → CampaignIdentityMismatchError."""
+        existing = self._make_identity(api_protocol="openai_compatible")
+        current = self._make_identity(api_protocol="anthropic_compatible")
+        with pytest.raises(CampaignIdentityMismatchError):
+            verify_campaign_identity(existing, current)
+
+
+# ---------------------------------------------------------------------------
+# Patch B: canonical endpoint normalization
+# ---------------------------------------------------------------------------
+
+
+class TestCanonicalizeServingEndpoint:
+    """Endpoint canonicalization strips credentials/query/fragment."""
+
+    def test_strips_credentials(self) -> None:
+        """Userinfo (user:pass@) must be removed."""
+        result = canonicalize_serving_endpoint(
+            "https://user:secret@example.com/compatible-mode/v1"
+        )
+        assert result == "https://example.com/compatible-mode/v1"
+        assert "user" not in result
+        assert "secret" not in result
+
+    def test_strips_query_and_fragment(self) -> None:
+        """Query string and fragment must be removed."""
+        result = canonicalize_serving_endpoint(
+            "https://example.com/v1?token=abc#frag"
+        )
+        assert result == "https://example.com/v1"
+        assert "token" not in result
+        assert "frag" not in result
+
+    def test_full_sanitization(self) -> None:
+        """Credentials + query + fragment all stripped."""
+        result = canonicalize_serving_endpoint(
+            "https://user:secret@example.com/compatible-mode/v1?token=abc#frag"
+        )
+        assert result == "https://example.com/compatible-mode/v1"
+
+    def test_preserves_port(self) -> None:
+        """Explicit port is preserved."""
+        result = canonicalize_serving_endpoint("https://example.com:8080/v1")
+        assert result == "https://example.com:8080/v1"
+
+    def test_none_returns_empty(self) -> None:
+        """None input → empty string."""
+        assert canonicalize_serving_endpoint(None) == ""
+
+    def test_empty_returns_empty(self) -> None:
+        """Empty string input → empty string."""
+        assert canonicalize_serving_endpoint("") == ""
+
+    def test_strips_trailing_slash(self) -> None:
+        """Trailing slash is normalized."""
+        result = canonicalize_serving_endpoint("https://example.com/v1/")
+        assert result == "https://example.com/v1"
+
+    def test_sha256_of_canonical(self) -> None:
+        """SHA-256 of canonical endpoint is deterministic."""
+        canonical = canonicalize_serving_endpoint(
+            "https://user:secret@example.com/compatible-mode/v1?token=abc"
+        )
+        sha = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        assert len(sha) == 64
+        # Same canonical form → same SHA.
+        canonical2 = canonicalize_serving_endpoint(
+            "https://example.com/compatible-mode/v1"
+        )
+        sha2 = hashlib.sha256(canonical2.encode("utf-8")).hexdigest()
+        assert sha == sha2
+
+
+# ---------------------------------------------------------------------------
+# Patch Q: campaign identity receives forwarded endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestCampaignIdentityReceivesEndpoint:
+    """compute_campaign_identity with api_base records endpoint provenance."""
+
+    def test_full_runner_custom_endpoint_reaches_campaign_identity(self) -> None:
+        """api_base → identity has host, SHA, protocol."""
+        config = load_frozen_generation_config()
+        identity = compute_campaign_identity(
+            split="development",
+            plan_items=None,
+            plan_path=None,
+            config=config,
+            api_base="https://user:secret@example.com/compatible-mode/v1?token=abc",
+        )
+        # Credentials/query/fragment stripped.
+        assert identity.serving_endpoint_host == "example.com"
+        expected_canonical = "https://example.com/compatible-mode/v1"
+        expected_sha = hashlib.sha256(
+            expected_canonical.encode("utf-8")
+        ).hexdigest()
+        assert identity.serving_endpoint_sha256 == expected_sha
+        assert identity.api_protocol == f"{config.generator_provider}_compatible"
+
+    def test_no_api_base_leaves_endpoint_empty(self) -> None:
+        """Without api_base, endpoint fields are empty."""
+        config = load_frozen_generation_config()
+        identity = compute_campaign_identity(
+            split="development",
+            plan_items=None,
+            plan_path=None,
+            config=config,
+        )
+        assert identity.serving_endpoint_host == ""
+        assert identity.serving_endpoint_sha256 == ""
+        assert identity.api_protocol == ""
+
+    def test_fail_closed_on_unparseable_endpoint(self) -> None:
+        """Completely invalid api_base → ValueError."""
+        config = load_frozen_generation_config()
+        # A URL with no scheme will produce empty hostname after canonicalization.
+        with pytest.raises(ValueError, match="incomplete endpoint provenance"):
+            compute_campaign_identity(
+                split="development",
+                plan_items=None,
+                plan_path=None,
+                config=config,
+                api_base="not-a-valid-url",
+            )

@@ -960,11 +960,34 @@ def validate_campaign_identity(
         try:
             verify_campaign_identity(existing, current)
         except CampaignIdentityMismatchError as exc:
+            # Endpoint fields cannot be recomputed during audit (api_base
+            # is not stored).  Filter them out; endpoint consistency is
+            # enforced separately by validate_endpoint_consistency().
+            _endpoint_fields = {
+                "serving_endpoint_host",
+                "serving_endpoint_sha256",
+                "api_protocol",
+            }
             for field, vals in sorted(exc.mismatches.items()):
+                if field in _endpoint_fields:
+                    continue
                 findings.append(
                     f"{split}: campaign identity mismatch: {field} "
                     f"recorded={vals['recorded']!r} current={vals['current']!r}"
                 )
+        # Patch H: if any endpoint field is non-empty, all must be non-empty.
+        ep_fields = {
+            "host": existing.serving_endpoint_host,
+            "sha": existing.serving_endpoint_sha256,
+            "proto": existing.api_protocol,
+        }
+        non_empty = [k for k, v in ep_fields.items() if v]
+        empty = [k for k, v in ep_fields.items() if not v]
+        if non_empty and empty:
+            findings.append(
+                f"{split}: incomplete endpoint provenance: "
+                f"non-empty={sorted(non_empty)}, empty={sorted(empty)}"
+            )
     return findings
 
 
@@ -1295,6 +1318,68 @@ def validate_source_commit_consistency() -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Patch G/I: cross-split endpoint consistency audit
+# ---------------------------------------------------------------------------
+
+
+def validate_endpoint_consistency() -> list[str]:
+    """Require one endpoint identity across all generated splits.
+
+    Loads ``campaign_identity.json`` from each split and collects:
+    - ``serving_endpoint_host``
+    - ``serving_endpoint_sha256``
+    - ``api_protocol``
+
+    All splits must have identical values for these fields.
+    """
+    findings: list[str] = []
+    hosts_seen: set[str] = set()
+    sha_seen: set[str] = set()
+    proto_seen: set[str] = set()
+    per_split: dict[str, dict[str, str]] = {}
+
+    for split in ("development", "validation", "test"):
+        identity = load_campaign_identity(_CORPUS_BASE / split)
+        if identity is None:
+            # Split not generated yet; skip.
+            continue
+        entry: dict[str, str] = {}
+        host = identity.serving_endpoint_host
+        sha = identity.serving_endpoint_sha256
+        proto = identity.api_protocol
+        if host:
+            entry["host"] = host
+            hosts_seen.add(host)
+        if sha:
+            entry["sha"] = sha
+            sha_seen.add(sha)
+        if proto:
+            entry["proto"] = proto
+            proto_seen.add(proto)
+        if entry:
+            per_split[split] = entry
+
+    # Require consistency across all splits that have endpoint data.
+    if len(hosts_seen) > 1:
+        findings.append(
+            f"endpoint provenance inconsistency: "
+            f"found {len(hosts_seen)} distinct serving_endpoint_host values "
+            f"across splits: {sorted(hosts_seen)}"
+        )
+    if len(sha_seen) > 1:
+        findings.append(
+            "endpoint provenance inconsistency: "
+            "found multiple serving_endpoint_sha256 values across splits"
+        )
+    if len(proto_seen) > 1:
+        findings.append(
+            "endpoint provenance inconsistency: "
+            "found multiple api_protocol values across splits"
+        )
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Patch L: final combined audit — verify all split gates
 # ---------------------------------------------------------------------------
 
@@ -1440,6 +1525,8 @@ def build_validation_report(
         sections["split_gate_progression"] = _validate_all_split_gates()
         # Patch F (Phase 3 Final): source commit consistency.
         sections["source_commit_consistency"] = validate_source_commit_consistency()
+        # Patch G/I: endpoint consistency across splits.
+        sections["endpoint_consistency"] = validate_endpoint_consistency()
 
     # Collect all blocking findings.
     all_findings: list[str] = []
@@ -1482,6 +1569,7 @@ def build_validation_report(
             *([
                 "split_gate_progression",
                 "source_commit_consistency",
+                "endpoint_consistency",
             ] if split_scope == "all" else []),
         ],
         "passed": len(all_findings) == 0,

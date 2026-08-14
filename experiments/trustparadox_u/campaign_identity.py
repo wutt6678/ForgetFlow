@@ -88,6 +88,10 @@ _BLOCKING_FIELDS: frozenset[str] = frozenset({
     "request_timeout",
     "max_retries",
     "created_from_commit",
+    # Endpoint provenance (Patches A, D).
+    "serving_endpoint_host",
+    "serving_endpoint_sha256",
+    "api_protocol",
 })
 
 
@@ -113,6 +117,7 @@ class CampaignIdentity:
     created_at: str
     # Endpoint provenance (runtime binding, not experimental design).
     serving_endpoint_host: str = ""
+    serving_endpoint_sha256: str = ""
     api_protocol: str = ""
 
 
@@ -132,6 +137,29 @@ def _repository_commit() -> str:
 def _file_sha256(path: Path) -> str:
     """Return SHA-256 of file contents."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def canonicalize_serving_endpoint(api_base: str | None) -> str:
+    """Return canonical form of *api_base* with credentials/query/fragment stripped.
+
+    Canonical form: ``scheme://hostname[:port]/normalized-path``
+
+    Returns empty string if *api_base* is None or empty.
+    """
+    if not api_base:
+        return ""
+    from urllib.parse import urlparse
+    parsed = urlparse(api_base)
+    # Strip userinfo (credentials), query, fragment.
+    # Reconstruct as scheme://hostname[:port]/path
+    netloc = parsed.hostname or ""
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    path = parsed.path or ""
+    # Normalize path: remove trailing slash unless it's just "/"
+    if path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
+    return f"{parsed.scheme}://{netloc}{path}"
 
 
 def compute_campaign_identity(
@@ -174,16 +202,30 @@ def compute_campaign_identity(
     if phase_manifest_path is not None and phase_manifest_path.exists():
         phase_hash = _file_sha256(phase_manifest_path)
 
-    # Endpoint provenance: record the serving host and protocol adapter.
+    # Endpoint provenance: record the serving host, endpoint fingerprint, and protocol adapter.
     serving_host = ""
+    endpoint_sha = ""
     api_proto = ""
     if api_base:
         from urllib.parse import urlparse
-        parsed = urlparse(api_base)
+        canonical = canonicalize_serving_endpoint(api_base)
+        # Patch E: fail closed if canonicalization produces empty result.
+        if not canonical:
+            raise ValueError(
+                f"api_base supplied but canonicalization produced empty endpoint: {api_base!r}"
+            )
+        parsed = urlparse(canonical)
         serving_host = parsed.hostname or ""
+        endpoint_sha = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         # The provider field in the frozen config is the LiteLLM protocol
         # adapter (e.g. "openai"), not the serving vendor.
         api_proto = f"{config.generator_provider}_compatible"
+        # Patch E: all endpoint fields must be non-empty when api_base is supplied.
+        if not serving_host or not endpoint_sha or not api_proto:
+            raise ValueError(
+                f"incomplete endpoint provenance for api_base={api_base!r}: "
+                f"host={serving_host!r}, sha={endpoint_sha!r}, proto={api_proto!r}"
+            )
 
     return CampaignIdentity(
         schema_version=CAMPAIGN_IDENTITY_SCHEMA_VERSION,
@@ -203,6 +245,7 @@ def compute_campaign_identity(
         created_from_commit=_repository_commit(),
         created_at=datetime.now(UTC).isoformat(timespec="seconds"),
         serving_endpoint_host=serving_host,
+        serving_endpoint_sha256=endpoint_sha,
         api_protocol=api_proto,
     )
 

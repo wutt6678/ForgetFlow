@@ -11,6 +11,7 @@ Tests that:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 from dataclasses import replace
@@ -814,7 +815,7 @@ class TestPatchHChecksRun:
         """build_validation_report() return value must contain checks_run."""
         from experiments.trustparadox_u import audit_empirical_corpus as auditor
 
-        with (
+        _patches = [
             patch.object(auditor, "_load_attempts", return_value=[]),
             patch.object(auditor, "_load_candidates", return_value=[]),
             patch.object(auditor, "_load_plan_items", return_value=[]),
@@ -840,9 +841,15 @@ class TestPatchHChecksRun:
                 auditor, "validate_source_commit_consistency", return_value=[],
             ),
             patch.object(
+                auditor, "validate_endpoint_consistency", return_value=[],
+            ),
+            patch.object(
                 auditor, "compute_coverage_stats", return_value={},
             ),
-        ):
+        ]
+        with contextlib.ExitStack() as stack:
+            for p in _patches:
+                stack.enter_context(p)
             report = auditor.build_validation_report(split_scope="all")
 
         assert "checks_run" in report, "validation report must include checks_run"
@@ -857,5 +864,91 @@ class TestPatchHChecksRun:
             "manifest_provenance",
             "split_gate_progression",
             "source_commit_consistency",
+            "endpoint_consistency",
         ]:
             assert expected in checks, f"checks_run missing {expected!r}"
+
+
+# ---------------------------------------------------------------------------
+# Patch M/N: cross-split endpoint consistency regression
+# ---------------------------------------------------------------------------
+
+
+class TestCrossSplitEndpointConsistency:
+    """validate_endpoint_consistency across splits."""
+
+    def _write_identity(self, split_dir: Path, **endpoint_fields: str) -> None:
+        """Write a minimal campaign_identity.json with endpoint fields."""
+        split_dir.mkdir(parents=True, exist_ok=True)
+        identity = {
+            "schema_version": "1.0",
+            "split": split_dir.name,
+            "generation_plan_scientific_sha256": "plan",
+            "generation_plan_file_sha256": "plan_file",
+            "generation_config_sha256": "config",
+            "target_registry_sha256": "registry",
+            "prompt_manifest_sha256": "prompt",
+            "phase_manifest_sha256": "phase",
+            "generator_provider": "openai",
+            "generator_model_requested": "gpt-4",
+            "generator_temperature": 0.7,
+            "generator_max_tokens": 1024,
+            "request_timeout": 30.0,
+            "max_retries": 3,
+            "created_from_commit": "a" * 40,
+            "created_at": "2026-08-02T00:00:00+00:00",
+            "serving_endpoint_host": "",
+            "serving_endpoint_sha256": "",
+            "api_protocol": "",
+        }
+        identity.update(endpoint_fields)
+        (split_dir / "campaign_identity.json").write_text(
+            json.dumps(identity), encoding="utf-8",
+        )
+
+    def test_final_audit_rejects_cross_split_endpoint_drift(
+        self, tmp_path: Path,
+    ) -> None:
+        """Different endpoint across splits → finding."""
+        sha_a = hashlib.sha256(b"https://endpoint-a.example/v1").hexdigest()
+        sha_b = hashlib.sha256(b"https://endpoint-b.example/v1").hexdigest()
+        self._write_identity(
+            tmp_path / "development",
+            serving_endpoint_host="endpoint-a.example",
+            serving_endpoint_sha256=sha_a,
+            api_protocol="openai_compatible",
+        )
+        self._write_identity(
+            tmp_path / "validation",
+            serving_endpoint_host="endpoint-b.example",
+            serving_endpoint_sha256=sha_b,
+            api_protocol="openai_compatible",
+        )
+        self._write_identity(
+            tmp_path / "test",
+            serving_endpoint_host="endpoint-a.example",
+            serving_endpoint_sha256=sha_a,
+            api_protocol="openai_compatible",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_endpoint_consistency()
+        assert findings, "Expected endpoint consistency findings"
+        assert any("inconsistency" in f for f in findings), f"Findings: {findings}"
+
+    def test_final_audit_accepts_same_endpoint_all_splits(
+        self, tmp_path: Path,
+    ) -> None:
+        """Same endpoint across all splits → no finding."""
+        sha = hashlib.sha256(b"https://endpoint.example/v1").hexdigest()
+        for split in ("development", "validation", "test"):
+            self._write_identity(
+                tmp_path / split,
+                serving_endpoint_host="endpoint.example",
+                serving_endpoint_sha256=sha,
+                api_protocol="openai_compatible",
+            )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        with patch.object(auditor, "_CORPUS_BASE", tmp_path):
+            findings = auditor.validate_endpoint_consistency()
+        assert not findings, f"Unexpected findings: {findings}"

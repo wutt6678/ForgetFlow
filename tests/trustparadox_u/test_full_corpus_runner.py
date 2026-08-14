@@ -597,3 +597,82 @@ class TestPrerequisiteSourceCommit:
             err = _check_prerequisite_gate("validation")
         assert err is not None
         assert "commit_C" in err
+
+
+# ---------------------------------------------------------------------------
+# Patch O/P: full-runner forwarding regression
+# ---------------------------------------------------------------------------
+
+
+class TestFullRunnerForwarding:
+    """run_split must forward --api-base and --api-key-env to subprocess."""
+
+    def test_full_runner_forwards_api_base(self) -> None:
+        """--api-base must appear in the subprocess command."""
+        from scripts.run_full_corpus_generation import run_split
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            run_split(
+                "development",
+                Path("/fake/plan.jsonl"),
+                Path("/fake/output"),
+                api_base="https://example.com/v1",
+            )
+        cmd = mock_run.call_args[0][0]
+        assert "--api-base" in cmd, f"--api-base not in cmd: {cmd}"
+        idx = cmd.index("--api-base")
+        assert cmd[idx + 1] == "https://example.com/v1"
+
+    def test_full_runner_forwards_api_key_env(self) -> None:
+        """--api-key-env must appear in the subprocess command."""
+        from scripts.run_full_corpus_generation import run_split
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            run_split(
+                "development",
+                Path("/fake/plan.jsonl"),
+                Path("/fake/output"),
+                api_key_env="MY_API_KEY",
+            )
+        cmd = mock_run.call_args[0][0]
+        assert "--api-key-env" in cmd, f"--api-key-env not in cmd: {cmd}"
+        idx = cmd.index("--api-key-env")
+        assert cmd[idx + 1] == "MY_API_KEY"
+
+    def test_full_runner_forwards_both(self) -> None:
+        """Both --api-base and --api-key-env forwarded together."""
+        from scripts.run_full_corpus_generation import run_split
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            run_split(
+                "development",
+                Path("/fake/plan.jsonl"),
+                Path("/fake/output"),
+                api_base="https://example.com/v1",
+                api_key_env="MY_API_KEY",
+            )
+        cmd = mock_run.call_args[0][0]
+        assert "--api-base" in cmd
+        assert "--api-key-env" in cmd
+
+    def test_full_runner_no_endpoint_by_default(self) -> None:
+        """Without api_base/api_key_env, no endpoint flags in command."""
+        from scripts.run_full_corpus_generation import run_split
+        from unittest.mock import MagicMock, patch
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            run_split(
+                "development",
+                Path("/fake/plan.jsonl"),
+                Path("/fake/output"),
+            )
+        cmd = mock_run.call_args[0][0]
+        assert "--api-base" not in cmd
+        assert "--api-key-env" not in cmd
