@@ -292,6 +292,7 @@ def run_preflight_generation(
         config=config,
         config_path=_CONFIG_PATH,
         phase_manifest_path=_PHASE_FILE,
+        api_base=api_base,
     )
     write_campaign_identity(output_dir, identity)
 
@@ -1109,7 +1110,13 @@ def main(argv: list[str] | None = None) -> int:
     viability_findings: list[str] = []
     viability_passed = True
 
-    if viability["provider_attempt_count"] > 0:
+    if viability["provider_attempt_count"] == 0:
+        viability_findings.append(
+            "real-provider viability failure: "
+            "zero provider attempts executed"
+        )
+        viability_passed = False
+    else:
         if viability["success_count"] == 0:
             viability_findings.append(
                 "real-provider viability failure: "
@@ -1139,10 +1146,7 @@ def main(argv: list[str] | None = None) -> int:
         for f in viability_findings:
             print(f"  - {f}", file=sys.stderr)
     else:
-        if viability["provider_attempt_count"] > 0:
-            print("  Provider viability: PASSED")
-        else:
-            print("  Provider viability: N/A (no attempts)")
+        print("  Provider viability: PASSED")
 
     # ---------------------------------------------------------------------------
     # Write verification reports (after verification)

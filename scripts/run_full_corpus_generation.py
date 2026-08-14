@@ -348,8 +348,22 @@ def _check_prerequisite_gate(split: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def run_split(split: str, plan_path: Path, output_dir: Path, *, resume: bool = False) -> int:
-    """Run generation for one split using frozen config (no CLI overrides)."""
+def run_split(
+    split: str,
+    plan_path: Path,
+    output_dir: Path,
+    *,
+    resume: bool = False,
+    api_base: str | None = None,
+    api_key_env: str | None = None,
+) -> int:
+    """Run generation for one split using frozen config (no CLI overrides).
+
+    *api_base* and *api_key_env* are runtime transport parameters passed
+    through to the subprocess so that custom OpenAI-compatible endpoints
+    (e.g. Alibaba Cloud MaaS) are reachable.  They are NOT experimental
+    hyperparameters and do not affect the frozen scientific design.
+    """
     cmd = [
         sys.executable,
         "-m",
@@ -363,6 +377,10 @@ def run_split(split: str, plan_path: Path, output_dir: Path, *, resume: bool = F
         "--output-dir",
         str(output_dir),
     ]
+    if api_base:
+        cmd.extend(["--api-base", api_base])
+    if api_key_env:
+        cmd.extend(["--api-key-env", api_key_env])
     if resume:
         cmd.append("--resume")
     print(f"\n{'=' * 70}")
@@ -506,6 +524,22 @@ def _build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Resume an interrupted campaign (validates campaign identity).",
     )
+    parser.add_argument(
+        "--api-base",
+        default=None,
+        help=(
+            "OpenAI-compatible base URL for the provider endpoint.  "
+            "Runtime transport parameter; does not alter frozen config."
+        ),
+    )
+    parser.add_argument(
+        "--api-key-env",
+        default=None,
+        help=(
+            "Name of the environment variable holding the API key.  "
+            "Runtime transport parameter; does not alter frozen config."
+        ),
+    )
     return parser
 
 
@@ -589,7 +623,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.resume:
         print("  Mode: RESUME")
 
-    rc = run_split(split, args.plan, output_dir, resume=args.resume)
+    rc = run_split(
+        split,
+        args.plan,
+        output_dir,
+        resume=args.resume,
+        api_base=args.api_base,
+        api_key_env=args.api_key_env,
+    )
 
     # Patch H/O: compute exact plan completeness for the gate.
     from experiments.trustparadox_u.empirical_corpus import (

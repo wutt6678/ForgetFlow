@@ -111,6 +111,9 @@ class CampaignIdentity:
     max_retries: int
     created_from_commit: str
     created_at: str
+    # Endpoint provenance (runtime binding, not experimental design).
+    serving_endpoint_host: str = ""
+    api_protocol: str = ""
 
 
 def _repository_commit() -> str:
@@ -139,6 +142,7 @@ def compute_campaign_identity(
     config: FrozenGenerationConfig,
     config_path: Path | None = None,
     phase_manifest_path: Path | None = None,
+    api_base: str | None = None,
 ) -> CampaignIdentity:
     """Compute the campaign identity from current on-disk artifacts."""
     # Plan hashes.
@@ -170,6 +174,17 @@ def compute_campaign_identity(
     if phase_manifest_path is not None and phase_manifest_path.exists():
         phase_hash = _file_sha256(phase_manifest_path)
 
+    # Endpoint provenance: record the serving host and protocol adapter.
+    serving_host = ""
+    api_proto = ""
+    if api_base:
+        from urllib.parse import urlparse
+        parsed = urlparse(api_base)
+        serving_host = parsed.hostname or ""
+        # The provider field in the frozen config is the LiteLLM protocol
+        # adapter (e.g. "openai"), not the serving vendor.
+        api_proto = f"{config.generator_provider}_compatible"
+
     return CampaignIdentity(
         schema_version=CAMPAIGN_IDENTITY_SCHEMA_VERSION,
         split=split,
@@ -187,6 +202,8 @@ def compute_campaign_identity(
         max_retries=config.max_retries,
         created_from_commit=_repository_commit(),
         created_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        serving_endpoint_host=serving_host,
+        api_protocol=api_proto,
     )
 
 

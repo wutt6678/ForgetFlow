@@ -1243,6 +1243,7 @@ def run_generation(
     frozen_config: FrozenGenerationConfig | None = None,
     frozen_config_path: Path | None = None,
     phase_manifest_path: Path | None = None,
+    api_base: str | None = None,
 ) -> dict[str, object]:
     """Generate, retain, and accept empirical attempts for one split.
 
@@ -1292,6 +1293,7 @@ def run_generation(
             config=frozen_config,
             config_path=frozen_config_path,
             phase_manifest_path=phase_manifest_path,
+            api_base=api_base,
         )
         existing_identity = load_campaign_identity(output_dir)
         if existing_identity is not None:
@@ -1983,6 +1985,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             phase_manifest_path=_phase_manifest_path,
             artifact_class=_artifact_class,
             research_use=_research_use,
+            api_base=args.api_base,
         )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
