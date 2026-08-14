@@ -1340,7 +1340,7 @@ class TestCampaignIdentityReceivesEndpoint:
         """Completely invalid api_base → ValueError."""
         config = load_frozen_generation_config()
         # A URL with no scheme will produce empty hostname after canonicalization.
-        with pytest.raises(ValueError, match="incomplete endpoint provenance"):
+        with pytest.raises(ValueError, match="could not be derived safely"):
             compute_campaign_identity(
                 split="development",
                 plan_items=None,
@@ -1348,3 +1348,21 @@ class TestCampaignIdentityReceivesEndpoint:
                 config=config,
                 api_base="not-a-valid-url",
             )
+
+    def test_invalid_endpoint_error_does_not_echo_api_base(self) -> None:
+        """Patch I: ValueError must not leak raw api_base (credential safety)."""
+        config = load_frozen_generation_config()
+        # Malformed URL with credentials — canonicalization fails because
+        # there is no hostname, but the error must not echo the input.
+        unsafe_url = "https://user:secret@"
+        with pytest.raises(ValueError) as exc_info:
+            compute_campaign_identity(
+                split="development",
+                plan_items=None,
+                plan_path=None,
+                config=config,
+                api_base=unsafe_url,
+            )
+        msg = str(exc_info.value)
+        assert "secret" not in msg
+        assert unsafe_url not in msg

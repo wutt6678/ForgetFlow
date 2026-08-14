@@ -285,6 +285,11 @@ class TestSplitProgression:
                 max_retries=3,
                 created_from_commit="test_commit",
                 created_at="2026-08-02T00:00:00+00:00",
+                serving_endpoint_host="endpoint.test",
+                serving_endpoint_sha256=hashlib.sha256(
+                    b"https://endpoint.test/v1",
+                ).hexdigest(),
+                api_protocol="openai_compatible",
             )
             identity_path.write_text(
                 json.dumps(asdict(identity_obj), indent=2),
@@ -366,6 +371,11 @@ class TestSplitProgression:
                 max_retries=3,
                 created_from_commit="test_commit",
                 created_at="2026-08-02T00:00:00+00:00",
+                serving_endpoint_host="endpoint.test",
+                serving_endpoint_sha256=hashlib.sha256(
+                    b"https://endpoint.test/v1",
+                ).hexdigest(),
+                api_protocol="openai_compatible",
             )
             identity_path.write_text(
                 json.dumps(asdict(identity_obj), indent=2),
@@ -442,6 +452,11 @@ class TestSplitProgression:
                 max_retries=3,
                 created_from_commit="test_commit",
                 created_at="2026-08-02T00:00:00+00:00",
+                serving_endpoint_host="endpoint.test",
+                serving_endpoint_sha256=hashlib.sha256(
+                    b"https://endpoint.test/v1",
+                ).hexdigest(),
+                api_protocol="openai_compatible",
             )
             identity_path.write_text(
                 json.dumps(asdict(identity_obj), indent=2),

@@ -988,6 +988,20 @@ def validate_campaign_identity(
                 f"{split}: incomplete endpoint provenance: "
                 f"non-empty={sorted(non_empty)}, empty={sorted(empty)}"
             )
+        # Patch A (fail-closed): empirical corpus campaigns require all
+        # endpoint provenance fields to be non-empty.
+        manifest = _load_manifest(split)
+        is_empirical = (
+            manifest is not None
+            and manifest.get("artifact_class")
+            == ARTIFACT_CLASS_EMPIRICAL_CORPUS
+        )
+        if is_empirical and not non_empty and empty:
+            findings.append(
+                f"{split}: empirical corpus campaign identity "
+                f"missing endpoint provenance: "
+                + ", ".join(sorted(empty))
+            )
     return findings
 
 
@@ -1342,6 +1356,27 @@ def validate_endpoint_consistency() -> list[str]:
         identity = load_campaign_identity(_CORPUS_BASE / split)
         if identity is None:
             # Split not generated yet; skip.
+            continue
+        # Patch C (fail-closed): for empirical corpus splits, require all
+        # endpoint provenance fields to be non-empty.  Do not silently skip
+        # a split with missing endpoint data.
+        manifest = _load_manifest(split)
+        is_empirical = (
+            manifest is not None
+            and manifest.get("artifact_class")
+            == ARTIFACT_CLASS_EMPIRICAL_CORPUS
+        )
+        endpoint_values = {
+            "serving_endpoint_host": identity.serving_endpoint_host,
+            "serving_endpoint_sha256": identity.serving_endpoint_sha256,
+            "api_protocol": identity.api_protocol,
+        }
+        missing = [k for k, v in endpoint_values.items() if not v]
+        if is_empirical and missing:
+            findings.append(
+                f"{split}: missing endpoint provenance: "
+                + ", ".join(missing)
+            )
             continue
         entry: dict[str, str] = {}
         host = identity.serving_endpoint_host

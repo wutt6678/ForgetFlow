@@ -212,7 +212,8 @@ def compute_campaign_identity(
         # Patch E: fail closed if canonicalization produces empty result.
         if not canonical:
             raise ValueError(
-                f"api_base supplied but canonicalization produced empty endpoint: {api_base!r}"
+                "api_base supplied but endpoint provenance "
+                "could not be derived safely"
             )
         parsed = urlparse(canonical)
         serving_host = parsed.hostname or ""
@@ -223,8 +224,8 @@ def compute_campaign_identity(
         # Patch E: all endpoint fields must be non-empty when api_base is supplied.
         if not serving_host or not endpoint_sha or not api_proto:
             raise ValueError(
-                f"incomplete endpoint provenance for api_base={api_base!r}: "
-                f"host={serving_host!r}, sha={endpoint_sha!r}, proto={api_proto!r}"
+                "api_base supplied but endpoint provenance "
+                "could not be derived safely"
             )
 
     return CampaignIdentity(

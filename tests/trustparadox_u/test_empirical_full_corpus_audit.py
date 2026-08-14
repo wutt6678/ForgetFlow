@@ -952,3 +952,102 @@ class TestCrossSplitEndpointConsistency:
         with patch.object(auditor, "_CORPUS_BASE", tmp_path):
             findings = auditor.validate_endpoint_consistency()
         assert not findings, f"Unexpected findings: {findings}"
+
+    def test_endpoint_consistency_rejects_split_missing_endpoint(
+        self, tmp_path: Path,
+    ) -> None:
+        """Patch D: A/empty/A → finding (validation endpoint missing)."""
+        sha_a = hashlib.sha256(b"https://endpoint.example/v1").hexdigest()
+        self._write_identity(
+            tmp_path / "development",
+            serving_endpoint_host="endpoint.example",
+            serving_endpoint_sha256=sha_a,
+            api_protocol="openai_compatible",
+        )
+        # Validation split: all endpoint fields empty.
+        self._write_identity(tmp_path / "validation")
+        self._write_identity(
+            tmp_path / "test",
+            serving_endpoint_host="endpoint.example",
+            serving_endpoint_sha256=sha_a,
+            api_protocol="openai_compatible",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        empirical_manifest = {"artifact_class": "empirical_corpus"}
+        with (
+            patch.object(auditor, "_CORPUS_BASE", tmp_path),
+            patch.object(auditor, "_load_manifest", return_value=empirical_manifest),
+        ):
+            findings = auditor.validate_endpoint_consistency()
+        assert findings, "Expected findings for split with missing endpoint"
+        assert any(
+            "validation" in f and "missing endpoint provenance" in f
+            for f in findings
+        ), f"Findings: {findings}"
+
+
+class TestPatchAEmpiricalAllEmptyEndpoint:
+    """Patch A: empirical corpus with all endpoint fields empty → finding."""
+
+    def test_empirical_identity_all_endpoint_fields_empty_fails(
+        self, tmp_path: Path,
+    ) -> None:
+        """All-empty endpoint identity for empirical corpus → finding."""
+        split_dir = tmp_path / "development"
+        split_dir.mkdir()
+        identity = {
+            "schema_version": "1.0",
+            "split": "development",
+            "generation_plan_scientific_sha256": "plan",
+            "generation_plan_file_sha256": "plan_file",
+            "generation_config_sha256": "config",
+            "target_registry_sha256": "registry",
+            "prompt_manifest_sha256": "prompt",
+            "phase_manifest_sha256": "phase",
+            "generator_provider": "openai",
+            "generator_model_requested": "gpt-4",
+            "generator_temperature": 0.7,
+            "generator_max_tokens": 1024,
+            "request_timeout": 30.0,
+            "max_retries": 3,
+            "created_from_commit": "a" * 40,
+            "created_at": "2026-08-02T00:00:00+00:00",
+            "serving_endpoint_host": "",
+            "serving_endpoint_sha256": "",
+            "api_protocol": "",
+        }
+        (split_dir / "campaign_identity.json").write_text(
+            json.dumps(identity), encoding="utf-8",
+        )
+        from experiments.trustparadox_u import audit_empirical_corpus as auditor
+        from experiments.trustparadox_u.campaign_identity import CampaignIdentity
+        from experiments.trustparadox_u.empirical_generation_plan import (
+            load_frozen_generation_config,
+        )
+        current = CampaignIdentity(**identity)
+        empirical_manifest = {"artifact_class": "empirical_corpus"}
+        with (
+            patch.object(auditor, "_CORPUS_BASE", tmp_path),
+            patch.object(
+                auditor,
+                "load_frozen_generation_config",
+                return_value=load_frozen_generation_config(),
+            ),
+            patch.object(
+                auditor,
+                "compute_campaign_identity",
+                return_value=current,
+            ),
+            patch.object(
+                auditor, "_load_manifest", return_value=empirical_manifest,
+            ),
+        ):
+            findings = auditor.validate_campaign_identity(
+                target_splits=("development",),
+            )
+        assert findings, "Expected finding for all-empty empirical endpoint"
+        assert any(
+            "empirical corpus campaign identity" in f
+            and "missing endpoint provenance" in f
+            for f in findings
+        ), f"Findings: {findings}"
