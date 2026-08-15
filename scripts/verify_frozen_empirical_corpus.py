@@ -96,6 +96,7 @@ class FreezeVerifier:
         self._verify_split_counts()
         self._verify_corpus_frozen()
         self._verify_phase_manifest()
+        self._verify_outer_hash_anchors()
 
         print("\n" + "=" * 70)
         total = self.checks_passed + self.checks_failed
@@ -355,6 +356,61 @@ class FreezeVerifier:
             self._pass("phase has freeze_artifact_inventory_sha256")
         else:
             self._fail("phase missing freeze_artifact_inventory_sha256")
+
+    def _verify_outer_hash_anchors(self) -> None:
+        """Check 12 (E4-001 Sec 8): Outer hash anchor cross-checks.
+
+        Compute SHA256 of the inventory and manifest files and verify
+        they match the hashes recorded in the outer phase anchor
+        (empirical_phase.json) AND in the frozen corpus manifest.
+        This closes the gap where inner hashes could be self-consistent
+        but the outer anchors were not cross-checked against the
+        actual file bytes.
+        """
+        print("\n[12] Outer hash anchor cross-checks...")
+        if not _PHASE_PATH.exists():
+            self._fail("Cannot verify outer anchors: empirical_phase.json not found")
+            return
+        phase = _load_json(_PHASE_PATH)
+        fm_path = _CORPUS_DIR / "frozen_corpus_manifest.json"
+        inv_path = _CORPUS_DIR / "freeze_artifact_inventory.json"
+
+        # --- inventory file hash ---
+        if inv_path.exists():
+            actual_inv_sha = _sha256(inv_path)
+            # Check against empirical_phase.json
+            phase_inv_sha = phase.get("freeze_artifact_inventory_sha256", "")
+            if actual_inv_sha == phase_inv_sha:
+                self._pass("SHA256(inventory) matches phase anchor")
+            else:
+                self._fail("SHA256(inventory) != phase freeze_artifact_inventory_sha256")
+            # Check against frozen_corpus_manifest.json
+            if fm_path.exists():
+                fm = _load_json(fm_path)
+                fm_inv_sha = fm.get("freeze_artifact_inventory_sha256", "")
+                if actual_inv_sha == fm_inv_sha:
+                    self._pass("SHA256(inventory) matches frozen manifest anchor")
+                else:
+                    self._fail(
+                        "SHA256(inventory) != frozen_corpus_manifest."
+                        "freeze_artifact_inventory_sha256"
+                    )
+        else:
+            self._fail("Cannot verify outer anchors: inventory not found")
+
+        # --- frozen manifest file hash ---
+        if fm_path.exists():
+            actual_fm_sha = _sha256(fm_path)
+            phase_fm_sha = phase.get("frozen_corpus_manifest_sha256", "")
+            if actual_fm_sha == phase_fm_sha:
+                self._pass("SHA256(frozen_manifest) matches phase anchor")
+            else:
+                self._fail(
+                    "SHA256(frozen_manifest) != phase "
+                    "frozen_corpus_manifest_sha256"
+                )
+        else:
+            self._fail("Cannot verify outer anchors: frozen manifest not found")
 
 
 def main() -> int:

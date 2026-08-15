@@ -205,6 +205,70 @@ class TestFreezeVerifierIntegration:
         assert mutated_sha != entry["sha256"]
 
 
+class TestCoordinatedTampering:
+    """E4-001 Sec 8: Coordinated-tampering regression.
+
+    Mutate a corpus file, update its inventory entry, and update the
+    inventory internal root hash.  The outer phase/manifest anchors
+    must still detect the change because they record the hash of the
+    inventory file itself (which changes when we rewrite it).
+    """
+
+    def test_coordinated_tampering_detected(self, tmp_path: Path) -> None:
+        """Mutate file + inventory + inventory root -> outer anchors fail."""
+        corpus_dir = _copy_corpus(tmp_path)
+
+        # Step 1: Mutate a corpus file
+        cand_path = corpus_dir / "development" / "accepted_candidates.jsonl"
+        original = cand_path.read_bytes()
+        mutated = original[:50] + b"TAMPERED" + original[58:]
+        cand_path.write_bytes(mutated)
+
+        # Step 2: Update the inventory entry for this file
+        inv_path = corpus_dir / "freeze_artifact_inventory.json"
+        inventory = _load_json(inv_path)
+        new_file_sha = _sha256(cand_path)
+        entry = next(
+            e for e in inventory["entries"]
+            if e["path"] == "development/accepted_candidates.jsonl"
+        )
+        old_entry_sha = entry["sha256"]
+        entry["sha256"] = new_file_sha
+        assert new_file_sha != old_entry_sha
+
+        # Step 3: Recompute and update the inventory internal root hash
+        entries_bytes = (
+            json.dumps(
+                inventory["entries"], indent=2, sort_keys=True, ensure_ascii=False
+            ).encode("utf-8")
+            + b"\n"
+        )
+        new_inv_root = hashlib.sha256(entries_bytes).hexdigest()
+        inventory["inventory_sha256"] = new_inv_root
+        _write_json(inv_path, inventory)
+
+        # Step 4: The outer anchors (in the phase manifest and frozen
+        # manifest) still hold the ORIGINAL inventory file hash.
+        # Since we rewrote the inventory file, its actual SHA256 changed,
+        # so the outer anchors detect the tampering.
+        actual_inv_sha = _sha256(inv_path)
+
+        # Load the real phase manifest (not copied — it's outside corpus_dir)
+        phase = _load_json(_PROJECT_ROOT / "data" / "trustparadox_u"
+                           / "empirical_v2" / "manifests" / "empirical_phase.json")
+        phase_inv_anchor = phase["freeze_artifact_inventory_sha256"]
+        assert actual_inv_sha != phase_inv_anchor, (
+            "Coordinated tampering: outer phase anchor must detect change"
+        )
+
+        # Also check the frozen corpus manifest anchor
+        frozen = _load_json(corpus_dir / "frozen_corpus_manifest.json")
+        fm_inv_anchor = frozen["freeze_artifact_inventory_sha256"]
+        assert actual_inv_sha != fm_inv_anchor, (
+            "Coordinated tampering: frozen manifest anchor must detect change"
+        )
+
+
 class TestCorpusFrozenGuard:
     """Section 35: Verify the immutable-corpus guard."""
 
