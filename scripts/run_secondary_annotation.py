@@ -8,7 +8,7 @@ Usage:
     PYTHONPATH=. python scripts/run_secondary_annotation.py \
         --api-base https://... \
         --api-key-env DASHSCOPE_API_KEY \
-        --output results/empirical_v2/annotations/development
+        --output results/empirical_v2/annotations/development_v2
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ from experiments.trustparadox_u.empirical_annotation import (  # noqa: E402
     ANNOTATION_SCHEMA_VERSION,
     MODEL_SECONDARY,
     ROLE_SECONDARY,
+    AnnotationAttempt,
     RowAnnotation,
     SequenceAnnotation,
     build_annotation_config,
@@ -38,6 +39,8 @@ from experiments.trustparadox_u.empirical_annotation import (  # noqa: E402
     build_prompt_manifest,
     build_row_prompt,
     build_sequence_prompt,
+    compute_queue_sha256,
+    frozen_corpus_manifest_file_sha256,
     parse_annotation_response,
     prompt_sha256,
     validate_row_label,
@@ -62,16 +65,18 @@ def _load_development_candidates() -> list[dict]:
     return candidates
 
 
-def _call_annotator(
+def call_annotation_provider_once(
     system_prompt: str,
     user_prompt: str,
     model: str,
     api_base: str | None,
     api_key: str | None,
     timeout: float = 120.0,
-    max_retries: int = MAX_RETRIES,
 ) -> dict[str, Any]:
-    """Call a real LLM annotator with retries."""
+    """Sec 37: Single provider call — no internal retries.
+
+    The runner manages retries and persists every attempt.
+    """
     from litellm import completion
 
     messages = [
@@ -83,62 +88,63 @@ def _call_annotator(
     is_thinking = "glm" in model.lower()
     effective_max_tokens = 4096 if is_thinking else 1024
 
-    last_result: dict[str, Any] | None = None
-    for attempt_idx in range(max_retries + 1):
-        start = time.monotonic()
-        try:
-            kwargs: dict[str, Any] = {
-                "model": model,
-                "messages": messages,
-                "temperature": 0.0,
-                "max_tokens": effective_max_tokens,
-                "timeout": timeout,
-            }
-            if api_base:
-                kwargs["api_base"] = api_base
-            if api_key:
-                kwargs["api_key"] = api_key
+    start = time.monotonic()
+    try:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.0,
+            "max_tokens": effective_max_tokens,
+            "timeout": timeout,
+        }
+        if api_base:
+            kwargs["api_base"] = api_base
+        if api_key:
+            kwargs["api_key"] = api_key
 
-            response = completion(**kwargs)
-            elapsed_ms = (time.monotonic() - start) * 1000.0
-            text = response.choices[0].message.content
-            returned_model = getattr(response, "model", model)
+        response = completion(**kwargs)
+        elapsed_ms = (time.monotonic() - start) * 1000.0
+        text = response.choices[0].message.content
+        returned_model = getattr(response, "model", model)
 
-            if not text or not text.strip():
-                last_result = {
-                    "status": "empty_response",
-                    "raw_text": None,
-                    "returned_model": returned_model,
-                    "latency_ms": round(elapsed_ms, 1),
-                    "error": "Empty response from model",
-                }
-                if attempt_idx < max_retries:
-                    time.sleep(2.0 * (attempt_idx + 1))
-                    continue
-                return last_result
+        # Extract provider request ID from LiteLLM response
+        provider_request_id = ""
+        if hasattr(response, "model_extra") and isinstance(response.model_extra, dict):
+            provider_request_id = response.model_extra.get("id", "") or ""
+        if not provider_request_id and hasattr(response, "id"):
+            provider_request_id = str(getattr(response, "id", ""))
 
+        if not text or not text.strip():
             return {
-                "status": "success",
-                "raw_text": text,
-                "returned_model": returned_model,
-                "latency_ms": round(elapsed_ms, 1),
-                "error": None,
-            }
-        except Exception as exc:
-            elapsed_ms = (time.monotonic() - start) * 1000.0
-            last_result = {
-                "status": "provider_error",
+                "status": "empty_response",
                 "raw_text": None,
-                "returned_model": None,
+                "returned_model": returned_model,
+                "provider_request_id": provider_request_id,
                 "latency_ms": round(elapsed_ms, 1),
-                "error": str(exc),
+                "error_class": "EmptyResponse",
+                "error_message": "Empty response from model",
             }
-            if attempt_idx < max_retries:
-                time.sleep(2.0 * (attempt_idx + 1))
-                continue
-            return last_result
 
-    return last_result or {"status": "provider_error", "raw_text": None, "returned_model": None, "latency_ms": 0.0, "error": "Unknown"}
+        return {
+            "status": "success",
+            "raw_text": text,
+            "returned_model": returned_model,
+            "provider_request_id": provider_request_id,
+            "latency_ms": round(elapsed_ms, 1),
+            "error_class": "",
+            "error_message": None,
+        }
+    except Exception as exc:
+        elapsed_ms = (time.monotonic() - start) * 1000.0
+        return {
+            "status": "provider_error",
+            "raw_text": None,
+            "returned_model": None,
+            "provider_request_id": "",
+            "latency_ms": round(elapsed_ms, 1),
+            "error_class": type(exc).__name__,
+            "error_message": str(exc),
+        }
 
 
 def _load_existing_annotations(output_dir: Path) -> tuple[set[str], set[str]]:
@@ -174,7 +180,7 @@ def run_secondary_annotation(
     output_dir: Path | None = None,
 ) -> dict[str, Any]:
     if output_dir is None:
-        output_dir = PROJECT_ROOT / "results" / "empirical_v2" / "annotations" / "development"
+        output_dir = PROJECT_ROOT / "results" / "empirical_v2" / "annotations" / "development_v2"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     api_key: str | None = None
@@ -193,11 +199,7 @@ def run_secondary_annotation(
     seq_path = output_dir / "secondary_sequence_annotations.jsonl"
     attempt_log_path = output_dir / "secondary_annotation_attempts.jsonl"
 
-    queue_data = json.dumps(
-        {"row_items": len(row_items), "seq_items": len(sequence_items)},
-        sort_keys=True, separators=(",", ":"),
-    )
-    queue_sha = prompt_sha256(queue_data)
+    queue_sha = compute_queue_sha256(row_items, sequence_items)
     config_data = json.dumps(build_annotation_config(), sort_keys=True, separators=(",", ":"))
     config_sha = prompt_sha256(config_data)
     prompt_manifest_data = json.dumps(build_prompt_manifest(), sort_keys=True, separators=(",", ":"))
@@ -210,6 +212,9 @@ def run_secondary_annotation(
         prompt_manifest_sha256=pm_sha,
         annotation_code_commit=code_commit,
     )
+
+    campaign_sha = prompt_sha256(json.dumps(campaign_id, sort_keys=True, separators=(",", ":")))
+    manifest_sha = frozen_corpus_manifest_file_sha256()
 
     campaign_path = output_dir / "secondary_campaign_identity.json"
     if not campaign_path.exists():
@@ -244,73 +249,101 @@ def run_secondary_annotation(
             cand = candidate_lookup[item["candidate_id"]]
             sys_p, usr_p = build_row_prompt(cand)
 
-            attempt_id = f"secondary_{ann_id[:30]}_{uuid.uuid4().hex[:8]}"
-            result = _call_annotator(sys_p, usr_p, LITELLM_SECONDARY, api_base, api_key)
-            stats["total_api_calls"] += 1
-            stats["total_latency_ms"] += result["latency_ms"]
+            # Retry loop with per-attempt persistence (Sec 37-38)
+            terminal_success = False
+            for retry_index in range(MAX_RETRIES + 1):
+                attempt_id = f"secondary_{ann_id[:30]}_{uuid.uuid4().hex[:8]}"
+                result = call_annotation_provider_once(
+                    sys_p, usr_p, LITELLM_SECONDARY, api_base, api_key
+                )
+                stats["total_api_calls"] += 1
+                stats["total_latency_ms"] += result["latency_ms"]
 
-            attempt_record: dict[str, Any] = {
-                "provider_attempt_id": attempt_id,
-                "annotator_role": ROLE_SECONDARY,
-                "item_type": "row",
-                "annotation_id": ann_id,
-                "candidate_id": item["candidate_id"],
-                "requested_model": MODEL_SECONDARY,
-                "litellm_model": LITELLM_SECONDARY,
-                "system_prompt_sha256": prompt_sha256(sys_p),
-                "user_prompt_sha256": prompt_sha256(usr_p),
-                "latency_ms": result["latency_ms"],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
+                provider_req_id = result.get("provider_request_id", "")
+                raw_text = result.get("raw_text") or ""
 
-            if result["status"] == "success":
-                try:
-                    parsed = parse_annotation_response(result["raw_text"])
-                    ann = validate_row_label(parsed)
-                    record = RowAnnotation(
-                        annotation_id=ann_id,
-                        candidate_id=item["candidate_id"],
-                        scenario_id=item["scenario_id"],
-                        secret_variant_id=item["secret_variant_id"],
-                        target_relevant=ann.target_relevant,
-                        target_leakage=ann.target_leakage,
-                        positive_entailment=ann.positive_entailment,
-                        task_useful=ann.task_useful,
-                        leakage_strength=ann.leakage_strength,
-                        uncertain=ann.uncertain,
-                        confidence=ann.confidence,
-                        short_rationale=ann.short_rationale,
-                        annotator_role=ROLE_SECONDARY,
-                        annotator_provider="litellm",
-                        annotator_model_requested=MODEL_SECONDARY,
-                        annotator_model_returned=result["returned_model"],
-                        annotator_transport="openai_compatible",
-                        system_prompt_sha256=prompt_sha256(sys_p),
-                        user_prompt_sha256=prompt_sha256(usr_p),
-                        request_id=attempt_id,
-                        retry_index=0,
-                        annotated_at=datetime.now(timezone.utc).isoformat(),
-                        frozen_corpus_manifest_sha256=item["frozen_corpus_manifest_sha256"],
-                        candidate_content_sha256=item["candidate_content_sha256"],
-                    )
-                    row_f.write(json.dumps(record.to_dict()) + "\n")
-                    row_f.flush()
-                    stats["row_success"] += 1
-                    attempt_record["status"] = "success"
-                    attempt_record["parse_status"] = "valid"
-                except Exception as exc:
-                    stats["row_failure"] += 1
-                    attempt_record["status"] = "malformed"
-                    attempt_record["parse_status"] = "parse_error"
-                    attempt_record["error"] = str(exc)
-            else:
+                attempt_record: dict[str, Any] = {
+                    "provider_attempt_id": attempt_id,
+                    "annotation_item_id": ann_id,
+                    "candidate_id": item["candidate_id"],
+                    "annotator_role": ROLE_SECONDARY,
+                    "retry_index": retry_index,
+                    "status": result["status"],
+                    "raw_response": raw_text,
+                    "parse_status": "",
+                    "requested_model": MODEL_SECONDARY,
+                    "returned_model": result.get("returned_model") or "",
+                    "model_revision": "not_exposed_by_provider",
+                    "provider": "litellm",
+                    "transport": "openai_compatible",
+                    "provider_request_id": provider_req_id,
+                    "system_prompt_sha256": prompt_sha256(sys_p),
+                    "user_prompt_sha256": prompt_sha256(usr_p),
+                    "latency_ms": result["latency_ms"],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "error_class": result.get("error_class", ""),
+                    "error_message_safe": result.get("error_message", "") or "",
+                    "frozen_corpus_manifest_sha256": manifest_sha,
+                    "annotation_campaign_identity_sha256": campaign_sha,
+                }
+
+                if result["status"] == "success" and raw_text:
+                    try:
+                        parsed = parse_annotation_response(raw_text)
+                        ann = validate_row_label(parsed)
+                        record = RowAnnotation(
+                            annotation_id=ann_id,
+                            candidate_id=item["candidate_id"],
+                            scenario_id=item["scenario_id"],
+                            secret_variant_id=item["secret_variant_id"],
+                            target_relevant=ann.target_relevant,
+                            target_leakage=ann.target_leakage,
+                            positive_entailment=ann.positive_entailment,
+                            task_useful=ann.task_useful,
+                            leakage_strength=ann.leakage_strength,
+                            uncertain=ann.uncertain,
+                            confidence=ann.confidence,
+                            short_rationale=ann.short_rationale,
+                            annotator_role=ROLE_SECONDARY,
+                            annotator_provider="litellm",
+                            annotator_model_requested=MODEL_SECONDARY,
+                            annotator_model_returned=result["returned_model"],
+                            annotator_model_revision="not_exposed_by_provider",
+                            annotator_transport="openai_compatible",
+                            system_prompt_sha256=prompt_sha256(sys_p),
+                            user_prompt_sha256=prompt_sha256(usr_p),
+                            provider_request_id=provider_req_id,
+                            retry_index=retry_index,
+                            annotated_at=datetime.now(timezone.utc).isoformat(),
+                            frozen_corpus_manifest_sha256=item["frozen_corpus_manifest_sha256"],
+                            candidate_content_sha256=item["candidate_content_sha256"],
+                        )
+                        row_f.write(json.dumps(record.to_dict()) + "\n")
+                        row_f.flush()
+                        stats["row_success"] += 1
+                        attempt_record["parse_status"] = "valid"
+                        terminal_success = True
+                    except Exception as exc:
+                        stats["row_failure"] += 1
+                        attempt_record["status"] = "malformed"
+                        attempt_record["parse_status"] = "parse_error"
+                        attempt_record["error_class"] = type(exc).__name__
+                        attempt_record["error_message_safe"] = str(exc)
+                        terminal_success = True  # parse failure is terminal
+                else:
+                    attempt_record["parse_status"] = "not_attempted"
+
+                attempt_f.write(json.dumps(attempt_record) + "\n")
+                attempt_f.flush()
+
+                if terminal_success:
+                    break
+
+                if retry_index < MAX_RETRIES:
+                    time.sleep(2.0 * (retry_index + 1))
+
+            if not terminal_success:
                 stats["row_failure"] += 1
-                attempt_record["status"] = result["status"]
-                attempt_record["parse_status"] = "not_attempted"
-                attempt_record["error"] = result.get("error")
-
-            attempt_f.write(json.dumps(attempt_record) + "\n")
-            attempt_f.flush()
 
             done_count = stats["row_completed"] + stats["row_success"] + stats["row_failure"]
             if (idx + 1) % 10 == 0 or (idx + 1) == len(row_items):
@@ -334,73 +367,102 @@ def run_secondary_annotation(
                 continue
 
             sys_p, usr_p = build_sequence_prompt(members)
-            attempt_id = f"secondary_{seq_ann_id[:30]}_{uuid.uuid4().hex[:8]}"
-            result = _call_annotator(sys_p, usr_p, LITELLM_SECONDARY, api_base, api_key)
-            stats["total_api_calls"] += 1
-            stats["total_latency_ms"] += result["latency_ms"]
 
-            attempt_record = {
-                "provider_attempt_id": attempt_id,
-                "annotator_role": ROLE_SECONDARY,
-                "item_type": "sequence",
-                "sequence_annotation_id": seq_ann_id,
-                "sequence_family_id": item["sequence_family_id"],
-                "requested_model": MODEL_SECONDARY,
-                "litellm_model": LITELLM_SECONDARY,
-                "system_prompt_sha256": prompt_sha256(sys_p),
-                "user_prompt_sha256": prompt_sha256(usr_p),
-                "latency_ms": result["latency_ms"],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
+            # Retry loop with per-attempt persistence (Sec 37-38)
+            terminal_success = False
+            for retry_index in range(MAX_RETRIES + 1):
+                attempt_id = f"secondary_{seq_ann_id[:30]}_{uuid.uuid4().hex[:8]}"
+                result = call_annotation_provider_once(
+                    sys_p, usr_p, LITELLM_SECONDARY, api_base, api_key
+                )
+                stats["total_api_calls"] += 1
+                stats["total_latency_ms"] += result["latency_ms"]
 
-            if result["status"] == "success":
-                try:
-                    parsed = parse_annotation_response(result["raw_text"])
-                    ann = validate_sequence_label(parsed)
-                    record = SequenceAnnotation(
-                        sequence_annotation_id=seq_ann_id,
-                        sequence_family_id=item["sequence_family_id"],
-                        scenario_id=item["scenario_id"],
-                        secret_variant_id=item["secret_variant_id"],
-                        ordered_candidate_ids=item["ordered_candidate_ids"],
-                        step_count=item["step_count"],
-                        sequence_reconstructs_target=ann.sequence_reconstructs_target,
-                        earliest_reconstruction_step=ann.earliest_reconstruction_step,
-                        reconstruction_strength=ann.reconstruction_strength,
-                        uncertain=ann.uncertain,
-                        confidence=ann.confidence,
-                        short_rationale=ann.short_rationale,
-                        annotator_role=ROLE_SECONDARY,
-                        annotator_provider="litellm",
-                        annotator_model_requested=MODEL_SECONDARY,
-                        annotator_model_returned=result["returned_model"],
-                        annotator_transport="openai_compatible",
-                        system_prompt_sha256=prompt_sha256(sys_p),
-                        user_prompt_sha256=prompt_sha256(usr_p),
-                        request_id=attempt_id,
-                        retry_index=0,
-                        annotated_at=datetime.now(timezone.utc).isoformat(),
-                        frozen_corpus_manifest_sha256=item["frozen_corpus_manifest_sha256"],
-                        sequence_content_sha256=item["sequence_content_sha256"],
-                    )
-                    seq_f.write(json.dumps(record.to_dict()) + "\n")
-                    seq_f.flush()
-                    stats["seq_success"] += 1
-                    attempt_record["status"] = "success"
-                    attempt_record["parse_status"] = "valid"
-                except Exception as exc:
-                    stats["seq_failure"] += 1
-                    attempt_record["status"] = "malformed"
-                    attempt_record["parse_status"] = "parse_error"
-                    attempt_record["error"] = str(exc)
-            else:
+                provider_req_id = result.get("provider_request_id", "")
+                raw_text = result.get("raw_text") or ""
+
+                attempt_record: dict[str, Any] = {
+                    "provider_attempt_id": attempt_id,
+                    "annotation_item_id": seq_ann_id,
+                    "sequence_family_id": item["sequence_family_id"],
+                    "annotator_role": ROLE_SECONDARY,
+                    "retry_index": retry_index,
+                    "status": result["status"],
+                    "raw_response": raw_text,
+                    "parse_status": "",
+                    "requested_model": MODEL_SECONDARY,
+                    "returned_model": result.get("returned_model") or "",
+                    "model_revision": "not_exposed_by_provider",
+                    "provider": "litellm",
+                    "transport": "openai_compatible",
+                    "provider_request_id": provider_req_id,
+                    "system_prompt_sha256": prompt_sha256(sys_p),
+                    "user_prompt_sha256": prompt_sha256(usr_p),
+                    "latency_ms": result["latency_ms"],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "error_class": result.get("error_class", ""),
+                    "error_message_safe": result.get("error_message", "") or "",
+                    "frozen_corpus_manifest_sha256": manifest_sha,
+                    "annotation_campaign_identity_sha256": campaign_sha,
+                }
+
+                if result["status"] == "success" and raw_text:
+                    try:
+                        parsed = parse_annotation_response(raw_text)
+                        ann = validate_sequence_label(parsed)
+                        record = SequenceAnnotation(
+                            sequence_annotation_id=seq_ann_id,
+                            sequence_family_id=item["sequence_family_id"],
+                            scenario_id=item["scenario_id"],
+                            secret_variant_id=item["secret_variant_id"],
+                            ordered_candidate_ids=item["ordered_candidate_ids"],
+                            step_count=item["step_count"],
+                            sequence_reconstructs_target=ann.sequence_reconstructs_target,
+                            earliest_reconstruction_step=ann.earliest_reconstruction_step,
+                            reconstruction_strength=ann.reconstruction_strength,
+                            uncertain=ann.uncertain,
+                            confidence=ann.confidence,
+                            short_rationale=ann.short_rationale,
+                            annotator_role=ROLE_SECONDARY,
+                            annotator_provider="litellm",
+                            annotator_model_requested=MODEL_SECONDARY,
+                            annotator_model_returned=result["returned_model"],
+                            annotator_model_revision="not_exposed_by_provider",
+                            annotator_transport="openai_compatible",
+                            system_prompt_sha256=prompt_sha256(sys_p),
+                            user_prompt_sha256=prompt_sha256(usr_p),
+                            provider_request_id=provider_req_id,
+                            retry_index=retry_index,
+                            annotated_at=datetime.now(timezone.utc).isoformat(),
+                            frozen_corpus_manifest_sha256=item["frozen_corpus_manifest_sha256"],
+                            sequence_content_sha256=item["sequence_content_sha256"],
+                        )
+                        seq_f.write(json.dumps(record.to_dict()) + "\n")
+                        seq_f.flush()
+                        stats["seq_success"] += 1
+                        attempt_record["parse_status"] = "valid"
+                        terminal_success = True
+                    except Exception as exc:
+                        stats["seq_failure"] += 1
+                        attempt_record["status"] = "malformed"
+                        attempt_record["parse_status"] = "parse_error"
+                        attempt_record["error_class"] = type(exc).__name__
+                        attempt_record["error_message_safe"] = str(exc)
+                        terminal_success = True  # parse failure is terminal
+                else:
+                    attempt_record["parse_status"] = "not_attempted"
+
+                attempt_f.write(json.dumps(attempt_record) + "\n")
+                attempt_f.flush()
+
+                if terminal_success:
+                    break
+
+                if retry_index < MAX_RETRIES:
+                    time.sleep(2.0 * (retry_index + 1))
+
+            if not terminal_success:
                 stats["seq_failure"] += 1
-                attempt_record["status"] = result["status"]
-                attempt_record["parse_status"] = "not_attempted"
-                attempt_record["error"] = result.get("error")
-
-            attempt_f.write(json.dumps(attempt_record) + "\n")
-            attempt_f.flush()
 
             done_count = stats["seq_completed"] + stats["seq_success"] + stats["seq_failure"]
             print(f"  Seq progress: {done_count}/{len(sequence_items)} "

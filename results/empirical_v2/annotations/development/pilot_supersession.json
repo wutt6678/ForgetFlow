@@ -1,0 +1,13 @@
+{
+  "superseded": true,
+  "superseded_pilot_commit": "f66f685acd2d3623404e1b11583689cc6a91532f",
+  "research_use": "diagnostic_only",
+  "invalid_for_final_annotation": true,
+  "reasons": [
+    "target_context_resolution_failure",
+    "incomplete_row_annotation_coverage",
+    "missing_frozen_corpus_manifest_binding",
+    "provider_retry_evidence_incomplete",
+    "protocol_freeze_state_inconsistent"
+  ]
+}

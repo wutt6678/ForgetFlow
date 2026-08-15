@@ -18,11 +18,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ANNOTATIONS_DIR = REPO_ROOT / "results" / "empirical_v2" / "annotations"
-DEV_DIR = ANNOTATIONS_DIR / "development"
+DEV_DIR = ANNOTATIONS_DIR / "development_v2"
 PHASE_FILE = ANNOTATIONS_DIR / "annotation_phase.json"
 
 # Frozen corpus manifest
-FROZEN_CORPUS_MANIFEST = REPO_ROOT / "results" / "empirical_v2" / "frozen_corpus_manifest.json"
+FROZEN_CORPUS_MANIFEST = REPO_ROOT / "results" / "empirical_v2" / "corpus_generation" / "frozen_corpus_manifest.json"
 
 # File inventory for hashing
 DEV_FILES = {
@@ -107,8 +107,8 @@ def build_protocol_manifest(audit: dict, campaign: dict) -> dict:
         "review_queue_sha256": file_inv.get("review_queue_jsonl", "MISSING"),
         "pilot_report_sha256": file_inv.get("pilot_report_json", "MISSING"),
         "annotation_code_commit": campaign.get("annotation_code_commit", ""),
-        "annotation_schema_frozen": True,
-        "annotation_prompts_frozen": True,
+        "annotation_schema_frozen": False,  # Sec 32: only freeze after gate passes
+        "annotation_prompts_frozen": False,  # Sec 32: only freeze after gate passes
         "annotations_frozen": False,  # Sec 47: do NOT set yet
     }
     return manifest
@@ -131,11 +131,10 @@ def build_development_manifest(
     row_unresolved = adjudication.get("row_unresolved", 0)
     seq_unresolved = adjudication.get("sequence_unresolved", 0)
 
-    # Frozen corpus manifest SHA
+    # Frozen corpus manifest SHA — use actual file hash (Sec 22)
     fc_manifest_sha = campaign.get("frozen_corpus_manifest_sha256", "")
     if not fc_manifest_sha and FROZEN_CORPUS_MANIFEST.exists():
-        fc_data = load_json(FROZEN_CORPUS_MANIFEST)
-        fc_manifest_sha = fc_data.get("manifest_sha256", "")
+        fc_manifest_sha = hashlib.sha256(FROZEN_CORPUS_MANIFEST.read_bytes()).hexdigest()
 
     manifest = {
         "schema_version": "1.0",
@@ -187,10 +186,10 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
     gate_assessment = audit.get("gate_assessment", {})
 
     # Basic completion checks
-    primary_complete = coverage.get("primary_row_count", 0) >= 129
-    secondary_complete = coverage.get("secondary_row_count", 0) >= 129
-    seq_primary_complete = coverage.get("primary_sequence_count", 0) >= 36
-    seq_secondary_complete = coverage.get("secondary_sequence_count", 0) >= 36
+    primary_complete = coverage.get("primary_row_count", 0) == 225
+    secondary_complete = coverage.get("secondary_row_count", 0) == 225
+    seq_primary_complete = coverage.get("primary_sequence_count", 0) == 36
+    seq_secondary_complete = coverage.get("secondary_sequence_count", 0) == 36
     agreement_computed = bool(audit.get("row_agreement"))
 
     # Counts
@@ -278,9 +277,9 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
             f"unresolved sequence rate {freeze_criteria['unresolved_seq_rate']} > 10%"
         )
 
-    # Sec 75: GO/NO-GO
-    schema_frozen = True  # we are freezing now
-    prompts_frozen = True  # we are freezing now
+    # Sec 75: GO/NO-GO — freeze only when all criteria pass (Sec 32-33)
+    schema_frozen = all_freeze_pass
+    prompts_frozen = all_freeze_pass
     fc_verifier_pass = True  # will be verified separately
 
     go_no_go = "GO" if (

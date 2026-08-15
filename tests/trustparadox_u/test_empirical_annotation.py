@@ -40,7 +40,7 @@ from experiments.trustparadox_u.empirical_annotation import (
 # ---------------------------------------------------------------------------
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "frozen_corpus" / "target_specs.jsonl"
+_TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "target_specs.jsonl"
 
 
 def _make_candidate(**overrides: object) -> dict:
@@ -50,7 +50,7 @@ def _make_candidate(**overrides: object) -> dict:
         "scenario_id": "credential_001",
         "trust_level": "low",
         "attack_type": "direct_prompt",
-        "secret_variant_id": "sv_cred_alice_X",
+        "secret_variant_id": "credential_v1",
         "sample_index": 0,
         "sender_id": "agent_A",
         "recipient_id": "agent_B",
@@ -74,7 +74,7 @@ def _make_sequence_members(n: int = 3) -> list[dict]:
             "scenario_id": "private_attribute_001",
             "trust_level": "medium",
             "attack_type": "multi_step",
-            "secret_variant_id": "sv_attr_bob_Y",
+            "secret_variant_id": "private_attribute_v1",
             "sample_index": i,
             "sender_id": "agent_A",
             "recipient_id": "agent_B",

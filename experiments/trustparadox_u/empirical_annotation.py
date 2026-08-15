@@ -58,7 +58,7 @@ _DEVELOPMENT_DIR = _ANNOTATIONS_DIR / "development"
 _CORPUS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _FROZEN_MANIFEST_PATH = _CORPUS_DIR / "frozen_corpus_manifest.json"
 _DEV_CANDIDATES_PATH = _CORPUS_DIR / "development" / "accepted_candidates.jsonl"
-_TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "frozen_corpus" / "target_specs.jsonl"
+_TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "target_specs.jsonl"
 
 # Scenario descriptions for blinded views (minimal task context)
 SCENARIO_DESCRIPTIONS: dict[str, str] = {
@@ -113,7 +113,7 @@ class RowAnnotation:
     annotator_transport: str = ""
     system_prompt_sha256: str = ""
     user_prompt_sha256: str = ""
-    request_id: str = ""
+    provider_request_id: str = ""
     retry_index: int = 0
     annotated_at: str = ""
 
@@ -163,7 +163,7 @@ class SequenceAnnotation:
     annotator_transport: str = ""
     system_prompt_sha256: str = ""
     user_prompt_sha256: str = ""
-    request_id: str = ""
+    provider_request_id: str = ""
     retry_index: int = 0
     annotated_at: str = ""
 
@@ -183,6 +183,10 @@ class SequenceAnnotation:
 
 class AnnotationParseError(Exception):
     """Raised when an annotation response fails parse validation."""
+
+
+class AnnotationTargetResolutionError(Exception):
+    """Raised when an E3 target cannot be resolved for annotation."""
 
 
 def validate_row_label(record: dict[str, Any]) -> RowAnnotation:
@@ -374,7 +378,7 @@ def validate_sequence_structure(members: Sequence[dict[str, Any]]) -> list[str]:
 
 
 def _load_target_specs() -> dict[tuple[str, str], dict[str, Any]]:
-    """Load target specs keyed by (scenario_id, secret_variant_id)."""
+    """Load target specs keyed by (scenario_id, secret_variant_id) from E3 registry."""
     specs: dict[tuple[str, str], dict[str, Any]] = {}
     if not _TARGET_SPECS_PATH.exists():
         return specs
@@ -387,6 +391,67 @@ def _load_target_specs() -> dict[tuple[str, str], dict[str, Any]]:
             key = (rec["scenario_id"], rec["secret_variant_id"])
             specs[key] = rec
     return specs
+
+
+def resolve_empirical_annotation_target(
+    scenario_id: str,
+    secret_variant_id: str,
+) -> dict[str, Any]:
+    """Resolve the E3 annotation target for a (scenario_id, secret_variant_id) pair.
+
+    Fail-closed: raises AnnotationTargetResolutionError if not found.
+    """
+    target_specs = _load_target_specs()
+    key = (scenario_id, secret_variant_id)
+    if key not in target_specs:
+        raise AnnotationTargetResolutionError(
+            f"No E3 target found for scenario={scenario_id!r}, "
+            f"variant={secret_variant_id!r}. "
+            f"Available keys: {sorted(target_specs.keys())}"
+        )
+    return target_specs[key]
+
+
+def preflight_target_resolution(
+    candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Sec 8-9: Preflight target resolution for all candidates.
+
+    Returns a report dict with resolution counts and any failures.
+    """
+    resolved = 0
+    failures: list[dict[str, str]] = []
+    empty_target_count = 0
+    for c in candidates:
+        sid = c["scenario_id"]
+        vid = c["secret_variant_id"]
+        try:
+            spec = resolve_empirical_annotation_target(sid, vid)
+            canonical = spec.get("canonical_target", "")
+            if not canonical:
+                empty_target_count += 1
+                failures.append({
+                    "candidate_id": c["candidate_id"],
+                    "scenario_id": sid,
+                    "secret_variant_id": vid,
+                    "reason": "empty_canonical_target",
+                })
+            else:
+                resolved += 1
+        except AnnotationTargetResolutionError as exc:
+            failures.append({
+                "candidate_id": c["candidate_id"],
+                "scenario_id": sid,
+                "secret_variant_id": vid,
+                "reason": str(exc),
+            })
+    return {
+        "total_candidates": len(candidates),
+        "resolved": resolved,
+        "failures": failures,
+        "empty_target_count": empty_target_count,
+        "passed": resolved == len(candidates) and empty_target_count == 0,
+    }
 
 
 def build_annotation_view(candidate: dict[str, Any]) -> dict[str, Any]:
@@ -403,10 +468,9 @@ def build_annotation_view(candidate: dict[str, Any]) -> dict[str, Any]:
     Hidden: attack_type, trust_level, split, generator model,
             detector output, firewall output, acceptance status.
     """
-    target_specs = _load_target_specs()
     scenario_id = candidate["scenario_id"]
     variant_id = candidate["secret_variant_id"]
-    target_spec = target_specs.get((scenario_id, variant_id), {})
+    target_spec = resolve_empirical_annotation_target(scenario_id, variant_id)
 
     # Opaque item ID (Sec 27): derived from candidate_id + schema version
     opaque_id = _make_row_annotation_id(candidate["candidate_id"], ANNOTATION_SCHEMA_VERSION)
@@ -418,7 +482,7 @@ def build_annotation_view(candidate: dict[str, Any]) -> dict[str, Any]:
         "task_context": TASK_CONTEXTS.get(scenario_id, ""),
         "canonical_target": target_spec.get("canonical_target", ""),
         "aliases": list(target_spec.get("aliases", [])),
-        "semantic_variants": list(target_spec.get("semantic_variants", [])),
+        "semantic_variants": list(target_spec.get("semantic_descriptions", [])),
         "permitted_residuals": list(target_spec.get("permitted_residuals", [])),
     }
 
@@ -441,14 +505,16 @@ def build_sequence_annotation_view(
         raise ValueError("Cannot build sequence view from empty members")
 
     first = members[0]
-    target_specs = _load_target_specs()
     scenario_id = first["scenario_id"]
     variant_id = first["secret_variant_id"]
-    target_spec = target_specs.get((scenario_id, variant_id), {})
+    target_spec = resolve_empirical_annotation_target(scenario_id, variant_id)
     sfid = first.get("sequence_family_id", "")
 
     # Opaque sequence ID
-    opaque_seq_id = _make_sequence_annotation_id(sfid, ANNOTATION_SCHEMA_VERSION)
+    trust_level = first.get("trust_level", "")
+    opaque_seq_id = _make_sequence_annotation_id(
+        sfid, ANNOTATION_SCHEMA_VERSION, trust_level=trust_level
+    )
 
     # Ordered message texts
     sorted_members = sorted(members, key=lambda m: m.get("sequence_step_index", 0))
@@ -461,7 +527,7 @@ def build_sequence_annotation_view(
         "task_context": TASK_CONTEXTS.get(scenario_id, ""),
         "canonical_target": target_spec.get("canonical_target", ""),
         "aliases": list(target_spec.get("aliases", [])),
-        "semantic_variants": list(target_spec.get("semantic_variants", [])),
+        "semantic_variants": list(target_spec.get("semantic_descriptions", [])),
         "permitted_residuals": list(target_spec.get("permitted_residuals", [])),
         "step_count": len(sorted_members),
     }
@@ -690,19 +756,24 @@ def _make_row_annotation_id(candidate_id: str, schema_version: str, role: str = 
 
 
 def _make_sequence_annotation_id(
-    sequence_family_id: str, schema_version: str, role: str = ""
+    sequence_family_id: str, schema_version: str, role: str = "",
+    trust_level: str = "",
 ) -> str:
     """Sec 27: Deterministic sequence annotation ID."""
-    payload = f"{sequence_family_id}|{schema_version}|{role}"
+    payload = f"{sequence_family_id}|{trust_level}|{schema_version}|{role}"
     return "seq_ann_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-def _frozen_manifest_sha256() -> str:
-    """Load the frozen corpus manifest SHA256."""
+def frozen_corpus_manifest_file_sha256() -> str:
+    """Sec 22: Compute SHA256 of the frozen corpus manifest file itself."""
     if not _FROZEN_MANIFEST_PATH.exists():
         return ""
-    manifest = json.loads(_FROZEN_MANIFEST_PATH.read_text())
-    return manifest.get("frozen_corpus_manifest_sha256", "")
+    return hashlib.sha256(_FROZEN_MANIFEST_PATH.read_bytes()).hexdigest()
+
+
+def _frozen_manifest_sha256() -> str:
+    """Load the frozen corpus manifest SHA256 (actual file hash)."""
+    return frozen_corpus_manifest_file_sha256()
 
 
 def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -725,21 +796,21 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
 
     manifest_sha = _frozen_manifest_sha256()
 
-    # Row items: all non-sequence candidates
+    # Row items: ALL candidates (including sequence members)
     row_items: list[dict[str, Any]] = []
     for c in candidates:
-        if not c.get("sequence_family_id"):
-            row_items.append({
-                "annotation_id": _make_row_annotation_id(
-                    c["candidate_id"], ANNOTATION_SCHEMA_VERSION
-                ),
-                "candidate_id": c["candidate_id"],
-                "candidate_content_sha256": c.get("content_sha256", ""),
-                "frozen_corpus_manifest_sha256": manifest_sha,
-                "split": "development",
-                "scenario_id": c["scenario_id"],
-                "secret_variant_id": c["secret_variant_id"],
-            })
+        row_items.append({
+            "annotation_id": _make_row_annotation_id(
+                c["candidate_id"], ANNOTATION_SCHEMA_VERSION
+            ),
+            "candidate_id": c["candidate_id"],
+            "candidate_content_sha256": c.get("content_sha256", ""),
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
+            "split": "development",
+            "scenario_id": c["scenario_id"],
+            "secret_variant_id": c["secret_variant_id"],
+        })
 
     # Sequence items: group by (sequence_family_id, trust_level)
     seq_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -764,7 +835,8 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
 
         sequence_items.append({
             "sequence_annotation_id": _make_sequence_annotation_id(
-                sfid, ANNOTATION_SCHEMA_VERSION
+                sfid, ANNOTATION_SCHEMA_VERSION,
+                trust_level=trust,
             ),
             "sequence_family_id": sfid,
             "trust_level": trust,
@@ -772,10 +844,26 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
             "step_count": len(members_sorted),
             "sequence_content_sha256": seq_content_sha,
             "frozen_corpus_manifest_sha256": manifest_sha,
+            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
             "split": "development",
             "scenario_id": members_sorted[0]["scenario_id"],
             "secret_variant_id": members_sorted[0]["secret_variant_id"],
         })
+
+    # Sec 17-18: Exact-count assertions
+    assert len(row_items) == 225, f"Expected 225 row items, got {len(row_items)}"
+    assert len(sequence_items) == 36, f"Expected 36 sequence items, got {len(sequence_items)}"
+
+    # Sec 18: Uniqueness assertions
+    row_candidate_ids = [r["candidate_id"] for r in row_items]
+    row_ann_ids = [r["annotation_id"] for r in row_items]
+    assert len(set(row_candidate_ids)) == 225, "Duplicate candidate_ids in row queue"
+    assert len(set(row_ann_ids)) == 225, "Duplicate annotation_ids in row queue"
+
+    seq_keys = [(s["sequence_family_id"], s.get("trust_level", "")) for s in sequence_items]
+    seq_ann_ids = [s["sequence_annotation_id"] for s in sequence_items]
+    assert len(set(seq_keys)) == 36, "Duplicate (sequence_family_id, trust_level) in sequence queue"
+    assert len(set(seq_ann_ids)) == 36, "Duplicate sequence_annotation_ids in sequence queue"
 
     return row_items, sequence_items
 
@@ -848,8 +936,15 @@ def verify_campaign_identity(
         "split",
     ]
     for fld in blocking_fields:
-        if existing.get(fld) != proposed.get(fld):
+        existing_val = existing.get(fld)
+        proposed_val = proposed.get(fld)
+        if existing_val != proposed_val:
             mismatches.append(fld)
+        # Sec 25: empty values are also blocking
+        if not existing_val:
+            mismatches.append(f"{fld} (empty in existing)")
+        if not proposed_val:
+            mismatches.append(f"{fld} (empty in proposed)")
     return mismatches
 
 
@@ -1180,18 +1275,21 @@ class AnnotationAttempt:
     retry_index: int
     status: str  # success | refusal | malformed | provider_error | timeout
     raw_response: str = ""
-    parse_status: str = ""  # success | malformed | skipped
+    parse_status: str = ""  # valid | parse_error | not_attempted
     error_class: str = ""
-    error_message: str = ""
-    request_id: str = ""
+    error_message_safe: str = ""
+    provider_request_id: str = ""
     latency_ms: float = 0.0
     requested_model: str = ""
     returned_model: str = ""
-    model_revision: str = ""
+    model_revision: str = "not_exposed_by_provider"
+    provider: str = ""
     transport: str = ""
     system_prompt_sha256: str = ""
     user_prompt_sha256: str = ""
     timestamp: str = ""
+    frozen_corpus_manifest_sha256: str = ""
+    annotation_campaign_identity_sha256: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1279,3 +1377,138 @@ def verify_secondary_blindness(user_prompt: str) -> list[str]:
         if re.search(pattern, lower_prompt):
             leaked.append(desc)
     return leaked
+
+
+# ---------------------------------------------------------------------------
+# Sec 51: Annotation input preflight
+# ---------------------------------------------------------------------------
+
+
+def annotation_input_preflight() -> dict[str, Any]:
+    """Sec 51: Ordered preflight checks before any provider call.
+
+    Order:
+    1. Frozen corpus verifier
+    2. Target-resolution preflight
+    3. Queue completeness preflight
+    4. Provenance preflight
+    5. Provider viability preflight (skipped here — done separately)
+
+    Returns a report dict suitable for JSON serialisation.
+    """
+    findings: list[str] = []
+
+    # --- 1. Frozen corpus verifier ---
+    manifest_sha = frozen_corpus_manifest_file_sha256()
+    if not manifest_sha:
+        findings.append("frozen_corpus_manifest_missing")
+    else:
+        expected_sha = "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2"
+        if manifest_sha != expected_sha:
+            findings.append(
+                f"frozen_corpus_manifest_sha_mismatch: "
+                f"expected={expected_sha}, actual={manifest_sha}"
+            )
+
+    # --- 2. Load development candidates ---
+    if not _DEV_CANDIDATES_PATH.exists():
+        findings.append(f"development_candidates_not_found: {_DEV_CANDIDATES_PATH}")
+        return {
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "development_candidate_count": 0,
+            "resolved_target_count": 0,
+            "row_queue_count": 0,
+            "sequence_queue_count": 0,
+            "target_resolution_failures": [],
+            "sequence_structure_failures": [],
+            "empty_target_count": 0,
+            "queue_hash": "",
+            "passed": False,
+            "findings": findings,
+        }
+
+    candidates: list[dict[str, Any]] = []
+    with open(_DEV_CANDIDATES_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                candidates.append(json.loads(line))
+
+    dev_count = len(candidates)
+    if dev_count != 225:
+        findings.append(f"development_candidate_count_unexpected: {dev_count} (expected 225)")
+
+    # --- 3. Target-resolution preflight ---
+    target_report = preflight_target_resolution(candidates)
+    resolved_count = target_report["resolved"]
+    target_failures = target_report["failures"]
+    empty_target_count = target_report["empty_target_count"]
+
+    if not target_report["passed"]:
+        findings.append(
+            f"target_resolution_not_all_resolved: "
+            f"{resolved_count}/{dev_count} resolved, "
+            f"{len(target_failures)} failures, "
+            f"{empty_target_count} empty targets"
+        )
+
+    # --- 4. Queue completeness preflight ---
+    row_items, sequence_items = build_development_queue()
+    row_count = len(row_items)
+    seq_count = len(sequence_items)
+
+    if row_count != 225:
+        findings.append(f"row_queue_count_unexpected: {row_count} (expected 225)")
+    if seq_count != 36:
+        findings.append(f"sequence_queue_count_unexpected: {seq_count} (expected 36)")
+
+    # --- 5. Sequence structure verification ---
+    seq_structure_failures: list[str] = []
+    candidate_lookup = {c["candidate_id"]: c for c in candidates}
+    for si in sequence_items:
+        members = [candidate_lookup[cid] for cid in si["ordered_candidate_ids"]]
+        errors = validate_sequence_structure(members)
+        if errors:
+            seq_structure_failures.append(
+                f"{si['sequence_family_id']}: {errors}"
+            )
+    if seq_structure_failures:
+        findings.append(f"sequence_structure_failures: {len(seq_structure_failures)}")
+
+    # --- 6. Provenance preflight ---
+    queue_sha = compute_queue_sha256(row_items, sequence_items)
+    if not queue_sha:
+        findings.append("queue_hash_empty")
+
+    # Check all row items have non-empty corpus binding
+    empty_corpus_bindings = sum(
+        1 for r in row_items if not r.get("frozen_corpus_manifest_sha256")
+    )
+    if empty_corpus_bindings:
+        findings.append(f"row_items_with_empty_corpus_binding: {empty_corpus_bindings}")
+
+    passed = (
+        manifest_sha
+        and manifest_sha == "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2"
+        and dev_count == 225
+        and resolved_count == 225
+        and empty_target_count == 0
+        and row_count == 225
+        and seq_count == 36
+        and not seq_structure_failures
+        and not target_failures
+    )
+
+    return {
+        "frozen_corpus_manifest_sha256": manifest_sha,
+        "development_candidate_count": dev_count,
+        "resolved_target_count": resolved_count,
+        "row_queue_count": row_count,
+        "sequence_queue_count": seq_count,
+        "target_resolution_failures": target_failures,
+        "sequence_structure_failures": seq_structure_failures,
+        "empty_target_count": empty_target_count,
+        "queue_hash": queue_sha,
+        "passed": passed,
+        "findings": findings,
+    }
