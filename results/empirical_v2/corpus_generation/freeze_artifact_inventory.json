@@ -1,0 +1,211 @@
+{
+  "created_at": "2026-08-15T01:37:14.043843+00:00",
+  "entries": [
+    {
+      "artifact_type": "generation_config",
+      "path": "data/trustparadox_u/empirical_v2/manifests/full_generation_config.json",
+      "sha256": "fdb2d97b941a24b826760cc0bd543b8ea90a84736850569934e31080781e8efc",
+      "size_bytes": 1658,
+      "split": ""
+    },
+    {
+      "artifact_type": "accepted_candidates",
+      "path": "development/accepted_candidates.jsonl",
+      "sha256": "b65c9e7253ae13734d2547a414db1d1a16ec4fe3831de795cf35e4addbc72f09",
+      "size_bytes": 327905,
+      "split": "development"
+    },
+    {
+      "artifact_type": "audit_report",
+      "path": "development/audit_report.json",
+      "sha256": "a7e7f8a773e241cde1dfef772d7a6860ae5f427014465d9e254c00e0321c617f",
+      "size_bytes": 3039,
+      "split": "development"
+    },
+    {
+      "artifact_type": "campaign_identity",
+      "path": "development/campaign_identity.json",
+      "sha256": "26c599c61b9c701d17062bebfbeed8ad745fb1a8300b1a2ea9d2ffb80bfae7b5",
+      "size_bytes": 1176,
+      "split": "development"
+    },
+    {
+      "artifact_type": "corpus_manifest",
+      "path": "development/corpus_manifest.json",
+      "sha256": "f2857d18f08456318f35bf7fc0e8d1778b4913f4dca91ffbcb7fdb2884171587",
+      "size_bytes": 1875,
+      "split": "development"
+    },
+    {
+      "artifact_type": "prompt_manifest",
+      "path": "development/prompt_manifest.json",
+      "sha256": "1c754ae84b6d3e6ea058c49f0d8e0f3434ff7f3085536d9b0c2550860bb01969",
+      "size_bytes": 2056,
+      "split": "development"
+    },
+    {
+      "artifact_type": "raw_generation_attempts",
+      "path": "development/raw_generation_attempts.jsonl",
+      "sha256": "a128e9cd48ebeb3f6d003b5e680b227f5c1cf3856bf636384fe18aa104452911",
+      "size_bytes": 402465,
+      "split": "development"
+    },
+    {
+      "artifact_type": "sequence_generation_report",
+      "path": "development/sequence_generation_report.json",
+      "sha256": "8c4d423be856fa1f55ca16f307d1a41340142dc99bdcefd2f40b79303704edea",
+      "size_bytes": 293,
+      "split": "development"
+    },
+    {
+      "artifact_type": "validation_report",
+      "path": "development/validation_report.json",
+      "sha256": "dccb09fcc586ffb974c46f1c6a0cc0af4dcd87989d62687379dbf421f5b0f56a",
+      "size_bytes": 1143,
+      "split": "development"
+    },
+    {
+      "artifact_type": "generation_gate",
+      "path": "development_generation_gate.json",
+      "sha256": "9ba27d6a6917cf918a7d4e931b8f96327d84ccc47210a48f5b966ccfab940237",
+      "size_bytes": 765,
+      "split": ""
+    },
+    {
+      "artifact_type": "combined_audit_report",
+      "path": "full_corpus_validation_report.json",
+      "sha256": "c10113ea8746abef0a7dc54933e5f5e92b4a7f37fa2d5a5836768e8109613e3f",
+      "size_bytes": 4585,
+      "split": ""
+    },
+    {
+      "artifact_type": "accepted_candidates",
+      "path": "test/accepted_candidates.jsonl",
+      "sha256": "6f2192a6279b005a0ac91ce8f60d1ffdabb79e2361092d1b5baf0366ce8b0ea2",
+      "size_bytes": 652282,
+      "split": "test"
+    },
+    {
+      "artifact_type": "audit_report",
+      "path": "test/audit_report.json",
+      "sha256": "a25140924430e0ced57cd8af86f13189b0ca84e82e0b7882e8dfc76b5f69f411",
+      "size_bytes": 3129,
+      "split": "test"
+    },
+    {
+      "artifact_type": "campaign_identity",
+      "path": "test/campaign_identity.json",
+      "sha256": "4cf1b092fe98cc0180e546bb38f5549a88c2e536c9ffbd16ca3b68b419fe2873",
+      "size_bytes": 1169,
+      "split": "test"
+    },
+    {
+      "artifact_type": "corpus_manifest",
+      "path": "test/corpus_manifest.json",
+      "sha256": "7f78ec577a084db7b9daacae87b28492bbcb459955f3245e852c36d28257c111",
+      "size_bytes": 1875,
+      "split": "test"
+    },
+    {
+      "artifact_type": "prompt_manifest",
+      "path": "test/prompt_manifest.json",
+      "sha256": "1c754ae84b6d3e6ea058c49f0d8e0f3434ff7f3085536d9b0c2550860bb01969",
+      "size_bytes": 2056,
+      "split": "test"
+    },
+    {
+      "artifact_type": "raw_generation_attempts",
+      "path": "test/raw_generation_attempts.jsonl",
+      "sha256": "7b136b427a35c7ae87d7b537dc7c2d91641c73a8d80f48b23ff964d5af5981c1",
+      "size_bytes": 801589,
+      "split": "test"
+    },
+    {
+      "artifact_type": "sequence_generation_report",
+      "path": "test/sequence_generation_report.json",
+      "sha256": "08a6ae2652bcc8514a38f637a7fe97792792619bc67e7939c744faac1428fdba",
+      "size_bytes": 293,
+      "split": "test"
+    },
+    {
+      "artifact_type": "validation_report",
+      "path": "test/validation_report.json",
+      "sha256": "93efd0164f40b56efdeeea32307ea86c063a92263b4a454ac1b381b1c28d19a7",
+      "size_bytes": 1150,
+      "split": "test"
+    },
+    {
+      "artifact_type": "generation_gate",
+      "path": "test_generation_gate.json",
+      "sha256": "d6a9cd86595b192579896da3a057de2be0d0c9c870944b740c1ee421a08d7607",
+      "size_bytes": 751,
+      "split": ""
+    },
+    {
+      "artifact_type": "accepted_candidates",
+      "path": "validation/accepted_candidates.jsonl",
+      "sha256": "71743d23ccc4dedae52244da115bf682a0f34da86b71da366a86333e6bd981ef",
+      "size_bytes": 327192,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "audit_report",
+      "path": "validation/audit_report.json",
+      "sha256": "652c0ff8b1b89da19be8f4b0403bddf5e4acc801f60d7bcbcab29639f401e346",
+      "size_bytes": 3037,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "campaign_identity",
+      "path": "validation/campaign_identity.json",
+      "sha256": "906da5f8de6a07c36e21cc3d2f979689ea9a1a8717e74d2450bb8c1d02b3c447",
+      "size_bytes": 1175,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "corpus_manifest",
+      "path": "validation/corpus_manifest.json",
+      "sha256": "109ce2d1517608618081f9380b1fa88822a4ce666ab3f376e003838cb6bf6e71",
+      "size_bytes": 1874,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "prompt_manifest",
+      "path": "validation/prompt_manifest.json",
+      "sha256": "1c754ae84b6d3e6ea058c49f0d8e0f3434ff7f3085536d9b0c2550860bb01969",
+      "size_bytes": 2056,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "raw_generation_attempts",
+      "path": "validation/raw_generation_attempts.jsonl",
+      "sha256": "f4db5aae41a321479c3b71f36a20752c66ebdbaa5d90d55026a5d2ee5a8d40a6",
+      "size_bytes": 402001,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "sequence_generation_report",
+      "path": "validation/sequence_generation_report.json",
+      "sha256": "8c4d423be856fa1f55ca16f307d1a41340142dc99bdcefd2f40b79303704edea",
+      "size_bytes": 293,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "validation_report",
+      "path": "validation/validation_report.json",
+      "sha256": "275b124a4dbd49022274e9d9e6326c0845a00a627d7f277b17a9d55829b4ab44",
+      "size_bytes": 1143,
+      "split": "validation"
+    },
+    {
+      "artifact_type": "generation_gate",
+      "path": "validation_generation_gate.json",
+      "sha256": "63df82589b6085f1de6524decc5d02757ddf591faf2dcdc8e81a5d641ea2f870",
+      "size_bytes": 763,
+      "split": ""
+    }
+  ],
+  "entry_count": 29,
+  "inventory_sha256": "6829db0de52ebf718625d7593f5a58cc4b723379772ed2212edcb2f3bfa1cb5f",
+  "source_generation_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0"
+}

@@ -1,0 +1,175 @@
+{
+  "audit_scope": "all",
+  "audit_sections": {
+    "acceptance_independence": [],
+    "artifact_classification": [],
+    "campaign_identity": [],
+    "config_consistency": [],
+    "empirical_corpus_required_fields": [],
+    "endpoint_consistency": [],
+    "hash_integrity": [],
+    "identity_uniqueness": [],
+    "manifest_provenance": [],
+    "phase_provenance": [],
+    "plan_completeness": [],
+    "retry_lineage": [],
+    "sequence_atomicity": [],
+    "source_commit_consistency": [],
+    "split_gate_progression": [],
+    "split_integrity": [],
+    "variant_consistency": []
+  },
+  "audited_splits": [
+    "development",
+    "validation",
+    "test"
+  ],
+  "blocking_finding_count": 0,
+  "checks_run": [
+    "phase_provenance",
+    "plan_completeness",
+    "split_integrity",
+    "identity_uniqueness",
+    "variant_consistency",
+    "config_consistency",
+    "hash_integrity",
+    "retry_lineage",
+    "sequence_atomicity",
+    "acceptance_independence",
+    "campaign_identity",
+    "artifact_classification",
+    "manifest_provenance",
+    "empirical_corpus_required_fields",
+    "split_gate_progression",
+    "source_commit_consistency",
+    "endpoint_consistency"
+  ],
+  "coverage_stats": {
+    "development": {
+      "acceptance_rate": 1.3636363636363635,
+      "accepted_candidates": 225,
+      "by_attack": {
+        "alias_or_coreference": 12,
+        "compositional_sequence": 54,
+        "direct_disclosure": 18,
+        "fragmentation_sequence": 42,
+        "hard_negative_control": 27,
+        "legitimate_task": 18,
+        "recontamination": 18,
+        "semantic_paraphrase": 36
+      },
+      "by_scenario": {
+        "authorization_001": 75,
+        "credential_001": 75,
+        "private_attribute_001": 75
+      },
+      "by_trust": {
+        "default": 75,
+        "high": 75,
+        "low": 75
+      },
+      "by_variant": {
+        "authorization_v1": 75,
+        "credential_v1": 75,
+        "private_attribute_v1": 75
+      },
+      "provider_failure_rate": 0.0,
+      "raw_provider_attempts": 225,
+      "refusal_rate": 0.0,
+      "rejected_units": 0,
+      "retry_rate": 0.0,
+      "scientific_unit_count": 165,
+      "status_counts": {
+        "success": 225
+      }
+    },
+    "plan_item_count": 900,
+    "test": {
+      "acceptance_rate": 1.3636363636363635,
+      "accepted_candidates": 450,
+      "by_attack": {
+        "alias_or_coreference": 24,
+        "compositional_sequence": 108,
+        "direct_disclosure": 36,
+        "fragmentation_sequence": 84,
+        "hard_negative_control": 54,
+        "legitimate_task": 36,
+        "recontamination": 36,
+        "semantic_paraphrase": 72
+      },
+      "by_scenario": {
+        "authorization_001": 150,
+        "credential_001": 150,
+        "private_attribute_001": 150
+      },
+      "by_trust": {
+        "default": 150,
+        "high": 150,
+        "low": 150
+      },
+      "by_variant": {
+        "authorization_v3": 75,
+        "authorization_v4": 75,
+        "credential_v3": 75,
+        "credential_v4": 75,
+        "private_attribute_v3": 75,
+        "private_attribute_v4": 75
+      },
+      "provider_failure_rate": 0.0,
+      "raw_provider_attempts": 450,
+      "refusal_rate": 0.0,
+      "rejected_units": 0,
+      "retry_rate": 0.0,
+      "scientific_unit_count": 330,
+      "status_counts": {
+        "success": 450
+      }
+    },
+    "validation": {
+      "acceptance_rate": 1.3636363636363635,
+      "accepted_candidates": 225,
+      "by_attack": {
+        "alias_or_coreference": 12,
+        "compositional_sequence": 54,
+        "direct_disclosure": 18,
+        "fragmentation_sequence": 42,
+        "hard_negative_control": 27,
+        "legitimate_task": 18,
+        "recontamination": 18,
+        "semantic_paraphrase": 36
+      },
+      "by_scenario": {
+        "authorization_001": 75,
+        "credential_001": 75,
+        "private_attribute_001": 75
+      },
+      "by_trust": {
+        "default": 75,
+        "high": 75,
+        "low": 75
+      },
+      "by_variant": {
+        "authorization_v2": 75,
+        "credential_v2": 75,
+        "private_attribute_v2": 75
+      },
+      "provider_failure_rate": 0.0,
+      "raw_provider_attempts": 225,
+      "refusal_rate": 0.0,
+      "rejected_units": 0,
+      "retry_rate": 0.0,
+      "scientific_unit_count": 165,
+      "status_counts": {
+        "success": 225
+      }
+    }
+  },
+  "empirical_phase": "E3_CORPUS_GENERATION",
+  "finding_count": 0,
+  "passed": true,
+  "schema_version": "1.0.0",
+  "study_version": "2.0.0",
+  "total_accepted_candidates": 900,
+  "total_raw_attempts": 900,
+  "validation_findings": []
+}

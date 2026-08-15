@@ -82,6 +82,19 @@ def _check_phase_is_e3() -> str | None:
     return None
 
 
+def _check_corpus_not_frozen() -> str | None:
+    """Return an error message if the corpus has been frozen (Section 35)."""
+    if not _PHASE_FILE.exists():
+        return None  # phase manifest missing; other checks will catch this
+    record = json.loads(_PHASE_FILE.read_text(encoding="utf-8"))
+    if record.get("corpus_frozen") is True:
+        return (
+            "corpus is frozen (corpus_frozen=true); "
+            "generation/resume is rejected to preserve immutability"
+        )
+    return None
+
+
 def _check_file_sha256(path: Path, recorded_hash: str, label: str) -> str | None:
     """Return error if file hash does not match *recorded_hash*."""
     if not path.exists():
@@ -562,6 +575,7 @@ def main(argv: list[str] | None = None) -> int:
     # ---- Pre-run checks ----
     if not args.skip_preflight_checks:
         checks: list[tuple[str, str | None]] = [
+            ("corpus_not_frozen", _check_corpus_not_frozen()),
             ("phase_is_e3", _check_phase_is_e3()),
             ("frozen_hashes", _check_frozen_hashes()),
             ("clean_tree", _check_clean_tree()),

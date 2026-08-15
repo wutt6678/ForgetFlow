@@ -1,0 +1,54 @@
+{
+  "api_protocol": "openai_compatible",
+  "artifact_counts": {
+    "inventory_entries": 29,
+    "split_artifacts_per_split": 9,
+    "split_count": 3,
+    "top_level_artifacts": 4
+  },
+  "blocking_finding_count": 0,
+  "combined_audit_passed": true,
+  "combined_audit_sha256": "c10113ea8746abef0a7dc54933e5f5e92b4a7f37fa2d5a5836768e8109613e3f",
+  "corpus_frozen": true,
+  "endpoint_consistency_passed": true,
+  "endpoint_host": "llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com",
+  "endpoint_sha256": "3d1699591685ab6c385ef26f30f469653ca8f506b33f1ded71e497a133d3d2c6",
+  "freeze_artifact_inventory_sha256": "e91ba459179249304fc25e8d92d3eaee255778f72c0f4a75acb6a7173ff9c5f0",
+  "freeze_time": "2026-08-15T01:37:14.043843+00:00",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "generation_counts": {
+    "development": {
+      "generated": 225,
+      "missing": 0,
+      "planned": 225
+    },
+    "test": {
+      "generated": 450,
+      "missing": 0,
+      "planned": 450
+    },
+    "total": {
+      "generated": 900,
+      "missing": 0,
+      "planned": 900
+    },
+    "validation": {
+      "generated": 225,
+      "missing": 0,
+      "planned": 225
+    }
+  },
+  "scientific_unit_counts": {
+    "development": 165,
+    "test": 330,
+    "total": 660,
+    "validation": 165
+  },
+  "source_commit_consistency_passed": true,
+  "source_generation_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "split_gate_statuses": {
+    "development": "PASS",
+    "test": "PASS",
+    "validation": "PASS"
+  }
+}

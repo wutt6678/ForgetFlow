@@ -1,0 +1,16 @@
+{
+  "accounted_plan_item_count": 225,
+  "audit_passed": true,
+  "audit_report_path": "development/audit_report.json",
+  "audit_report_sha256": "a7e7f8a773e241cde1dfef772d7a6860ae5f427014465d9e254c00e0321c617f",
+  "audit_source_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "audited_at": "2026-08-14T17:59:43+00:00",
+  "campaign_identity_sha256": "45cb478e8abfcaead52be5cc4fcf329267330946882974a9677f1fa5575d7fdb",
+  "corpus_manifest_sha256": "f2857d18f08456318f35bf7fc0e8d1778b4913f4dca91ffbcb7fdb2884171587",
+  "generation_completed": true,
+  "generation_completed_at": "2026-08-14T17:51:14+00:00",
+  "missing_plan_item_count": 0,
+  "planned_plan_item_count": 225,
+  "source_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "split": "development"
+}

@@ -1,0 +1,14 @@
+{
+  "artifact_inventory_sha256": "e91ba459179249304fc25e8d92d3eaee255778f72c0f4a75acb6a7173ff9c5f0",
+  "blocking_finding_count": 0,
+  "combined_audit_passed": true,
+  "corpus_frozen": true,
+  "endpoint_consistency_passed": true,
+  "freeze_ready": true,
+  "freeze_time": "2026-08-15T01:37:14.043843+00:00",
+  "frozen_at": "2026-08-15T01:37:14.043843+00:00",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "source_commit_consistency_passed": true,
+  "source_generation_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "split_gates_passed": true
+}

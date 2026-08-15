@@ -3,7 +3,15 @@ ci/
 results/single_target_smoke*/
 results/multi_target_smoke*/
 results/smoke_test_*/
-results/empirical_v2/corpus_generation/
+results/empirical_v2/corpus_generation/*
+!results/empirical_v2/corpus_generation/frozen_corpus_manifest.json
+!results/empirical_v2/corpus_generation/freeze_artifact_inventory.json
+!results/empirical_v2/corpus_generation/freeze_completion_report.json
+!results/empirical_v2/corpus_generation/corpus_freeze_gate.json
+!results/empirical_v2/corpus_generation/full_corpus_validation_report.json
+!results/empirical_v2/corpus_generation/development_generation_gate.json
+!results/empirical_v2/corpus_generation/validation_generation_gate.json
+!results/empirical_v2/corpus_generation/test_generation_gate.json
 results/empirical_v2/real_api_preflight/
 __pycache__/
 *.pyc
