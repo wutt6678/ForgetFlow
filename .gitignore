@@ -12,6 +12,9 @@ results/empirical_v2/corpus_generation/*
 !results/empirical_v2/corpus_generation/development_generation_gate.json
 !results/empirical_v2/corpus_generation/validation_generation_gate.json
 !results/empirical_v2/corpus_generation/test_generation_gate.json
+!results/empirical_v2/corpus_generation/development/
+!results/empirical_v2/corpus_generation/validation/
+!results/empirical_v2/corpus_generation/test/
 results/empirical_v2/real_api_preflight/
 __pycache__/
 *.pyc
