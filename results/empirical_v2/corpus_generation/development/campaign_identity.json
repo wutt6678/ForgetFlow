@@ -1,0 +1,21 @@
+{
+  "api_protocol": "openai_compatible",
+  "created_at": "2026-08-14T16:25:22+00:00",
+  "created_from_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "generation_config_sha256": "fdb2d97b941a24b826760cc0bd543b8ea90a84736850569934e31080781e8efc",
+  "generation_plan_file_sha256": "91168d04f767bb51537a0dc7743c2100cd9955f1811ed8bede9a91f6e18db9fb",
+  "generation_plan_scientific_sha256": "9531b1b34b9e72e6a5f06f5ba65bb47238a22e0c8a40d2427c633398dc221b2a",
+  "generator_max_tokens": 1024,
+  "generator_model_requested": "qwen3.7-plus",
+  "generator_provider": "openai",
+  "generator_temperature": 0.7,
+  "max_retries": 2,
+  "phase_manifest_sha256": "37410caf0e4eda7b880dceb70699f15f6f65aa6091dae6f5396b4d7aaf254522",
+  "prompt_manifest_sha256": "a29588f5e16fe2cd0034cb1944d3d1870a36ff1955eef5b2ba24734ddb49d53c",
+  "request_timeout": 120.0,
+  "schema_version": "1.0",
+  "serving_endpoint_host": "llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com",
+  "serving_endpoint_sha256": "3d1699591685ab6c385ef26f30f469653ca8f506b33f1ded71e497a133d3d2c6",
+  "split": "development",
+  "target_registry_sha256": "f5bac18dadda613e5f2a71d94d2de8a072777071ffb5529a0165bcc4e1806380"
+}

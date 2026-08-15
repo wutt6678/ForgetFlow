@@ -1,0 +1,44 @@
+{
+  "accepted_count": 450,
+  "artifact_class": "empirical_corpus",
+  "attack_counts": {
+    "alias_or_coreference": 24,
+    "compositional_sequence": 108,
+    "direct_disclosure": 36,
+    "fragmentation_sequence": 84,
+    "hard_negative_control": 54,
+    "legitimate_task": 36,
+    "recontamination": 36,
+    "semantic_paraphrase": 72
+  },
+  "attempt_count": 450,
+  "cross_variant_contamination_count": 0,
+  "duplicate_id_count": 0,
+  "e1_foundation_valid": true,
+  "empirical_phase": "E3_CORPUS_GENERATION",
+  "generated_at": "2026-08-14T22:15:45+00:00",
+  "manifest_hash_valid": true,
+  "phase_lock_valid": true,
+  "prompt_invariance_valid": true,
+  "protocol_version": "2.0.0",
+  "rejected_count": 0,
+  "rejection_counts": {},
+  "research_use": "pending_annotation_and_replay",
+  "scenario_counts": {
+    "authorization_001": 150,
+    "credential_001": 150,
+    "private_attribute_001": 150
+  },
+  "schema_version": "1.0.0",
+  "sequence_validation_failures": [],
+  "status_counts": {
+    "success": 450
+  },
+  "study_version": "2.0.0",
+  "target_registry_valid": true,
+  "trust_counts": {
+    "default": 150,
+    "high": 150,
+    "low": 150
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "accepted_candidate_count": 225,
+  "accepted_candidate_sha256": "34e26882907042c8cc804994ec206952f3c4c1978463d03de29b3d644fd73d8d",
+  "artifact_class": "empirical_corpus",
+  "attack_counts": {
+    "alias_or_coreference": 12,
+    "compositional_sequence": 54,
+    "direct_disclosure": 18,
+    "fragmentation_sequence": 42,
+    "hard_negative_control": 27,
+    "legitimate_task": 18,
+    "recontamination": 18,
+    "semantic_paraphrase": 36
+  },
+  "attempt_count": 225,
+  "campaign_identity_sha256": "11551e5cc9bff349ff7ffaae6be4131fd3f4989a39164ff1b6c56c9f2ad9ccd9",
+  "empirical_phase": "E3_CORPUS_GENERATION",
+  "environment_lock_hash": "3b7d78a0c019a82ebcf96993bfcd1f12b1c6171b43163ef6149e0c8cfece3228",
+  "full_generation_plan_sha256": "e003e9f57b0fa74293dad0ba466a78489bb8c2a48df6705b29843b8afb87443a",
+  "generated_at": "2026-08-14T19:26:01+00:00",
+  "generation_mode": "real",
+  "malformed_count": 0,
+  "prompt_manifest_sha256": "a29588f5e16fe2cd0034cb1944d3d1870a36ff1955eef5b2ba24734ddb49d53c",
+  "protocol_version": "2.0.0",
+  "provider_error_count": 0,
+  "raw_generation_sha256": "85e9bfd490207d7f38c37a7407cdc8c24d875ede286d74c8d77b7ad639726255",
+  "refusal_count": 0,
+  "repository_clean": true,
+  "repository_commit": "f72e6f4a5f426911fd98ac2822e4695211d61ca0",
+  "research_use": "pending_annotation_and_replay",
+  "scenario_counts": {
+    "authorization_001": 75,
+    "credential_001": 75,
+    "private_attribute_001": 75
+  },
+  "schema_version": "1.0.0",
+  "split_counts": {
+    "validation": 225
+  },
+  "split_generation_plan_sha256": "8e945f8601a3542142b7985150423340c277ccbb971896d17ee0eda2e51ee185",
+  "split_plan_item_count": 225,
+  "study_version": "2.0.0",
+  "success_count": 225,
+  "target_spec_sha256": "b0ddf8e9b154ce8414d817bc347881ea480d78515633937771fbd2ecd7f33c24",
+  "trust_counts": {
+    "default": 75,
+    "high": 75,
+    "low": 75
+  }
+}

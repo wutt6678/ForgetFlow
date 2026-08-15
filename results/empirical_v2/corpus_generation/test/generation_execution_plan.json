@@ -1,0 +1,12 @@
+{
+  "foreign_plan_item_count": 450,
+  "full_plan_item_count": 900,
+  "full_plan_scientific_sha256": "e003e9f57b0fa74293dad0ba466a78489bb8c2a48df6705b29843b8afb87443a",
+  "selected_non_sequence_item_count": 258,
+  "selected_plan_item_count": 450,
+  "selected_scientific_sequence_count": 72,
+  "selected_secret_variant_count": 6,
+  "selected_sequence_step_item_count": 192,
+  "split": "test",
+  "split_plan_scientific_sha256": "55504e3ed37f40edb8164942a8b5a4a01eeb55f87a777d8485b2cb42b29e48de"
+}

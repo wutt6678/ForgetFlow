@@ -1,0 +1,12 @@
+{
+  "accepted_sequence_count": 72,
+  "complete_sequence_count": 72,
+  "incomplete_sequence_count": 0,
+  "invalid_retry_lineage_count": 0,
+  "planned_sequence_count": 72,
+  "rejected_sequence_count": 0,
+  "rejection_reasons": {},
+  "sequence_status_counts": {
+    "complete_accepted": 72
+  }
+}
