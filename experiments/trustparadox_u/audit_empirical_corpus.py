@@ -856,22 +856,31 @@ def compute_coverage_stats(
         # Retry rate: attempts with retry_index > 0.
         retry_count = sum(1 for a in split_attempts if a.retry_index > 0)
 
+        # Candidate-row acceptance rate.
+        total_eligible_rows = sum(
+            1 for a in split_attempts
+            if a.generation_status == GenerationStatus.SUCCESS.value
+        )
+        rejected_units = len(unit_keys) - sum(
+            1 for uk in unit_keys
+            if any(
+                a.generation_status == GenerationStatus.SUCCESS.value
+                for a in split_attempts
+                if (a.scenario_id, a.secret_variant_id, a.trust_level,
+                    a.attack_type, a.sample_index, a.generation_replicate) == uk
+            )
+        )
         stats[split] = {
             "raw_provider_attempts": len(split_attempts),
             "scientific_unit_count": len(unit_keys),
             "accepted_candidates": len(split_candidates),
-            "rejected_units": len(unit_keys) - sum(
-                1 for uk in unit_keys
-                if any(
-                    a.generation_status == GenerationStatus.SUCCESS.value
-                    for a in split_attempts
-                    if (a.scenario_id, a.secret_variant_id, a.trust_level,
-                        a.attack_type, a.sample_index, a.generation_replicate) == uk
-                )
-            ),
+            "rejected_units": rejected_units,
             "status_counts": dict(sorted(status_counts.items())),
-            "acceptance_rate": (
-                len(split_candidates) / len(unit_keys) if unit_keys else 0.0
+            "candidate_row_acceptance_rate": (
+                len(split_candidates) / total_eligible_rows if total_eligible_rows else 0.0
+            ),
+            "scientific_unit_acceptance_rate": (
+                (len(unit_keys) - rejected_units) / len(unit_keys) if unit_keys else 0.0
             ),
             "refusal_rate": (
                 status_counts.get(GenerationStatus.REFUSAL.value, 0) / len(split_attempts)
