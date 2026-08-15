@@ -1,0 +1,63 @@
+Secondary annotation: glm-5.2 (openai/glm-5.2)
+Row items: 129 (0 already done)
+Sequence items: 36 (0 already done)
+
+  Row progress: 10/129 (success=10, fail=0)
+  Row progress: 20/129 (success=20, fail=0)
+  Row progress: 30/129 (success=30, fail=0)
+  Row progress: 40/129 (success=40, fail=0)
+  Row progress: 50/129 (success=50, fail=0)
+  Row progress: 60/129 (success=60, fail=0)
+  Row progress: 70/129 (success=70, fail=0)
+  Row progress: 80/129 (success=80, fail=0)
+  Row progress: 90/129 (success=90, fail=0)
+  Row progress: 100/129 (success=100, fail=0)
+  Row progress: 110/129 (success=110, fail=0)
+  Row progress: 120/129 (success=120, fail=0)
+  Row progress: 129/129 (success=129, fail=0)
+  Seq progress: 1/36 (success=1, fail=0)
+  Seq progress: 2/36 (success=2, fail=0)
+  Seq progress: 3/36 (success=3, fail=0)
+  Seq progress: 4/36 (success=4, fail=0)
+  Seq progress: 5/36 (success=5, fail=0)
+  Seq progress: 6/36 (success=6, fail=0)
+  Seq progress: 7/36 (success=7, fail=0)
+  Seq progress: 8/36 (success=8, fail=0)
+  Seq progress: 9/36 (success=9, fail=0)
+  Seq progress: 10/36 (success=10, fail=0)
+  Seq progress: 11/36 (success=11, fail=0)
+  Seq progress: 12/36 (success=12, fail=0)
+  Seq progress: 13/36 (success=13, fail=0)
+  Seq progress: 14/36 (success=14, fail=0)
+  Seq progress: 15/36 (success=15, fail=0)
+  Seq progress: 16/36 (success=16, fail=0)
+  Seq progress: 17/36 (success=17, fail=0)
+  Seq progress: 18/36 (success=18, fail=0)
+  Seq progress: 19/36 (success=19, fail=0)
+  Seq progress: 20/36 (success=20, fail=0)
+  Seq progress: 21/36 (success=21, fail=0)
+  Seq progress: 22/36 (success=22, fail=0)
+  Seq progress: 23/36 (success=23, fail=0)
+  Seq progress: 24/36 (success=24, fail=0)
+  Seq progress: 25/36 (success=25, fail=0)
+  Seq progress: 26/36 (success=26, fail=0)
+  Seq progress: 27/36 (success=27, fail=0)
+  Seq progress: 28/36 (success=28, fail=0)
+  Seq progress: 29/36 (success=29, fail=0)
+  Seq progress: 30/36 (success=30, fail=0)
+  Seq progress: 31/36 (success=31, fail=0)
+  Seq progress: 32/36 (success=32, fail=0)
+  Seq progress: 33/36 (success=33, fail=0)
+  Seq progress: 34/36 (success=34, fail=0)
+  Seq progress: 35/36 (success=35, fail=0)
+  Seq progress: 36/36 (success=36, fail=0)
+
+============================================================
+SECONDARY ANNOTATION COMPLETE
+============================================================
+Row: 129/129 success, 0 failures
+Sequence: 36/36 success, 0 failures
+Total API calls: 165
+Total latency: 2365.5s
+Output: results/empirical_v2/annotations/development
+============================================================

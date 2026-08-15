@@ -1,0 +1,33 @@
+{
+  "annotation_role": "J2",
+  "model": "glm-5.2",
+  "litellm_model": "openai/glm-5.2",
+  "schema_version": "1.0",
+  "timestamp": "2026-08-15T05:35:41.444847+00:00",
+  "campaign_identity": {
+    "frozen_corpus_manifest_sha256": "",
+    "annotation_queue_sha256": "e404f43528411f23ee112bc1b7c4ca48f05220028e696a5f1e91d78cd1f3fae4",
+    "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+    "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "secondary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "primary_requested_model": "qwen3.8-max",
+    "secondary_requested_model": "glm-5.2",
+    "annotation_config_sha256": "e6c6e414f215f1578f4cad95b630201994d5bf5a3ddea931d90a8207c19976cf",
+    "annotation_code_commit": "d2185240068e2bfe6e02a7ba5175435b85c9f7f4",
+    "split": "development",
+    "prompt_manifest_sha256": "9ba34920d56ddf758b198289cff49c136b3262489673c3350697b333d428c9b2"
+  },
+  "stats": {
+    "row_total": 129,
+    "row_completed": 0,
+    "row_success": 129,
+    "row_failure": 0,
+    "seq_total": 36,
+    "seq_completed": 0,
+    "seq_success": 36,
+    "seq_failure": 0,
+    "total_api_calls": 165,
+    "total_latency_ms": 2365488.4999999995
+  },
+  "api_base": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+}

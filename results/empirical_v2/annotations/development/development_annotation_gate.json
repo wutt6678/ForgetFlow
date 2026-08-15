@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-15T05:46:12.510814+00:00",
+  "description": "Sec 49: Development annotation gate",
+  "development_annotation_completed": true,
+  "primary_complete": true,
+  "secondary_complete": true,
+  "agreement_computed": true,
+  "schema_frozen": true,
+  "prompts_frozen": true,
+  "blocking_findings": [
+    "core-label raw agreement 0.2713 < 0.85",
+    "sequence reconstruction raw agreement 0.5 < 0.85",
+    "min kappa -0.0104 < 0.60",
+    "unresolved row rate 0.7287 > 10%",
+    "unresolved sequence rate 0.5 > 10%"
+  ],
+  "ready_for_validation_annotation": false,
+  "protocol_freeze_criteria": {
+    "core_label_raw_agreement_gte_0.85": false,
+    "min_raw_agreement": 0.2713,
+    "sequence_reconstruction_raw_agreement_gte_0.85": false,
+    "sequence_raw_agreement": 0.5,
+    "kappa_gte_0.60_where_estimable": false,
+    "min_estimable_kappa": -0.0104,
+    "unresolved_row_rate_lte_10pct": false,
+    "unresolved_row_rate": 0.7287,
+    "unresolved_seq_rate_lte_10pct": false,
+    "unresolved_seq_rate": 0.5,
+    "no_systematic_provenance_failure": true,
+    "no_test_data_inspected": true
+  },
+  "protocol_freeze_pass": false,
+  "annotation_protocol_frozen": false,
+  "go_no_go": "NO-GO",
+  "summary": {
+    "total_rows": 129,
+    "total_sequences": 36,
+    "row_consensus": 35,
+    "row_unresolved": 94,
+    "sequence_consensus": 18,
+    "sequence_unresolved": 18,
+    "min_raw_agreement": 0.2713,
+    "sequence_raw_agreement": 0.5,
+    "min_estimable_kappa": -0.0104
+  }
+}

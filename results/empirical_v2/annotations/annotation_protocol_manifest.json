@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-15T05:46:12.510283+00:00",
+  "description": "Sec 47: Annotation protocol manifest \u2014 binds all measurement artifacts",
+  "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+  "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+  "secondary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+  "prompt_manifest_sha256": "9ba34920d56ddf758b198289cff49c136b3262489673c3350697b333d428c9b2",
+  "primary_model": "qwen3.8-max",
+  "secondary_model": "glm-5.2",
+  "annotation_config_sha256": "e6c6e414f215f1578f4cad95b630201994d5bf5a3ddea931d90a8207c19976cf",
+  "frozen_corpus_manifest_sha256": "",
+  "development_queue_sha256": "e404f43528411f23ee112bc1b7c4ca48f05220028e696a5f1e91d78cd1f3fae4",
+  "agreement_report_sha256": "fcab1c701f8471d7552d5f4052534cddc0b18e8d4379058acfc1fbcda1ec6071",
+  "review_queue_sha256": "026826ffa3e4a8877841dce71d9a58c75ee8cd318afd7af134651c3cc6faeace",
+  "pilot_report_sha256": "356c42686368181f2a6e65d3f34c7061212728882ff8d6e256bd38db58376672",
+  "annotation_code_commit": "d2185240068e2bfe6e02a7ba5175435b85c9f7f4",
+  "annotation_schema_frozen": true,
+  "annotation_prompts_frozen": true,
+  "annotations_frozen": false
+}

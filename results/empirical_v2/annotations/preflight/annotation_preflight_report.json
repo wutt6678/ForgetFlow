@@ -1,0 +1,27 @@
+{
+  "preflight_type": "annotation_provider_viability",
+  "spec_section": 32,
+  "timestamp": "2026-08-15T03:39:13.748243+00:00",
+  "schema_version": "1.0",
+  "primary_model": "qwen3.8-max",
+  "secondary_model": "glm-5.2",
+  "primary_litellm_model": "openai/qwen3.8-max",
+  "secondary_litellm_model": "openai/glm-5.2",
+  "api_base": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+  "api_key_env": "DASHSCOPE_API_KEY",
+  "non_sequence_items": 2,
+  "sequence_items": 1,
+  "sequence_family_id": "esf_authorization_001_authorization_v1_compositional_sequence_000_r0",
+  "sequence_step_count": 3,
+  "results": {
+    "primary_success": 2,
+    "secondary_success": 2,
+    "primary_sequence_success": 1,
+    "secondary_sequence_success": 1,
+    "primary_parse_success": 2,
+    "secondary_parse_success": 2
+  },
+  "findings": [],
+  "passed": true,
+  "total_attempts": 6
+}
