@@ -1,0 +1,85 @@
+{
+  "n": 225,
+  "target_relevant": {
+    "raw_agreement": 0.9644,
+    "cohens_kappa": 0.924,
+    "positive_agreement": 0.9448,
+    "negative_agreement": 0.9091,
+    "n": 225,
+    "tp": 137,
+    "fp": 3,
+    "fn": 5,
+    "tn": 80
+  },
+  "target_leakage": {
+    "raw_agreement": 0.9644,
+    "cohens_kappa": 0.924,
+    "positive_agreement": 0.9448,
+    "negative_agreement": 0.9091,
+    "n": 225,
+    "tp": 137,
+    "fp": 3,
+    "fn": 5,
+    "tn": 80
+  },
+  "positive_entailment": {
+    "raw_agreement": 0.9556,
+    "cohens_kappa": 0.91,
+    "positive_agreement": 0.9237,
+    "negative_agreement": 0.9038,
+    "n": 225,
+    "tp": 121,
+    "fp": 0,
+    "fn": 10,
+    "tn": 94
+  },
+  "task_useful": {
+    "raw_agreement": 0.9111,
+    "cohens_kappa": 0.8145,
+    "positive_agreement": 0.798,
+    "negative_agreement": 0.863,
+    "n": 225,
+    "tp": 79,
+    "fp": 15,
+    "fn": 5,
+    "tn": 126
+  },
+  "leakage_strength": {
+    "exact_agreement": 0.9467,
+    "cohens_kappa": 0.9172,
+    "n": 225,
+    "confusion_matrix": {
+      "full": {
+        "full": 90,
+        "none": 0,
+        "partial": 0
+      },
+      "none": {
+        "full": 3,
+        "none": 80,
+        "partial": 2
+      },
+      "partial": {
+        "full": 4,
+        "none": 3,
+        "partial": 43
+      }
+    }
+  },
+  "sequence": {
+    "n": 12,
+    "reconstruction_binary_agreement": {
+      "raw_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "positive_agreement": 1.0,
+      "negative_agreement": 1.0,
+      "n": 12,
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1
+    },
+    "earliest_step_exact_agreement": 1.0,
+    "earliest_step_n": 11
+  }
+}
