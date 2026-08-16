@@ -331,6 +331,8 @@ class FrozenAnnotationVerifier:
                     return ("sequence", rec.get("sequence_annotation_id", rec["candidate_id"]))
 
                 def _adj_key(rec):
+                    if rec.get("item_type") == "sequence":
+                        return ("sequence", rec["sequence_annotation_id"])
                     return ("row", rec["candidate_id"])
 
                 review_recs = _load_jsonl_records(review_path)

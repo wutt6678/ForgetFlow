@@ -67,6 +67,27 @@ _VAL_FILES = {
     "verifier_results": "verifier_results.json",
 }
 
+# §8: Explicit artifact-key → manifest-hash-field mapping
+VAL_HASH_FIELDS = {
+    "primary_raw": "primary_raw_sha256",
+    "primary_labels": "primary_labels_sha256",
+    "primary_sequences": "primary_sequences_sha256",
+    "primary_campaign_identity": "primary_campaign_identity_sha256",
+    "primary_summary": "primary_campaign_summary_sha256",
+    "secondary_raw": "secondary_raw_sha256",
+    "secondary_labels": "secondary_labels_sha256",
+    "secondary_sequences": "secondary_sequences_sha256",
+    "secondary_campaign_identity": "secondary_campaign_identity_sha256",
+    "secondary_summary": "secondary_campaign_summary_sha256",
+    "validation_input_preflight": "validation_input_preflight_sha256",
+    "agreement_report": "agreement_report_sha256",
+    "review_queue": "review_queue_sha256",
+    "llm_adjudication": "llm_adjudication_sha256",
+    "final_adjudicated_labels": "final_adjudicated_labels_sha256",
+    "final_sequence_labels": "final_sequence_labels_sha256",
+    "adjudication_manifest": "adjudication_manifest_sha256",
+}
+
 
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -232,6 +253,8 @@ def compute_adjudication_audit() -> dict[str, Any]:
         return ("sequence", rec.get("sequence_annotation_id", rec["candidate_id"]))
 
     def adjudication_item_key(rec: dict) -> tuple[str, str]:
+        if rec.get("item_type") == "sequence":
+            return ("sequence", rec["sequence_annotation_id"])
         return ("row", rec["candidate_id"])
 
     review_keys = [review_item_key(r) for r in review_records]
@@ -487,13 +510,29 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not unresolved_seq_pass:
         blocking.append(f"unresolved sequence rate: {unresolved_seq_rate:.4f} (>10%)")
 
-    # §35: Frozen corpus — separate SHA match from verifier pass
+    # §4-6: Frozen corpus — separate SHA match from actual verifier pass
     corpus_sha = manifest.get("frozen_corpus_manifest_sha256", "")
     frozen_corpus_manifest_sha_match = corpus_sha == _sha256(
         _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation" / "frozen_corpus_manifest.json"
     )
     if not frozen_corpus_manifest_sha_match:
         blocking.append("frozen corpus SHA mismatch")
+
+    # §4-6: Run actual frozen corpus verifier
+    frozen_corpus_verifier_result = _run_verifier([
+        sys.executable, "scripts/verify_frozen_empirical_corpus.py",
+    ])
+    frozen_corpus_verifier_pass = (
+        frozen_corpus_verifier_result["exit_code"] == 0
+        and frozen_corpus_verifier_result["checks_failed"] == 0
+        and frozen_corpus_verifier_result["checks_passed"]
+            == frozen_corpus_verifier_result["checks_total"]
+    )
+    if not frozen_corpus_verifier_pass:
+        blocking.append(
+            f"frozen corpus verifier FAIL "
+            f"({frozen_corpus_verifier_result['checks_passed']}/{frozen_corpus_verifier_result['checks_total']})"
+        )
 
     # §34: Development annotation verifier — run actual verifier
     dev_verifier_result = _run_verifier([
@@ -518,18 +557,23 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not provenance_bindings_present:
         blocking.append("provenance bindings: missing SHA fields")
 
-    # §27: Actual byte-level verification
+    # §8-11: Provenance audit — explicit hash field mapping
     provenance_audit_pass = True
-    for key, fname in _VAL_FILES.items():
+    for file_key, hash_field in VAL_HASH_FIELDS.items():
+        fname = _VAL_FILES.get(file_key, "")
+        if not fname:
+            continue
         fpath = _VAL_DIR / fname
         if fpath.exists():
-            hash_key = f"{key}_sha256"
-            expected = manifest.get(hash_key, "")
-            if expected:
+            expected = manifest.get(hash_field, "")
+            if not expected:
+                provenance_audit_pass = False
+                blocking.append(f"provenance hash: missing field {hash_field}")
+            else:
                 actual = _sha256(fpath)
                 if actual != expected:
                     provenance_audit_pass = False
-                    blocking.append(f"provenance hash mismatch: {key}")
+                    blocking.append(f"provenance hash mismatch: {file_key}")
 
     go_no_go = "GO" if not blocking else "NO-GO"
 
@@ -556,9 +600,15 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
         "unresolved_sequence_rate_pass": unresolved_seq_pass,
         "provenance_bindings_present": provenance_bindings_present,
         "provenance_audit_pass": provenance_audit_pass,
-        # §35: Separate SHA match from verifier pass
+        # §4-6: Separate SHA match from actual verifier pass
         "frozen_corpus_manifest_sha_match": frozen_corpus_manifest_sha_match,
-        "frozen_corpus_verifier_pass": frozen_corpus_manifest_sha_match,
+        "frozen_corpus_verifier_pass": frozen_corpus_verifier_pass,
+        "frozen_corpus_verifier_checks": {
+            "total": frozen_corpus_verifier_result["checks_total"],
+            "passed": frozen_corpus_verifier_result["checks_passed"],
+            "failed": frozen_corpus_verifier_result["checks_failed"],
+            "exit_code": frozen_corpus_verifier_result["exit_code"],
+        },
         # §34: Actual verifier result
         "development_annotation_verifier_pass": development_verifier_pass,
         "development_annotation_verifier_checks": {
@@ -703,6 +753,93 @@ def update_adjudication_manifest() -> None:
     print(f"Updated {adj_path.name} with provenance + audit fields")
 
 
+def build_post_freeze_verification() -> dict[str, Any]:
+    """§12-15: Post-freeze closure verification.
+
+    Runs AFTER the freeze manifest is written.  Computes SHAs of the
+    three core freeze artifacts and records verifier results.  The
+    resulting file is NOT referenced back into the freeze manifest
+    (one-way closure chain).
+    """
+    print("\n" + "=" * 60)
+    print("Post-Freeze Closure Verification")
+    print("=" * 60)
+
+    manifest_path = _VAL_DIR / "annotation_manifest.json"
+    gate_path = _VAL_DIR / "validation_annotation_gate.json"
+    freeze_path = _VAL_DIR / "validation_annotation_freeze_manifest.json"
+
+    annotation_manifest_sha = _sha256(manifest_path)
+    validation_gate_sha = _sha256(gate_path)
+    validation_freeze_manifest_sha = _sha256(freeze_path)
+
+    # Read persisted verifier results
+    vr_path = _VAL_DIR / "verifier_results.json"
+    vr = _load_json(vr_path) if vr_path.exists() else {}
+
+    fc = vr.get("frozen_corpus", {})
+    dev = vr.get("development_annotations", {})
+    val = vr.get("validation_annotations", {})
+
+    corpus_pass = (
+        fc.get("exit_code") == 0
+        and fc.get("checks_failed") == 0
+        and fc.get("checks_passed") == fc.get("checks_total")
+    )
+    dev_pass = (
+        dev.get("exit_code") == 0
+        and dev.get("checks_failed") == 0
+        and dev.get("checks_passed") == dev.get("checks_total")
+    )
+    val_pass = (
+        val.get("exit_code") == 0
+        and val.get("checks_failed") == 0
+        and val.get("checks_passed") == val.get("checks_total")
+    )
+
+    closure_pass = corpus_pass and dev_pass and val_pass
+
+    closure = {
+        "schema_version": "1.0",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "verification_source_commit": _git_commit(),
+        "annotation_manifest_sha256": annotation_manifest_sha,
+        "validation_gate_sha256": validation_gate_sha,
+        "validation_freeze_manifest_sha256": validation_freeze_manifest_sha,
+        "frozen_corpus_verifier": {
+            "checks_total": fc.get("checks_total", 0),
+            "checks_passed": fc.get("checks_passed", 0),
+            "checks_failed": fc.get("checks_failed", 0),
+            "exit_code": fc.get("exit_code", -1),
+        },
+        "development_annotation_verifier": {
+            "checks_total": dev.get("checks_total", 0),
+            "checks_passed": dev.get("checks_passed", 0),
+            "checks_failed": dev.get("checks_failed", 0),
+            "exit_code": dev.get("exit_code", -1),
+        },
+        "validation_annotation_verifier": {
+            "checks_total": val.get("checks_total", 0),
+            "checks_passed": val.get("checks_passed", 0),
+            "checks_failed": val.get("checks_failed", 0),
+            "exit_code": val.get("exit_code", -1),
+        },
+        "closure_pass": closure_pass,
+    }
+
+    out_path = _VAL_DIR / "post_freeze_verification.json"
+    _write_json(out_path, closure)
+    print(f"closure_pass: {closure_pass}")
+    print(f"  frozen_corpus_verifier: "
+          f"{fc.get('checks_passed', 0)}/{fc.get('checks_total', 0)}")
+    print(f"  development_verifier: "
+          f"{dev.get('checks_passed', 0)}/{dev.get('checks_total', 0)}")
+    print(f"  validation_verifier: "
+          f"{val.get('checks_passed', 0)}/{val.get('checks_total', 0)}")
+    print(f"Wrote {out_path.name}")
+    return closure
+
+
 def main() -> int:
     # §46: Require clean worktree before any regeneration
     require_clean_worktree()
@@ -759,6 +896,8 @@ def main() -> int:
         if gate["go_no_go"] == "GO":
             build_validation_freeze_manifest(manifest, gate)
             update_annotation_phase(gate)
+            # §12-15: Post-freeze closure verification
+            build_post_freeze_verification()
         else:
             print("\nGate is NO-GO after verifier results — skipping freeze")
             return 1

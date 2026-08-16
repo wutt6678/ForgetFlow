@@ -13,9 +13,9 @@
 | Corrected validation evidence commit | `3d167ed12a0f1c6576d55a78ae274614601c69d3` |
 | Corrected validation freeze commit | `fd72b0054f67e9ff05fa5311d91550d830155db6` |
 | Validation report commit | `7cf0eb33bd91064b6cda9257eeb5bc385e14a302` |
-| Provenance/freeze cleanup code commit (P1) | `ec89719` |
-| Corrected evidence/refreeze commit (P2) | `6bbde25` |
-| Final report commit (P3) | `367f008` |
+| Provenance/freeze cleanup code commit (P1) | `ec89719dd789b60a5d3eade5a2a792a16201b240` |
+| Corrected evidence/refreeze commit (P2) | `6bbde250c2f8758a8545f5c9ab2359213aed5f06` |
+| Report generated from evidence commit | `6bbde250c2f8758a8545f5c9ab2359213aed5f06` |
 | Previous GO superseded | YES (trust-conditioned sequence units collapsed by sequence_family_id) |
 | Frozen corpus manifest SHA | `6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2` |
 | Frozen annotation protocol SHA (manifest file) | `d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83` |
