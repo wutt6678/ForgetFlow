@@ -151,6 +151,40 @@ def main() -> int:
             f"failed={val.get('checks_failed')}, total={val.get('checks_total')})"
         )
 
+    # 8. Timestamp ordering checks
+    print("\n[C8] Timestamp ordering...")
+    freeze_created_at = pfv.get("freeze_created_at", "")
+    pfv_created_at = pfv.get("created_at", "")
+
+    if freeze_created_at and pfv_created_at:
+        if pfv_created_at >= freeze_created_at:
+            _pass("post_freeze_verification.created_at >= freeze.created_at")
+        else:
+            _fail(
+                f"post_freeze_verification.created_at ({pfv_created_at}) "
+                f"< freeze.created_at ({freeze_created_at})"
+            )
+    else:
+        _fail("Missing freeze_created_at or created_at in post_freeze_verification.json")
+
+    # Check each verifier timestamp >= freeze_created_at
+    for verifier_key, label in [
+        ("frozen_corpus_verifier", "frozen_corpus_verifier"),
+        ("development_annotation_verifier", "development_annotation_verifier"),
+        ("validation_annotation_verifier", "validation_annotation_verifier"),
+    ]:
+        v = pfv.get(verifier_key, {})
+        v_ts = v.get("timestamp", "")
+        if v_ts and freeze_created_at:
+            if v_ts >= freeze_created_at:
+                _pass(f"{label}.timestamp ({v_ts}) >= freeze.created_at")
+            else:
+                _fail(
+                    f"{label}.timestamp ({v_ts}) < freeze.created_at ({freeze_created_at})"
+                )
+        else:
+            _fail(f"Missing timestamp for {label} or freeze_created_at")
+
     # Summary
     total = passed + failed
     print("\n" + "=" * 70)

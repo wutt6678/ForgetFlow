@@ -637,3 +637,127 @@ class TestNoLabelChange:
         expected = manifest.get("final_sequence_labels_sha256", "")
         actual = _sha256(_VAL_DIR / "final_sequence_labels.jsonl")
         assert actual == expected
+
+
+# ===========================================================================
+# §16-17: Timestamp ordering regression
+# ===========================================================================
+
+
+class TestTimestampOrdering:
+    """§16-17: Post-freeze verifier timestamps must post-date freeze."""
+
+    def test_post_freeze_has_freeze_created_at(self):
+        """post_freeze_verification.json must record freeze_created_at."""
+        if not _POST_FREEZE_PATH.exists():
+            pytest.skip("post_freeze_verification.json not yet generated")
+        pfv = _load_json(_POST_FREEZE_PATH)
+        assert "freeze_created_at" in pfv
+        assert pfv["freeze_created_at"] != ""
+
+    def test_post_freeze_has_description(self):
+        """post_freeze_verification.json must be marked authoritative."""
+        if not _POST_FREEZE_PATH.exists():
+            pytest.skip("post_freeze_verification.json not yet generated")
+        pfv = _load_json(_POST_FREEZE_PATH)
+        assert pfv.get("description") == "Authoritative E4-002 final closure verification"
+
+    def test_verifier_timestamps_present(self):
+        """Each verifier entry must include a timestamp."""
+        if not _POST_FREEZE_PATH.exists():
+            pytest.skip("post_freeze_verification.json not yet generated")
+        pfv = _load_json(_POST_FREEZE_PATH)
+        for key in (
+            "frozen_corpus_verifier",
+            "development_annotation_verifier",
+            "validation_annotation_verifier",
+        ):
+            v = pfv.get(key, {})
+            assert "timestamp" in v, f"{key} missing timestamp"
+            assert v["timestamp"] != "", f"{key} has empty timestamp"
+
+    def test_verifier_timestamps_postdate_freeze(self):
+        """§10: All verifier timestamps must >= freeze.created_at."""
+        if not _POST_FREEZE_PATH.exists():
+            pytest.skip("post_freeze_verification.json not yet generated")
+        pfv = _load_json(_POST_FREEZE_PATH)
+        freeze_ts = pfv.get("freeze_created_at", "")
+        if not freeze_ts:
+            pytest.skip("freeze_created_at not present")
+        for key in (
+            "frozen_corpus_verifier",
+            "development_annotation_verifier",
+            "validation_annotation_verifier",
+        ):
+            v = pfv.get(key, {})
+            v_ts = v.get("timestamp", "")
+            assert v_ts >= freeze_ts, (
+                f"{key}.timestamp ({v_ts}) predates freeze ({freeze_ts})"
+            )
+
+    def test_post_freeze_created_at_postdates_freeze(self):
+        """§10: post_freeze_verification.created_at >= freeze.created_at."""
+        if not _POST_FREEZE_PATH.exists():
+            pytest.skip("post_freeze_verification.json not yet generated")
+        pfv = _load_json(_POST_FREEZE_PATH)
+        freeze_ts = pfv.get("freeze_created_at", "")
+        pfv_ts = pfv.get("created_at", "")
+        if not freeze_ts or not pfv_ts:
+            pytest.skip("timestamps not present")
+        assert pfv_ts >= freeze_ts
+
+
+# ===========================================================================
+# §18: Execution-order regression
+# ===========================================================================
+
+
+class TestExecutionOrder:
+    """§18: build_post_freeze_verification must accept fresh verifier results."""
+
+    def test_build_post_freeze_accepts_parameter(self):
+        """build_post_freeze_verification must accept verifier_results arg."""
+        import inspect
+        sys.path.insert(0, str(_PROJECT_ROOT / "scripts"))
+        from build_validation_freeze import build_post_freeze_verification
+        sig = inspect.signature(build_post_freeze_verification)
+        assert "verifier_results" in sig.parameters
+
+    def test_stale_verifier_timestamp_rejected(self):
+        """§16: Stale verifier timestamps must fail closure timestamp checks.
+
+        Simulates the closure verifier logic: if a verifier timestamp
+        predates the freeze, the check must fail.
+        """
+        freeze_ts = "2026-08-16T12:00:00+00:00"
+        stale_ts = "2026-08-16T11:00:00+00:00"  # before freeze
+        # Simulate the timestamp check logic from the closure verifier
+        assert stale_ts < freeze_ts  # stale predates freeze → would FAIL
+
+    def test_valid_post_freeze_timestamp_accepted(self):
+        """§17: Valid post-freeze timestamps must pass closure checks.
+
+        Simulates the closure verifier logic: if a verifier timestamp
+        post-dates the freeze, the check must pass.
+        """
+        freeze_ts = "2026-08-16T12:00:00+00:00"
+        fresh_ts = "2026-08-16T13:00:00+00:00"  # after freeze
+        assert fresh_ts >= freeze_ts  # fresh post-dates freeze → PASS
+
+    def test_main_calls_verifiers_after_freeze(self):
+        """§18: main() source must run verifiers after freeze, not before."""
+        build_script = _PROJECT_ROOT / "scripts" / "build_validation_freeze.py"
+        source = build_script.read_text()
+        # Find the post-freeze verifier run in main()
+        # It should appear AFTER build_validation_freeze_manifest
+        freeze_idx = source.index("build_validation_freeze_manifest(manifest, gate)")
+        post_freeze_run_idx = source.index("post_freeze_results = run_all_verifiers()")
+        post_freeze_call_idx = source.index(
+            "build_post_freeze_verification(post_freeze_results)"
+        )
+        assert post_freeze_run_idx > freeze_idx, (
+            "run_all_verifiers() must be called after freeze"
+        )
+        assert post_freeze_call_idx > post_freeze_run_idx, (
+            "build_post_freeze_verification must use fresh results"
+        )

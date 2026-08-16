@@ -753,13 +753,24 @@ def update_adjudication_manifest() -> None:
     print(f"Updated {adj_path.name} with provenance + audit fields")
 
 
-def build_post_freeze_verification() -> dict[str, Any]:
+def build_post_freeze_verification(
+    verifier_results: dict[str, Any],
+) -> dict[str, Any]:
     """§12-15: Post-freeze closure verification.
 
     Runs AFTER the freeze manifest is written.  Computes SHAs of the
-    three core freeze artifacts and records verifier results.  The
-    resulting file is NOT referenced back into the freeze manifest
-    (one-way closure chain).
+    three core freeze artifacts and records *fresh* post-freeze verifier
+    results (not the build-stage snapshot).  The resulting file is NOT
+    referenced back into the freeze manifest (one-way closure chain).
+
+    Parameters
+    ----------
+    verifier_results : dict
+        Fresh results from ``run_all_verifiers()`` executed *after* the
+        freeze manifest was written.  Must contain keys
+        ``frozen_corpus``, ``development_annotations``,
+        ``validation_annotations``, each with ``checks_total``,
+        ``checks_passed``, ``checks_failed``, ``exit_code``, ``timestamp``.
     """
     print("\n" + "=" * 60)
     print("Post-Freeze Closure Verification")
@@ -773,13 +784,14 @@ def build_post_freeze_verification() -> dict[str, Any]:
     validation_gate_sha = _sha256(gate_path)
     validation_freeze_manifest_sha = _sha256(freeze_path)
 
-    # Read persisted verifier results
-    vr_path = _VAL_DIR / "verifier_results.json"
-    vr = _load_json(vr_path) if vr_path.exists() else {}
+    # Read freeze timestamp for ordering validation
+    freeze_data = _load_json(freeze_path)
+    freeze_created_at = freeze_data.get("created_at", "")
 
-    fc = vr.get("frozen_corpus", {})
-    dev = vr.get("development_annotations", {})
-    val = vr.get("validation_annotations", {})
+    # Use fresh post-freeze verifier results (NOT build-stage snapshot)
+    fc = verifier_results.get("frozen_corpus", {})
+    dev = verifier_results.get("development_annotations", {})
+    val = verifier_results.get("validation_annotations", {})
 
     corpus_pass = (
         fc.get("exit_code") == 0
@@ -801,7 +813,9 @@ def build_post_freeze_verification() -> dict[str, Any]:
 
     closure = {
         "schema_version": "1.0",
+        "description": "Authoritative E4-002 final closure verification",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "freeze_created_at": freeze_created_at,
         "verification_source_commit": _git_commit(),
         "annotation_manifest_sha256": annotation_manifest_sha,
         "validation_gate_sha256": validation_gate_sha,
@@ -811,18 +825,21 @@ def build_post_freeze_verification() -> dict[str, Any]:
             "checks_passed": fc.get("checks_passed", 0),
             "checks_failed": fc.get("checks_failed", 0),
             "exit_code": fc.get("exit_code", -1),
+            "timestamp": fc.get("timestamp", ""),
         },
         "development_annotation_verifier": {
             "checks_total": dev.get("checks_total", 0),
             "checks_passed": dev.get("checks_passed", 0),
             "checks_failed": dev.get("checks_failed", 0),
             "exit_code": dev.get("exit_code", -1),
+            "timestamp": dev.get("timestamp", ""),
         },
         "validation_annotation_verifier": {
             "checks_total": val.get("checks_total", 0),
             "checks_passed": val.get("checks_passed", 0),
             "checks_failed": val.get("checks_failed", 0),
             "exit_code": val.get("exit_code", -1),
+            "timestamp": val.get("timestamp", ""),
         },
         "closure_pass": closure_pass,
     }
@@ -836,6 +853,8 @@ def build_post_freeze_verification() -> dict[str, Any]:
           f"{dev.get('checks_passed', 0)}/{dev.get('checks_total', 0)}")
     print(f"  validation_verifier: "
           f"{val.get('checks_passed', 0)}/{val.get('checks_total', 0)}")
+    print(f"  freeze_created_at: {freeze_created_at}")
+    print(f"  post_freeze created_at: {closure['created_at']}")
     print(f"Wrote {out_path.name}")
     return closure
 
@@ -896,8 +915,13 @@ def main() -> int:
         if gate["go_no_go"] == "GO":
             build_validation_freeze_manifest(manifest, gate)
             update_annotation_phase(gate)
-            # §12-15: Post-freeze closure verification
-            build_post_freeze_verification()
+            # §12-15: Run verifiers AGAIN after freeze for authoritative closure
+            print("\n--- Running Post-Freeze Verifiers ---")
+            post_freeze_results = run_all_verifiers()
+            for name, result in post_freeze_results.items():
+                status = "PASS" if result["exit_code"] == 0 else "FAIL"
+                print(f"  {name}: {status} ({result['checks_passed']}/{result['checks_total']})")
+            build_post_freeze_verification(post_freeze_results)
         else:
             print("\nGate is NO-GO after verifier results — skipping freeze")
             return 1
