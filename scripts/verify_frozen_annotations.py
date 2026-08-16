@@ -21,7 +21,9 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _ANNOTATIONS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "annotations"
 _DEV_DIR = _ANNOTATIONS_DIR / "development_v3"
+_VAL_DIR = _ANNOTATIONS_DIR / "validation"
 _PHASE_PATH = _ANNOTATIONS_DIR / "annotation_phase.json"
+_PROTOCOL_PATH = _ANNOTATIONS_DIR / "annotation_protocol_manifest.json"
 
 # Files bound in the development annotation manifest (Sec 34)
 _DEV_FILES = {
@@ -48,6 +50,37 @@ _MANIFEST_HASH_MAP = {
     "sequence_secondary_labels_sha256": "sequence_secondary",
     "agreement_report_sha256": "agreement_report",
     "review_queue_sha256": "review_queue",
+}
+
+# Files bound in the validation annotation manifest (Sec 43)
+_VAL_FILES = {
+    "primary_raw": "primary_annotation_attempts.jsonl",
+    "primary_labels": "primary_row_annotations.jsonl",
+    "primary_sequences": "primary_sequence_annotations.jsonl",
+    "secondary_raw": "secondary_annotation_attempts.jsonl",
+    "secondary_labels": "secondary_row_annotations.jsonl",
+    "secondary_sequences": "secondary_sequence_annotations.jsonl",
+    "agreement_report": "validation_agreement_report.json",
+    "review_queue": "review_queue.jsonl",
+    "llm_adjudication": "llm_adjudication.jsonl",
+    "final_adjudicated_labels": "final_adjudicated_labels.jsonl",
+    "final_sequence_labels": "final_sequence_labels.jsonl",
+    "adjudication_manifest": "adjudication_manifest.json",
+}
+
+# Validation manifest hash key → file key mapping
+_VAL_HASH_MAP = {
+    "primary_raw_sha256": "primary_raw",
+    "primary_labels_sha256": "primary_labels",
+    "primary_sequences_sha256": "primary_sequences",
+    "secondary_raw_sha256": "secondary_raw",
+    "secondary_labels_sha256": "secondary_labels",
+    "secondary_sequences_sha256": "secondary_sequences",
+    "agreement_report_sha256": "agreement_report",
+    "review_queue_sha256": "review_queue",
+    "llm_adjudication_sha256": "llm_adjudication",
+    "final_adjudicated_labels_sha256": "final_adjudicated_labels",
+    "final_sequence_labels_sha256": "final_sequence_labels",
 }
 
 
@@ -96,6 +129,9 @@ class FrozenAnnotationVerifier:
         print(f"FROZEN ANNOTATION VERIFIER — {self.split}")
         print("=" * 70)
 
+        if self.split == "validation":
+            return self._verify_validation()
+
         self._verify_files_exist()
         self._verify_file_hashes()
         self._verify_frozen_corpus_sha()
@@ -105,6 +141,172 @@ class FrozenAnnotationVerifier:
         self._verify_gate_go()
         self._verify_protocol_frozen()
         self._verify_phase_status()
+
+        print("\n" + "=" * 70)
+        total = self.checks_passed + self.checks_failed
+        print(f"Results: {self.checks_passed}/{total} checks passed, "
+              f"{self.checks_failed} failed")
+        if self.findings:
+            print(f"\nBLOCKING FINDINGS ({len(self.findings)}):")
+            for f in self.findings:
+                print(f"  - {f}")
+            print("\nVERIFICATION: FAIL")
+            return False
+        else:
+            print("\nVERIFICATION: PASS")
+            return True
+
+    def _verify_validation(self) -> bool:
+        """Sec 46: Validation-specific verification."""
+        print("\n--- Validation Verification ---")
+
+        # 1. Development protocol is frozen
+        print("\n[V1] Development protocol frozen...")
+        if _PROTOCOL_PATH.exists():
+            pm = _load_json(_PROTOCOL_PATH)
+            if pm.get("annotation_schema_frozen") and pm.get("annotation_prompts_frozen"):
+                self._pass("development protocol frozen")
+            else:
+                self._fail("development protocol not frozen")
+        else:
+            self._fail("annotation_protocol_manifest.json not found")
+
+        # 2. Validation protocol hash matches frozen development protocol
+        print("\n[V2] Validation protocol hash matches development...")
+        val_manifest_path = _VAL_DIR / "annotation_manifest.json"
+        if val_manifest_path.exists():
+            vm = _load_json(val_manifest_path)
+            crossref = vm.get("protocol_hash_crossref", {})
+            if pm and crossref.get("annotation_schema_sha256") == pm.get("annotation_schema_sha256"):
+                self._pass("schema hash matches")
+            else:
+                self._fail("schema hash mismatch")
+            if pm and crossref.get("prompt_manifest_sha256") == pm.get("prompt_manifest_sha256"):
+                self._pass("prompt manifest hash matches")
+            else:
+                self._fail("prompt manifest hash mismatch")
+        else:
+            self._fail("validation annotation_manifest.json not found")
+
+        # 3. All validation artifacts exist
+        print("\n[V3] Validation artifact existence...")
+        for key, fname in _VAL_FILES.items():
+            fpath = _VAL_DIR / fname
+            if fpath.exists():
+                self._pass(f"{key}: {fname} exists")
+            else:
+                self._fail(f"{key}: {fname} MISSING")
+
+        # 4. All hashes match
+        print("\n[V4] Validation artifact hash verification...")
+        if val_manifest_path.exists():
+            vm = _load_json(val_manifest_path)
+            for hash_key, file_key in _VAL_HASH_MAP.items():
+                expected = vm.get(hash_key, "")
+                if not expected:
+                    self._fail(f"{file_key}: no hash in manifest")
+                    continue
+                fpath = _VAL_DIR / _VAL_FILES[file_key]
+                if not fpath.exists():
+                    self._fail(f"{file_key}: file missing")
+                    continue
+                actual = _sha256(fpath)
+                if actual == expected:
+                    self._pass(f"{file_key}: SHA256 matches")
+                else:
+                    self._fail(f"{file_key}: SHA256 MISMATCH")
+        else:
+            self._fail("annotation_manifest.json not found — cannot verify hashes")
+
+        # 5. Row counts: 225
+        print("\n[V5] Validation row counts...")
+        primary_rows = _count_jsonl(_VAL_DIR / "primary_row_annotations.jsonl")
+        secondary_rows = _count_jsonl(_VAL_DIR / "secondary_row_annotations.jsonl")
+        final_rows = _count_jsonl(_VAL_DIR / "final_adjudicated_labels.jsonl")
+        if primary_rows == 225:
+            self._pass(f"primary rows: {primary_rows}/225")
+        else:
+            self._fail(f"primary rows: expected 225, got {primary_rows}")
+        if secondary_rows == 225:
+            self._pass(f"secondary rows: {secondary_rows}/225")
+        else:
+            self._fail(f"secondary rows: expected 225, got {secondary_rows}")
+        if final_rows == 225:
+            self._pass(f"final rows: {final_rows}/225")
+        else:
+            self._fail(f"final rows: expected 225, got {final_rows}")
+
+        # 6. Sequence counts: 36
+        print("\n[V6] Validation sequence counts...")
+        primary_seqs = _count_jsonl(_VAL_DIR / "primary_sequence_annotations.jsonl")
+        secondary_seqs = _count_jsonl(_VAL_DIR / "secondary_sequence_annotations.jsonl")
+        if primary_seqs == 36:
+            self._pass(f"primary sequences: {primary_seqs}/36")
+        else:
+            self._fail(f"primary sequences: expected 36, got {primary_seqs}")
+        if secondary_seqs == 36:
+            self._pass(f"secondary sequences: {secondary_seqs}/36")
+        else:
+            self._fail(f"secondary sequences: expected 36, got {secondary_seqs}")
+
+        # 7. Adjudication complete
+        print("\n[V7] Validation adjudication complete...")
+        adj_path = _VAL_DIR / "adjudication_manifest.json"
+        if adj_path.exists():
+            adj = _load_json(adj_path)
+            if adj.get("adjudicated_count", 0) > 0:
+                self._pass(f"adjudicated_count: {adj['adjudicated_count']}")
+            else:
+                self._fail("adjudicated_count: 0")
+            rate = adj.get("unresolved_row_rate", 1.0)
+            if rate <= 0.10:
+                self._pass(f"unresolved_row_rate: {rate:.4f} (<=10%)")
+            else:
+                self._fail(f"unresolved_row_rate: {rate:.4f} (>10%)")
+        else:
+            self._fail("adjudication_manifest.json not found")
+
+        # 8. Validation gate GO
+        print("\n[V8] Validation gate...")
+        gate_path = _VAL_DIR / "validation_annotation_gate.json"
+        if gate_path.exists():
+            gate = _load_json(gate_path)
+            if gate.get("go_no_go") == "GO":
+                self._pass("go_no_go: GO")
+            else:
+                self._fail(f"go_no_go: {gate.get('go_no_go')}")
+        else:
+            self._fail("validation_annotation_gate.json not found")
+
+        # 9. Frozen corpus SHA
+        print("\n[V9] Frozen corpus SHA...")
+        if val_manifest_path.exists():
+            vm = _load_json(val_manifest_path)
+            corpus_path = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation" / "frozen_corpus_manifest.json"
+            if corpus_path.exists():
+                actual = _sha256(corpus_path)
+                expected = vm.get("frozen_corpus_manifest_sha256", "")
+                if actual == expected:
+                    self._pass("frozen corpus SHA matches")
+                else:
+                    self._fail("frozen corpus SHA MISMATCH")
+
+        # 10. Phase status
+        print("\n[V10] Annotation phase status...")
+        if _PHASE_PATH.exists():
+            phase = _load_json(_PHASE_PATH)
+            if phase.get("validation_annotation_complete") is True:
+                self._pass("validation_annotation_complete: true")
+            else:
+                self._fail(f"validation_annotation_complete: {phase.get('validation_annotation_complete')}")
+            if phase.get("test_annotation_complete") is not True:
+                self._pass("test_annotation_complete: false (correct)")
+            else:
+                self._fail("test_annotation_complete: true (should be false)")
+            if phase.get("annotations_frozen") is False:
+                self._pass("annotations_frozen: false (correct)")
+            else:
+                self._fail(f"annotations_frozen: {phase.get('annotations_frozen')} (should be false)")
 
         print("\n" + "=" * 70)
         total = self.checks_passed + self.checks_failed
@@ -411,11 +613,11 @@ class FrozenAnnotationVerifier:
         else:
             self._fail(f"phase annotation_prompts_frozen: {phase.get('annotation_prompts_frozen')}")
 
-        # validation/test should not be complete
-        if phase.get("validation_annotation_complete") is not True:
-            self._pass("validation_annotation_complete: false (correct)")
+        # validation should be complete (per §47), test should not
+        if phase.get("validation_annotation_complete") is True:
+            self._pass("validation_annotation_complete: true (correct)")
         else:
-            self._fail("validation_annotation_complete: true (should be false)")
+            self._fail("validation_annotation_complete: false (should be true)")
 
         if phase.get("test_annotation_complete") is not True:
             self._pass("test_annotation_complete: false (correct)")

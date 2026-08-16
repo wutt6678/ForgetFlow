@@ -4,7 +4,7 @@
   "adjudication_code_commit": "f83af30edd6d9465c5c0be64410d5b228e6e916a",
   "latest_annotation_evidence_commit": "83f04d442c30dfe1eef1037c707be24b668f03a4",
   "development_annotation_freeze_commit": "b5c717866ea15df42bbffabc8c7fcf49c95bb259",
-  "annotation_phase": "DEVELOPMENT_PILOT",
+  "annotation_phase": "VALIDATION_COMPLETE",
   "annotation_prompts_frozen": true,
   "annotation_schema_frozen": true,
   "annotations_frozen": false,
@@ -14,5 +14,6 @@
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
   "schema_version": "1.0",
   "test_annotation_complete": false,
-  "validation_annotation_complete": false
+  "validation_annotation_complete": true,
+  "validation_annotation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf"
 }

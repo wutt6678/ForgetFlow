@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-002: Validation annotation manifest — binds all validation artifacts by SHA256",
+  "created_at": "2026-08-16T11:38:23.421473+00:00",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "frozen_annotation_protocol_sha256": "d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83",
+  "validation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
+  "primary_raw_sha256": "8bc82239d8893354106a5fb357f62388f108f05bac4ac3b1f57df8d028277a8b",
+  "primary_labels_sha256": "0d91d568fd23affb19d60bfb69be02f990aa9efaf4e7fe700ecbbaed4259a742",
+  "primary_sequences_sha256": "c3dbe4b4bac14c0ebe3126221d5ac6b8efa2e1e274430d7ae38fec51c9d4b2c1",
+  "secondary_raw_sha256": "1267c94fcacc0e260e2b7e1d5800fa47a30cfc03f473b4b1d387ac31e18bfee7",
+  "secondary_labels_sha256": "4ecf22e2bed38d820ae9ab9ace5e45dbabc12e0b0de45d5a4ff90425d43b947c",
+  "secondary_sequences_sha256": "413ec2460a5669d1e42f59d9870683f5008f61eef7f700fa699df4b3c3e9a474",
+  "agreement_report_sha256": "22d8d8ce38eb456856e101b00de7f98de45eb2664e505f4b832750514979b0a2",
+  "review_queue_sha256": "d7b18142a69ac6fa3f61fbb4f468059c1b8d959799c9a121c2d892f4ad56fa08",
+  "llm_adjudication_sha256": "c24dcb05b7aee70d734fbabf3168cbb664dc9824fed4c6f7671f1107946a3a05",
+  "final_adjudicated_labels_sha256": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
+  "final_sequence_labels_sha256": "00751fffb486c017afcd8dd7e1d31fc0a5c5fce4026a305ef7bb9219078648e3",
+  "adjudication_manifest_sha256": "6ead493853d3473359140a15409a650d906f50af964b7b11c4ee1755d98699eb",
+  "validation_input_preflight_sha256": "51ad58cff715a219d5410cd0fbd278357659e3d19593a21b1d4e78f085df6edc",
+  "row_count": {
+    "primary": 225,
+    "secondary": 225,
+    "final": 225
+  },
+  "sequence_count": {
+    "primary": 36,
+    "secondary": 36,
+    "final": 12
+  },
+  "protocol_hash_crossref": {
+    "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+    "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "secondary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "prompt_manifest_sha256": "6bce9ab304bda040cf1cec657a95685d7d5e8d5561070eed6d487502c2ddce77",
+    "annotation_config_sha256": "e6c6e414f215f1578f4cad95b630201994d5bf5a3ddea931d90a8207c19976cf"
+  }
+}

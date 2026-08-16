@@ -341,3 +341,154 @@ class TestValidationOutputIsolation:
         assert sha, "Frozen corpus manifest SHA should not be empty"
         expected = "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2"
         assert sha == expected
+
+
+# ===========================================================================
+# Validation target resolution
+# ===========================================================================
+
+
+class TestValidationTargetResolution:
+    """Sec 52: All 225 validation rows must have targets resolved."""
+
+    @pytest.mark.skipif(
+        not _VALIDATION_DIR.exists(),
+        reason="validation annotations not found",
+    )
+    def test_validation_target_resolution_225_of_225(self):
+        """All 225 validation rows must have non-empty candidate_ids."""
+        primary_path = _VALIDATION_DIR / "primary_row_annotations.jsonl"
+        if not primary_path.exists():
+            pytest.skip("primary_row_annotations.jsonl not found")
+        count = 0
+        with open(primary_path) as f:
+            for line in f:
+                if line.strip():
+                    record = json.loads(line)
+                    assert record.get("candidate_id"), f"Row {count} missing candidate_id"
+                    count += 1
+        assert count == 225, f"Expected 225 rows, got {count}"
+
+
+# ===========================================================================
+# Validation cannot mutate development artifacts
+# ===========================================================================
+
+
+class TestValidationCannotMutateDevelopment:
+    """Sec 52: Validation runners must not write to development_v3/."""
+
+    def test_validation_cannot_mutate_development_artifacts(self):
+        """Validation output directory must be separate from development."""
+        dev_dir = _ANNOTATIONS_DIR / "development_v3"
+        val_dir = _ANNOTATIONS_DIR / "validation"
+        assert dev_dir != val_dir
+        assert not str(val_dir).startswith(str(dev_dir))
+
+    def test_validation_scripts_do_not_write_to_development(self):
+        """Validation scripts must reference validation/ not development_v3/."""
+        import ast
+        scripts_dir = _PROJECT_ROOT / "scripts"
+        validation_scripts = [
+            scripts_dir / "run_validation_agreement.py",
+            scripts_dir / "build_validation_freeze.py",
+        ]
+        for script_path in validation_scripts:
+            if not script_path.exists():
+                continue
+            content = script_path.read_text()
+            # Check that output paths reference validation, not development_v3
+            if "development_v3" in content:
+                # Allow reads for cross-references but not writes
+                lines_with_dev = [
+                    line for line in content.split("\n")
+                    if "development_v3" in line and ("write" in line.lower() or "open" in line.lower() and "w" in line)
+                ]
+                assert not lines_with_dev, (
+                    f"{script_path.name} writes to development_v3: {lines_with_dev}"
+                )
+
+
+# ===========================================================================
+# Validation resume identity enforcement
+# ===========================================================================
+
+
+class TestValidationResumeIdentity:
+    """Sec 52: Validation resume must enforce campaign identity."""
+
+    def test_validation_resume_identity_enforcement(self):
+        """Resuming validation annotation must verify campaign identity."""
+        identity_val = build_campaign_identity(
+            queue_sha256="abc",
+            annotation_config_sha256="def",
+            prompt_manifest_sha256="ghi",
+            annotation_code_commit="jkl",
+            split="validation",
+        )
+        identity_dev = build_campaign_identity(
+            queue_sha256="abc",
+            annotation_config_sha256="def",
+            prompt_manifest_sha256="ghi",
+            annotation_code_commit="jkl",
+            split="development",
+        )
+        mismatches = verify_campaign_identity(identity_val, identity_dev)
+        assert len(mismatches) > 0, "Resume across splits should fail"
+
+
+# ===========================================================================
+# J3 called only on review items
+# ===========================================================================
+
+
+class TestJ3CalledOnlyOnReviewItems:
+    """Sec 52: J3 adjudicator must only process review queue items."""
+
+    @pytest.mark.skipif(
+        not (_VALIDATION_DIR / "adjudication_manifest.json").exists(),
+        reason="validation adjudication not found",
+    )
+    def test_j3_called_only_on_review_items(self):
+        """J3 adjudication count must match review queue size."""
+        review_queue_path = _VALIDATION_DIR / "review_queue.jsonl"
+        adj_manifest_path = _VALIDATION_DIR / "adjudication_manifest.json"
+        if not review_queue_path.exists():
+            pytest.skip("review_queue.jsonl not found")
+        # Count review queue items
+        review_count = 0
+        with open(review_queue_path) as f:
+            for line in f:
+                if line.strip():
+                    review_count += 1
+        # Check adjudication manifest
+        adj_manifest = _load_json(adj_manifest_path)
+        adjudicated_count = adj_manifest.get("adjudicated_count", 0)
+        assert adjudicated_count == review_count, (
+            f"J3 adjudicated {adjudicated_count} but review queue has {review_count}"
+        )
+
+
+# ===========================================================================
+# Validation freeze requires frozen development protocol hash
+# ===========================================================================
+
+
+class TestValidationFreezeRequiresProtocolHash:
+    """Sec 52: Validation freeze must bind frozen development protocol hash."""
+
+    @pytest.mark.skipif(
+        not (_VALIDATION_DIR / "annotation_manifest.json").exists(),
+        reason="validation manifest not found",
+    )
+    def test_validation_freeze_requires_frozen_development_protocol_hash(self):
+        """Validation manifest must include protocol hash cross-reference."""
+        manifest_path = _VALIDATION_DIR / "annotation_manifest.json"
+        manifest = _load_json(manifest_path)
+        crossref = manifest.get("protocol_hash_crossref", {})
+        assert "annotation_schema_sha256" in crossref
+        assert "prompt_manifest_sha256" in crossref
+        # Must match frozen protocol
+        protocol = _load_json(_PROTOCOL_MANIFEST_PATH)
+        assert crossref["annotation_schema_sha256"] == protocol["annotation_schema_sha256"]
+        assert crossref["prompt_manifest_sha256"] == protocol["prompt_manifest_sha256"]

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-002: Validation annotation freeze manifest",
+  "created_at": "2026-08-16T11:38:23.425008+00:00",
+  "annotations_frozen": false,
+  "go_no_go": "GO",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "frozen_annotation_protocol_sha256": "d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83",
+  "validation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
+  "artifact_shas": {
+    "primary_raw": "8bc82239d8893354106a5fb357f62388f108f05bac4ac3b1f57df8d028277a8b",
+    "primary_labels": "0d91d568fd23affb19d60bfb69be02f990aa9efaf4e7fe700ecbbaed4259a742",
+    "primary_sequences": "c3dbe4b4bac14c0ebe3126221d5ac6b8efa2e1e274430d7ae38fec51c9d4b2c1",
+    "primary_campaign_identity": "e5fd88c26530b4e03d27127bb6d175765a31f88d41062bdd25d9dc7a0b3df382",
+    "primary_summary": "ec602b8b71cb1301a75d942cb37ff309091cddcc541e44681da5796ad54461ec",
+    "secondary_raw": "1267c94fcacc0e260e2b7e1d5800fa47a30cfc03f473b4b1d387ac31e18bfee7",
+    "secondary_labels": "4ecf22e2bed38d820ae9ab9ace5e45dbabc12e0b0de45d5a4ff90425d43b947c",
+    "secondary_sequences": "413ec2460a5669d1e42f59d9870683f5008f61eef7f700fa699df4b3c3e9a474",
+    "secondary_campaign_identity": "e5fd88c26530b4e03d27127bb6d175765a31f88d41062bdd25d9dc7a0b3df382",
+    "secondary_summary": "e864e775c672216738c159971fb0c6494774a35dab315e5a0c513ed468ebfdcb",
+    "validation_input_preflight": "51ad58cff715a219d5410cd0fbd278357659e3d19593a21b1d4e78f085df6edc",
+    "agreement_report": "22d8d8ce38eb456856e101b00de7f98de45eb2664e505f4b832750514979b0a2",
+    "review_queue": "d7b18142a69ac6fa3f61fbb4f468059c1b8d959799c9a121c2d892f4ad56fa08",
+    "llm_adjudication": "c24dcb05b7aee70d734fbabf3168cbb664dc9824fed4c6f7671f1107946a3a05",
+    "final_adjudicated_labels": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
+    "final_sequence_labels": "00751fffb486c017afcd8dd7e1d31fc0a5c5fce4026a305ef7bb9219078648e3",
+    "adjudication_manifest": "6ead493853d3473359140a15409a650d906f50af964b7b11c4ee1755d98699eb"
+  },
+  "row_count": {
+    "primary": 225,
+    "secondary": 225,
+    "final": 225
+  },
+  "sequence_count": {
+    "primary": 36,
+    "secondary": 36,
+    "final": 12
+  },
+  "annotation_manifest_sha256": "a00cf222a5e01f4372d179bdd7a2b8d17a355b42d28e4a719c3ed00ce24cdad0",
+  "gate_sha256": "23f75851fc8c5521988714959e86f43189f739cd3d77da937844988021775fa3"
+}
