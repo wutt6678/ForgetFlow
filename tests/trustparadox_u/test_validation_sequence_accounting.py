@@ -30,6 +30,27 @@ _FINAL_SEQ_PATH = _VALIDATION_DIR / "final_sequence_labels.jsonl"
 _ANNOTATION_MANIFEST_PATH = _VALIDATION_DIR / "annotation_manifest.json"
 _PRIMARY_CAMPAIGN_PATH = _VALIDATION_DIR / "primary_campaign_summary.json"
 _SECONDARY_CAMPAIGN_PATH = _VALIDATION_DIR / "secondary_campaign_summary.json"
+_SUPERSESSION_PATH = _VALIDATION_DIR / "validation_gate_supersession.json"
+_FREEZE_MANIFEST_PATH = _VALIDATION_DIR / "validation_annotation_freeze_manifest.json"
+_PHASE_PATH = _ANNOTATIONS_DIR / "annotation_phase.json"
+_VERIFIER_RESULTS_PATH = _VALIDATION_DIR / "verifier_results.json"
+
+# Expected provenance-role commit values
+_PROVENANCE_COMMITS = {
+    "validation_annotation_source_commit":
+        "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
+    "sequence_accounting_repair_code_commit":
+        "b9c6886689ca277d84605d547546c84f1d1ade74",
+    "validation_gate_hardening_commit":
+        "438922feebd879d2f89a9874e6e5a66a6c885ef2",
+    "corrected_validation_evidence_commit":
+        "3d167ed12a0f1c6576d55a78ae274614601c69d3",
+    "corrected_validation_freeze_commit":
+        "fd72b0054f67e9ff05fa5311d91550d830155db6",
+    "validation_report_commit":
+        "7cf0eb33bd91064b6cda9257eeb5bc385e14a302",
+}
+_FAULTY_GO_COMMIT = "615934c88783379756311f6232cbb4a626208dc7"
 
 pytestmark = pytest.mark.skipif(
     not _GATE_PATH.exists(),
@@ -346,13 +367,13 @@ class TestValidationGateHardening:
         assert gate["provenance_audit_pass"] is True
 
     def test_development_verifier_failure_blocks_validation_go(self):
-        """§43: Development verifier failure should block validation GO."""
+        """§34: Development verifier pass is separate from gate GO."""
         gate = _load_json(_GATE_PATH)
-        assert gate["development_protocol_verifier_pass"] is True
+        assert gate["development_annotation_verifier_pass"] is True
         # If it were False, gate would be NO-GO
         # Verify the logic: all blocking findings must be empty for GO
         if gate["go_no_go"] == "GO":
-            assert gate["development_protocol_verifier_pass"] is True
+            assert gate["development_annotation_verifier_pass"] is True
 
     def test_corpus_verifier_failure_blocks_validation_go(self):
         """§43: Corpus verifier failure should block validation GO."""
@@ -409,3 +430,289 @@ class TestReporting:
             assert gate["ready_for_test_annotation"] is True
         else:
             assert gate["ready_for_test_annotation"] is False
+
+
+# ===========================================================================
+# §45: Provenance-role regression tests
+# ===========================================================================
+
+
+class TestProvenanceRoleRegression:
+    """§45: Each provenance-role field must bind the correct commit."""
+
+    def test_validation_annotation_source_is_original_provider_run_commit(self):
+        """§45: validation_annotation_source_commit == 0ed97256."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        assert manifest["validation_annotation_source_commit"] == _PROVENANCE_COMMITS["validation_annotation_source_commit"]
+
+    def test_sequence_repair_commit_is_b9c688(self):
+        """§45: sequence_accounting_repair_code_commit == b9c68866."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        assert manifest["sequence_accounting_repair_code_commit"] == _PROVENANCE_COMMITS["sequence_accounting_repair_code_commit"]
+
+    def test_gate_hardening_commit_is_438922(self):
+        """§45: validation_gate_hardening_commit == 438922fe."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        assert manifest["validation_gate_hardening_commit"] == _PROVENANCE_COMMITS["validation_gate_hardening_commit"]
+
+    def test_validation_source_not_overloaded_with_repair_commit(self):
+        """§45: validation_source_commit must not equal repair or gate commits."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        src = manifest["validation_source_commit"]
+        assert src != _PROVENANCE_COMMITS["sequence_accounting_repair_code_commit"]
+        assert src != _PROVENANCE_COMMITS["validation_gate_hardening_commit"]
+
+    def test_repair_source_not_615934c(self):
+        """§45: No provenance field should point to the faulty GO commit."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        for field in ["validation_source_commit", "validation_annotation_source_commit",
+                       "sequence_accounting_repair_code_commit", "validation_gate_hardening_commit"]:
+            assert manifest[field] != _FAULTY_GO_COMMIT, f"{field} still points to faulty GO commit"
+
+    def test_all_six_provenance_fields_present(self):
+        """§7-8: All 6 provenance-role fields must be present in manifest."""
+        manifest = _load_json(_ANNOTATION_MANIFEST_PATH)
+        for field in _PROVENANCE_COMMITS:
+            assert field in manifest, f"Missing provenance field: {field}"
+            assert manifest[field] == _PROVENANCE_COMMITS[field]
+
+    def test_phase_provenance_fields(self):
+        """§12: annotation_phase.json must have correct provenance fields."""
+        phase = _load_json(_PHASE_PATH)
+        assert phase["validation_annotation_source_commit"] == _PROVENANCE_COMMITS["validation_annotation_source_commit"]
+        assert phase["validation_sequence_repair_commit"] == _PROVENANCE_COMMITS["sequence_accounting_repair_code_commit"]
+        assert phase["validation_gate_hardening_commit"] == _PROVENANCE_COMMITS["validation_gate_hardening_commit"]
+
+
+# ===========================================================================
+# §47: Supersession timestamp test
+# ===========================================================================
+
+
+class TestSupersessionTimestamp:
+    """§47: Supersession record timestamp must not predate the superseded commit."""
+
+    def test_supersession_timestamp_not_before_superseded(self):
+        """§47: created_at must be after the superseded commit date."""
+        from datetime import datetime, timezone
+        supersession = _load_json(_SUPERSESSION_PATH)
+        created_at = datetime.fromisoformat(supersession["created_at"])
+        # The superseded commit (615934c) was from before 2026-08-16.
+        # The supersession record must have been created after that.
+        cutoff = datetime(2026, 8, 2, tzinfo=timezone.utc)
+        assert created_at > cutoff, (
+            f"Supersession timestamp {created_at} predates {cutoff}"
+        )
+
+    def test_supersession_record_has_source_commit(self):
+        """§18-19: Supersession must include record source commit."""
+        supersession = _load_json(_SUPERSESSION_PATH)
+        assert "supersession_record_created_at" in supersession
+        assert "supersession_record_source_commit" in supersession
+
+
+# ===========================================================================
+# §48: Campaign semantic tests
+# ===========================================================================
+
+
+class TestCampaignSemantics:
+    """§48: Campaign summary semantics — terminal_success_items <= unique items."""
+
+    def test_primary_terminal_success_leq_unique_items(self):
+        """§48: terminal_success_items <= unique_annotation_item_ids."""
+        primary = _load_json(_PRIMARY_CAMPAIGN_PATH)
+        assert primary["terminal_success_items"] <= primary["unique_annotation_item_ids"]
+
+    def test_primary_terminal_success_is_261(self):
+        """§48: Primary terminal_success_items == 261."""
+        primary = _load_json(_PRIMARY_CAMPAIGN_PATH)
+        assert primary["terminal_success_items"] == 261
+
+    def test_secondary_terminal_success_leq_unique_items(self):
+        """§48: Secondary terminal_success_items <= unique_annotation_item_ids."""
+        secondary = _load_json(_SECONDARY_CAMPAIGN_PATH)
+        assert secondary["terminal_success_items"] <= secondary["unique_annotation_item_ids"]
+
+    def test_primary_attempt_status_consistency(self):
+        """§48: status_counts must sum to total_provider_attempts."""
+        primary = _load_json(_PRIMARY_CAMPAIGN_PATH)
+        total_from_status = sum(primary["status_counts"].values())
+        assert total_from_status == primary["total_provider_attempts"]
+
+    def test_secondary_attempt_status_consistency(self):
+        """§48: status_counts must sum to total_provider_attempts."""
+        secondary = _load_json(_SECONDARY_CAMPAIGN_PATH)
+        total_from_status = sum(secondary["status_counts"].values())
+        assert total_from_status == secondary["total_provider_attempts"]
+
+
+# ===========================================================================
+# §49: Sequence invariants after provenance patch
+# ===========================================================================
+
+
+class TestSequenceInvariantsPatched:
+    """§49: Sequence invariants must hold after provenance patch."""
+
+    def test_36_final_sequence_labels(self):
+        """§49: Exactly 36 final sequence labels."""
+        records = _load_jsonl(_FINAL_SEQ_PATH)
+        assert len(records) == 36
+
+    def test_36_unique_sequence_annotation_ids(self):
+        """§49: 36 unique sequence_annotation_id values."""
+        records = _load_jsonl(_FINAL_SEQ_PATH)
+        ids = [r["sequence_annotation_id"] for r in records]
+        assert len(set(ids)) == 36
+
+    def test_12_structural_families(self):
+        """§49: 12 structural sequence families."""
+        records = _load_jsonl(_FINAL_SEQ_PATH)
+        families = set()
+        for r in records:
+            fam = r.get("sequence_family_id", "")
+            if fam:
+                families.add(fam)
+        assert len(families) == 12
+
+    def test_3_trust_levels_per_family(self):
+        """§49: Each family has exactly 3 trust levels."""
+        records = _load_jsonl(_FINAL_SEQ_PATH)
+        from collections import defaultdict
+        family_trusts: dict[str, set] = defaultdict(set)
+        for r in records:
+            fam = r.get("sequence_family_id", "")
+            trust = r.get("trust_level", "")
+            if fam and trust:
+                family_trusts[fam].add(trust)
+        for fam, trusts in family_trusts.items():
+            assert len(trusts) == 3, f"Family {fam} has {len(trusts)} trust levels, expected 3"
+
+    def test_zero_unmatched_sequence_ids(self):
+        """§49: 0 unmatched sequence IDs between input and final."""
+        primary_seq = _VALIDATION_DIR / "primary_sequence_annotations.jsonl"
+        final_seq = _FINAL_SEQ_PATH
+        p_ids = set(r["sequence_annotation_id"] for r in _load_jsonl(primary_seq))
+        f_ids = set(r["sequence_annotation_id"] for r in _load_jsonl(final_seq))
+        assert len(p_ids - f_ids) == 0
+        assert len(f_ids - p_ids) == 0
+
+
+# ===========================================================================
+# §50: Final freeze inventory completeness
+# ===========================================================================
+
+
+class TestFreezeInventoryCompleteness:
+    """§50: Every freeze inventory entry must have file, SHA, and match."""
+
+    def test_all_freeze_artifacts_exist_and_match(self):
+        """§50: All artifact_shas in freeze manifest must verify."""
+        freeze = _load_json(_FREEZE_MANIFEST_PATH)
+        artifact_shas = freeze.get("artifact_shas", {})
+        assert len(artifact_shas) > 0, "No artifact_shas in freeze manifest"
+        for key, expected_sha in artifact_shas.items():
+            if not expected_sha:
+                continue  # skip empty entries
+            # Map key to filename
+            fname = _val_file_for_key(key)
+            if fname is None:
+                continue
+            fpath = _VALIDATION_DIR / fname
+            assert fpath.exists(), f"Freeze artifact missing: {key} ({fname})"
+            actual = _sha256(fpath)
+            assert actual == expected_sha, f"SHA mismatch for {key}: expected {expected_sha[:16]}..., got {actual[:16]}..."
+
+
+# ===========================================================================
+# §51: Manifest/freeze cross-reference checks
+# ===========================================================================
+
+
+class TestManifestFreezeCrossReference:
+    """§51: Freeze manifest must cross-reference annotation manifest and gate."""
+
+    def test_freeze_annotation_manifest_sha(self):
+        """§51: freeze.annotation_manifest_sha256 == actual SHA."""
+        freeze = _load_json(_FREEZE_MANIFEST_PATH)
+        expected = freeze["annotation_manifest_sha256"]
+        actual = _sha256(_ANNOTATION_MANIFEST_PATH)
+        assert actual == expected
+
+    def test_freeze_gate_sha(self):
+        """§51: freeze.gate_sha256 == actual SHA."""
+        freeze = _load_json(_FREEZE_MANIFEST_PATH)
+        expected = freeze["gate_sha256"]
+        actual = _sha256(_GATE_PATH)
+        assert actual == expected
+
+
+# ===========================================================================
+# §52: Phase/freeze/report consistency
+# ===========================================================================
+
+
+class TestPhaseFreezeConsistency:
+    """§52: Phase, freeze, and gate must be mutually consistent."""
+
+    def test_validation_annotation_complete(self):
+        """§52: validation_annotation_complete == true."""
+        phase = _load_json(_PHASE_PATH)
+        assert phase["validation_annotation_complete"] is True
+
+    def test_test_annotation_not_complete(self):
+        """§52: test_annotation_complete == false."""
+        phase = _load_json(_PHASE_PATH)
+        assert phase["test_annotation_complete"] is False
+
+    def test_annotations_not_frozen(self):
+        """§52: annotations_frozen == false."""
+        phase = _load_json(_PHASE_PATH)
+        assert phase["annotations_frozen"] is False
+
+    def test_gate_is_go(self):
+        """§52: Validation gate must be GO."""
+        gate = _load_json(_GATE_PATH)
+        assert gate["go_no_go"] == "GO"
+
+    def test_verifier_results_persisted(self):
+        """§21-22: verifier_results.json must exist and have all 3 verifiers."""
+        assert _VERIFIER_RESULTS_PATH.exists(), "verifier_results.json missing"
+        vr = _load_json(_VERIFIER_RESULTS_PATH)
+        assert "frozen_corpus" in vr
+        assert "development_annotations" in vr
+        assert "validation_annotations" in vr
+        for name, result in vr.items():
+            assert result["exit_code"] == 0, f"Verifier {name} failed"
+            assert result["checks_passed"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers for freeze inventory
+# ---------------------------------------------------------------------------
+
+_VAL_FILE_MAP = {
+    "primary_raw": "primary_annotation_attempts.jsonl",
+    "primary_labels": "primary_row_annotations.jsonl",
+    "primary_sequences": "primary_sequence_annotations.jsonl",
+    "primary_campaign_identity": "primary_campaign_identity.json",
+    "primary_summary": "primary_campaign_summary.json",
+    "secondary_raw": "secondary_annotation_attempts.jsonl",
+    "secondary_labels": "secondary_row_annotations.jsonl",
+    "secondary_sequences": "secondary_sequence_annotations.jsonl",
+    "secondary_campaign_identity": "secondary_campaign_identity.json",
+    "secondary_summary": "secondary_campaign_summary.json",
+    "validation_input_preflight": "validation_input_preflight.json",
+    "agreement_report": "validation_agreement_report.json",
+    "review_queue": "review_queue.jsonl",
+    "llm_adjudication": "llm_adjudication.jsonl",
+    "final_adjudicated_labels": "final_adjudicated_labels.jsonl",
+    "final_sequence_labels": "final_sequence_labels.jsonl",
+    "adjudication_manifest": "adjudication_manifest.json",
+    "verifier_results": "verifier_results.json",
+}
+
+
+def _val_file_for_key(key: str) -> str | None:
+    return _VAL_FILE_MAP.get(key)

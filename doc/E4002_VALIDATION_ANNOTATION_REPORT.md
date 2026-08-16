@@ -7,7 +7,15 @@
 | Starting commit | `8948acc` (doc: add E4-001A completion report) |
 | E4-001A provenance correction commit | `692d8435c52e5523e6ee31138a763a7b3add77c0` |
 | Validation annotation source commit | `0ed97256dc8e92907a55dd1a4845a9d52fa929bf` |
-| Sequence repair source commit | `615934c88783379756311f6232cbb4a626208dc7` |
+| Faulty validation GO/report commit | `615934c88783379756311f6232cbb4a626208dc7` |
+| Sequence identity repair code commit | `b9c6886689ca277d84605d547546c84f1d1ade74` |
+| Validation gate hardening commit | `438922feebd879d2f89a9874e6e5a66a6c885ef2` |
+| Corrected validation evidence commit | `3d167ed12a0f1c6576d55a78ae274614601c69d3` |
+| Corrected validation freeze commit | `fd72b0054f67e9ff05fa5311d91550d830155db6` |
+| Validation report commit | `7cf0eb33bd91064b6cda9257eeb5bc385e14a302` |
+| Provenance/freeze cleanup code commit (P1) | `ec89719` |
+| Corrected evidence/refreeze commit (P2) | `6bbde25` |
+| Final report commit (P3) | `367f008` |
 | Previous GO superseded | YES (trust-conditioned sequence units collapsed by sequence_family_id) |
 | Frozen corpus manifest SHA | `6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2` |
 | Frozen annotation protocol SHA (manifest file) | `d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83` |
@@ -22,7 +30,7 @@
 | Protocol hash unchanged | **PASS** |
 | Frozen corpus verifier | **PASS** (52/52 checks) |
 | Development annotation verifier | **PASS** (49/49 checks) |
-| Validation annotation verifier | **PASS** (44/44 checks) |
+| Validation annotation verifier | **PASS** (48/48 checks) |
 
 ## Validation Target Resolution
 
@@ -151,8 +159,9 @@ All gate checks passed:
 - unresolved_row_rate_pass: true
 - unresolved_sequence_rate_pass: true
 - provenance_audit_pass: true
+- frozen_corpus_manifest_sha_match: true
 - frozen_corpus_verifier_pass: true
-- development_protocol_verifier_pass: true
+- development_annotation_verifier_pass: true
 
 ## Annotation Phase
 
