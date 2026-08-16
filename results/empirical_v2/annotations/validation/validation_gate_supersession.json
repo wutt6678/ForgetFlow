@@ -1,15 +1,17 @@
 {
   "schema_version": "1.0",
   "description": "Supersession record — original validation GO superseded due to sequence identity collapse",
-  "created_at": "2026-08-02T00:00:00+00:00",
+  "created_at": "2026-08-16T14:39:03.462769+00:00",
   "superseded_commit": "615934c88783379756311f6232cbb4a626208dc7",
   "reason": "trust_conditioned_sequence_units_collapsed_by_sequence_family_id",
+  "supersession_record_created_at": "2026-08-16T14:39:03.462786+00:00",
+  "supersession_record_source_commit": "ec89719dd789b60a5d3eade5a2a792a16201b240",
   "original_final_sequence_count": 12,
   "required_final_sequence_count": 36,
   "row_results_reused": true,
   "j_j2_sequence_results_reused": true,
   "structural_sequence_families": 12,
   "trust_conditioned_sequence_units": 36,
-  "pairing_key_corrected_to": "sequence_annotation_id",
-  "pairing_key_was": "sequence_family_id"
+  "pairing_key_was": "sequence_family_id",
+  "pairing_key_corrected_to": "sequence_annotation_id"
 }

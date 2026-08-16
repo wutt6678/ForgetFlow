@@ -1,31 +1,39 @@
 {
   "schema_version": "1.0",
   "description": "E4-002: Validation annotation freeze manifest",
-  "created_at": "2026-08-16T13:35:13.556464+00:00",
+  "created_at": "2026-08-16T14:39:03.613898+00:00",
   "annotations_frozen": false,
   "go_no_go": "GO",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
   "frozen_annotation_protocol_sha256": "d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83",
-  "validation_source_commit": "615934c88783379756311f6232cbb4a626208dc7",
+  "validation_annotation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
+  "sequence_accounting_repair_code_commit": "b9c6886689ca277d84605d547546c84f1d1ade74",
+  "validation_gate_hardening_commit": "438922feebd879d2f89a9874e6e5a66a6c885ef2",
+  "derived_artifact_regeneration_commit": "ec89719dd789b60a5d3eade5a2a792a16201b240",
+  "freeze_manifest_generation_commit": "ec89719dd789b60a5d3eade5a2a792a16201b240",
   "artifact_shas": {
     "primary_raw": "8bc82239d8893354106a5fb357f62388f108f05bac4ac3b1f57df8d028277a8b",
     "primary_labels": "0d91d568fd23affb19d60bfb69be02f990aa9efaf4e7fe700ecbbaed4259a742",
     "primary_sequences": "c3dbe4b4bac14c0ebe3126221d5ac6b8efa2e1e274430d7ae38fec51c9d4b2c1",
     "primary_campaign_identity": "e5fd88c26530b4e03d27127bb6d175765a31f88d41062bdd25d9dc7a0b3df382",
-    "primary_summary": "ec602b8b71cb1301a75d942cb37ff309091cddcc541e44681da5796ad54461ec",
+    "primary_summary": "15f98189cdb08ad55dca73ffb7a4d651c32198abaa827e53782645c8bea0280b",
     "secondary_raw": "1267c94fcacc0e260e2b7e1d5800fa47a30cfc03f473b4b1d387ac31e18bfee7",
     "secondary_labels": "4ecf22e2bed38d820ae9ab9ace5e45dbabc12e0b0de45d5a4ff90425d43b947c",
     "secondary_sequences": "413ec2460a5669d1e42f59d9870683f5008f61eef7f700fa699df4b3c3e9a474",
     "secondary_campaign_identity": "e5fd88c26530b4e03d27127bb6d175765a31f88d41062bdd25d9dc7a0b3df382",
-    "secondary_summary": "e864e775c672216738c159971fb0c6494774a35dab315e5a0c513ed468ebfdcb",
+    "secondary_summary": "e3b30b46953c0ab1ca358a81c741d38a086a0c2a5e642395ba15530fd99b337e",
     "validation_input_preflight": "51ad58cff715a219d5410cd0fbd278357659e3d19593a21b1d4e78f085df6edc",
     "agreement_report": "f7b77e042bbdd23698ad6c675b44196d7df4e0508943bdc31d3c1597173b0911",
     "review_queue": "d7b18142a69ac6fa3f61fbb4f468059c1b8d959799c9a121c2d892f4ad56fa08",
     "llm_adjudication": "c24dcb05b7aee70d734fbabf3168cbb664dc9824fed4c6f7671f1107946a3a05",
     "final_adjudicated_labels": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
     "final_sequence_labels": "ee780d054bc68bc24013c1d817ecde06b78ec19ce9ce928d77e5edf52e26379d",
-    "adjudication_manifest": "798a83836ee7aa6168df344e9e3610e1af90b688faa546156ea2fa40dad26675"
+    "adjudication_manifest": "7990bc34d88be90faa4e988198bc0799df76652b8d78c743ca2a9e57054ea47e",
+    "verifier_results": "5e3ae42cbef2673dca9b24fa0a0b75a150f7a426273cc0d92349e01662fa4f00"
   },
+  "primary_campaign_summary_sha256": "15f98189cdb08ad55dca73ffb7a4d651c32198abaa827e53782645c8bea0280b",
+  "secondary_campaign_summary_sha256": "e3b30b46953c0ab1ca358a81c741d38a086a0c2a5e642395ba15530fd99b337e",
+  "verifier_results_sha256": "5e3ae42cbef2673dca9b24fa0a0b75a150f7a426273cc0d92349e01662fa4f00",
   "row_count": {
     "primary": 225,
     "secondary": 225,
@@ -36,6 +44,6 @@
     "secondary": 36,
     "final": 36
   },
-  "annotation_manifest_sha256": "5cd0c23eb5d3dda4ef9900ffd7477780e642c1fa298f4f498e7534a3502c8cc2",
-  "gate_sha256": "8aef2a981139610534ad94d1a065545e8f2efb6a0c0c0fa0597efcf44b34f9b5"
+  "annotation_manifest_sha256": "0aefa4fa9d31ab0912b2b05f99da80fb79dcfed486be8cb6ad18ad575dddb2d7",
+  "gate_sha256": "6c7fea43a97858926e67dbf9c67e8341febc4cdcf03fda896c1c29aca7967c36"
 }

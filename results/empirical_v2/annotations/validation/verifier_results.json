@@ -1,0 +1,23 @@
+{
+  "frozen_corpus": {
+    "checks_total": 52,
+    "checks_passed": 52,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-16T14:39:03.498264+00:00"
+  },
+  "development_annotations": {
+    "checks_total": 49,
+    "checks_passed": 49,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-16T14:39:03.524539+00:00"
+  },
+  "validation_annotations": {
+    "checks_total": 48,
+    "checks_passed": 48,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-16T14:39:03.550467+00:00"
+  }
+}
