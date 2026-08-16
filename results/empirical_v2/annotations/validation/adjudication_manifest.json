@@ -19,7 +19,7 @@
     "consensus_rows": 193,
     "adjudicated_rows": 23,
     "unresolved_rows": 9,
-    "total_sequences": 12,
+    "total_sequences": 36,
     "unresolved_sequences": 0
   },
   "unresolved_row_rate": 0.04,
@@ -31,10 +31,12 @@
   "review_queue_sha256": "d7b18142a69ac6fa3f61fbb4f468059c1b8d959799c9a121c2d892f4ad56fa08",
   "llm_adjudication_sha256": "c24dcb05b7aee70d734fbabf3168cbb664dc9824fed4c6f7671f1107946a3a05",
   "final_adjudicated_labels_sha256": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
-  "final_sequence_labels_sha256": "00751fffb486c017afcd8dd7e1d31fc0a5c5fce4026a305ef7bb9219078648e3",
+  "final_sequence_labels_sha256": "ee780d054bc68bc24013c1d817ecde06b78ec19ce9ce928d77e5edf52e26379d",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
-  "validation_annotation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
+  "validation_annotation_source_commit": "615934c88783379756311f6232cbb4a626208dc7",
   "j3_vs_j_agreement_count": 10,
   "j3_vs_j2_agreement_count": 13,
-  "j3_vs_both_disagree_count": 9
+  "j3_vs_both_disagree_count": 9,
+  "structural_sequence_families": 12,
+  "trust_conditioned_sequence_units": 36
 }

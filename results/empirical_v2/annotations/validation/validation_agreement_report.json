@@ -67,19 +67,24 @@
     }
   },
   "sequence": {
-    "n": 12,
+    "n": 36,
+    "primary_count": 36,
+    "secondary_count": 36,
+    "common_sequence_annotation_ids": 36,
+    "unmatched_primary": 0,
+    "unmatched_secondary": 0,
     "reconstruction_binary_agreement": {
       "raw_agreement": 1.0,
       "cohens_kappa": 1.0,
       "positive_agreement": 1.0,
       "negative_agreement": 1.0,
-      "n": 12,
-      "tp": 11,
+      "n": 36,
+      "tp": 35,
       "fp": 0,
       "fn": 0,
       "tn": 1
     },
     "earliest_step_exact_agreement": 1.0,
-    "earliest_step_n": 11
+    "earliest_step_n": 35
   }
 }
