@@ -17,7 +17,9 @@
 | Corrected evidence/refreeze commit (P2) | `6bbde250c2f8758a8545f5c9ab2359213aed5f06` |
 | Provenance closure logic commit (C1) | `12a6d42b41f5ab918a4349ce34eb519bb39c1c39` |
 | Provenance closure evidence commit (C2) | `f7fbdf6d9bcd3cfc0c388948a643cd9488912915` |
-| Report generated from evidence commit | `f7fbdf6d9bcd3cfc0c388948a643cd9488912915` |
+| Closure-ordering fix commit (F1) | `14b9614` |
+| Post-freeze evidence regeneration commit (F2) | `9ce8f8e` |
+| Report generated from evidence commit | `9ce8f8e` (F2) |
 | Previous GO superseded | YES (trust-conditioned sequence units collapsed by sequence_family_id) |
 | Frozen corpus manifest SHA | `6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2` |
 | Frozen annotation protocol SHA (manifest file) | `d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83` |
@@ -168,7 +170,7 @@ All gate checks passed:
 
 ## Provenance Closure Verification
 
-Post-freeze closure verifier: **PASS** (7/7 checks)
+Post-freeze closure verifier: **PASS** (11/11 checks)
 
 - Annotation manifest SHA256 matches post_freeze_verification.json
 - Validation gate SHA256 matches post_freeze_verification.json
@@ -177,6 +179,14 @@ Post-freeze closure verifier: **PASS** (7/7 checks)
 - Development annotation verifier: PASS (49/49)
 - Validation annotation verifier: PASS (48/48)
 - No self-referential commit SHA in report
+
+Timestamp ordering (all post-date freeze):
+- `freeze_created_at` ≤ `frozen_corpus_verifier.timestamp` ✓
+- `freeze_created_at` ≤ `development_annotation_verifier.timestamp` ✓
+- `freeze_created_at` ≤ `validation_annotation_verifier.timestamp` ✓
+- `freeze_created_at` ≤ `post_freeze_verification.created_at` ✓
+
+Post-freeze verifiers run AFTER freeze manifest write (execution-order fix F1).
 
 Scientific annotation hashes unchanged after freeze regeneration:
 - primary_row_annotations.jsonl: verified
