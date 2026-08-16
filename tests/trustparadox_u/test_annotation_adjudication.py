@@ -336,3 +336,80 @@ class TestFrozenAnnotationVerifier:
         assert phase["annotation_prompts_frozen"] is True
         # annotations_frozen stays False (Sec 31)
         assert phase["annotations_frozen"] is False
+
+
+# ===========================================================================
+# Provenance regression tests (E4-001A provenance correction patch)
+# ===========================================================================
+
+class TestProvenanceRegression:
+    """Verify E4-001A provenance metadata correctness."""
+
+    _COMPLETION_REPORT = _PROJECT_ROOT / "doc" / "E4001A_COMPLETION_REPORT.md"
+
+    def test_completion_report_does_not_claim_human_review(self):
+        """Sec 2: Completion report must not use human-review terminology."""
+        if not self._COMPLETION_REPORT.exists():
+            pytest.skip("Completion report not found")
+        text = self._COMPLETION_REPORT.read_text(encoding="utf-8").lower()
+        # Must not contain these phrases
+        for forbidden in [
+            "human reviewed:\n38",
+            "human-adjudicated",
+            "human-validated",
+            "human gold labels",
+        ]:
+            assert forbidden not in text, f"Forbidden phrase found: {forbidden!r}"
+        # Must contain correct J3 LLM wording
+        assert "j3 llm adjudicated" in text
+        assert "human reviewed:\n0" in text
+        assert "human adjudication:\nno" in text
+
+    def test_adjudication_manifest_records_j3_llm_policy(self):
+        """Sec 3: Adjudication manifest must record J3 LLM adjudication policy."""
+        adj = _load_json(_ADJ_MANIFEST_PATH)
+        assert adj.get("adjudication_method") == "independent_third_llm"
+        assert adj.get("adjudication_policy") == "llm_j3_tiebreak"
+        assert adj.get("j3_role") == "J3"
+        assert adj.get("j3_model") == "qwen-plus"
+        assert adj.get("j3_provider") == "litellm"
+        assert adj.get("human_adjudication") is False
+
+    def test_primary_secondary_source_commit_is_e0c379b(self):
+        """Sec 4: Primary/secondary annotation source commit must be e0c379b."""
+        adj = _load_json(_ADJ_MANIFEST_PATH)
+        expected = "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0"
+        assert adj.get("primary_secondary_annotation_code_commit") == expected
+        phase = _load_json(_PHASE_PATH)
+        assert phase.get("primary_secondary_annotation_code_commit") == expected
+
+    def test_adjudication_code_commit_is_distinct_from_evidence_commit(self):
+        """Sec 4: Adjudication code commit must differ from evidence commit."""
+        adj = _load_json(_ADJ_MANIFEST_PATH)
+        code = adj.get("adjudication_code_commit")
+        evidence = adj.get("adjudication_evidence_commit")
+        assert code is not None
+        assert evidence is not None
+        assert code != evidence
+        # adjudication code = f83af30..., evidence = 83f04d4...
+        assert code.startswith("f83af30")
+        assert evidence.startswith("83f04d4")
+
+    def test_freeze_commit_is_distinct_from_annotation_source_commit(self):
+        """Sec 4: Freeze commit must differ from annotation source commit."""
+        phase = _load_json(_PHASE_PATH)
+        freeze = phase.get("development_annotation_freeze_commit")
+        source = phase.get("primary_secondary_annotation_code_commit")
+        assert freeze is not None
+        assert source is not None
+        assert freeze != source
+        assert freeze.startswith("b5c7178")
+        assert source.startswith("e0c379b")
+
+    def test_corpus_verifier_authoritative_count_is_53(self):
+        """Sec 7: Frozen corpus verifier authoritative count is 53/53."""
+        gate = _load_json(_GATE_PATH)
+        fc = gate.get("frozen_corpus_verifier", {})
+        assert fc["checks_total"] == 53
+        assert fc["checks_passed"] == 53
+        assert fc["checks_failed"] == 0

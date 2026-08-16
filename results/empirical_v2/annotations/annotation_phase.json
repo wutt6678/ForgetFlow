@@ -1,5 +1,9 @@
 {
   "annotation_code_commit": "83f04d442c30dfe1eef1037c707be24b668f03a4",
+  "primary_secondary_annotation_code_commit": "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0",
+  "adjudication_code_commit": "f83af30edd6d9465c5c0be64410d5b228e6e916a",
+  "latest_annotation_evidence_commit": "83f04d442c30dfe1eef1037c707be24b668f03a4",
+  "development_annotation_freeze_commit": "b5c717866ea15df42bbffabc8c7fcf49c95bb259",
   "annotation_phase": "DEVELOPMENT_PILOT",
   "annotation_prompts_frozen": true,
   "annotation_schema_frozen": true,

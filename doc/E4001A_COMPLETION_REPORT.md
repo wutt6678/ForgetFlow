@@ -7,19 +7,25 @@ Gate/provenance hardening commit:
 68ab0643e3214bac0ce20e17de27740228555004
 
 Adjudication code commit:
-f83af30
+f83af30edd6d9465c5c0be64410d5b228e6e916a
 
 Adjudication evidence commit:
-83f04d4
+83f04d442c30dfe1eef1037c707be24b668f03a4
 
 Development annotation freeze commit:
-b5c7178
+b5c717866ea15df42bbffabc8c7fcf49c95bb259
 
-Frozen corpus verifier before:
-PASS
+Completion report commit:
+8948acc5e489bead134650559435fd0a2beb7459
 
-Frozen corpus verifier after:
-PASS
+Primary/secondary annotation source commit:
+e0c379b4b1713dab34ac7345d2c3ab8a08338fd0
+
+Frozen corpus verifier:
+53 / 53 PASS
+
+Frozen annotation verifier:
+49 / 49 PASS
 
 J/J2 v3 model annotations modified:
 NO
@@ -27,11 +33,20 @@ NO
 Review queue:
 38
 
-Human reviewed:
-38 / 38
+J3 LLM adjudicated:
+38 / 38 review-queue rows
 
 Disagreement rows before adjudication:
 36
+
+J3 matched J:
+8 / 36 disagreement rows
+
+J3 matched J2:
+14 / 36 disagreement rows
+
+J3 matched neither:
+14 / 36 disagreement rows
 
 Disagreement rows resolved:
 22
@@ -45,22 +60,31 @@ Final unresolved row rate:
 Sequence unresolved:
 0 / 36
 
-Human vs J agreement:
-8 (J3 matched J on 8 of 36 disagreement rows)
+Human reviewed:
+0
 
-Human vs J2 agreement:
-14 (J3 matched J2 on 14 of 36 disagreement rows)
+Human adjudication:
+NO
 
-Human override count:
-0 (adjudication was LLM-based via J3; no human overrides)
+Adjudication method:
+independent_third_llm
+
+Adjudication policy:
+llm_j3_tiebreak
+
+Adjudicator role:
+J3
+
+Adjudicator model:
+qwen-plus
+
+Adjudicator provider:
+litellm
 
 Agreement audit:
 PASS
 
 Provenance audit:
-PASS
-
-Frozen corpus verifier:
 PASS
 
 Development annotation freeze verifier:

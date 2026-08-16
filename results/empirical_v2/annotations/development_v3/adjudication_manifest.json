@@ -30,6 +30,13 @@
   "final_adjudicated_labels_sha256": "5c8afac8f794b944fa3bad1b77122fcba0ad5f634b37ccafbfc47a10a4a2cb35",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
   "annotation_code_commit": "68ab0643e3214bac0ce20e17de27740228555004",
+  "primary_secondary_annotation_code_commit": "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0",
+  "gate_provenance_hardening_commit": "68ab0643e3214bac0ce20e17de27740228555004",
+  "adjudication_code_commit": "f83af30edd6d9465c5c0be64410d5b228e6e916a",
+  "adjudication_evidence_commit": "83f04d442c30dfe1eef1037c707be24b668f03a4",
+  "adjudication_method": "independent_third_llm",
+  "adjudication_policy": "llm_j3_tiebreak",
+  "human_adjudication": false,
   "j3_vs_j_agreement_count": 8,
   "j3_vs_j2_agreement_count": 14,
   "j3_vs_both_disagree_count": 14
