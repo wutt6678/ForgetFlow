@@ -48,6 +48,30 @@ _VALIDATION_GATE_PATH = _VAL_DIR / "validation_annotation_gate.json"
 # ---------------------------------------------------------------------------
 
 CORE_BINARY_LABELS = ("target_relevant", "target_leakage", "positive_entailment", "task_useful")
+
+
+# ---------------------------------------------------------------------------
+# Sequence unit helper (§5)
+# ---------------------------------------------------------------------------
+
+
+def sequence_unit_key(record: dict[str, Any]) -> str:
+    """Return the unique annotation unit key for a sequence record.
+
+    The unique annotation unit is sequence_annotation_id, NOT sequence_family_id.
+    Each family appears under multiple trust-conditioned realizations.
+    """
+    return record["sequence_annotation_id"]
+
+
+def derive_trust_level(record: dict[str, Any]) -> str:
+    """Derive trust_level from ordered_candidate_ids (last segment of first candidate)."""
+    cids = record.get("ordered_candidate_ids", [])
+    if cids:
+        return cids[0].rsplit("_", 1)[-1]
+    return "unknown"
+
+
 ALL_CORE_LABELS = CORE_BINARY_LABELS + ("leakage_strength",)
 
 # J3 adjudicator identity
@@ -228,30 +252,42 @@ def compute_sequence_agreement(
     primary: list[dict[str, Any]],
     secondary: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Sec 35: Sequence-level agreement."""
-    p_by_fam = {r["sequence_family_id"]: r for r in primary}
-    s_by_fam = {r["sequence_family_id"]: r for r in secondary}
-    common_fams = sorted(set(p_by_fam.keys()) & set(s_by_fam.keys()))
+    """Sec 35: Sequence-level agreement.
 
-    if not common_fams:
+    Uses sequence_annotation_id as the unique key (§4).
+    Each family appears under multiple trust-conditioned realizations.
+    """
+    # §4: Use sequence_annotation_id, NOT sequence_family_id
+    p_by_id = {sequence_unit_key(r): r for r in primary}
+    s_by_id = {sequence_unit_key(r): r for r in secondary}
+    common_ids = sorted(set(p_by_id.keys()) & set(s_by_id.keys()))
+    unmatched_primary = sorted(set(p_by_id.keys()) - set(s_by_id.keys()))
+    unmatched_secondary = sorted(set(s_by_id.keys()) - set(p_by_id.keys()))
+
+    if not common_ids:
         return {"n": 0, "reconstruction_agreement": {}}
 
-    recon_a = [p_by_fam[f]["sequence_reconstructs_target"] for f in common_fams]
-    recon_b = [s_by_fam[f]["sequence_reconstructs_target"] for f in common_fams]
+    recon_a = [p_by_id[sid]["sequence_reconstructs_target"] for sid in common_ids]
+    recon_b = [s_by_id[sid]["sequence_reconstructs_target"] for sid in common_ids]
 
     result: dict[str, Any] = {
-        "n": len(common_fams),
+        "n": len(common_ids),
+        "primary_count": len(p_by_id),
+        "secondary_count": len(s_by_id),
+        "common_sequence_annotation_ids": len(common_ids),
+        "unmatched_primary": len(unmatched_primary),
+        "unmatched_secondary": len(unmatched_secondary),
         "reconstruction_binary_agreement": compute_binary_agreement(recon_a, recon_b),
     }
 
     both_reconstruct = [
-        f for f in common_fams
-        if p_by_fam[f]["sequence_reconstructs_target"] and s_by_fam[f]["sequence_reconstructs_target"]
+        sid for sid in common_ids
+        if p_by_id[sid]["sequence_reconstructs_target"] and s_by_id[sid]["sequence_reconstructs_target"]
     ]
     if both_reconstruct:
         step_agree = sum(
-            1 for f in both_reconstruct
-            if p_by_fam[f].get("earliest_reconstruction_step") == s_by_fam[f].get("earliest_reconstruction_step")
+            1 for sid in both_reconstruct
+            if p_by_id[sid].get("earliest_reconstruction_step") == s_by_id[sid].get("earliest_reconstruction_step")
         )
         result["earliest_step_exact_agreement"] = round(
             step_agree / len(both_reconstruct), 4
@@ -331,17 +367,19 @@ def build_review_queue(
             })
 
     if primary_seq_labels and secondary_seq_labels:
-        p_by_fam = {r["sequence_family_id"]: r for r in primary_seq_labels}
-        s_by_fam = {r["sequence_family_id"]: r for r in secondary_seq_labels}
+        # §4: Use sequence_annotation_id, NOT sequence_family_id
+        p_by_id = {sequence_unit_key(r): r for r in primary_seq_labels}
+        s_by_id = {sequence_unit_key(r): r for r in secondary_seq_labels}
 
-        for sfid in sorted(set(p_by_fam.keys()) & set(s_by_fam.keys())):
-            should_queue, reasons = should_queue_for_review(p_by_fam[sfid], s_by_fam[sfid])
+        for sid in sorted(set(p_by_id.keys()) & set(s_by_id.keys())):
+            should_queue, reasons = should_queue_for_review(p_by_id[sid], s_by_id[sid])
             if should_queue:
                 queue.append({
                     "item_type": "sequence",
-                    "sequence_family_id": sfid,
-                    "primary_label": p_by_fam[sfid],
-                    "secondary_label": s_by_fam[sfid],
+                    "sequence_annotation_id": sid,
+                    "sequence_family_id": p_by_id[sid].get("sequence_family_id", ""),
+                    "primary_label": p_by_id[sid],
+                    "secondary_label": s_by_id[sid],
                     "review_reasons": reasons,
                 })
 
@@ -780,18 +818,52 @@ def run_validation_agreement_and_adjudication() -> dict[str, Any]:
     _write_jsonl(_FINAL_LABELS_PATH, final_labels)
     print(f"Wrote {len(final_labels)} final labels to {_FINAL_LABELS_PATH.name}")
 
-    # Sequence final labels (no adjudication needed for sequences yet)
-    final_seq_labels: list[dict[str, Any]] = []
-    j_seq_by_fam = {r["sequence_family_id"]: r for r in j_seqs}
-    j2_seq_by_fam = {r["sequence_family_id"]: r for r in j2_seqs}
+    # Sequence final labels — using sequence_annotation_id (§4, §17)
+    # §6: Validate sequence uniqueness
+    j_seq_ann_ids = [sequence_unit_key(r) for r in j_seqs]
+    j2_seq_ann_ids = [sequence_unit_key(r) for r in j2_seqs]
+    if len(j_seq_ann_ids) != len(set(j_seq_ann_ids)):
+        print("ERROR: Duplicate sequence_annotation_id in J sequences")
+        sys.exit(1)
+    if len(j2_seq_ann_ids) != len(set(j2_seq_ann_ids)):
+        print("ERROR: Duplicate sequence_annotation_id in J2 sequences")
+        sys.exit(1)
+    if len(j_seq_ann_ids) != 36:
+        print(f"ERROR: Expected 36 J sequence annotations, got {len(j_seq_ann_ids)}")
+        sys.exit(1)
+    if len(j2_seq_ann_ids) != 36:
+        print(f"ERROR: Expected 36 J2 sequence annotations, got {len(j2_seq_ann_ids)}")
+        sys.exit(1)
 
-    for sfid in sorted(j_seq_by_fam.keys()):
-        j_seq = j_seq_by_fam[sfid]
-        j2_seq = j2_seq_by_fam.get(sfid, {})
+    # §7: Validate cross-annotator identity coverage
+    j_seq_id_set = set(j_seq_ann_ids)
+    j2_seq_id_set = set(j2_seq_ann_ids)
+    if j_seq_id_set != j2_seq_id_set:
+        print(f"ERROR: J/J2 sequence_annotation_id sets differ")
+        print(f"  Unmatched J: {j_seq_id_set - j2_seq_id_set}")
+        print(f"  Unmatched J2: {j2_seq_id_set - j_seq_id_set}")
+        sys.exit(1)
+
+    final_seq_labels: list[dict[str, Any]] = []
+    j_seq_by_id = {sequence_unit_key(r): r for r in j_seqs}
+    j2_seq_by_id = {sequence_unit_key(r): r for r in j2_seqs}
+
+    for sid in sorted(j_seq_by_id.keys()):
+        j_seq = j_seq_by_id[sid]
+        j2_seq = j2_seq_by_id.get(sid, {})
         seq_agree = j_seq.get("sequence_reconstructs_target") == j2_seq.get("sequence_reconstructs_target")
+        step_agree = j_seq.get("earliest_reconstruction_step") == j2_seq.get("earliest_reconstruction_step")
+
+        # §9: Preserve trust-conditioned identity
+        trust_level = derive_trust_level(j_seq)
 
         final_seq = {
-            "sequence_family_id": sfid,
+            "sequence_annotation_id": sid,
+            "sequence_family_id": j_seq.get("sequence_family_id", ""),
+            "trust_level": trust_level,
+            "scenario_id": j_seq.get("scenario_id", ""),
+            "secret_variant_id": j_seq.get("secret_variant_id", ""),
+            "ordered_candidate_ids": j_seq.get("ordered_candidate_ids", []),
             "final_sequence_reconstructs_target": j_seq.get("sequence_reconstructs_target") if seq_agree else None,
             "final_earliest_reconstruction_step": j_seq.get("earliest_reconstruction_step") if seq_agree else None,
             "resolution_source": "llm_consensus" if seq_agree else "unresolved",
@@ -799,6 +871,8 @@ def run_validation_agreement_and_adjudication() -> dict[str, Any]:
             "j_agreed": seq_agree,
             "j2_agreed": seq_agree,
             "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
+            "annotation_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+            "sequence_content_sha256": j_seq.get("sequence_content_sha256", ""),
         }
         final_seq_labels.append(final_seq)
 
@@ -875,7 +949,7 @@ def run_validation_agreement_and_adjudication() -> dict[str, Any]:
     print("\n" + "=" * 60)
     print("VALIDATION AGREEMENT + ADJUDICATION SUMMARY")
     print("=" * 60)
-    print(f"Coverage: {len(common_rows)} rows, {len(common_seqs)} sequences")
+    print(f"Coverage: {len(common_rows)} rows, {len(common_seq_anns)} sequence units")
     print(f"Thresholds: {'PASS' if thresholds_pass else 'FAIL'}")
     print(f"Review queue: {len(review_queue)} items")
     print(f"Adjudicated rows: {len(adjudication_records)}")
