@@ -15,7 +15,9 @@
 | Validation report commit | `7cf0eb33bd91064b6cda9257eeb5bc385e14a302` |
 | Provenance/freeze cleanup code commit (P1) | `ec89719dd789b60a5d3eade5a2a792a16201b240` |
 | Corrected evidence/refreeze commit (P2) | `6bbde250c2f8758a8545f5c9ab2359213aed5f06` |
-| Report generated from evidence commit | `6bbde250c2f8758a8545f5c9ab2359213aed5f06` |
+| Provenance closure logic commit (C1) | `12a6d42b41f5ab918a4349ce34eb519bb39c1c39` |
+| Provenance closure evidence commit (C2) | `f7fbdf6d9bcd3cfc0c388948a643cd9488912915` |
+| Report generated from evidence commit | `f7fbdf6d9bcd3cfc0c388948a643cd9488912915` |
 | Previous GO superseded | YES (trust-conditioned sequence units collapsed by sequence_family_id) |
 | Frozen corpus manifest SHA | `6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2` |
 | Frozen annotation protocol SHA (manifest file) | `d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83` |
@@ -160,8 +162,31 @@ All gate checks passed:
 - unresolved_sequence_rate_pass: true
 - provenance_audit_pass: true
 - frozen_corpus_manifest_sha_match: true
-- frozen_corpus_verifier_pass: true
-- development_annotation_verifier_pass: true
+- frozen_corpus_verifier_pass: true (52/52)
+- development_annotation_verifier_pass: true (49/49)
+- validation_annotation_verifier_pass: true (48/48)
+
+## Provenance Closure Verification
+
+Post-freeze closure verifier: **PASS** (7/7 checks)
+
+- Annotation manifest SHA256 matches post_freeze_verification.json
+- Validation gate SHA256 matches post_freeze_verification.json
+- Freeze manifest SHA256 matches post_freeze_verification.json
+- Frozen corpus verifier: PASS (52/52)
+- Development annotation verifier: PASS (49/49)
+- Validation annotation verifier: PASS (48/48)
+- No self-referential commit SHA in report
+
+Scientific annotation hashes unchanged after freeze regeneration:
+- primary_row_annotations.jsonl: verified
+- secondary_row_annotations.jsonl: verified
+- primary_sequence_annotations.jsonl: verified
+- secondary_sequence_annotations.jsonl: verified
+- review_queue.jsonl: verified
+- llm_adjudication.jsonl: verified
+- final_adjudicated_labels.jsonl: verified
+- final_sequence_labels.jsonl: verified
 
 ## Annotation Phase
 
