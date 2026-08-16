@@ -41,7 +41,7 @@
   "trust_conditioned_sequence_units": 36,
   "sequence_accounting_repair_code_commit": "b9c6886689ca277d84605d547546c84f1d1ade74",
   "validation_gate_hardening_commit": "438922feebd879d2f89a9874e6e5a66a6c885ef2",
-  "derived_artifact_regeneration_commit": "12a6d42b41f5ab918a4349ce34eb519bb39c1c39",
+  "derived_artifact_regeneration_commit": "14b9614fc3acf30b90842e57a7503284be648e76",
   "unique_review_items": 32,
   "unique_adjudicated_items": 32,
   "missing_adjudications": 0,

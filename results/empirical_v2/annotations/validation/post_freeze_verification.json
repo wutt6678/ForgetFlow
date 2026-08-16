@@ -1,27 +1,32 @@
 {
   "schema_version": "1.0",
-  "created_at": "2026-08-16T15:21:25.946653+00:00",
-  "verification_source_commit": "12a6d42b41f5ab918a4349ce34eb519bb39c1c39",
-  "annotation_manifest_sha256": "291b03acc3b63a15bde403c87c8143e30a0a31fdec7b28c5e2abbbf4d89a0b86",
-  "validation_gate_sha256": "24ebd9f3778617337f1f726e2806e33469bcc053d885acc624e7b4237f224b3f",
-  "validation_freeze_manifest_sha256": "303ec8f77a092ee557d3361c45c2e3d88b4988c635d3009c67661046f1317cff",
+  "description": "Authoritative E4-002 final closure verification",
+  "created_at": "2026-08-16T16:05:03.562607+00:00",
+  "freeze_created_at": "2026-08-16T16:05:03.468065+00:00",
+  "verification_source_commit": "14b9614fc3acf30b90842e57a7503284be648e76",
+  "annotation_manifest_sha256": "acda048c9046893b5def894f386f9e9f55e88adbc9c57ebcd5156be80512b7f1",
+  "validation_gate_sha256": "39c79f8bd291b4a56a2bbdc33011a7b021d90ffae80b4dc509547779acbf33e7",
+  "validation_freeze_manifest_sha256": "4642a801c14d6ee0515c5729f9b4d91890c2685169c989048f6eaca28fde9568",
   "frozen_corpus_verifier": {
     "checks_total": 52,
     "checks_passed": 52,
     "checks_failed": 0,
-    "exit_code": 0
+    "exit_code": 0,
+    "timestamp": "2026-08-16T16:05:03.470516+00:00"
   },
   "development_annotation_verifier": {
     "checks_total": 49,
     "checks_passed": 49,
     "checks_failed": 0,
-    "exit_code": 0
+    "exit_code": 0,
+    "timestamp": "2026-08-16T16:05:03.503360+00:00"
   },
   "validation_annotation_verifier": {
     "checks_total": 48,
     "checks_passed": 48,
     "checks_failed": 0,
-    "exit_code": 0
+    "exit_code": 0,
+    "timestamp": "2026-08-16T16:05:03.535350+00:00"
   },
   "closure_pass": true
 }
