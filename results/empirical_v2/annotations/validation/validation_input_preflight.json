@@ -1,0 +1,15 @@
+{
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "validation_candidate_count": 225,
+  "resolved_target_count": 225,
+  "row_queue_count": 225,
+  "sequence_queue_count": 36,
+  "target_resolution_failures": [],
+  "sequence_structure_failures": [],
+  "empty_target_count": 0,
+  "queue_hash": "5c917f93ebdedbe838f8a107d79883cb30a0150432e5e10834743e37a6e524da",
+  "development_gate_go": true,
+  "protocol_hash_match": true,
+  "passed": true,
+  "findings": []
+}
