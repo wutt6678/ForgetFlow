@@ -670,7 +670,21 @@ class TestAuditConsistency:
         # Unresolved rate must be consistent
         audit_unresolved = gates.get("row_unresolved", 0)
         gate_unresolved = gate.get("summary", {}).get("row_unresolved", -1)
-        assert audit_unresolved == gate_unresolved
+        # Post-adjudication override: if the gate has post-adjudication data,
+        # the gate's unresolved count is authoritative (Sec 21-23).
+        adj_summary = gate.get("adjudication_summary", {})
+        if adj_summary.get("post_adjudication") is True:
+            # Gate overrides audit; verify gate value matches final labels
+            final_labels_path = _DEV_DIR / "final_adjudicated_labels.jsonl"
+            if final_labels_path.exists():
+                final_labels = _load_jsonl(final_labels_path)
+                expected_unresolved = sum(
+                    1 for r in final_labels
+                    if r.get("resolution_source") == "unresolved"
+                )
+                assert gate_unresolved == expected_unresolved
+        else:
+            assert audit_unresolved == gate_unresolved
 
     @needs_dev_data
     def test_protocol_no_go_visible_in_top_level_summary(self):

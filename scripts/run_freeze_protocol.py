@@ -40,6 +40,9 @@ DEV_FILES = {
     "pilot_report_md": "pilot_report.md",
     "campaign_identity_json": "campaign_identity.json",
     "secondary_campaign_identity_json": "secondary_campaign_identity.json",
+    "llm_adjudication_jsonl": "llm_adjudication.jsonl",
+    "final_adjudicated_labels_jsonl": "final_adjudicated_labels.jsonl",
+    "adjudication_manifest_json": "adjudication_manifest.json",
 }
 
 
@@ -518,6 +521,16 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
         "provenance_audit": provenance_audit,
         # Repair C: frozen corpus verifier results
         "frozen_corpus_verifier": fc_result,
+        # Adjudication summary (post-adjudication if available)
+        "adjudication_summary": {
+            "row_consensus": adjudication.get("row_consensus", 0),
+            "row_unresolved": row_unresolved,
+            "row_adjudicated": adjudication.get("row_adjudicated", 0),
+            "sequence_consensus": adjudication.get("sequence_consensus", 0),
+            "sequence_unresolved": seq_unresolved,
+            "post_adjudication": adjudication.get("post_adjudication", False),
+            "post_adjudication_total": adjudication.get("post_adjudication_total", 0),
+        },
         "summary": {
             "total_rows": total_rows,
             "total_sequences": total_seqs,
@@ -553,6 +566,36 @@ def main() -> int:
     # Load existing artifacts
     audit = load_json(DEV_DIR / "audit_report.json")
     campaign = load_json(DEV_DIR / "campaign_identity.json")
+
+    # Post-adjudication override: if final_adjudicated_labels.jsonl exists,
+    # use its unresolved count instead of the pre-adjudication audit counts.
+    final_labels_path = DEV_DIR / "final_adjudicated_labels.jsonl"
+    adjudication_manifest_path = DEV_DIR / "adjudication_manifest.json"
+    if final_labels_path.exists():
+        final_labels = load_jsonl(final_labels_path)
+        post_adj_unresolved = sum(
+            1 for r in final_labels if r.get("resolution_source") == "unresolved"
+        )
+        post_adj_total = len(final_labels)
+        # Override audit adjudication counts with post-adjudication reality
+        if "adjudication" not in audit:
+            audit["adjudication"] = {}
+        audit["adjudication"]["row_unresolved"] = post_adj_unresolved
+        audit["adjudication"]["row_consensus"] = sum(
+            1 for r in final_labels if r.get("resolution_source") == "llm_consensus"
+        )
+        audit["adjudication"]["row_adjudicated"] = sum(
+            1 for r in final_labels if r.get("resolution_source") == "llm_adjudication"
+        )
+        audit["adjudication"]["post_adjudication"] = True
+        audit["adjudication"]["post_adjudication_total"] = post_adj_total
+        print(f"\nPost-adjudication override active:")
+        print(f"  Final labels: {post_adj_total}")
+        print(f"  Unresolved: {post_adj_unresolved} ({post_adj_unresolved/post_adj_total:.4f})")
+        if adjudication_manifest_path.exists():
+            adj_manifest = load_json(adjudication_manifest_path)
+            audit["adjudication"]["adjudication_manifest"] = adj_manifest
+            print(f"  Adjudication manifest loaded")
 
     # Get current commit
     import subprocess
@@ -615,6 +658,29 @@ def main() -> int:
     print(f"  Protocol freeze pass: {gate['protocol_freeze_pass']}")
     print(f"  GO/NO-GO: {gate['go_no_go']}")
     print(f"  Ready for validation: {gate['ready_for_validation_annotation']}")
+
+    # 4b. Update protocol manifest with freeze status (Sec 31)
+    if gate["protocol_freeze_pass"]:
+        protocol_manifest["annotation_schema_frozen"] = True
+        protocol_manifest["annotation_prompts_frozen"] = True
+        # Sec 32: add adjudication provenance to protocol manifest
+        protocol_manifest["adjudication_policy"] = "llm_j3_tiebreak"
+        protocol_manifest["adjudication_manifest_sha256"] = file_inv.get(
+            "adjudication_manifest_json", "MISSING"
+        )
+        protocol_manifest["llm_adjudication_sha256"] = file_inv.get(
+            "llm_adjudication_jsonl", "MISSING"
+        )
+        protocol_manifest["final_adjudicated_labels_sha256"] = file_inv.get(
+            "final_adjudicated_labels_jsonl", "MISSING"
+        )
+        protocol_manifest["annotation_protocol_version"] = "1.0"
+        with open(pm_path, "w") as f:
+            json.dump(protocol_manifest, f, indent=2)
+            f.write("\n")
+        print(f"  Updated protocol manifest with freeze status + adjudication provenance")
+        print(f"  schema_frozen: True")
+        print(f"  prompts_frozen: True")
 
     # Repair B: provenance audit summary
     prov = gate.get("provenance_audit", {})
