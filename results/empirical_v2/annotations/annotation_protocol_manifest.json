@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "created_at": "2026-08-16T07:46:25.302245+00:00",
+  "created_at": "2026-08-16T08:15:18.688358+00:00",
   "description": "Sec 47: Annotation protocol manifest \u2014 binds all measurement artifacts",
   "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
   "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
@@ -15,7 +15,12 @@
   "review_queue_sha256": "96a5259fea23379511d9d4827ad1be23424e1a0b7a3cda617e8ff474c296ed74",
   "pilot_report_sha256": "e73c31ad003e46cfc0ccd88b592092eb53d15d6bc86b6065af0f4335ec4b490d",
   "annotation_code_commit": "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0",
-  "annotation_schema_frozen": false,
-  "annotation_prompts_frozen": false,
-  "annotations_frozen": false
+  "annotation_schema_frozen": true,
+  "annotation_prompts_frozen": true,
+  "annotations_frozen": false,
+  "adjudication_policy": "llm_j3_tiebreak",
+  "adjudication_manifest_sha256": "b0d247f77d8271876f2308fd4eef2978a9aee3dbad2948a47343b9b4308a9488",
+  "llm_adjudication_sha256": "8a599d701a5e3db70f2d43e43df6959ca7f78c87cee11e96c48264bac84bac3d",
+  "final_adjudicated_labels_sha256": "5c8afac8f794b944fa3bad1b77122fcba0ad5f634b37ccafbfc47a10a4a2cb35",
+  "annotation_protocol_version": "1.0"
 }

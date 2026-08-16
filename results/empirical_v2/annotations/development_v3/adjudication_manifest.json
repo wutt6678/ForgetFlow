@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-001A: Development annotation adjudication manifest",
+  "created_at": "2026-08-16T08:08:07.183076+00:00",
+  "review_queue_count": 38,
+  "adjudicated_count": 38,
+  "missing_adjudications": 0,
+  "duplicate_adjudications": 0,
+  "disagreement_rows": 36,
+  "consensus_rows_in_queue": 2,
+  "resolution_counts": {
+    "consensus_retained": 2,
+    "resolved_by_j3_matching_j": 8,
+    "resolved_by_j3_matching_j2": 14,
+    "still_unresolved": 14
+  },
+  "final_label_counts": {
+    "total": 225,
+    "consensus": 189,
+    "adjudicated": 22,
+    "unresolved": 14
+  },
+  "unresolved_row_rate": 0.0622,
+  "j3_model": "qwen-plus",
+  "j3_provider": "litellm",
+  "j3_role": "J3",
+  "adjudication_protocol_version": "1.0",
+  "review_queue_sha256": "96a5259fea23379511d9d4827ad1be23424e1a0b7a3cda617e8ff474c296ed74",
+  "llm_adjudication_sha256": "8a599d701a5e3db70f2d43e43df6959ca7f78c87cee11e96c48264bac84bac3d",
+  "final_adjudicated_labels_sha256": "5c8afac8f794b944fa3bad1b77122fcba0ad5f634b37ccafbfc47a10a4a2cb35",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "annotation_code_commit": "68ab0643e3214bac0ce20e17de27740228555004",
+  "j3_vs_j_agreement_count": 8,
+  "j3_vs_j2_agreement_count": 14,
+  "j3_vs_both_disagree_count": 14
+}

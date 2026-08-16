@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "description": "V3 model evidence manifest \u2014 binds immutable J/J2 annotation artifacts",
+  "created_at": "2026-08-16T07:55:49.590282+00:00",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "files": {
+    "primary_annotation_attempts": "230144f5e23e41c4944e1a06e34698d60133f5b9f50a17d0dcb1acfa9e48e650",
+    "secondary_annotation_attempts": "7ef447d244024dc371e81619d697885021a1392f1f981a586b1e1355e1945c0b",
+    "primary_row_labels": "9d0ab816ab2746b0229d495484295d02d0289a4f373d4374088307620d707e98",
+    "secondary_row_labels": "8da6c6daebb90fd252ab19e2c9fd816bea316b681cc75a4911a3b55085e69496",
+    "primary_sequence_labels": "1dd4a6e99025b71859b0eea9be4ed4f3590851f271de061498c3e885c43ccb03",
+    "secondary_sequence_labels": "933a851a3999df8cb1854241eccd057403ccda95691accbc9229c384d72b4cf4",
+    "audit_report": "3ccdeed88beda31eb68920b17dff23022c95eba8f46e3faedc9cc2cd14b60988",
+    "review_queue": "96a5259fea23379511d9d4827ad1be23424e1a0b7a3cda617e8ff474c296ed74",
+    "adjudication_summary": "b62fe9696b4487d463f6609450295620b8cb6e65e8f5ffdaacd48a2e1714ccc5"
+  },
+  "immutable": true,
+  "note": "These files must not be modified during adjudication. Adjudicated labels are derived artifacts."
+}
