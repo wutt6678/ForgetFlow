@@ -1,0 +1,38 @@
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_alias_or_coreference_001_r0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_000_r0_st0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_000_r0_st0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment", "secondary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_000_r0_st1_low"}
+{"item_type": "row", "review_reasons": ["disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_000_r0_st2_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment", "secondary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_001_r0_st1_low"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment", "disagreement on leakage_strength", "primary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_compositional_sequence_001_r0_st2_low"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_authorization_001_authorization_v1_direct_disclosure_001_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on task_useful", "disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_fragmentation_sequence_000_r0_st0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_fragmentation_sequence_000_r0_st1_high"}
+{"item_type": "row", "review_reasons": ["secondary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_fragmentation_sequence_001_r0_st0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_authorization_001_authorization_v1_fragmentation_sequence_001_r0_st0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on leakage_strength"], "candidate_id": "ecf_authorization_001_authorization_v1_fragmentation_sequence_001_r0_st1_default"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_authorization_001_authorization_v1_recontamination_001_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful", "disagreement on leakage_strength", "primary uncertain", "secondary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_semantic_paraphrase_001_r0_high"}
+{"item_type": "row", "review_reasons": ["secondary uncertain"], "candidate_id": "ecf_authorization_001_authorization_v1_semantic_paraphrase_003_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_credential_001_credential_v1_compositional_sequence_000_r0_st0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_credential_001_credential_v1_compositional_sequence_000_r0_st2_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_credential_001_credential_v1_compositional_sequence_001_r0_st0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_credential_001_credential_v1_direct_disclosure_000_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_credential_001_credential_v1_fragmentation_sequence_000_r0_st1_low"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_credential_001_credential_v1_recontamination_001_r0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_credential_001_credential_v1_semantic_paraphrase_002_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment", "disagreement on task_useful"], "candidate_id": "ecf_credential_001_credential_v1_semantic_paraphrase_003_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on positive_entailment", "disagreement on leakage_strength"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_alias_or_coreference_000_r0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_alias_or_coreference_000_r0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength", "secondary uncertain"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_alias_or_coreference_001_r0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on leakage_strength"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_alias_or_coreference_001_r0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on leakage_strength"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_compositional_sequence_000_r0_st2_default"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_compositional_sequence_000_r0_st2_low"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_direct_disclosure_001_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_fragmentation_sequence_000_r0_st0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_fragmentation_sequence_001_r0_st0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on positive_entailment"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_fragmentation_sequence_001_r0_st0_low"}
+{"item_type": "row", "review_reasons": ["disagreement on target_relevant", "disagreement on target_leakage", "disagreement on positive_entailment", "disagreement on leakage_strength"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_legitimate_task_000_r0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_recontamination_001_r0_default"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_semantic_paraphrase_001_r0_high"}
+{"item_type": "row", "review_reasons": ["disagreement on task_useful"], "candidate_id": "ecf_private_attribute_001_private_attribute_v1_semantic_paraphrase_003_r0_high"}

@@ -38,7 +38,7 @@ from experiments.trustparadox_u.empirical_annotation import (
 # Paths
 # ---------------------------------------------------------------------------
 
-_ANNOTATIONS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "annotations" / "development"
+_ANNOTATIONS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "annotations" / "development_v3"
 
 PRIMARY_ROW_PATH = _ANNOTATIONS_DIR / "row_annotations.jsonl"
 PRIMARY_SEQ_PATH = _ANNOTATIONS_DIR / "sequence_annotations.jsonl"

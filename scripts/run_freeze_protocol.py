@@ -18,7 +18,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ANNOTATIONS_DIR = REPO_ROOT / "results" / "empirical_v2" / "annotations"
-DEV_DIR = ANNOTATIONS_DIR / "development_v2"
+DEV_DIR = ANNOTATIONS_DIR / "development_v3"
 PHASE_FILE = ANNOTATIONS_DIR / "annotation_phase.json"
 
 # Frozen corpus manifest

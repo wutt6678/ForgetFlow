@@ -1,0 +1,198 @@
+{
+  "audit_timestamp": "2026-08-15T20:25:25.956518+00:00",
+  "schema_version": "1.0",
+  "primary_model": "qwen3.8-max",
+  "secondary_model": "glm-5.2",
+  "model_role_separation": {
+    "violations": [],
+    "passed": true
+  },
+  "coverage": {
+    "primary_row_count": 225,
+    "secondary_row_count": 225,
+    "common_row_count": 225,
+    "unmatched_row_count": 0,
+    "unmatched_candidate_ids": [],
+    "primary_sequence_count": 36,
+    "secondary_sequence_count": 36
+  },
+  "row_agreement": {
+    "target_relevant": {
+      "raw_agreement": 0.8311,
+      "cohens_kappa": 0.4732,
+      "positive_agreement": 0.8109,
+      "negative_agreement": 0.3871,
+      "n": 225,
+      "tp": 163,
+      "fp": 36,
+      "fn": 2,
+      "tn": 24
+    },
+    "target_leakage": {
+      "raw_agreement": 0.9244,
+      "cohens_kappa": 0.8225,
+      "positive_agreement": 0.897,
+      "negative_agreement": 0.7792,
+      "n": 225,
+      "tp": 148,
+      "fp": 16,
+      "fn": 1,
+      "tn": 60
+    },
+    "positive_entailment": {
+      "raw_agreement": 0.92,
+      "cohens_kappa": 0.8386,
+      "positive_agreement": 0.8657,
+      "negative_agreement": 0.8349,
+      "n": 225,
+      "tp": 116,
+      "fp": 2,
+      "fn": 16,
+      "tn": 91
+    },
+    "task_useful": {
+      "raw_agreement": 0.8844,
+      "cohens_kappa": 0.3036,
+      "positive_agreement": 0.8807,
+      "negative_agreement": 0.2121,
+      "n": 225,
+      "tp": 192,
+      "fp": 23,
+      "fn": 3,
+      "tn": 7
+    }
+  },
+  "leakage_strength_agreement": {
+    "exact_agreement": 0.84,
+    "cohens_kappa": 0.7614,
+    "n": 225,
+    "confusion_matrix": {
+      "full": {
+        "full": 78,
+        "none": 0,
+        "partial": 0
+      },
+      "none": {
+        "full": 0,
+        "none": 60,
+        "partial": 1
+      },
+      "partial": {
+        "full": 19,
+        "none": 16,
+        "partial": 51
+      }
+    }
+  },
+  "sequence_agreement": {
+    "reconstruction_binary": {
+      "raw_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "positive_agreement": 1.0,
+      "negative_agreement": 1.0,
+      "n": 36,
+      "tp": 35,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1
+    },
+    "reconstruction_strength": {
+      "exact_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "n": 36,
+      "confusion_matrix": {
+        "full": {
+          "full": 35,
+          "partial": 0
+        },
+        "partial": {
+          "full": 0,
+          "partial": 1
+        }
+      }
+    },
+    "earliest_step_exact": {
+      "exact_agreement": 1.0,
+      "n": 35
+    },
+    "library_result": {
+      "n": 12,
+      "reconstruction_binary_agreement": {
+        "raw_agreement": 1.0,
+        "cohens_kappa": 1.0,
+        "positive_agreement": 1.0,
+        "negative_agreement": 1.0,
+        "n": 12,
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1
+      },
+      "earliest_step_exact_agreement": 1.0,
+      "earliest_step_n": 11
+    }
+  },
+  "review_queue_summary": {
+    "total_items": 102,
+    "row_items": 102,
+    "sequence_items": 0,
+    "reason_counts": {
+      "disagreement on target_leakage": 17,
+      "disagreement on leakage_strength": 36,
+      "uncertainty flag": 6,
+      "disagreement on target_relevant": 38,
+      "disagreement on positive_entailment": 18,
+      "disagreement on task_useful": 26
+    }
+  },
+  "adjudication": {
+    "row_consensus": 126,
+    "row_unresolved": 99,
+    "row_consensus_rate": 0.56,
+    "sequence_consensus": 36,
+    "sequence_unresolved": 0,
+    "sequence_consensus_rate": 1.0
+  },
+  "confidence_statistics": {
+    "primary_mean_confidence": 0.935,
+    "primary_min_confidence": 0.7,
+    "primary_max_confidence": 1.0,
+    "primary_uncertain_count": 1,
+    "secondary_mean_confidence": 0.9252,
+    "secondary_min_confidence": 0.7,
+    "secondary_max_confidence": 1.0,
+    "secondary_uncertain_count": 5
+  },
+  "latency_statistics": {
+    "primary_mean_latency_ms": 18585.2,
+    "primary_total_latency_ms": 4850737.7,
+    "primary_attempt_count": 261,
+    "primary_success_count": 261,
+    "secondary_mean_latency_ms": 14447.9,
+    "secondary_total_latency_ms": 4002056.9,
+    "secondary_attempt_count": 277,
+    "secondary_success_count": 261
+  },
+  "gate_assessment": {
+    "gates": {
+      "full_coverage": {
+        "passed": true,
+        "detail": "unmatched=0"
+      },
+      "model_role_separation": {
+        "passed": true,
+        "detail": "violations=0"
+      },
+      "row_agreement_acceptable": {
+        "passed": false,
+        "detail": "min_kappa=0.3036, values={'target_relevant': 0.4732, 'target_leakage': 0.8225, 'positive_entailment': 0.8386, 'task_useful': 0.3036}"
+      },
+      "sequence_agreement_estimable": {
+        "passed": true,
+        "detail": "raw=1.0, kappa=1.0"
+      }
+    },
+    "all_passed": false,
+    "assessment": "CONDITIONAL"
+  }
+}

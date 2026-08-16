@@ -1,0 +1,198 @@
+{
+  "audit_timestamp": "2026-08-16T04:33:25.523008+00:00",
+  "schema_version": "1.0",
+  "primary_model": "qwen3.8-max",
+  "secondary_model": "glm-5.2",
+  "model_role_separation": {
+    "violations": [],
+    "passed": true
+  },
+  "coverage": {
+    "primary_row_count": 225,
+    "secondary_row_count": 225,
+    "common_row_count": 225,
+    "unmatched_row_count": 0,
+    "unmatched_candidate_ids": [],
+    "primary_sequence_count": 36,
+    "secondary_sequence_count": 36
+  },
+  "row_agreement": {
+    "target_relevant": {
+      "raw_agreement": 0.96,
+      "cohens_kappa": 0.9147,
+      "positive_agreement": 0.9379,
+      "negative_agreement": 0.8989,
+      "n": 225,
+      "tp": 136,
+      "fp": 6,
+      "fn": 3,
+      "tn": 80
+    },
+    "target_leakage": {
+      "raw_agreement": 0.96,
+      "cohens_kappa": 0.9147,
+      "positive_agreement": 0.9379,
+      "negative_agreement": 0.8989,
+      "n": 225,
+      "tp": 136,
+      "fp": 6,
+      "fn": 3,
+      "tn": 80
+    },
+    "positive_entailment": {
+      "raw_agreement": 0.9422,
+      "cohens_kappa": 0.8834,
+      "positive_agreement": 0.9008,
+      "negative_agreement": 0.8785,
+      "n": 225,
+      "tp": 118,
+      "fp": 1,
+      "fn": 12,
+      "tn": 94
+    },
+    "task_useful": {
+      "raw_agreement": 0.9378,
+      "cohens_kappa": 0.8699,
+      "positive_agreement": 0.8542,
+      "negative_agreement": 0.9021,
+      "n": 225,
+      "tp": 82,
+      "fp": 8,
+      "fn": 6,
+      "tn": 129
+    }
+  },
+  "leakage_strength_agreement": {
+    "exact_agreement": 0.9333,
+    "cohens_kappa": 0.8978,
+    "n": 225,
+    "confusion_matrix": {
+      "full": {
+        "full": 84,
+        "none": 0,
+        "partial": 0
+      },
+      "none": {
+        "full": 2,
+        "none": 80,
+        "partial": 1
+      },
+      "partial": {
+        "full": 6,
+        "none": 6,
+        "partial": 46
+      }
+    }
+  },
+  "sequence_agreement": {
+    "reconstruction_binary": {
+      "raw_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "positive_agreement": 1.0,
+      "negative_agreement": 1.0,
+      "n": 36,
+      "tp": 35,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1
+    },
+    "reconstruction_strength": {
+      "exact_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "n": 36,
+      "confusion_matrix": {
+        "full": {
+          "full": 35,
+          "partial": 0
+        },
+        "partial": {
+          "full": 0,
+          "partial": 1
+        }
+      }
+    },
+    "earliest_step_exact": {
+      "exact_agreement": 1.0,
+      "n": 35
+    },
+    "library_result": {
+      "n": 12,
+      "reconstruction_binary_agreement": {
+        "raw_agreement": 1.0,
+        "cohens_kappa": 1.0,
+        "positive_agreement": 1.0,
+        "negative_agreement": 1.0,
+        "n": 12,
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1
+      },
+      "earliest_step_exact_agreement": 1.0,
+      "earliest_step_n": 11
+    }
+  },
+  "review_queue_summary": {
+    "total_items": 38,
+    "row_items": 38,
+    "sequence_items": 0,
+    "reason_counts": {
+      "disagreement on target_relevant": 9,
+      "disagreement on target_leakage": 9,
+      "disagreement on leakage_strength": 15,
+      "disagreement on positive_entailment": 13,
+      "uncertainty flag": 8,
+      "disagreement on task_useful": 14
+    }
+  },
+  "adjudication": {
+    "row_consensus": 189,
+    "row_unresolved": 36,
+    "row_consensus_rate": 0.84,
+    "sequence_consensus": 36,
+    "sequence_unresolved": 0,
+    "sequence_consensus_rate": 1.0
+  },
+  "confidence_statistics": {
+    "primary_mean_confidence": 0.945,
+    "primary_min_confidence": 0.7,
+    "primary_max_confidence": 1.0,
+    "primary_uncertain_count": 2,
+    "secondary_mean_confidence": 0.9267,
+    "secondary_min_confidence": 0.7,
+    "secondary_max_confidence": 1.0,
+    "secondary_uncertain_count": 6
+  },
+  "latency_statistics": {
+    "primary_mean_latency_ms": 16780.6,
+    "primary_total_latency_ms": 4379730.9,
+    "primary_attempt_count": 261,
+    "primary_success_count": 261,
+    "secondary_mean_latency_ms": 12742.6,
+    "secondary_total_latency_ms": 3529707.3,
+    "secondary_attempt_count": 277,
+    "secondary_success_count": 261
+  },
+  "gate_assessment": {
+    "gates": {
+      "full_coverage": {
+        "passed": true,
+        "detail": "unmatched=0"
+      },
+      "model_role_separation": {
+        "passed": true,
+        "detail": "violations=0"
+      },
+      "row_agreement_acceptable": {
+        "passed": true,
+        "detail": "min_kappa=0.8699, values={'target_relevant': 0.9147, 'target_leakage': 0.9147, 'positive_entailment': 0.8834, 'task_useful': 0.8699}"
+      },
+      "sequence_agreement_estimable": {
+        "passed": true,
+        "detail": "raw=1.0, kappa=1.0"
+      }
+    },
+    "all_passed": true,
+    "assessment": "PASS"
+  }
+}

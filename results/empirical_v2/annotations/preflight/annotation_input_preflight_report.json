@@ -1,0 +1,14 @@
+{
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "development_candidate_count": 225,
+  "resolved_target_count": 225,
+  "row_queue_count": 225,
+  "sequence_queue_count": 36,
+  "target_resolution_failures": [],
+  "sequence_structure_failures": [],
+  "empty_target_count": 0,
+  "queue_hash": "b8c290051b99daff7fed413c0aea52f3b241bc777053f30a54d659af7ad0b189",
+  "passed": true,
+  "findings": [],
+  "timestamp": "2026-08-15T17:37:55.703938+00:00"
+}

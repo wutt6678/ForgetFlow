@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-16T04:33:42.843472+00:00",
+  "description": "Sec 48: Development annotation manifest",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "complete_snapshot_commit": "8f7d8ec8a5805696e4e0c0582a78563f825e9004",
+  "annotation_code_commit": "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0",
+  "development_queue_sha256": "b8c290051b99daff7fed413c0aea52f3b241bc777053f30a54d659af7ad0b189",
+  "primary_raw_sha256": "230144f5e23e41c4944e1a06e34698d60133f5b9f50a17d0dcb1acfa9e48e650",
+  "primary_labels_sha256": "9d0ab816ab2746b0229d495484295d02d0289a4f373d4374088307620d707e98",
+  "secondary_raw_sha256": "7ef447d244024dc371e81619d697885021a1392f1f981a586b1e1355e1945c0b",
+  "secondary_labels_sha256": "8da6c6daebb90fd252ab19e2c9fd816bea316b681cc75a4911a3b55085e69496",
+  "sequence_primary_labels_sha256": "1dd4a6e99025b71859b0eea9be4ed4f3590851f271de061498c3e885c43ccb03",
+  "sequence_secondary_labels_sha256": "933a851a3999df8cb1854241eccd057403ccda95691accbc9229c384d72b4cf4",
+  "agreement_report_sha256": "bd1c26b219b93dec9436b58bda7134851db6adca201d3e1296d882cafede938b",
+  "review_queue_sha256": "96a5259fea23379511d9d4827ad1be23424e1a0b7a3cda617e8ff474c296ed74",
+  "row_count": {
+    "primary": 225,
+    "secondary": 225,
+    "common": 225,
+    "unmatched": 0
+  },
+  "sequence_count": {
+    "primary": 36,
+    "secondary": 36
+  },
+  "unresolved_count": {
+    "row": 36,
+    "sequence": 0
+  },
+  "file_inventory_sha256": "fe68ff042703cd1dd43c08a43e33fda5d85a8831bf3cffe4b6d3e1909c8b7c1d"
+}
