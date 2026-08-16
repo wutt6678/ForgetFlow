@@ -304,15 +304,86 @@ class FrozenAnnotationVerifier:
         else:
             self._fail("final sequence IDs do not match input IDs")
 
-        # 7. Adjudication complete
-        print("\n[V7] Validation adjudication complete...")
+        # 7. Adjudication complete — exact ID-set coverage (§33)
+        print("\n[V7] Validation adjudication complete (exact ID-set coverage)...")
         adj_path = _VAL_DIR / "adjudication_manifest.json"
         if adj_path.exists():
             adj = _load_json(adj_path)
-            if adj.get("adjudicated_count", 0) > 0:
-                self._pass(f"adjudicated_count: {adj['adjudicated_count']}")
+
+            # Exact ID-set coverage: load raw data and compute keys
+            review_path = _VAL_DIR / "review_queue.jsonl"
+            adjudication_path = _VAL_DIR / "llm_adjudication.jsonl"
+
+            if review_path.exists() and adjudication_path.exists():
+                import json as _json
+
+                def _load_jsonl_records(p):
+                    recs = []
+                    with open(p) as fh:
+                        for line in fh:
+                            if line.strip():
+                                recs.append(_json.loads(line))
+                    return recs
+
+                def _review_key(rec):
+                    if rec.get("item_type") == "row":
+                        return ("row", rec["candidate_id"])
+                    return ("sequence", rec.get("sequence_annotation_id", rec["candidate_id"]))
+
+                def _adj_key(rec):
+                    return ("row", rec["candidate_id"])
+
+                review_recs = _load_jsonl_records(review_path)
+                adj_recs = _load_jsonl_records(adjudication_path)
+
+                review_keys = [_review_key(r) for r in review_recs]
+                adj_keys = [_adj_key(r) for r in adj_recs]
+
+                unique_review = set(review_keys)
+                unique_adj = set(adj_keys)
+                dup_review = len(review_recs) - len(unique_review)
+                dup_adj = len(adj_recs) - len(unique_adj)
+                missing = unique_review - unique_adj
+                unexpected = unique_adj - unique_review
+
+                # Report counts
+                if len(unique_review) == len(unique_adj) and len(missing) == 0 and len(unexpected) == 0:
+                    self._pass(f"exact coverage: {len(unique_review)} review == {len(unique_adj)} adjudicated")
+                else:
+                    self._fail(
+                        f"coverage mismatch: review={len(unique_review)}, "
+                        f"adj={len(unique_adj)}, missing={len(missing)}, unexpected={len(unexpected)}"
+                    )
+
+                if dup_review == 0:
+                    self._pass("duplicate_review_items: 0")
+                else:
+                    self._fail(f"duplicate_review_items: {dup_review}")
+
+                if dup_adj == 0:
+                    self._pass("duplicate_adjudications: 0")
+                else:
+                    self._fail(f"duplicate_adjudications: {dup_adj}")
+
+                if len(missing) == 0:
+                    self._pass("missing_adjudications: 0")
+                else:
+                    self._fail(f"missing_adjudications: {len(missing)}")
+
+                if len(unexpected) == 0:
+                    self._pass("unexpected_adjudications: 0")
+                else:
+                    self._fail(f"unexpected_adjudications: {len(unexpected)}")
+
+                # Also check audit fields in manifest if present
+                if adj.get("adjudication_complete") is True:
+                    self._pass("adjudication_complete: true")
+                elif "adjudication_complete" in adj:
+                    self._fail("adjudication_complete: false")
             else:
-                self._fail("adjudicated_count: 0")
+                self._fail("review_queue.jsonl or llm_adjudication.jsonl not found")
+
+            # Unresolved rate check
             rate = adj.get("unresolved_row_rate", 1.0)
             if rate <= 0.10:
                 self._pass(f"unresolved_row_rate: {rate:.4f} (<=10%)")
