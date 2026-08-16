@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "E4-002: Validation annotation freeze manifest",
-  "created_at": "2026-08-16T14:39:03.613898+00:00",
+  "created_at": "2026-08-16T15:21:25.943402+00:00",
   "annotations_frozen": false,
   "go_no_go": "GO",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
@@ -9,8 +9,8 @@
   "validation_annotation_source_commit": "0ed97256dc8e92907a55dd1a4845a9d52fa929bf",
   "sequence_accounting_repair_code_commit": "b9c6886689ca277d84605d547546c84f1d1ade74",
   "validation_gate_hardening_commit": "438922feebd879d2f89a9874e6e5a66a6c885ef2",
-  "derived_artifact_regeneration_commit": "ec89719dd789b60a5d3eade5a2a792a16201b240",
-  "freeze_manifest_generation_commit": "ec89719dd789b60a5d3eade5a2a792a16201b240",
+  "derived_artifact_regeneration_commit": "12a6d42b41f5ab918a4349ce34eb519bb39c1c39",
+  "freeze_manifest_generation_commit": "12a6d42b41f5ab918a4349ce34eb519bb39c1c39",
   "artifact_shas": {
     "primary_raw": "8bc82239d8893354106a5fb357f62388f108f05bac4ac3b1f57df8d028277a8b",
     "primary_labels": "0d91d568fd23affb19d60bfb69be02f990aa9efaf4e7fe700ecbbaed4259a742",
@@ -28,12 +28,12 @@
     "llm_adjudication": "c24dcb05b7aee70d734fbabf3168cbb664dc9824fed4c6f7671f1107946a3a05",
     "final_adjudicated_labels": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
     "final_sequence_labels": "ee780d054bc68bc24013c1d817ecde06b78ec19ce9ce928d77e5edf52e26379d",
-    "adjudication_manifest": "7990bc34d88be90faa4e988198bc0799df76652b8d78c743ca2a9e57054ea47e",
-    "verifier_results": "5e3ae42cbef2673dca9b24fa0a0b75a150f7a426273cc0d92349e01662fa4f00"
+    "adjudication_manifest": "8a3ae6e1080db2619c062250bc082b124c02a8844a1a5182b78708eccfcbe050",
+    "verifier_results": "2165dc93287641322660baa9cbada0151b5c7cb6c619ba8117938711ec0ebbce"
   },
   "primary_campaign_summary_sha256": "15f98189cdb08ad55dca73ffb7a4d651c32198abaa827e53782645c8bea0280b",
   "secondary_campaign_summary_sha256": "e3b30b46953c0ab1ca358a81c741d38a086a0c2a5e642395ba15530fd99b337e",
-  "verifier_results_sha256": "5e3ae42cbef2673dca9b24fa0a0b75a150f7a426273cc0d92349e01662fa4f00",
+  "verifier_results_sha256": "2165dc93287641322660baa9cbada0151b5c7cb6c619ba8117938711ec0ebbce",
   "row_count": {
     "primary": 225,
     "secondary": 225,
@@ -44,6 +44,6 @@
     "secondary": 36,
     "final": 36
   },
-  "annotation_manifest_sha256": "0aefa4fa9d31ab0912b2b05f99da80fb79dcfed486be8cb6ad18ad575dddb2d7",
-  "gate_sha256": "6c7fea43a97858926e67dbf9c67e8341febc4cdcf03fda896c1c29aca7967c36"
+  "annotation_manifest_sha256": "291b03acc3b63a15bde403c87c8143e30a0a31fdec7b28c5e2abbbf4d89a0b86",
+  "gate_sha256": "24ebd9f3778617337f1f726e2806e33469bcc053d885acc624e7b4237f224b3f"
 }
