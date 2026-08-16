@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "created_at": "2026-08-16T04:33:42.843630+00:00",
+  "created_at": "2026-08-16T07:46:25.337971+00:00",
   "description": "Sec 49: Development annotation gate",
   "development_annotation_completed": true,
   "primary_complete": true,
@@ -29,6 +29,27 @@
   "protocol_freeze_pass": false,
   "annotation_protocol_frozen": false,
   "go_no_go": "NO-GO",
+  "provenance_audit": {
+    "primary_attempt_count": 261,
+    "secondary_attempt_count": 277,
+    "primary_terminal_labels": 225,
+    "secondary_terminal_labels": 225,
+    "primary_sequence_labels": 36,
+    "secondary_sequence_labels": 36,
+    "missing_required_fields": 0,
+    "empty_corpus_bindings": 0,
+    "model_identity_failures": 0,
+    "passed": true
+  },
+  "frozen_corpus_verifier": {
+    "fc_verifier_pass": true,
+    "verifier_code_commit": "aef44c33fc3b663526c00ad8fc8ebfb5de3b00aa",
+    "verifier_timestamp": "2026-08-16T07:46:25.337956+00:00",
+    "checks_total": 53,
+    "checks_passed": 53,
+    "checks_failed": 0,
+    "verifier_exit_code": 0
+  },
   "summary": {
     "total_rows": 225,
     "total_sequences": 36,

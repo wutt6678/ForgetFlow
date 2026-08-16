@@ -323,7 +323,10 @@ def run_audit() -> dict:
     # -----------------------------------------------------------------------
     # Assemble audit report
     # -----------------------------------------------------------------------
-    gate_assessment = _assess_gates(row_agreement, seq_recon_agreement, coverage, role_violations)
+    gate_assessment = _assess_gates(
+        row_agreement, seq_recon_agreement, coverage, role_violations,
+        adjudication=adjudication,
+    )
 
     audit_report = {
         "audit_timestamp": datetime.now(timezone.utc).isoformat(),
@@ -443,8 +446,13 @@ def _assess_gates(
     seq_recon_agreement: dict,
     coverage: dict,
     role_violations: list,
+    adjudication: dict | None = None,
 ) -> dict:
-    """Assess pilot gate conditions."""
+    """Assess pilot gate conditions.
+
+    Uses separate status fields so that agreement-audit PASS does not
+    imply the full annotation protocol is ready (Sec 5 repair).
+    """
     gates = {}
 
     # Gate 1: Full coverage
@@ -483,10 +491,56 @@ def _assess_gates(
     }
 
     all_passed = all(g["passed"] for g in gates.values())
+
+    # --- Separate status fields (Repair A, Sec 5) ---
+    agreement_audit_passed = all_passed
+    coverage_audit_passed = (
+        gates["full_coverage"]["passed"]
+    )
+    model_role_audit_passed = gates["model_role_separation"]["passed"]
+
+    # Unresolved-rate gate (Sec 5): add directly to audit summary
+    adj = adjudication or {}
+    row_unresolved = adj.get("row_unresolved", 0)
+    total_rows = coverage.get("common_row_count", 0)
+    row_unresolved_rate = row_unresolved / total_rows if total_rows > 0 else 1.0
+    row_unresolved_threshold = 0.10
+    row_unresolved_gate_passed = row_unresolved_rate <= row_unresolved_threshold
+
+    seq_unresolved = adj.get("sequence_unresolved", 0)
+    total_seqs = adj.get("sequence_consensus", 0) + seq_unresolved
+    seq_unresolved_rate = seq_unresolved / total_seqs if total_seqs > 0 else 1.0
+    seq_unresolved_threshold = 0.10
+    seq_unresolved_gate_passed = seq_unresolved_rate <= seq_unresolved_threshold
+
+    # Protocol freeze ready requires ALL gates including unresolved rate
+    protocol_freeze_ready = (
+        agreement_audit_passed
+        and coverage_audit_passed
+        and model_role_audit_passed
+        and row_unresolved_gate_passed
+        and seq_unresolved_gate_passed
+    )
+
     return {
         "gates": gates,
         "all_passed": all_passed,
-        "assessment": "PASS" if all_passed else "CONDITIONAL",
+        # Separate status fields (Repair A)
+        "agreement_audit_passed": agreement_audit_passed,
+        "coverage_audit_passed": coverage_audit_passed,
+        "model_role_audit_passed": model_role_audit_passed,
+        "protocol_freeze_ready": protocol_freeze_ready,
+        # Unresolved-rate gate (Sec 5)
+        "row_unresolved": row_unresolved,
+        "row_unresolved_rate": round(row_unresolved_rate, 4),
+        "row_unresolved_threshold": row_unresolved_threshold,
+        "row_unresolved_gate_passed": row_unresolved_gate_passed,
+        "seq_unresolved": seq_unresolved,
+        "seq_unresolved_rate": round(seq_unresolved_rate, 4),
+        "seq_unresolved_threshold": seq_unresolved_threshold,
+        "seq_unresolved_gate_passed": seq_unresolved_gate_passed,
+        # Legacy field kept for backward compatibility
+        "assessment": "PASS" if agreement_audit_passed else "CONDITIONAL",
     }
 
 
@@ -611,7 +665,14 @@ def _render_pilot_report_md(report: dict) -> str:
     # Gate assessment
     gate = report["gate_assessment"]
     lines.append(f"\n## Gate Assessment\n")
-    lines.append(f"**Overall: {gate['assessment']}**\n")
+    lines.append(f"**Agreement audit:** {'PASS' if gate.get('agreement_audit_passed') else 'FAIL'}")
+    lines.append(f"**Coverage audit:** {'PASS' if gate.get('coverage_audit_passed') else 'FAIL'}")
+    lines.append(f"**Model-role audit:** {'PASS' if gate.get('model_role_audit_passed') else 'FAIL'}")
+    lines.append(f"**Protocol freeze ready:** {'YES' if gate.get('protocol_freeze_ready') else 'NO'}")
+    lines.append(f"\n**Unresolved-rate gate:**")
+    lines.append(f"- Row unresolved: {gate.get('row_unresolved', '?')}/{gate.get('row_unresolved', 0) + report.get('adjudication_summary', {}).get('row_consensus', 0)} = {gate.get('row_unresolved_rate', '?')} (threshold <= {gate.get('row_unresolved_threshold', 0.10)}): {'PASS' if gate.get('row_unresolved_gate_passed') else 'FAIL'}")
+    lines.append(f"- Sequence unresolved: {gate.get('seq_unresolved', '?')}/{gate.get('seq_unresolved', 0) + report.get('adjudication_summary', {}).get('sequence_consensus', 0)} = {gate.get('seq_unresolved_rate', '?')} (threshold <= {gate.get('seq_unresolved_threshold', 0.10)}): {'PASS' if gate.get('seq_unresolved_gate_passed') else 'FAIL'}")
+    lines.append(f"\n**Legacy assessment:** {gate.get('assessment', 'N/A')}\n")
     lines.append("| Gate | Passed | Detail |")
     lines.append("|------|:------:|--------|")
     for gate_name, gate_info in gate["gates"].items():
@@ -642,7 +703,14 @@ if __name__ == "__main__":
     report = run_audit()
     # Print gate summary
     gate = report.get("gate_assessment", {})
-    print(f"\nGate assessment: {gate.get('assessment', 'UNKNOWN')}")
+    print(f"\nGate assessment:")
+    print(f"  agreement_audit_passed: {gate.get('agreement_audit_passed')}")
+    print(f"  coverage_audit_passed: {gate.get('coverage_audit_passed')}")
+    print(f"  model_role_audit_passed: {gate.get('model_role_audit_passed')}")
+    print(f"  protocol_freeze_ready: {gate.get('protocol_freeze_ready')}")
+    print(f"  row_unresolved_gate_passed: {gate.get('row_unresolved_gate_passed')} "
+          f"({gate.get('row_unresolved', '?')} unresolved, rate={gate.get('row_unresolved_rate')})")
+    print(f"  seq_unresolved_gate_passed: {gate.get('seq_unresolved_gate_passed')}")
     for gname, ginfo in gate.get("gates", {}).items():
         status = "PASS" if ginfo["passed"] else "FAIL"
         print(f"  [{status}] {gname}: {ginfo['detail']}")

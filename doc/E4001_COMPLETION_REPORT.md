@@ -5,9 +5,10 @@
 ### Pilot identity
 
 - **Specification**: E4-001 Repair Checklist
-- **Starting commit**: `f66f685acd2d3623404e1b11583689cc6a91532f`
-- **Final annotation source commit**: `e0c379b4b1713dab34ac7345d2c3ab8a08338fd0`
-- **Final commit (this report)**: `4667a68c53a7b70e0543b5dd64019fbf4de79f11`
+- **Starting commit**: `05c498db16384ee587f7e6fd5a35989ae6f6972c`
+- **Annotation source commit**: `e0c379b4b1713dab34ac7345d2c3ab8a08338fd0`
+- **v3 evidence commit**: `4667a68c53a7b70e0543b5dd64019fbf4de79f11`
+- **Completion report commit**: `05c498db16384ee587f7e6fd5a35989ae6f6972c`
 - **Old pilot superseded**: YES (v1 → `pilot_supersession.json`)
 
 ### Frozen corpus
@@ -40,7 +41,7 @@
 - **Provider**: openai (LiteLLM transport)
 - **Requested model**: qwen3.8-max
 - **Returned model**: qwen3.8-max
-- **Model revision**: as served by provider
+- **Model revision**: not_exposed_by_provider
 - **Transport**: openai-compatible API via LiteLLM
 - **Provider attempts**: 261
 - **Row labels**: 225 / 225
@@ -55,7 +56,7 @@
 - **Provider**: openai (LiteLLM transport)
 - **Requested model**: glm-5.2
 - **Returned model**: glm-5.2
-- **Model revision**: as served by provider
+- **Model revision**: not_exposed_by_provider
 - **Transport**: openai-compatible API via LiteLLM
 - **Provider attempts**: 277 (261 first run + 16 resume retries)
 - **Row labels**: 225 / 225

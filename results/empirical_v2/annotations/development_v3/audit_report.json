@@ -1,5 +1,5 @@
 {
-  "audit_timestamp": "2026-08-16T04:33:25.523008+00:00",
+  "audit_timestamp": "2026-08-16T07:46:13.086603+00:00",
   "schema_version": "1.0",
   "primary_model": "qwen3.8-max",
   "secondary_model": "glm-5.2",
@@ -193,6 +193,18 @@
       }
     },
     "all_passed": true,
+    "agreement_audit_passed": true,
+    "coverage_audit_passed": true,
+    "model_role_audit_passed": true,
+    "protocol_freeze_ready": false,
+    "row_unresolved": 36,
+    "row_unresolved_rate": 0.16,
+    "row_unresolved_threshold": 0.1,
+    "row_unresolved_gate_passed": false,
+    "seq_unresolved": 0,
+    "seq_unresolved_rate": 0.0,
+    "seq_unresolved_threshold": 0.1,
+    "seq_unresolved_gate_passed": true,
     "assessment": "PASS"
   }
 }

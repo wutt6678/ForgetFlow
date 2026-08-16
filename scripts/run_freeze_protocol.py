@@ -12,6 +12,7 @@ Evaluates protocol-freeze criteria (Sec 73) and GO/NO-GO (Sec 75).
 
 import hashlib
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,6 +71,196 @@ def count_jsonl(path: Path) -> int:
             if line.strip():
                 count += 1
     return count
+
+
+def load_jsonl(path: Path) -> list[dict]:
+    """Load all records from a JSONL file."""
+    records: list[dict] = []
+    if not path.exists():
+        return records
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return records
+
+
+# Required provenance fields per attempt record (Repair B, Sec 6)
+_REQUIRED_ATTEMPT_FIELDS = [
+    "provider_attempt_id",
+    "provider_request_id",
+    "requested_model",
+    "returned_model",
+    "model_revision",
+    "transport",
+    "system_prompt_sha256",
+    "user_prompt_sha256",
+    "retry_index",
+    "timestamp",
+    "frozen_corpus_manifest_sha256",
+    "annotation_campaign_identity_sha256",
+]
+
+
+def audit_provenance() -> dict:
+    """Repair B (Sec 6): derive provenance success from actual artifacts.
+
+    Checks that all required provenance fields are present in attempt records
+    and label files.
+    """
+    primary_attempts = load_jsonl(DEV_DIR / "primary_annotation_attempts.jsonl")
+    secondary_attempts = load_jsonl(DEV_DIR / "secondary_annotation_attempts.jsonl")
+    primary_labels = load_jsonl(DEV_DIR / "row_annotations.jsonl")
+    secondary_labels = load_jsonl(DEV_DIR / "secondary_row_annotations.jsonl")
+    primary_seq_labels = load_jsonl(DEV_DIR / "sequence_annotations.jsonl")
+    secondary_seq_labels = load_jsonl(DEV_DIR / "secondary_sequence_annotations.jsonl")
+
+    missing_required_fields = 0
+    empty_corpus_bindings = 0
+    model_identity_failures = 0
+
+    # Check attempt records
+    for attempts in [primary_attempts, secondary_attempts]:
+        for rec in attempts:
+            for field in _REQUIRED_ATTEMPT_FIELDS:
+                val = rec.get(field)
+                if val is None or val == "":
+                    missing_required_fields += 1
+            # Check corpus binding
+            fc_sha = rec.get("frozen_corpus_manifest_sha256", "")
+            if not fc_sha:
+                empty_corpus_bindings += 1
+            # Check model identity
+            req = rec.get("requested_model", "")
+            ret = rec.get("returned_model", "")
+            rev = rec.get("model_revision", "")
+            if not req or not ret or not rev:
+                model_identity_failures += 1
+
+    # Check label records have candidate_id and frozen corpus binding
+    for labels in [primary_labels, secondary_labels]:
+        for rec in labels:
+            if not rec.get("candidate_id"):
+                missing_required_fields += 1
+
+    passed = (
+        missing_required_fields == 0
+        and empty_corpus_bindings == 0
+        and model_identity_failures == 0
+    )
+
+    return {
+        "provenance_audit": {
+            "primary_attempt_count": len(primary_attempts),
+            "secondary_attempt_count": len(secondary_attempts),
+            "primary_terminal_labels": len(primary_labels),
+            "secondary_terminal_labels": len(secondary_labels),
+            "primary_sequence_labels": len(primary_seq_labels),
+            "secondary_sequence_labels": len(secondary_seq_labels),
+            "missing_required_fields": missing_required_fields,
+            "empty_corpus_bindings": empty_corpus_bindings,
+            "model_identity_failures": model_identity_failures,
+            "passed": passed,
+        }
+    }
+
+
+def run_frozen_corpus_verifier() -> dict:
+    """Repair C (Sec 7): use the real frozen-corpus verifier result.
+
+    Executes the same underlying logic as:
+      python scripts/verify_frozen_empirical_corpus.py
+
+    Returns verifier results with checks_total, checks_passed, checks_failed.
+    """
+    verifier_script = REPO_ROOT / "scripts" / "verify_frozen_empirical_corpus.py"
+    if not verifier_script.exists():
+        return {
+            "fc_verifier_pass": False,
+            "verifier_code_commit": "",
+            "verifier_timestamp": datetime.now(timezone.utc).isoformat(),
+            "checks_total": 0,
+            "checks_passed": 0,
+            "checks_failed": 0,
+            "error": "verifier script not found",
+        }
+
+    # Get verifier code commit
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", str(verifier_script)],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    verifier_commit = result.stdout.strip()
+
+    # Run the verifier
+    result = subprocess.run(
+        [sys.executable, str(verifier_script)],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    verifier_pass = result.returncode == 0
+
+    # Parse output for check counts
+    stdout = result.stdout
+    checks_passed = stdout.count("PASS")
+    checks_failed = stdout.count("FAIL")
+    checks_total = checks_passed + checks_failed
+
+    return {
+        "fc_verifier_pass": verifier_pass,
+        "verifier_code_commit": verifier_commit,
+        "verifier_timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks_total": checks_total,
+        "checks_passed": checks_passed,
+        "checks_failed": checks_failed,
+        "verifier_exit_code": result.returncode,
+    }
+
+
+def build_campaign_summary(
+    role: str,
+    attempts_path: Path,
+    row_labels_path: Path,
+    seq_labels_path: Path,
+) -> dict:
+    """Repair F (Sec 10): cumulative campaign summary from actual attempt logs.
+
+    Unlike the invocation-local *_annotation_summary.json files, this
+    aggregates across the entire campaign (including retries and resumes).
+    """
+    attempts = load_jsonl(attempts_path)
+    row_labels = load_jsonl(row_labels_path)
+    seq_labels = load_jsonl(seq_labels_path)
+
+    total_attempts = len(attempts)
+    successful = sum(1 for a in attempts if a.get("status") == "success")
+    non_success = total_attempts - successful
+
+    # Count raw responses present (some failed attempts still have responses)
+    raw_present = sum(1 for a in attempts if a.get("raw_response"))
+    req_ids_present = sum(1 for a in attempts if a.get("provider_request_id"))
+    corpus_bindings = sum(1 for a in attempts if a.get("frozen_corpus_manifest_sha256"))
+
+    # Status breakdown
+    status_counts: dict[str, int] = {}
+    for a in attempts:
+        s = a.get("status", "unknown")
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+    return {
+        "role": role,
+        "row_labels": len(row_labels),
+        "sequence_labels": len(seq_labels),
+        "terminal_labels": len(row_labels) + len(seq_labels),
+        "provider_attempts": total_attempts,
+        "successful_attempts": successful,
+        "non_success_attempts": non_success,
+        "additional_attempts_beyond_terminal_items": non_success,
+        "status_breakdown": status_counts,
+        "raw_responses_present": raw_present,
+        "provider_request_ids_present": req_ids_present,
+        "frozen_corpus_binding_complete": corpus_bindings == total_attempts,
+    }
 
 
 def build_file_inventory() -> dict[str, str]:
@@ -180,6 +371,7 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
     """Sec 49: Development annotation gate.
 
     Also evaluates Sec 73 protocol-freeze criteria and Sec 75 GO/NO-GO.
+    Repairs B+C: derive provenance and verifier results from actual artifacts.
     """
     coverage = audit.get("coverage", {})
     adjudication = audit.get("adjudication", {})
@@ -222,6 +414,10 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
     seq_raw_agreement = seq_recon.get("raw_agreement", 0.0)
     seq_kappa = seq_recon.get("cohens_kappa", "not_estimable")
 
+    # Repair B (Sec 6): derive provenance from actual artifacts
+    provenance_result = audit_provenance()
+    provenance_audit = provenance_result["provenance_audit"]
+
     # Sec 73: Protocol-freeze criteria
     freeze_criteria = {
         "core_label_raw_agreement_gte_0.85": min_raw_agreement >= 0.85,
@@ -236,13 +432,17 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
         "unresolved_row_rate": round(unresolved_row_rate, 4),
         "unresolved_seq_rate_lte_10pct": unresolved_seq_rate <= 0.10,
         "unresolved_seq_rate": round(unresolved_seq_rate, 4),
-        "no_systematic_provenance_failure": True,  # all attempts succeeded
+        "no_systematic_provenance_failure": provenance_audit["passed"],
         "no_test_data_inspected": True,
     }
 
     all_freeze_pass = all(
         v for k, v in freeze_criteria.items() if isinstance(v, bool)
     )
+
+    # Repair C (Sec 7): use real frozen-corpus verifier result
+    fc_result = run_frozen_corpus_verifier()
+    fc_verifier_pass = fc_result["fc_verifier_pass"]
 
     # Sec 49 gate fields
     blocking_findings: list[str] = []
@@ -276,11 +476,18 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
         blocking_findings.append(
             f"unresolved sequence rate {freeze_criteria['unresolved_seq_rate']} > 10%"
         )
+    if not freeze_criteria["no_systematic_provenance_failure"]:
+        blocking_findings.append(
+            "provenance audit failed: missing required fields or empty corpus bindings"
+        )
+    if not fc_verifier_pass:
+        blocking_findings.append(
+            "frozen corpus verifier failed"
+        )
 
     # Sec 75: GO/NO-GO — freeze only when all criteria pass (Sec 32-33)
     schema_frozen = all_freeze_pass
     prompts_frozen = all_freeze_pass
-    fc_verifier_pass = True  # will be verified separately
 
     go_no_go = "GO" if (
         all_freeze_pass and schema_frozen and prompts_frozen and fc_verifier_pass
@@ -307,6 +514,10 @@ def assess_gate(audit: dict, protocol_manifest: dict) -> dict:
         "protocol_freeze_pass": all_freeze_pass,
         "annotation_protocol_frozen": all_freeze_pass,
         "go_no_go": go_no_go,
+        # Repair B: provenance audit results
+        "provenance_audit": provenance_audit,
+        # Repair C: frozen corpus verifier results
+        "frozen_corpus_verifier": fc_result,
         "summary": {
             "total_rows": total_rows,
             "total_sequences": total_seqs,
@@ -405,10 +616,51 @@ def main() -> int:
     print(f"  GO/NO-GO: {gate['go_no_go']}")
     print(f"  Ready for validation: {gate['ready_for_validation_annotation']}")
 
+    # Repair B: provenance audit summary
+    prov = gate.get("provenance_audit", {})
+    print(f"\n  --- Provenance Audit (Repair B) ---")
+    print(f"  Primary attempts: {prov.get('primary_attempt_count', '?')}")
+    print(f"  Secondary attempts: {prov.get('secondary_attempt_count', '?')}")
+    print(f"  Missing required fields: {prov.get('missing_required_fields', '?')}")
+    print(f"  Empty corpus bindings: {prov.get('empty_corpus_bindings', '?')}")
+    print(f"  Model identity failures: {prov.get('model_identity_failures', '?')}")
+    print(f"  Provenance audit PASSED: {prov.get('passed', '?')}")
+
+    # Repair C: frozen corpus verifier summary
+    fc = gate.get("frozen_corpus_verifier", {})
+    print(f"\n  --- Frozen Corpus Verifier (Repair C) ---")
+    print(f"  Verifier PASS: {fc.get('fc_verifier_pass', '?')}")
+    print(f"  Verifier code commit: {fc.get('verifier_code_commit', '?')}")
+    print(f"  Checks: {fc.get('checks_passed', '?')}/{fc.get('checks_total', '?')} passed")
+    if fc.get("checks_failed", 0) > 0:
+        print(f"  CHECKS FAILED: {fc['checks_failed']}")
+
     if gate["blocking_findings"]:
         print(f"\n  BLOCKING FINDINGS ({len(gate['blocking_findings'])}):")
         for finding in gate["blocking_findings"]:
             print(f"    - {finding}")
+
+    # 4b. Repair F: Cumulative campaign summaries
+    print("\n--- Cumulative Campaign Summaries (Repair F) ---")
+    for role, attempts_file, row_file, seq_file in [
+        ("J", "primary_annotation_attempts.jsonl", "row_annotations.jsonl", "sequence_annotations.jsonl"),
+        ("J2", "secondary_annotation_attempts.jsonl", "secondary_row_annotations.jsonl", "secondary_sequence_annotations.jsonl"),
+    ]:
+        summary = build_campaign_summary(
+            role=role,
+            attempts_path=DEV_DIR / attempts_file,
+            row_labels_path=DEV_DIR / row_file,
+            seq_labels_path=DEV_DIR / seq_file,
+        )
+        out_path = DEV_DIR / f"{role.lower()}_campaign_summary.json"
+        with open(out_path, "w") as f:
+            json.dump(summary, f, indent=2)
+            f.write("\n")
+        print(f"  Written: {out_path.relative_to(REPO_ROOT)}")
+        print(f"    {role}: {summary['provider_attempts']} attempts, "
+              f"{summary['successful_attempts']} success, "
+              f"{summary['non_success_attempts']} non-success, "
+              f"{summary['row_labels']} rows, {summary['sequence_labels']} seqs")
 
     # 5. Update annotation_phase.json
     print("\n--- Updating annotation_phase.json ---")

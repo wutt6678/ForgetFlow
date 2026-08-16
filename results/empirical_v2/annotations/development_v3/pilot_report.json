@@ -1,6 +1,6 @@
 {
   "report_type": "pilot_annotation_report",
-  "report_timestamp": "2026-08-16T04:33:25.523442+00:00",
+  "report_timestamp": "2026-08-16T07:46:13.087142+00:00",
   "schema_version": "1.0",
   "specification": "E4-001",
   "campaign_identity": {
@@ -229,6 +229,18 @@
       }
     },
     "all_passed": true,
+    "agreement_audit_passed": true,
+    "coverage_audit_passed": true,
+    "model_role_audit_passed": true,
+    "protocol_freeze_ready": false,
+    "row_unresolved": 36,
+    "row_unresolved_rate": 0.16,
+    "row_unresolved_threshold": 0.1,
+    "row_unresolved_gate_passed": false,
+    "seq_unresolved": 0,
+    "seq_unresolved_rate": 0.0,
+    "seq_unresolved_threshold": 0.1,
+    "seq_unresolved_gate_passed": true,
     "assessment": "PASS"
   }
 }

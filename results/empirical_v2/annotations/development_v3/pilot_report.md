@@ -1,6 +1,6 @@
 # E4-001 Pilot Annotation Report
 
-**Report timestamp:** 2026-08-16T04:33:25.523442+00:00
+**Report timestamp:** 2026-08-16T07:46:13.087142+00:00
 **Schema version:** 1.0
 **Specification:** E4-001
 
@@ -106,7 +106,16 @@
 
 ## Gate Assessment
 
-**Overall: PASS**
+**Agreement audit:** PASS
+**Coverage audit:** PASS
+**Model-role audit:** PASS
+**Protocol freeze ready:** NO
+
+**Unresolved-rate gate:**
+- Row unresolved: 36/225 = 0.16 (threshold <= 0.1): FAIL
+- Sequence unresolved: 0/36 = 0.0 (threshold <= 0.1): PASS
+
+**Legacy assessment:** PASS
 
 | Gate | Passed | Detail |
 |------|:------:|--------|

@@ -1,0 +1,16 @@
+{
+  "role": "J",
+  "row_labels": 225,
+  "sequence_labels": 36,
+  "terminal_labels": 261,
+  "provider_attempts": 261,
+  "successful_attempts": 261,
+  "non_success_attempts": 0,
+  "additional_attempts_beyond_terminal_items": 0,
+  "status_breakdown": {
+    "success": 261
+  },
+  "raw_responses_present": 261,
+  "provider_request_ids_present": 261,
+  "frozen_corpus_binding_complete": true
+}

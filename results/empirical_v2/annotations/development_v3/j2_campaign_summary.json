@@ -1,0 +1,18 @@
+{
+  "role": "J2",
+  "row_labels": 225,
+  "sequence_labels": 36,
+  "terminal_labels": 261,
+  "provider_attempts": 277,
+  "successful_attempts": 261,
+  "non_success_attempts": 16,
+  "additional_attempts_beyond_terminal_items": 16,
+  "status_breakdown": {
+    "success": 261,
+    "empty_response": 15,
+    "malformed": 1
+  },
+  "raw_responses_present": 262,
+  "provider_request_ids_present": 277,
+  "frozen_corpus_binding_complete": true
+}
