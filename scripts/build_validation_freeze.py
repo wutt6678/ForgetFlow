@@ -191,10 +191,22 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not agreement_computed:
         blocking.append("agreement not computed")
 
-    # Adjudication complete
-    adjudication_complete = adj_manifest.get("adjudicated_count", 0) > 0
+    # §25: Adjudication complete — hardened check
+    review_queue_count = adj_manifest.get("review_queue_count", 0)
+    adjudicated_count = adj_manifest.get("adjudicated_count", 0)
+    # Allow 0/0 (no review items needed), but require exact coverage otherwise
+    adjudication_complete = (
+        adjudicated_count == review_queue_count
+    )
     if not adjudication_complete:
-        blocking.append("adjudication not complete")
+        blocking.append(
+            f"adjudication incomplete: {adjudicated_count}/{review_queue_count}"
+        )
+
+    # §22: Final sequence count must be exactly 36
+    final_seq_count = manifest["sequence_count"]["final"]
+    if final_seq_count != 36:
+        blocking.append(f"final sequences: {final_seq_count}/36")
 
     # Protocol hash match
     protocol_hash_match = (
@@ -247,8 +259,8 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not development_protocol_verifier_pass:
         blocking.append("development gate is not GO")
 
-    # Provenance audit pass (all files have valid SHAs)
-    provenance_audit_pass = all(
+    # §27-29: Provenance audit — byte-level SHA256 verification
+    provenance_bindings_present = all(
         manifest.get(k, "") != "" for k in [
             "primary_raw_sha256", "primary_labels_sha256",
             "secondary_raw_sha256", "secondary_labels_sha256",
@@ -256,8 +268,37 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
             "final_adjudicated_labels_sha256",
         ]
     )
-    if not provenance_audit_pass:
-        blocking.append("provenance audit: missing SHA bindings")
+    if not provenance_bindings_present:
+        blocking.append("provenance bindings: missing SHA fields")
+
+    # §27: Actual byte-level verification
+    provenance_audit_pass = True
+    for key, fname in _VAL_FILES.items():
+        fpath = _VAL_DIR / fname
+        if fpath.exists():
+            manifest_key = f"{key}_sha256"
+            # Map file keys to manifest hash keys
+            hash_key_map = {
+                "primary_raw": "primary_raw_sha256",
+                "primary_labels": "primary_labels_sha256",
+                "primary_sequences": "primary_sequences_sha256",
+                "secondary_raw": "secondary_raw_sha256",
+                "secondary_labels": "secondary_labels_sha256",
+                "secondary_sequences": "secondary_sequences_sha256",
+                "agreement_report": "agreement_report_sha256",
+                "review_queue": "review_queue_sha256",
+                "llm_adjudication": "llm_adjudication_sha256",
+                "final_adjudicated_labels": "final_adjudicated_labels_sha256",
+                "final_sequence_labels": "final_sequence_labels_sha256",
+                "adjudication_manifest": "adjudication_manifest_sha256",
+            }
+            hash_key = hash_key_map.get(key, "")
+            if hash_key:
+                expected = manifest.get(hash_key, "")
+                actual = _sha256(fpath)
+                if expected and actual != expected:
+                    provenance_audit_pass = False
+                    blocking.append(f"provenance hash mismatch: {key}")
 
     go_no_go = "GO" if not blocking else "NO-GO"
 
@@ -275,6 +316,7 @@ def build_validation_gate(manifest: dict[str, Any]) -> dict[str, Any]:
         "prompt_hash_match": prompt_hash_match,
         "unresolved_row_rate_pass": unresolved_row_pass,
         "unresolved_sequence_rate_pass": unresolved_seq_pass,
+        "provenance_bindings_present": provenance_bindings_present,
         "provenance_audit_pass": provenance_audit_pass,
         "frozen_corpus_verifier_pass": frozen_corpus_verifier_pass,
         "development_protocol_verifier_pass": development_protocol_verifier_pass,

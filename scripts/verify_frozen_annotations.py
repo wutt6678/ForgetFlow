@@ -240,6 +240,7 @@ class FrozenAnnotationVerifier:
         print("\n[V6] Validation sequence counts...")
         primary_seqs = _count_jsonl(_VAL_DIR / "primary_sequence_annotations.jsonl")
         secondary_seqs = _count_jsonl(_VAL_DIR / "secondary_sequence_annotations.jsonl")
+        final_seqs = _count_jsonl(_VAL_DIR / "final_sequence_labels.jsonl")
         if primary_seqs == 36:
             self._pass(f"primary sequences: {primary_seqs}/36")
         else:
@@ -248,6 +249,60 @@ class FrozenAnnotationVerifier:
             self._pass(f"secondary sequences: {secondary_seqs}/36")
         else:
             self._fail(f"secondary sequences: expected 36, got {secondary_seqs}")
+        if final_seqs == 36:
+            self._pass(f"final sequences: {final_seqs}/36")
+        else:
+            self._fail(f"final sequences: expected 36, got {final_seqs}")
+
+        # 6b. Sequence annotation ID uniqueness and coverage (§40)
+        print("\n[V6b] Sequence annotation ID uniqueness and coverage...")
+        import json as _json
+
+        def _load_jsonl_ids(path):
+            ids = []
+            if path.exists():
+                with open(path) as f:
+                    for line in f:
+                        if line.strip():
+                            rec = _json.loads(line)
+                            ids.append(rec.get("sequence_annotation_id", ""))
+            return ids
+
+        p_seq_ids = _load_jsonl_ids(_VAL_DIR / "primary_sequence_annotations.jsonl")
+        s_seq_ids = _load_jsonl_ids(_VAL_DIR / "secondary_sequence_annotations.jsonl")
+        f_seq_ids = _load_jsonl_ids(_VAL_DIR / "final_sequence_labels.jsonl")
+
+        p_unique = len(p_seq_ids) == len(set(p_seq_ids))
+        s_unique = len(s_seq_ids) == len(set(s_seq_ids))
+        f_unique = len(f_seq_ids) == len(set(f_seq_ids))
+
+        if p_unique and len(p_seq_ids) == 36:
+            self._pass("primary: 36 unique sequence_annotation_ids")
+        else:
+            self._fail(f"primary: {len(p_seq_ids)} ids, unique={p_unique}")
+        if s_unique and len(s_seq_ids) == 36:
+            self._pass("secondary: 36 unique sequence_annotation_ids")
+        else:
+            self._fail(f"secondary: {len(s_seq_ids)} ids, unique={s_unique}")
+        if f_unique and len(f_seq_ids) == 36:
+            self._pass("final: 36 unique sequence_annotation_ids")
+        else:
+            self._fail(f"final: {len(f_seq_ids)} ids, unique={f_unique}")
+
+        # Cross-annotator coverage
+        p_set = set(p_seq_ids)
+        s_set = set(s_seq_ids)
+        f_set = set(f_seq_ids)
+        common = p_set & s_set
+        if len(common) == 36 and len(p_set - s_set) == 0 and len(s_set - p_set) == 0:
+            self._pass("36 common sequence_annotation_ids, 0 unmatched")
+        else:
+            self._fail(f"common={len(common)}, unmatched_p={len(p_set - s_set)}, unmatched_s={len(s_set - p_set)}")
+
+        if f_set == p_set:
+            self._pass("final sequence IDs match input IDs")
+        else:
+            self._fail("final sequence IDs do not match input IDs")
 
         # 7. Adjudication complete
         print("\n[V7] Validation adjudication complete...")
