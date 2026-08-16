@@ -34,11 +34,13 @@ ANNOTATION_SCHEMA_VERSION = "1.0"
 # Annotator roles (Sec 4)
 ROLE_PRIMARY = "J"
 ROLE_SECONDARY = "J2"
+ROLE_ADJUDICATOR = "J3"
 ROLE_GENERATOR = "G"
 
 MODEL_GENERATOR = "qwen3.7-plus"
 MODEL_PRIMARY = "qwen3.8-max"
 MODEL_SECONDARY = "glm-5.2"
+MODEL_ADJUDICATOR = "qwen-plus"
 
 # Leakage strength values (Sec 13)
 LeakageStrength = Literal["none", "partial", "full"]
@@ -58,6 +60,8 @@ _DEVELOPMENT_DIR = _ANNOTATIONS_DIR / "development"
 _CORPUS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _FROZEN_MANIFEST_PATH = _CORPUS_DIR / "frozen_corpus_manifest.json"
 _DEV_CANDIDATES_PATH = _CORPUS_DIR / "development" / "accepted_candidates.jsonl"
+_VAL_CANDIDATES_PATH = _CORPUS_DIR / "validation" / "accepted_candidates.jsonl"
+_VALIDATION_DIR = _ANNOTATIONS_DIR / "validation"
 _TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "target_specs.jsonl"
 
 # Scenario descriptions for blinded views (minimal task context)
@@ -876,6 +880,99 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
     return row_items, sequence_items
 
 
+def build_validation_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """E4-002 Sec 22: Build deterministic validation annotation queue.
+
+    Applies the frozen development protocol unchanged to the validation split.
+    Returns (row_items, sequence_items).
+    """
+    if not _VAL_CANDIDATES_PATH.exists():
+        raise FileNotFoundError(f"Validation candidates not found: {_VAL_CANDIDATES_PATH}")
+
+    candidates: list[dict[str, Any]] = []
+    with open(_VAL_CANDIDATES_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                candidates.append(json.loads(line))
+
+    # Sort deterministically by candidate_id
+    candidates.sort(key=lambda c: c["candidate_id"])
+
+    manifest_sha = _frozen_manifest_sha256()
+
+    # Row items: ALL candidates (including sequence members)
+    row_items: list[dict[str, Any]] = []
+    for c in candidates:
+        row_items.append({
+            "annotation_id": _make_row_annotation_id(
+                c["candidate_id"], ANNOTATION_SCHEMA_VERSION
+            ),
+            "candidate_id": c["candidate_id"],
+            "candidate_content_sha256": c.get("content_sha256", ""),
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
+            "split": "validation",
+            "scenario_id": c["scenario_id"],
+            "secret_variant_id": c["secret_variant_id"],
+        })
+
+    # Sequence items: group by (sequence_family_id, trust_level)
+    seq_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for c in candidates:
+        sfid = c.get("sequence_family_id")
+        if sfid:
+            trust = c.get("trust_level", "default")
+            key = (sfid, trust)
+            seq_groups.setdefault(key, []).append(c)
+
+    sequence_items: list[dict[str, Any]] = []
+    for (sfid, trust), members in sorted(seq_groups.items()):
+        members_sorted = sorted(members, key=lambda m: m.get("sequence_step_index", 0))
+        candidate_ids = [m["candidate_id"] for m in members_sorted]
+
+        # Sequence content hash
+        seq_content = json.dumps(
+            [{"step": m.get("sequence_step_index", 0), "text": m["text"]} for m in members_sorted],
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        )
+        seq_content_sha = hashlib.sha256(seq_content.encode("utf-8")).hexdigest()
+
+        sequence_items.append({
+            "sequence_annotation_id": _make_sequence_annotation_id(
+                sfid, ANNOTATION_SCHEMA_VERSION,
+                trust_level=trust,
+            ),
+            "sequence_family_id": sfid,
+            "trust_level": trust,
+            "ordered_candidate_ids": candidate_ids,
+            "step_count": len(members_sorted),
+            "sequence_content_sha256": seq_content_sha,
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
+            "split": "validation",
+            "scenario_id": members_sorted[0]["scenario_id"],
+            "secret_variant_id": members_sorted[0]["secret_variant_id"],
+        })
+
+    # Exact-count assertions
+    assert len(row_items) == 225, f"Expected 225 validation row items, got {len(row_items)}"
+    assert len(sequence_items) == 36, f"Expected 36 validation sequence items, got {len(sequence_items)}"
+
+    # Uniqueness assertions
+    row_candidate_ids = [r["candidate_id"] for r in row_items]
+    row_ann_ids = [r["annotation_id"] for r in row_items]
+    assert len(set(row_candidate_ids)) == 225, "Duplicate candidate_ids in validation row queue"
+    assert len(set(row_ann_ids)) == 225, "Duplicate annotation_ids in validation row queue"
+
+    seq_keys = [(s["sequence_family_id"], s.get("trust_level", "")) for s in sequence_items]
+    seq_ann_ids = [s["sequence_annotation_id"] for s in sequence_items]
+    assert len(set(seq_keys)) == 36, "Duplicate (sequence_family_id, trust_level) in validation sequence queue"
+    assert len(set(seq_ann_ids)) == 36, "Duplicate sequence_annotation_ids in validation sequence queue"
+
+    return row_items, sequence_items
+
+
 def compute_queue_sha256(
     row_items: list[dict[str, Any]], sequence_items: list[dict[str, Any]]
 ) -> str:
@@ -1312,18 +1409,26 @@ def verify_model_role_separation(
     generator: str = MODEL_GENERATOR,
     primary: str = MODEL_PRIMARY,
     secondary: str = MODEL_SECONDARY,
+    adjudicator: str = MODEL_ADJUDICATOR,
 ) -> list[str]:
     """Sec 54: Verify annotator roles are distinct.
 
     Returns list of violations. Empty = all distinct.
+    E4-002: includes J3 adjudicator role.
     """
     violations: list[str] = []
-    if generator == primary:
-        violations.append(f"generator ({generator}) == primary ({primary})")
-    if generator == secondary:
-        violations.append(f"generator ({generator}) == secondary ({secondary})")
-    if primary == secondary:
-        violations.append(f"primary ({primary}) == secondary ({secondary})")
+    models = {
+        "generator": generator,
+        "primary": primary,
+        "secondary": secondary,
+        "adjudicator": adjudicator,
+    }
+    role_names = list(models.keys())
+    for i in range(len(role_names)):
+        for j in range(i + 1, len(role_names)):
+            r1, r2 = role_names[i], role_names[j]
+            if models[r1] == models[r2]:
+                violations.append(f"{r1} ({models[r1]}) == {r2} ({models[r2]})")
     return violations
 
 
@@ -1338,6 +1443,19 @@ def load_development_candidates() -> list[dict[str, Any]]:
         raise FileNotFoundError(f"Development candidates not found: {_DEV_CANDIDATES_PATH}")
     candidates = []
     with open(_DEV_CANDIDATES_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                candidates.append(json.loads(line))
+    return candidates
+
+
+def load_validation_candidates() -> list[dict[str, Any]]:
+    """E4-002: Load all validation split candidates from the frozen corpus."""
+    if not _VAL_CANDIDATES_PATH.exists():
+        raise FileNotFoundError(f"Validation candidates not found: {_VAL_CANDIDATES_PATH}")
+    candidates = []
+    with open(_VAL_CANDIDATES_PATH) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -1517,6 +1635,200 @@ def annotation_input_preflight() -> dict[str, Any]:
         "sequence_structure_failures": seq_structure_failures,
         "empty_target_count": empty_target_count,
         "queue_hash": queue_sha,
+        "passed": passed,
+        "findings": findings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# E4-002 Sec 19: Validation input preflight
+# ---------------------------------------------------------------------------
+
+
+def compute_prompt_manifest_sha256() -> str:
+    """Compute SHA-256 of the serialized prompt manifest."""
+    manifest_data = json.dumps(build_prompt_manifest(), sort_keys=True, separators=(",", ":"))
+    return prompt_sha256(manifest_data)
+
+
+def validation_input_preflight() -> dict[str, Any]:
+    """E4-002 Sec 19: Ordered preflight checks before validation provider calls.
+
+    Order:
+    1. Development gate = GO
+    2. Development protocol frozen
+    3. Frozen corpus verifier PASS
+    4. Validation candidates = 225
+    5. Validation row queue = 225
+    6. Validation sequence queue = 36
+    7. Target resolution = 225/225
+    8. Sequence target resolution = 36/36
+    9. Prompt/schema hash invariance
+    10. Provider viability (skipped here -- done separately)
+
+    Returns a report dict suitable for JSON serialisation.
+    """
+    findings: list[str] = []
+
+    # --- 1. Development gate check ---
+    gate_path = _ANNOTATIONS_DIR / "development_v3" / "development_annotation_gate.json"
+    if not gate_path.exists():
+        findings.append("development_gate_not_found")
+        gate_go = False
+    else:
+        gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        gate_go = gate.get("go_no_go") == "GO"
+        if not gate_go:
+            findings.append(f"development_gate_not_go: {gate.get('go_no_go')}")
+        if not gate.get("ready_for_validation_annotation"):
+            findings.append("development_gate_not_ready_for_validation")
+        if not gate.get("protocol_freeze_pass"):
+            findings.append("development_protocol_not_frozen")
+
+    # --- 2. Frozen corpus manifest ---
+    manifest_sha = frozen_corpus_manifest_file_sha256()
+    expected_fc_sha = "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2"
+    if not manifest_sha:
+        findings.append("frozen_corpus_manifest_missing")
+    elif manifest_sha != expected_fc_sha:
+        findings.append(f"frozen_corpus_manifest_sha_mismatch: expected={expected_fc_sha}, actual={manifest_sha}")
+
+    # --- 3. Load validation candidates ---
+    if not _VAL_CANDIDATES_PATH.exists():
+        findings.append(f"validation_candidates_not_found: {_VAL_CANDIDATES_PATH}")
+        return {
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "validation_candidate_count": 0,
+            "resolved_target_count": 0,
+            "row_queue_count": 0,
+            "sequence_queue_count": 0,
+            "target_resolution_failures": [],
+            "sequence_structure_failures": [],
+            "empty_target_count": 0,
+            "queue_hash": "",
+            "development_gate_go": gate_go,
+            "protocol_hash_match": False,
+            "passed": False,
+            "findings": findings,
+        }
+
+    candidates: list[dict[str, Any]] = []
+    with open(_VAL_CANDIDATES_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                candidates.append(json.loads(line))
+
+    val_count = len(candidates)
+    if val_count != 225:
+        findings.append(f"validation_candidate_count_unexpected: {val_count} (expected 225)")
+
+    # --- 4. Target-resolution preflight ---
+    target_report = preflight_target_resolution(candidates)
+    resolved_count = target_report["resolved"]
+    target_failures = target_report["failures"]
+    empty_target_count = target_report["empty_target_count"]
+
+    if not target_report["passed"]:
+        findings.append(
+            f"target_resolution_not_all_resolved: "
+            f"{resolved_count}/{val_count} resolved, "
+            f"{len(target_failures)} failures, "
+            f"{empty_target_count} empty targets"
+        )
+
+    # --- 5. Queue completeness preflight ---
+    row_items, sequence_items = build_validation_queue()
+    row_count = len(row_items)
+    seq_count = len(sequence_items)
+
+    if row_count != 225:
+        findings.append(f"validation_row_queue_count_unexpected: {row_count} (expected 225)")
+    if seq_count != 36:
+        findings.append(f"validation_sequence_queue_count_unexpected: {seq_count} (expected 36)")
+
+    # --- 6. Sequence structure verification ---
+    seq_structure_failures: list[str] = []
+    candidate_lookup = {c["candidate_id"]: c for c in candidates}
+    for si in sequence_items:
+        members = [candidate_lookup[cid] for cid in si["ordered_candidate_ids"]]
+        errors = validate_sequence_structure(members)
+        if errors:
+            seq_structure_failures.append(
+                f"{si['sequence_family_id']}: {errors}"
+            )
+    if seq_structure_failures:
+        findings.append(f"sequence_structure_failures: {len(seq_structure_failures)}")
+
+    # --- 7. Prompt/schema hash invariance (Sec 26) ---
+    protocol_manifest_path = _ANNOTATIONS_DIR / "annotation_protocol_manifest.json"
+    protocol_hash_match = False
+    if protocol_manifest_path.exists():
+        pm = json.loads(protocol_manifest_path.read_text(encoding="utf-8"))
+        frozen_primary_prompt_sha = pm.get("primary_prompt_sha256", "")
+        frozen_secondary_prompt_sha = pm.get("secondary_prompt_sha256", "")
+        frozen_schema_sha = pm.get("annotation_schema_sha256", "")
+        frozen_prompt_manifest_sha = pm.get("prompt_manifest_sha256", "")
+
+        current_primary_sha = prompt_sha256(ROW_SYSTEM_PROMPT)
+        current_secondary_sha = prompt_sha256(ROW_SYSTEM_PROMPT)
+        current_schema_sha = prompt_sha256(ANNOTATION_SCHEMA_VERSION)
+        current_prompt_manifest_sha = compute_prompt_manifest_sha256()
+
+        if current_primary_sha != frozen_primary_prompt_sha:
+            findings.append(f"primary_prompt_sha_mismatch: expected={frozen_primary_prompt_sha}, actual={current_primary_sha}")
+        if current_secondary_sha != frozen_secondary_prompt_sha:
+            findings.append(f"secondary_prompt_sha_mismatch: expected={frozen_secondary_prompt_sha}, actual={current_secondary_sha}")
+        if current_schema_sha != frozen_schema_sha:
+            findings.append(f"schema_sha_mismatch: expected={frozen_schema_sha}, actual={current_schema_sha}")
+        if current_prompt_manifest_sha != frozen_prompt_manifest_sha:
+            findings.append(f"prompt_manifest_sha_mismatch: expected={frozen_prompt_manifest_sha}, actual={current_prompt_manifest_sha}")
+
+        protocol_hash_match = (
+            current_primary_sha == frozen_primary_prompt_sha
+            and current_secondary_sha == frozen_secondary_prompt_sha
+            and current_schema_sha == frozen_schema_sha
+            and current_prompt_manifest_sha == frozen_prompt_manifest_sha
+        )
+    else:
+        findings.append("annotation_protocol_manifest_not_found")
+
+    # --- 8. Provenance preflight ---
+    queue_sha = compute_queue_sha256(row_items, sequence_items)
+    if not queue_sha:
+        findings.append("validation_queue_hash_empty")
+
+    empty_corpus_bindings = sum(
+        1 for r in row_items if not r.get("frozen_corpus_manifest_sha256")
+    )
+    if empty_corpus_bindings:
+        findings.append(f"row_items_with_empty_corpus_binding: {empty_corpus_bindings}")
+
+    passed = (
+        gate_go
+        and manifest_sha == expected_fc_sha
+        and val_count == 225
+        and resolved_count == 225
+        and empty_target_count == 0
+        and row_count == 225
+        and seq_count == 36
+        and not seq_structure_failures
+        and not target_failures
+        and protocol_hash_match
+    )
+
+    return {
+        "frozen_corpus_manifest_sha256": manifest_sha,
+        "validation_candidate_count": val_count,
+        "resolved_target_count": resolved_count,
+        "row_queue_count": row_count,
+        "sequence_queue_count": seq_count,
+        "target_resolution_failures": target_failures,
+        "sequence_structure_failures": seq_structure_failures,
+        "empty_target_count": empty_target_count,
+        "queue_hash": queue_sha,
+        "development_gate_go": gate_go,
+        "protocol_hash_match": protocol_hash_match,
         "passed": passed,
         "findings": findings,
     }
