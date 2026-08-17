@@ -18,13 +18,19 @@ import json
 import sys
 from pathlib import Path
 
-# R1.2a: Import queue builder for correct annotation queue verification
-from experiments.trustparadox_u.empirical_annotation import (
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# R1.2a: Ensure project root is on sys.path so the script works both
+# when invoked directly (python scripts/verify_frozen_annotations.py)
+# and when imported from tests or CI without PYTHONPATH set.
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from experiments.trustparadox_u.empirical_annotation import (  # noqa: E402
     build_test_queue,
     compute_queue_sha256,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _ANNOTATIONS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "annotations"
 _DEV_DIR = _ANNOTATIONS_DIR / "development_v3"
 _VAL_DIR = _ANNOTATIONS_DIR / "validation"
