@@ -692,7 +692,8 @@ class FrozenAnnotationVerifier:
         family_trust = {}  # family_id -> set of trust_levels
         for rec in seq_recs:
             fid = rec.get("sequence_family_id", "")
-            tl = rec.get("trust_level", "")
+            cids = rec.get("ordered_candidate_ids", [])
+            tl = cids[0].rsplit("_", 1)[-1] if cids else ""
             family_ids.add(fid)
             family_trust.setdefault(fid, set()).add(tl)
 
