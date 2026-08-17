@@ -1,48 +1,41 @@
 {
   "schema_version": "1.0",
   "description": "E4-003: Global annotation freeze manifest — immutable measurement root for E5",
-  "created_at": "2026-08-17T11:30:57.859904+00:00",
-  "go_no_go": "NO-GO",
-  "annotations_frozen": false,
-  "annotation_phase": "ANNOTATION_IN_PROGRESS",
-  "global_annotation_freeze_code_commit": "7eeb03e7b79c286a3d3d427a9c5acfbc8f03a46e",
+  "created_at": "2026-08-17T11:56:31.393006+00:00",
+  "go_no_go": "GO",
+  "annotations_frozen": true,
+  "annotation_phase": "ANNOTATIONS_FROZEN",
+  "global_annotation_freeze_code_commit": "0ca52615b854c6d81c02e8cafcb7edfcfa2615d2",
   "pre_freeze_validation": {
-    "go": false,
-    "blocking_issues": [
-      "dev seqs: 0/36",
-      "total seqs: 108/144",
-      "development_final_sequence_labels file missing"
-    ],
-    "counts_pass": false,
+    "go": true,
+    "blocking_issues": [],
+    "counts_pass": true,
     "all_gates_go": true,
-    "required_roots_present": false
+    "required_roots_present": true
   },
   "count_enforcement": {
-    "blocking_issues": [
-      "dev seqs: 0/36",
-      "total seqs: 108/144"
-    ],
-    "counts_pass": false
+    "blocking_issues": [],
+    "counts_pass": true
   },
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
-  "frozen_annotation_protocol_sha256": "3516a95a55899312cbc4cdffcd5c57a5b00cf56621e39c0e068ea6b111bc916d",
+  "frozen_annotation_protocol_sha256": "1a99441727034dc0cda21ef06dbd4d5e44170184c7c553987bc23cb79cdc24fb",
   "development_annotation_manifest_sha256": "75e8b7dfeeefbc9f98762511b3a584b1f128eee243f6cff6521f2d1a7d21c2ee",
   "development_annotation_gate_sha256": "41b66af1eb2bc0ec75d7ad8f53ca2ad496fcfafb07e77d51ceb939df423ee787",
   "development_adjudication_manifest_sha256": "4fcc237f601fa84406dfbbb4786ac62fc6f526a9a06a6958b485e05537f1fa08",
   "development_final_row_labels_sha256": "5c8afac8f794b944fa3bad1b77122fcba0ad5f634b37ccafbfc47a10a4a2cb35",
-  "development_final_sequence_labels_sha256": "",
+  "development_final_sequence_labels_sha256": "e32b0979c0a43eeee1948e80eb9b176950e94a5305d20949b0b50c256f1e3e50",
   "validation_annotation_freeze_manifest_sha256": "4642a801c14d6ee0515c5729f9b4d91890c2685169c989048f6eaca28fde9568",
   "validation_post_freeze_verification_sha256": "d5bfabae0d761b49363586ee34a54ca8f60ecb78d9c4be19676a0001aaa2f7b4",
   "validation_final_row_labels_sha256": "dfde0136925934bf765b8c89b9a22b568726ccc9be36f1bdb5029c66d3af2549",
   "validation_final_sequence_labels_sha256": "ee780d054bc68bc24013c1d817ecde06b78ec19ce9ce928d77e5edf52e26379d",
-  "test_annotation_freeze_manifest_sha256": "8ed8763438290d41d32e64c4960a85946f799d91b4857d933f51f2f23e0687b9",
-  "test_post_freeze_verification_sha256": "212c2bf99552a6af88d1edd846f7e48b6b39f9b47e4f7cec1cbf3f714b4db2b1",
+  "test_annotation_freeze_manifest_sha256": "88b99813aa7459b072763c84d8b8ca45628555b02dcd7b59690180a106bf2166",
+  "test_post_freeze_verification_sha256": "f389839f382f334e695147544bf3f518a1839d6fa2ab7ce9e5166b1ac0c3bf53",
   "test_final_row_labels_sha256": "6f14ec4272dfd0758fe8c60f39602348c4e2ca3dad3f6b5ecc8924ba9c0d317a",
   "test_final_sequence_labels_sha256": "991457e8dc32963498d3825c988a60cbc26d1b5b3451241fd9cf0daf4c527d81",
   "split_counts": {
     "development": {
       "final_rows": 225,
-      "final_sequences": 0
+      "final_sequences": 36
     },
     "validation": {
       "final_rows": 225,
@@ -55,7 +48,7 @@
   },
   "global_totals": {
     "final_row_labels": 900,
-    "final_sequence_labels": 108
+    "final_sequence_labels": 144
   },
   "split_gates": {
     "development": "GO",

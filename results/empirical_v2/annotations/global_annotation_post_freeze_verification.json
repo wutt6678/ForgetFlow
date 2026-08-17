@@ -1,52 +1,52 @@
 {
   "schema_version": "1.0",
   "description": "E4-003: Global annotation post-freeze closure verification",
-  "created_at": "2026-08-17T03:00:19.187592+00:00",
-  "freeze_created_at": "2026-08-17T03:00:19.034018+00:00",
-  "verification_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
-  "global_freeze_manifest_sha256": "0a241199da85e9e224ac160681da25926f50ae65b6027106ea1579bdcc2bcda7",
-  "annotation_phase_sha256": "e721404aca3eb18811611bb48a41ed0a51474efc594a6f579be35e06c962c29e",
+  "created_at": "2026-08-17T11:56:31.617253+00:00",
+  "freeze_created_at": "2026-08-17T11:56:31.393006+00:00",
+  "verification_source_commit": "0ca52615b854c6d81c02e8cafcb7edfcfa2615d2",
+  "global_freeze_manifest_sha256": "78a03c60ee57c1f9c448f7fa65be2efde6c87716585eae88c97e574882090f89",
+  "annotation_phase_sha256": "ee716fad0279fd65813fef5f654cc64f754eecc517465cc534d0a3652b123f20",
   "frozen_corpus_verifier": {
     "checks_total": 52,
     "checks_passed": 52,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.036895+00:00"
+    "timestamp": "2026-08-17T11:56:31.395788+00:00"
   },
   "development_annotation_verifier": {
     "checks_total": 49,
     "checks_passed": 49,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.064444+00:00"
+    "timestamp": "2026-08-17T11:56:31.422725+00:00"
   },
   "validation_annotation_verifier": {
     "checks_total": 48,
     "checks_passed": 48,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.091327+00:00"
+    "timestamp": "2026-08-17T11:56:31.464223+00:00"
   },
   "validation_freeze_closure_verifier": {
     "checks_total": 11,
     "checks_passed": 11,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.125335+00:00"
+    "timestamp": "2026-08-17T11:56:31.509430+00:00"
   },
   "test_annotation_verifier": {
-    "checks_total": 49,
-    "checks_passed": 49,
+    "checks_total": 122,
+    "checks_passed": 122,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.143434+00:00"
+    "timestamp": "2026-08-17T11:56:31.527257+00:00"
   },
   "test_freeze_closure_verifier": {
-    "checks_total": 13,
-    "checks_passed": 13,
+    "checks_total": 15,
+    "checks_passed": 15,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T03:00:19.169506+00:00"
+    "timestamp": "2026-08-17T11:56:31.598759+00:00"
   },
   "all_verifiers_pass": true
 }
