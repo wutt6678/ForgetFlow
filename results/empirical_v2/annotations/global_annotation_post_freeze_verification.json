@@ -4,8 +4,8 @@
   "created_at": "2026-08-17T03:00:19.187592+00:00",
   "freeze_created_at": "2026-08-17T03:00:19.034018+00:00",
   "verification_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
-  "global_freeze_manifest_sha256": "006c8184f5f991a95332fb377492562f53af578e5ec07512d3f1c72047c16796",
-  "annotation_phase_sha256": "f14d44f65a1bdfda300274bb96f38b73575ea8fb29c92953a0914b9fa4ffe6b7",
+  "global_freeze_manifest_sha256": "0a241199da85e9e224ac160681da25926f50ae65b6027106ea1579bdcc2bcda7",
+  "annotation_phase_sha256": "e721404aca3eb18811611bb48a41ed0a51474efc594a6f579be35e06c962c29e",
   "frozen_corpus_verifier": {
     "checks_total": 52,
     "checks_passed": 52,
