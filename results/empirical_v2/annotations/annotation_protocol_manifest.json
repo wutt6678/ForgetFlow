@@ -17,7 +17,7 @@
   "annotation_code_commit": "e0c379b4b1713dab34ac7345d2c3ab8a08338fd0",
   "annotation_schema_frozen": true,
   "annotation_prompts_frozen": true,
-  "annotations_frozen": true,
+  "annotations_frozen": false,
   "adjudication_policy": "llm_j3_tiebreak",
   "adjudication_manifest_sha256": "b0d247f77d8271876f2308fd4eef2978a9aee3dbad2948a47343b9b4308a9488",
   "llm_adjudication_sha256": "8a599d701a5e3db70f2d43e43df6959ca7f78c87cee11e96c48264bac84bac3d",
