@@ -123,11 +123,11 @@ class TestGlobalCounts:
     """Sec 152: Global freeze must record correct counts."""
 
     def test_development_counts(self):
-        """Development counts must be 225 rows, 0 sequences (no final_sequence_labels)."""
+        """Development counts must be 225 rows, 36 sequences."""
         freeze = _load_json(_FREEZE_PATH)
         dev = freeze.get("split_counts", {}).get("development", {})
         assert dev.get("final_rows") == 225
-        assert dev.get("final_sequences") == 0  # development_v3 has no final_sequence_labels.jsonl (Sec 107)
+        assert dev.get("final_sequences") == 36  # R3: 36 dev final sequence labels materialized
 
     def test_validation_counts(self):
         """Validation counts must be 225 rows, 36 sequences."""
@@ -150,10 +150,10 @@ class TestGlobalCounts:
         assert totals.get("final_row_labels") == 900
 
     def test_global_total_sequences(self):
-        """Global total must be 108 final sequence units (dev=0 + val=36 + test=72)."""
+        """Global total must be 144 final sequence units (dev=36 + val=36 + test=72)."""
         freeze = _load_json(_FREEZE_PATH)
         totals = freeze.get("global_totals", {})
-        assert totals.get("final_sequence_labels") == 108  # 0 + 36 + 72
+        assert totals.get("final_sequence_labels") == 144  # 36 + 36 + 72
 
 
 # ===========================================================================
@@ -165,26 +165,26 @@ class TestPhaseTransition:
     """Sec 152: Phase must transition to ANNOTATIONS_FROZEN."""
 
     def test_annotation_phase_frozen(self):
-        """annotation_phase must be TEST_COMPLETE after R2 refreeze.
+        """annotation_phase must be ANNOTATIONS_FROZEN after R3 global closure.
 
-        R2 resets global freeze pending R3 global closure.
+        R3 completed global annotation freeze (900 rows, 144 sequences).
         """
         if not _PHASE_PATH.exists():
             pytest.skip("annotation_phase.json not found")
         phase = _load_json(_PHASE_PATH)
-        # R2: phase is TEST_COMPLETE (not ANNOTATIONS_FROZEN)
-        assert phase.get("annotation_phase") == "TEST_COMPLETE"
+        # R3: phase is ANNOTATIONS_FROZEN (global freeze complete)
+        assert phase.get("annotation_phase") == "ANNOTATIONS_FROZEN"
 
     def test_annotations_frozen_true(self):
-        """annotations_frozen must be false after R2 refreeze.
+        """annotations_frozen must be true after R3 global closure.
 
-        R2 resets global freeze pending R3 global closure.
+        R3 completed global annotation freeze (900 rows, 144 sequences).
         """
         if not _PHASE_PATH.exists():
             pytest.skip("annotation_phase.json not found")
         phase = _load_json(_PHASE_PATH)
-        # R2: annotations_frozen is false (pending R3 global closure)
-        assert phase.get("annotations_frozen") is False
+        # R3: annotations_frozen is true (global freeze complete)
+        assert phase.get("annotations_frozen") is True
 
     def test_test_annotation_complete_true(self):
         """test_annotation_complete must be true."""
