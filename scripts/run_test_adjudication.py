@@ -928,7 +928,7 @@ def run_test_adjudication(
         },
         "unresolved_row_rate": round(unresolved_row_rate, 4),
         "unresolved_sequence_rate": round(unresolved_seq_rate, 4),
-        "j3_model": MODEL_ADJUDICATOR,
+        "j3_model": J3_MODEL,
         "j3_provider": J3_PROVIDER,
         "j3_role": J3_ROLE,
         "adjudication_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
@@ -1164,9 +1164,9 @@ def finalize_test_annotations(
         )
 
     # --- Write adjudication manifest ---
+    all_adj = [*adjudication_records, *seq_adjudication_records]
     # R1.2a: In offline mode, do NOT rewrite historical adjudication evidence
     if not offline_mode:
-        all_adj = [*adjudication_records, *seq_adjudication_records]
         _write_jsonl(_LLM_ADJUDICATION_PATH, all_adj)
 
     llm_adj_sha = _sha256_file(_LLM_ADJUDICATION_PATH)
@@ -1227,7 +1227,7 @@ def finalize_test_annotations(
         },
         "unresolved_row_rate": round(unresolved_rows / len(final_labels), 4) if final_labels else 1.0,
         "unresolved_sequence_rate": round(unresolved_seqs / len(final_seq_labels), 4) if final_seq_labels else 1.0,
-        "j3_model": MODEL_ADJUDICATOR,
+        "j3_model": J3_MODEL,
         "j3_provider": J3_PROVIDER,
         "j3_role": J3_ROLE,
         "adjudication_protocol_version": ADJUDICATION_PROTOCOL_VERSION,

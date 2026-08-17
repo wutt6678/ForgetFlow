@@ -85,8 +85,33 @@
       "tn": 1
     },
     "earliest_step_exact_agreement": 1.0,
-    "earliest_step_n": 71
+    "earliest_step_n": 71,
+    "reconstruction_strength": {
+      "exact_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "n": 72,
+      "confusion_matrix": {
+        "full": {
+          "full": 71,
+          "partial": 0
+        },
+        "partial": {
+          "full": 0,
+          "partial": 1
+        }
+      }
+    }
   },
   "split": "test",
-  "created_at": "2026-08-17T02:43:23.490273+00:00"
+  "created_at": "2026-08-17T11:11:06.762697+00:00",
+  "agreement_thresholds": {
+    "min_raw_agreement": 0.85,
+    "min_kappa": 0.6
+  },
+  "agreement_thresholds_pass": true,
+  "target_relevant_pass": true,
+  "target_leakage_pass": true,
+  "positive_entailment_pass": true,
+  "task_useful_pass": true,
+  "sequence_reconstruction_pass": true
 }

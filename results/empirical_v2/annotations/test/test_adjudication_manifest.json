@@ -1,20 +1,30 @@
 {
   "schema_version": "1.0",
-  "description": "E4-003: Test annotation adjudication manifest",
-  "created_at": "2026-08-17T02:47:35.552774+00:00",
+  "description": "E4-003: Test annotation adjudication manifest (offline finalize)",
+  "created_at": "2026-08-17T11:13:06.600540+00:00",
   "split": "test",
   "review_queue_count": 66,
   "review_row_count": 66,
   "review_sequence_count": 0,
   "adjudicated_count": 66,
+  "row_adjudication_record_count": 66,
+  "sequence_adjudication_record_count": 0,
   "disagreement_rows": 63,
   "consensus_rows_in_queue": 3,
   "resolution_counts": {
     "consensus_retained": 3,
     "resolved_by_j3_matching_j": 14,
     "resolved_by_j3_matching_j2": 25,
-    "still_unresolved": 24
+    "still_unresolved": 24,
+    "seq_consensus_retained": 0,
+    "seq_resolved_by_j3_matching_j": 0,
+    "seq_resolved_by_j3_matching_j2": 0,
+    "seq_still_unresolved": 0
   },
+  "sequence_consensus_retained": 0,
+  "sequence_resolved_by_j3_matching_j": 0,
+  "sequence_resolved_by_j3_matching_j2": 0,
+  "sequence_still_unresolved": 0,
   "final_label_counts": {
     "total_rows": 450,
     "consensus_rows": 387,
@@ -32,10 +42,8 @@
   "review_queue_sha256": "57cf2a8c8ca7411bd27aa8cf24ee500392894421db6d128d592d6f15eaf25ace",
   "llm_adjudication_sha256": "2f9602962e6941aacbf39b8ec8c4367bcefe4d8088d29b53c965b722f9fff37e",
   "final_adjudicated_labels_sha256": "6f14ec4272dfd0758fe8c60f39602348c4e2ca3dad3f6b5ecc8924ba9c0d317a",
-  "final_sequence_labels_sha256": "0f1b62328aeb3fcd2f799c4c6039983b38b64bc44d057a6d6b547f118046e3b7",
+  "final_sequence_labels_sha256": "991457e8dc32963498d3825c988a60cbc26d1b5b3451241fd9cf0daf4c527d81",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
-  "test_annotation_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
-  "j3_vs_j_agreement_count": 14,
-  "j3_vs_j2_agreement_count": 25,
-  "j3_vs_both_disagree_count": 24
+  "test_annotation_source_commit": "eb39a76c3013af9f58327bb2b026f9294f6c47b5",
+  "offline_finalization": true
 }
