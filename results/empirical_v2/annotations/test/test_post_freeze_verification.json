@@ -1,39 +1,46 @@
 {
   "schema_version": "1.0",
   "description": "E4-003: Test freeze closure verification",
-  "created_at": "2026-08-17T02:54:29.316888+00:00",
-  "freeze_created_at": "2026-08-17T02:54:29.211059+00:00",
-  "verification_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
-  "annotation_manifest_sha256": "3e28bfee8cc02040eabbd10157d38823156980d10f1ebccea0d29427b11591fe",
-  "test_gate_sha256": "28fb1422cea188110dab674bd2dcaee3eda44970ab6e16c49e8ac015650fe743",
-  "test_freeze_manifest_sha256": "6b46c43d58a558327ea8d372cf97d2ea20d46b1f1ac2e810975fba6b44d3adda",
+  "created_at": "2026-08-17T11:26:20.769468+00:00",
+  "freeze_created_at": "2026-08-17T11:26:20.572247+00:00",
+  "verification_source_commit": "2b25591d4efd3321e0ce1884088937e69cabd179",
+  "annotation_manifest_sha256": "c8c24be4fe38a161a0ffd1fe19b6ab5bd1032d96bdf79b1bace443b216e22f15",
+  "test_gate_sha256": "c484cb90e2be51f8a29914bdedf6fa92a28b2dcf7286c8804b49615bfcf0ef0b",
+  "test_freeze_manifest_sha256": "8ed8763438290d41d32e64c4960a85946f799d91b4857d933f51f2f23e0687b9",
   "frozen_corpus_verifier": {
     "checks_total": 52,
     "checks_passed": 52,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T02:54:29.212354+00:00"
+    "timestamp": "2026-08-17T11:26:20.573665+00:00"
   },
   "development_annotation_verifier": {
     "checks_total": 49,
     "checks_passed": 49,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T02:54:29.237826+00:00"
+    "timestamp": "2026-08-17T11:26:20.598756+00:00"
   },
   "validation_annotation_verifier": {
     "checks_total": 48,
     "checks_passed": 48,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T02:54:29.263804+00:00"
+    "timestamp": "2026-08-17T11:26:20.639392+00:00"
   },
   "test_annotation_verifier": {
-    "checks_total": 49,
-    "checks_passed": 49,
+    "checks_total": 122,
+    "checks_passed": 121,
+    "checks_failed": 1,
+    "exit_code": 1,
+    "timestamp": "2026-08-17T11:26:20.681772+00:00"
+  },
+  "validation_closure_verifier": {
+    "checks_total": 11,
+    "checks_passed": 11,
     "checks_failed": 0,
     "exit_code": 0,
-    "timestamp": "2026-08-17T02:54:29.290800+00:00"
+    "timestamp": "2026-08-17T11:26:20.751503+00:00"
   },
-  "closure_pass": true
+  "closure_pass": false
 }
