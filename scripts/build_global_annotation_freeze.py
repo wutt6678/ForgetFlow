@@ -286,6 +286,25 @@ def build_global_annotation_freeze_manifest() -> dict[str, Any]:
     val_adj = _load_json(_VAL_DIR / "adjudication_manifest.json") if (_VAL_DIR / "adjudication_manifest.json").exists() else {}
     test_adj = _load_json(_TEST_DIR / "test_adjudication_manifest.json") if (_TEST_DIR / "test_adjudication_manifest.json").exists() else {}
 
+    # --- Enforce expected counts (item 75) ---
+    count_blocking: list[str] = []
+    if dev_counts["rows"] != EXPECTED_DEV_ROWS:
+        count_blocking.append(f"dev rows: {dev_counts['rows']}/{EXPECTED_DEV_ROWS}")
+    if dev_counts["sequences"] != EXPECTED_DEV_SEQUENCES:
+        count_blocking.append(f"dev seqs: {dev_counts['sequences']}/{EXPECTED_DEV_SEQUENCES}")
+    if val_counts["rows"] != EXPECTED_VAL_ROWS:
+        count_blocking.append(f"val rows: {val_counts['rows']}/{EXPECTED_VAL_ROWS}")
+    if val_counts["sequences"] != EXPECTED_VAL_SEQUENCES:
+        count_blocking.append(f"val seqs: {val_counts['sequences']}/{EXPECTED_VAL_SEQUENCES}")
+    if test_counts["rows"] != EXPECTED_TEST_ROWS:
+        count_blocking.append(f"test rows: {test_counts['rows']}/{EXPECTED_TEST_ROWS}")
+    if test_counts["sequences"] != EXPECTED_TEST_SEQUENCES:
+        count_blocking.append(f"test seqs: {test_counts['sequences']}/{EXPECTED_TEST_SEQUENCES}")
+    if total_rows != EXPECTED_TOTAL_ROWS:
+        count_blocking.append(f"total rows: {total_rows}/{EXPECTED_TOTAL_ROWS}")
+    if total_sequences != EXPECTED_TOTAL_SEQUENCES:
+        count_blocking.append(f"total seqs: {total_sequences}/{EXPECTED_TOTAL_SEQUENCES}")
+
     manifest = {
         "schema_version": "1.0",
         "description": "E4-003: Global annotation freeze manifest — immutable measurement root for E5",
@@ -293,6 +312,10 @@ def build_global_annotation_freeze_manifest() -> dict[str, Any]:
         "annotations_frozen": True,
         "annotation_phase": "ANNOTATIONS_FROZEN",
         "global_annotation_freeze_code_commit": _git_commit(),
+        "count_enforcement": {
+            "blocking_issues": count_blocking,
+            "counts_pass": len(count_blocking) == 0,
+        },
         # Root SHA bindings (Sec 106)
         "frozen_corpus_manifest_sha256": corpus_sha,
         "frozen_annotation_protocol_sha256": protocol_sha,
@@ -345,12 +368,12 @@ def build_global_annotation_freeze_manifest() -> dict[str, Any]:
                 "unresolved_sequences": dev_gate.get("summary", {}).get("sequence_unresolved", 0),
             },
             "validation": {
-                "unresolved_rows": val_adj.get("final_label_counts", {}).get("unresolved", 0),
-                "unresolved_sequences": val_adj.get("unresolved_sequence_count", 0),
+                "unresolved_rows": val_adj.get("final_label_counts", {}).get("unresolved_rows", 0),
+                "unresolved_sequences": val_adj.get("final_label_counts", {}).get("unresolved_sequences", 0),
             },
             "test": {
-                "unresolved_rows": test_adj.get("unresolved_row_count", 0),
-                "unresolved_sequences": test_adj.get("unresolved_sequence_count", 0),
+                "unresolved_rows": test_adj.get("final_label_counts", {}).get("unresolved_rows", 0),
+                "unresolved_sequences": test_adj.get("final_label_counts", {}).get("unresolved_sequences", 0),
             },
         },
         # Historical note (Sec 107/2006-2007)
@@ -495,7 +518,7 @@ def build_global_post_freeze_verification(
 
 
 def main() -> int:
-    # require_clean_worktree()  # bypassed: empirical artifacts are untracked
+    require_clean_worktree()  # item 11: restored clean-worktree protection
     print(f"Worktree at {_git_short()}")
 
     # Build global freeze manifest
@@ -504,6 +527,14 @@ def main() -> int:
     # Check all gates GO (Sec 111)
     if not manifest.get("all_gates_go"):
         print("\nERROR: Not all split gates are GO — cannot freeze globally")
+        return 1
+
+    # Check count enforcement (item 75)
+    count_enforcement = manifest.get("count_enforcement", {})
+    if not count_enforcement.get("counts_pass", False):
+        print("\nERROR: Global count enforcement failed:")
+        for issue in count_enforcement.get("blocking_issues", []):
+            print(f"  - {issue}")
         return 1
 
     # Update phase (Sec 112)
@@ -517,7 +548,23 @@ def main() -> int:
         print(f"  {name}: {status} ({result.get('checks_passed', 0)}/{result.get('checks_total', 0)})")
 
     # Build post-freeze verification
-    build_global_post_freeze_verification(verifier_results)
+    verification = build_global_post_freeze_verification(verifier_results)
+
+    # Fail-closed: check closure result (item 86)
+    if not verification.get("all_verifiers_pass"):
+        print("\nPost-freeze closure FAIL — exiting nonzero")
+        return 1
+
+    # Run standalone global verifier (item 87)
+    print("\n--- Running Standalone Global Verifier ---")
+    standalone_result = _run_verifier([
+        sys.executable, "scripts/verify_global_annotation_freeze.py",
+    ])
+    standalone_status = "PASS" if standalone_result["exit_code"] == 0 else "FAIL"
+    print(f"  verify_global_annotation_freeze.py: {standalone_status}")
+    if standalone_result["exit_code"] != 0:
+        print("Standalone global verifier FAIL — exiting nonzero")
+        return 1
 
     print("\n" + "=" * 60)
     print("GLOBAL ANNOTATION FREEZE COMPLETE")

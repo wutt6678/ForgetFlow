@@ -49,6 +49,8 @@ _TEST_FILES = {
     "final_sequence_labels": "test_final_sequence_labels.jsonl",
     "adjudication_manifest": "test_adjudication_manifest.json",
     "verifier_results": "test_verifier_results.json",
+    "test_campaign_lock": "test_campaign_lock.json",
+    "test_annotation_preflight": "test_annotation_preflight.json",
 }
 
 # Explicit artifact-key → manifest-hash-field mapping
@@ -70,12 +72,21 @@ TEST_HASH_FIELDS = {
     "final_adjudicated_labels": "final_adjudicated_labels_sha256",
     "final_sequence_labels": "final_sequence_labels_sha256",
     "adjudication_manifest": "adjudication_manifest_sha256",
+    "test_campaign_lock": "test_campaign_lock_sha256",
+    "test_annotation_preflight": "test_annotation_preflight_sha256",
 }
 
 # Expected test counts
 EXPECTED_ROWS = 450
 EXPECTED_SEQUENCES = 72
 EXPECTED_FAMILIES = 24
+
+# Agreement thresholds (Sec 36)
+_CORE_BINARY_LABELS = (
+    "target_relevant", "target_leakage", "positive_entailment", "task_useful",
+)
+_MIN_RAW_AGREEMENT = 0.85
+_MIN_KAPPA = 0.60
 
 
 def _sha256(path: Path) -> str:
@@ -288,6 +299,12 @@ def run_all_verifiers() -> dict[str, Any]:
         "test_annotations": _run_verifier([
             py, "scripts/verify_frozen_annotations.py", "--split", "test",
         ]),
+        "validation_closure": _run_verifier([
+            py, "scripts/verify_validation_freeze_closure.py",
+        ]),
+        "test_closure": _run_verifier([
+            py, "scripts/verify_test_freeze_closure.py",
+        ]),
     }
 
 
@@ -332,6 +349,8 @@ def build_test_manifest() -> dict[str, Any]:
         "final_sequence_labels_sha256": shas.get("final_sequence_labels", ""),
         "adjudication_manifest_sha256": shas.get("adjudication_manifest", ""),
         "test_input_preflight_sha256": shas.get("test_input_preflight", ""),
+        "test_campaign_lock_sha256": shas.get("test_campaign_lock", ""),
+        "test_annotation_preflight_sha256": shas.get("test_annotation_preflight", ""),
         # Campaign summary SHAs
         "primary_campaign_summary_sha256": shas.get("primary_summary", ""),
         "secondary_campaign_summary_sha256": shas.get("secondary_summary", ""),
@@ -396,6 +415,31 @@ def build_test_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not agreement_computed:
         blocking.append("agreement not computed")
 
+    # Agreement threshold enforcement (items 27-30)
+    row_thresholds_pass = True
+    if agreement_computed:
+        for fld in _CORE_BINARY_LABELS:
+            fld_data = agreement.get(fld, {})
+            raw = fld_data.get("raw_agreement", 0.0)
+            kappa = fld_data.get("cohens_kappa", 0.0)
+            if raw < _MIN_RAW_AGREEMENT:
+                row_thresholds_pass = False
+            if isinstance(kappa, float) and kappa < _MIN_KAPPA:
+                row_thresholds_pass = False
+
+    seq_threshold_pass = True
+    if agreement_computed:
+        seq_data = agreement.get("sequence", {})
+        seq_raw = seq_data.get("reconstruction_binary_agreement", {}).get(
+            "raw_agreement", 0.0
+        )
+        if seq_raw < _MIN_RAW_AGREEMENT:
+            seq_threshold_pass = False
+
+    agreement_thresholds_pass = row_thresholds_pass and seq_threshold_pass
+    if not agreement_thresholds_pass:
+        blocking.append("agreement thresholds failed")
+
     adj_audit = compute_adjudication_audit()
     adjudication_complete = adj_audit["adjudication_complete"]
     if not adjudication_complete:
@@ -407,10 +451,50 @@ def build_test_gate(manifest: dict[str, Any]) -> dict[str, Any]:
             f"dup_adj={adj_audit['duplicate_adjudications']}"
         )
 
-    # Final sequence count must be exactly 72
+    # Final row count must be exactly 450 (item 59)
+    final_row_count = manifest["row_count"]["final"]
+    if final_row_count != EXPECTED_ROWS:
+        blocking.append(f"final rows: {final_row_count}/{EXPECTED_ROWS}")
+
+    # Final sequence count must be exactly 72 (item 60)
     final_seq_count = manifest["sequence_count"]["final"]
     if final_seq_count != EXPECTED_SEQUENCES:
         blocking.append(f"final sequences: {final_seq_count}/{EXPECTED_SEQUENCES}")
+
+    # Final ID set verification (item 61)
+    final_rows = _load_jsonl(_TEST_DIR / "test_final_adjudicated_labels.jsonl")
+    primary_rows_data = _load_jsonl(_TEST_DIR / "primary_row_annotations.jsonl")
+    secondary_rows_data = _load_jsonl(_TEST_DIR / "secondary_row_annotations.jsonl")
+    final_row_ids = {r["candidate_id"] for r in final_rows}
+    primary_row_ids = {r["candidate_id"] for r in primary_rows_data}
+    secondary_row_ids = {r["candidate_id"] for r in secondary_rows_data}
+    if final_row_ids != primary_row_ids:
+        blocking.append(
+            f"final row IDs != primary row IDs "
+            f"(diff: {len(final_row_ids ^ primary_row_ids)})"
+        )
+    if final_row_ids != secondary_row_ids:
+        blocking.append(
+            f"final row IDs != secondary row IDs "
+            f"(diff: {len(final_row_ids ^ secondary_row_ids)})"
+        )
+
+    final_seqs = _load_jsonl(_TEST_DIR / "test_final_sequence_labels.jsonl")
+    primary_seqs_data = _load_jsonl(_TEST_DIR / "primary_sequence_annotations.jsonl")
+    secondary_seqs_data = _load_jsonl(_TEST_DIR / "secondary_sequence_annotations.jsonl")
+    final_seq_ids = {r["sequence_annotation_id"] for r in final_seqs}
+    primary_seq_ids = {r["sequence_annotation_id"] for r in primary_seqs_data}
+    secondary_seq_ids = {r["sequence_annotation_id"] for r in secondary_seqs_data}
+    if final_seq_ids != primary_seq_ids:
+        blocking.append(
+            f"final sequence IDs != primary sequence IDs "
+            f"(diff: {len(final_seq_ids ^ primary_seq_ids)})"
+        )
+    if final_seq_ids != secondary_seq_ids:
+        blocking.append(
+            f"final sequence IDs != secondary sequence IDs "
+            f"(diff: {len(final_seq_ids ^ secondary_seq_ids)})"
+        )
 
     # Protocol hash match
     protocol_hash_match = (
@@ -532,6 +616,9 @@ def build_test_gate(manifest: dict[str, Any]) -> dict[str, Any]:
         "primary_complete": primary_complete and primary_seq_complete,
         "secondary_complete": secondary_complete and secondary_seq_complete,
         "agreement_computed": agreement_computed,
+        "agreement_thresholds_pass": agreement_thresholds_pass,
+        "row_agreement_thresholds_pass": row_thresholds_pass,
+        "sequence_agreement_threshold_pass": seq_threshold_pass,
         "adjudication_complete": adjudication_complete,
         "unique_review_items": adj_audit["unique_review_items"],
         "unique_adjudicated_items": adj_audit["unique_adjudicated_items"],
@@ -664,6 +751,8 @@ def build_post_freeze_verification(
     dev = verifier_results.get("development_annotations", {})
     val = verifier_results.get("validation_annotations", {})
     test = verifier_results.get("test_annotations", {})
+    val_closure = verifier_results.get("validation_closure", {})
+    test_closure = verifier_results.get("test_closure", {})
 
     corpus_pass = (
         fc.get("exit_code") == 0
@@ -685,8 +774,21 @@ def build_post_freeze_verification(
         and test.get("checks_failed") == 0
         and test.get("checks_passed") == test.get("checks_total")
     )
+    val_closure_pass = (
+        val_closure.get("exit_code") == 0
+        and val_closure.get("checks_failed") == 0
+        and val_closure.get("checks_passed") == val_closure.get("checks_total")
+    )
+    test_closure_pass = (
+        test_closure.get("exit_code") == 0
+        and test_closure.get("checks_failed") == 0
+        and test_closure.get("checks_passed") == test_closure.get("checks_total")
+    )
 
-    closure_pass = corpus_pass and dev_pass and val_pass and test_pass
+    closure_pass = (
+        corpus_pass and dev_pass and val_pass and test_pass
+        and val_closure_pass and test_closure_pass
+    )
 
     closure = {
         "schema_version": "1.0",
@@ -725,6 +827,20 @@ def build_post_freeze_verification(
             "exit_code": test.get("exit_code", -1),
             "timestamp": test.get("timestamp", ""),
         },
+        "validation_closure_verifier": {
+            "checks_total": val_closure.get("checks_total", 0),
+            "checks_passed": val_closure.get("checks_passed", 0),
+            "checks_failed": val_closure.get("checks_failed", 0),
+            "exit_code": val_closure.get("exit_code", -1),
+            "timestamp": val_closure.get("timestamp", ""),
+        },
+        "test_closure_verifier": {
+            "checks_total": test_closure.get("checks_total", 0),
+            "checks_passed": test_closure.get("checks_passed", 0),
+            "checks_failed": test_closure.get("checks_failed", 0),
+            "exit_code": test_closure.get("exit_code", -1),
+            "timestamp": test_closure.get("timestamp", ""),
+        },
         "closure_pass": closure_pass,
     }
 
@@ -736,7 +852,7 @@ def build_post_freeze_verification(
 
 
 def main() -> int:
-    # require_clean_worktree()  # bypassed: test artifacts are untracked
+    require_clean_worktree()  # item 11: restored clean-worktree protection
     print(f"Worktree at {_git_short()}")
 
     # Campaign summaries
@@ -785,6 +901,27 @@ def main() -> int:
                 status = "PASS" if result["exit_code"] == 0 else "FAIL"
                 print(f"  {name}: {status} ({result['checks_passed']}/{result['checks_total']})")
             build_post_freeze_verification(post_freeze_results)
+
+            # Fail-closed: check closure result (item 62)
+            closure_data = _load_json(
+                _TEST_DIR / "test_post_freeze_verification.json"
+            )
+            if not closure_data.get("closure_pass"):
+                print("\nPost-freeze closure FAIL — exiting nonzero")
+                return 1
+
+            # Run standalone test closure verifier (item 63)
+            print("\n--- Running Standalone Test Closure Verifier ---")
+            standalone_result = _run_verifier([
+                sys.executable, "scripts/verify_test_freeze_closure.py",
+            ])
+            standalone_status = (
+                "PASS" if standalone_result["exit_code"] == 0 else "FAIL"
+            )
+            print(f"  verify_test_freeze_closure.py: {standalone_status}")
+            if standalone_result["exit_code"] != 0:
+                print("Standalone closure verifier FAIL — exiting nonzero")
+                return 1
         else:
             print("\nGate is NO-GO after verifier results — skipping freeze")
             return 1

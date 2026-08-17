@@ -990,6 +990,8 @@ def verify_campaign_identity(
         "secondary_requested_model",
         "annotation_config_sha256",
         "split",
+        "prompt_manifest_sha256",
+        "annotation_code_commit",  # item 57: code commit is a blocking resume field
     ]
     for fld in blocking_fields:
         existing_val = existing.get(fld)

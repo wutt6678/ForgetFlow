@@ -111,11 +111,11 @@ class TestCampaignIdentityResume:
         assert "split" in mismatches
 
     def test_code_commit_change_does_not_block(self):
-        """annotation_code_commit is NOT in the blocking fields list."""
+        """Item 57 repair: annotation_code_commit IS now a blocking field."""
         existing = _make_identity()
         proposed = _make_identity(annotation_code_commit="new_commit_hash")
         mismatches = verify_campaign_identity(existing, proposed)
-        assert "annotation_code_commit" not in mismatches
+        assert "annotation_code_commit" in mismatches
 
     def test_multiple_mismatches_reported(self):
         existing = _make_identity()
