@@ -329,14 +329,18 @@ class TestFrozenAnnotationVerifier:
         assert pm.get("annotation_protocol_version") == "1.0"
 
     def test_phase_has_correct_freeze_state(self):
-        """Sec 45/112: Phase should have correct freeze state after global freeze."""
+        """Sec 45/112: Phase should have correct freeze state after R2 refreeze.
+
+        R2 resets global freeze state pending R3 global closure.
+        Post-R2 state: annotations_frozen=false, annotation_phase=TEST_COMPLETE.
+        """
         phase = _load_json(_PHASE_PATH)
         assert phase["development_annotation_complete"] is True
         assert phase["annotation_schema_frozen"] is True
         assert phase["annotation_prompts_frozen"] is True
-        # Global freeze completes (Sec 112): annotations_frozen=true, phase=ANNOTATIONS_FROZEN
-        assert phase["annotations_frozen"] is True
-        assert phase["annotation_phase"] == "ANNOTATIONS_FROZEN"
+        # R2 refreeze resets global freeze (pending R3 global closure)
+        assert phase["annotations_frozen"] is False
+        assert phase["annotation_phase"] == "TEST_COMPLETE"
 
 
 # ===========================================================================
