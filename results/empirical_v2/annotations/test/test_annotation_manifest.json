@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-003: Test annotation manifest — binds all test artifacts by SHA256",
+  "created_at": "2026-08-17T02:54:29.124058+00:00",
+  "split": "test",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "frozen_annotation_protocol_sha256": "d5dfea3187d4986d5937dc04771b77cd402caeed11776652ff6b8291db60cf83",
+  "primary_raw_sha256": "0c670093dee899f4fa2d3c8758aa6c60fae204d816085b72b65e7ba6384842dc",
+  "primary_labels_sha256": "158ebde44084bab3463716e9f8fc8bb8f96674ab005c53bd0b0beb6169523064",
+  "primary_sequences_sha256": "b2fdf2503b57b2e95820e079f482dfb14deab66dd6726822e677eb33830c3d2a",
+  "secondary_raw_sha256": "6c34f9221b450c21f8fb383807c520ab65731c9c0acf7acece616b78b29a8bde",
+  "secondary_labels_sha256": "f9ca7508e6fac531a1c512bc15bea0599de4b6b03b07202baaefde7089049fc3",
+  "secondary_sequences_sha256": "192ae0bb6158f3ca466494bebb1572c1b4f8731f9427ac27c7a306412b885c8c",
+  "agreement_report_sha256": "e3ffa65ff30d9158e729e5417e97a0e8a79d364df98d609bee83e4acd68f1f0e",
+  "review_queue_sha256": "57cf2a8c8ca7411bd27aa8cf24ee500392894421db6d128d592d6f15eaf25ace",
+  "llm_adjudication_sha256": "2f9602962e6941aacbf39b8ec8c4367bcefe4d8088d29b53c965b722f9fff37e",
+  "final_adjudicated_labels_sha256": "6f14ec4272dfd0758fe8c60f39602348c4e2ca3dad3f6b5ecc8924ba9c0d317a",
+  "final_sequence_labels_sha256": "0f1b62328aeb3fcd2f799c4c6039983b38b64bc44d057a6d6b547f118046e3b7",
+  "adjudication_manifest_sha256": "5f33f5b8c062af2b08e82794211b1414bfa0ee03e563488ef8e239f362794523",
+  "test_input_preflight_sha256": "340ede6b0f8f0c7f842ee553db0b27b3c2a3d61cf6a98ea000bc267afa13d4cd",
+  "primary_campaign_summary_sha256": "8539ab0e19daf08d1bf63d67e1edd89c7e52faca8fea8922db848e67960a66d2",
+  "secondary_campaign_summary_sha256": "b7bfeaff37a169baad00e7623b7a757efa8c1edfd06a93f8239df2505a50dbf7",
+  "primary_campaign_identity_sha256": "8f7a6a7123f04190aeaaca8d9d258defb2cd3119529971728c5e2866ba6ba29d",
+  "secondary_campaign_identity_sha256": "8f7a6a7123f04190aeaaca8d9d258defb2cd3119529971728c5e2866ba6ba29d",
+  "row_count": {
+    "primary": 450,
+    "secondary": 450,
+    "final": 450
+  },
+  "sequence_count": {
+    "primary": 72,
+    "secondary": 72,
+    "final": 72
+  },
+  "protocol_hash_crossref": {
+    "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+    "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "secondary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+    "prompt_manifest_sha256": "6bce9ab304bda040cf1cec657a95685d7d5e8d5561070eed6d487502c2ddce77",
+    "annotation_config_sha256": "e6c6e414f215f1578f4cad95b630201994d5bf5a3ddea931d90a8207c19976cf"
+  }
+}

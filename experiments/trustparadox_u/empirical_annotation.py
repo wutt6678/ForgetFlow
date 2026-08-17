@@ -61,7 +61,9 @@ _CORPUS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "corpus_generation"
 _FROZEN_MANIFEST_PATH = _CORPUS_DIR / "frozen_corpus_manifest.json"
 _DEV_CANDIDATES_PATH = _CORPUS_DIR / "development" / "accepted_candidates.jsonl"
 _VAL_CANDIDATES_PATH = _CORPUS_DIR / "validation" / "accepted_candidates.jsonl"
+_TEST_CANDIDATES_PATH = _CORPUS_DIR / "test" / "accepted_candidates.jsonl"
 _VALIDATION_DIR = _ANNOTATIONS_DIR / "validation"
+_TEST_DIR = _ANNOTATIONS_DIR / "test"
 _TARGET_SPECS_PATH = _PROJECT_ROOT / "data" / "trustparadox_u" / "empirical_v2" / "target_specs.jsonl"
 
 # Scenario descriptions for blinded views (minimal task context)
@@ -788,24 +790,27 @@ def _frozen_manifest_sha256() -> str:
     return frozen_corpus_manifest_file_sha256()
 
 
-def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Sec 26: Build deterministic development annotation queue.
+def _build_split_queue(
+    candidates_path: Path,
+    split: str,
+    expected_rows: int,
+    expected_sequence_units: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Generic split queue builder shared by development/validation/test.
 
     Returns (row_items, sequence_items).
     """
-    if not _DEV_CANDIDATES_PATH.exists():
-        raise FileNotFoundError(f"Development candidates not found: {_DEV_CANDIDATES_PATH}")
+    if not candidates_path.exists():
+        raise FileNotFoundError(f"Candidates not found: {candidates_path}")
 
     candidates: list[dict[str, Any]] = []
-    with open(_DEV_CANDIDATES_PATH) as f:
+    with open(candidates_path) as f:
         for line in f:
             line = line.strip()
             if line:
                 candidates.append(json.loads(line))
 
-    # Sort deterministically by candidate_id
     candidates.sort(key=lambda c: c["candidate_id"])
-
     manifest_sha = _frozen_manifest_sha256()
 
     # Row items: ALL candidates (including sequence members)
@@ -819,7 +824,7 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
             "candidate_content_sha256": c.get("content_sha256", ""),
             "frozen_corpus_manifest_sha256": manifest_sha,
             "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
-            "split": "development",
+            "split": split,
             "scenario_id": c["scenario_id"],
             "secret_variant_id": c["secret_variant_id"],
         })
@@ -838,7 +843,6 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
         members_sorted = sorted(members, key=lambda m: m.get("sequence_step_index", 0))
         candidate_ids = [m["candidate_id"] for m in members_sorted]
 
-        # Sequence content hash
         seq_content = json.dumps(
             [{"step": m.get("sequence_step_index", 0), "text": m["text"]} for m in members_sorted],
             sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -857,27 +861,49 @@ def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]
             "sequence_content_sha256": seq_content_sha,
             "frozen_corpus_manifest_sha256": manifest_sha,
             "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
-            "split": "development",
+            "split": split,
             "scenario_id": members_sorted[0]["scenario_id"],
             "secret_variant_id": members_sorted[0]["secret_variant_id"],
         })
 
-    # Sec 17-18: Exact-count assertions
-    assert len(row_items) == 225, f"Expected 225 row items, got {len(row_items)}"
-    assert len(sequence_items) == 36, f"Expected 36 sequence items, got {len(sequence_items)}"
+    # Count assertions
+    assert len(row_items) == expected_rows, (
+        f"Expected {expected_rows} {split} row items, got {len(row_items)}"
+    )
+    assert len(sequence_items) == expected_sequence_units, (
+        f"Expected {expected_sequence_units} {split} sequence items, got {len(sequence_items)}"
+    )
 
-    # Sec 18: Uniqueness assertions
+    # Uniqueness assertions
     row_candidate_ids = [r["candidate_id"] for r in row_items]
     row_ann_ids = [r["annotation_id"] for r in row_items]
-    assert len(set(row_candidate_ids)) == 225, "Duplicate candidate_ids in row queue"
-    assert len(set(row_ann_ids)) == 225, "Duplicate annotation_ids in row queue"
+    assert len(set(row_candidate_ids)) == expected_rows, (
+        f"Duplicate candidate_ids in {split} row queue"
+    )
+    assert len(set(row_ann_ids)) == expected_rows, (
+        f"Duplicate annotation_ids in {split} row queue"
+    )
 
-    seq_keys = [(s["sequence_family_id"], s.get("trust_level", "")) for s in sequence_items]
+    seq_keys = [
+        (s["sequence_family_id"], s.get("trust_level", "")) for s in sequence_items
+    ]
     seq_ann_ids = [s["sequence_annotation_id"] for s in sequence_items]
-    assert len(set(seq_keys)) == 36, "Duplicate (sequence_family_id, trust_level) in sequence queue"
-    assert len(set(seq_ann_ids)) == 36, "Duplicate sequence_annotation_ids in sequence queue"
+    assert len(set(seq_keys)) == expected_sequence_units, (
+        f"Duplicate (sequence_family_id, trust_level) in {split} sequence queue"
+    )
+    assert len(set(seq_ann_ids)) == expected_sequence_units, (
+        f"Duplicate sequence_annotation_ids in {split} sequence queue"
+    )
 
     return row_items, sequence_items
+
+
+def build_development_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Sec 26: Build deterministic development annotation queue.
+
+    Returns (row_items, sequence_items).
+    """
+    return _build_split_queue(_DEV_CANDIDATES_PATH, "development", 225, 36)
 
 
 def build_validation_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -886,91 +912,16 @@ def build_validation_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]
     Applies the frozen development protocol unchanged to the validation split.
     Returns (row_items, sequence_items).
     """
-    if not _VAL_CANDIDATES_PATH.exists():
-        raise FileNotFoundError(f"Validation candidates not found: {_VAL_CANDIDATES_PATH}")
+    return _build_split_queue(_VAL_CANDIDATES_PATH, "validation", 225, 36)
 
-    candidates: list[dict[str, Any]] = []
-    with open(_VAL_CANDIDATES_PATH) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                candidates.append(json.loads(line))
 
-    # Sort deterministically by candidate_id
-    candidates.sort(key=lambda c: c["candidate_id"])
+def build_test_queue() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """E4-003: Build deterministic test annotation queue.
 
-    manifest_sha = _frozen_manifest_sha256()
-
-    # Row items: ALL candidates (including sequence members)
-    row_items: list[dict[str, Any]] = []
-    for c in candidates:
-        row_items.append({
-            "annotation_id": _make_row_annotation_id(
-                c["candidate_id"], ANNOTATION_SCHEMA_VERSION
-            ),
-            "candidate_id": c["candidate_id"],
-            "candidate_content_sha256": c.get("content_sha256", ""),
-            "frozen_corpus_manifest_sha256": manifest_sha,
-            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
-            "split": "validation",
-            "scenario_id": c["scenario_id"],
-            "secret_variant_id": c["secret_variant_id"],
-        })
-
-    # Sequence items: group by (sequence_family_id, trust_level)
-    seq_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for c in candidates:
-        sfid = c.get("sequence_family_id")
-        if sfid:
-            trust = c.get("trust_level", "default")
-            key = (sfid, trust)
-            seq_groups.setdefault(key, []).append(c)
-
-    sequence_items: list[dict[str, Any]] = []
-    for (sfid, trust), members in sorted(seq_groups.items()):
-        members_sorted = sorted(members, key=lambda m: m.get("sequence_step_index", 0))
-        candidate_ids = [m["candidate_id"] for m in members_sorted]
-
-        # Sequence content hash
-        seq_content = json.dumps(
-            [{"step": m.get("sequence_step_index", 0), "text": m["text"]} for m in members_sorted],
-            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
-        )
-        seq_content_sha = hashlib.sha256(seq_content.encode("utf-8")).hexdigest()
-
-        sequence_items.append({
-            "sequence_annotation_id": _make_sequence_annotation_id(
-                sfid, ANNOTATION_SCHEMA_VERSION,
-                trust_level=trust,
-            ),
-            "sequence_family_id": sfid,
-            "trust_level": trust,
-            "ordered_candidate_ids": candidate_ids,
-            "step_count": len(members_sorted),
-            "sequence_content_sha256": seq_content_sha,
-            "frozen_corpus_manifest_sha256": manifest_sha,
-            "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
-            "split": "validation",
-            "scenario_id": members_sorted[0]["scenario_id"],
-            "secret_variant_id": members_sorted[0]["secret_variant_id"],
-        })
-
-    # Exact-count assertions
-    assert len(row_items) == 225, f"Expected 225 validation row items, got {len(row_items)}"
-    assert len(sequence_items) == 36, f"Expected 36 validation sequence items, got {len(sequence_items)}"
-
-    # Uniqueness assertions
-    row_candidate_ids = [r["candidate_id"] for r in row_items]
-    row_ann_ids = [r["annotation_id"] for r in row_items]
-    assert len(set(row_candidate_ids)) == 225, "Duplicate candidate_ids in validation row queue"
-    assert len(set(row_ann_ids)) == 225, "Duplicate annotation_ids in validation row queue"
-
-    seq_keys = [(s["sequence_family_id"], s.get("trust_level", "")) for s in sequence_items]
-    seq_ann_ids = [s["sequence_annotation_id"] for s in sequence_items]
-    assert len(set(seq_keys)) == 36, "Duplicate (sequence_family_id, trust_level) in validation sequence queue"
-    assert len(set(seq_ann_ids)) == 36, "Duplicate sequence_annotation_ids in validation sequence queue"
-
-    return row_items, sequence_items
+    Returns (row_items, sequence_items).
+    Test split: 450 rows, 72 trust-conditioned sequence units.
+    """
+    return _build_split_queue(_TEST_CANDIDATES_PATH, "test", 450, 72)
 
 
 def compute_queue_sha256(
@@ -1190,37 +1141,56 @@ def compute_sequence_agreement(
     primary: list[dict[str, Any]],
     secondary: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Sec 38: Sequence-level agreement."""
-    # Join by sequence_family_id
-    p_by_fam = {r["sequence_family_id"]: r for r in primary}
-    s_by_fam = {r["sequence_family_id"]: r for r in secondary}
-    common_fams = sorted(set(p_by_fam.keys()) & set(s_by_fam.keys()))
+    """Sec 38: Sequence-level agreement.
 
-    if not common_fams:
+    Joins by sequence_annotation_id when available, falling back to
+    sequence_family_id for backward compatibility with dev/val data.
+    """
+    # Prefer sequence_annotation_id; fall back to sequence_family_id
+    if primary and "sequence_annotation_id" in primary[0]:
+        p_by_id = {r["sequence_annotation_id"]: r for r in primary}
+        s_by_id = {r["sequence_annotation_id"]: r for r in secondary}
+    else:
+        p_by_id = {r["sequence_family_id"]: r for r in primary}
+        s_by_id = {r["sequence_family_id"]: r for r in secondary}
+    common_keys = sorted(set(p_by_id.keys()) & set(s_by_id.keys()))
+
+    if not common_keys:
         return {"n": 0, "reconstruction_agreement": {}}
 
-    recon_a = [p_by_fam[f]["sequence_reconstructs_target"] for f in common_fams]
-    recon_b = [s_by_fam[f]["sequence_reconstructs_target"] for f in common_fams]
+    recon_a = [p_by_id[k]["sequence_reconstructs_target"] for k in common_keys]
+    recon_b = [s_by_id[k]["sequence_reconstructs_target"] for k in common_keys]
 
     result: dict[str, Any] = {
-        "n": len(common_fams),
+        "n": len(common_keys),
         "reconstruction_binary_agreement": compute_binary_agreement(recon_a, recon_b),
     }
 
-    # Earliest reconstruction step: exact agreement only where both say True
+    # Earliest reconstruction step and strength: agreement where both reconstruct
     both_reconstruct = [
-        f for f in common_fams
-        if p_by_fam[f]["sequence_reconstructs_target"] and s_by_fam[f]["sequence_reconstructs_target"]
+        k for k in common_keys
+        if p_by_id[k]["sequence_reconstructs_target"]
+        and s_by_id[k]["sequence_reconstructs_target"]
     ]
     if both_reconstruct:
         step_agree = sum(
-            1 for f in both_reconstruct
-            if p_by_fam[f].get("earliest_reconstruction_step") == s_by_fam[f].get("earliest_reconstruction_step")
+            1 for k in both_reconstruct
+            if p_by_id[k].get("earliest_reconstruction_step")
+            == s_by_id[k].get("earliest_reconstruction_step")
         )
         result["earliest_step_exact_agreement"] = round(
             step_agree / len(both_reconstruct), 4
         )
         result["earliest_step_n"] = len(both_reconstruct)
+
+        strength_agree = sum(
+            1 for k in both_reconstruct
+            if p_by_id[k].get("reconstruction_strength")
+            == s_by_id[k].get("reconstruction_strength")
+        )
+        result["reconstruction_strength_exact_agreement"] = round(
+            strength_agree / len(both_reconstruct), 4
+        )
     else:
         result["earliest_step_exact_agreement"] = "not_estimable"
         result["earliest_step_n"] = 0
@@ -1305,19 +1275,51 @@ def build_review_queue(
 
     # Sequence review queue
     if primary_seq_labels and secondary_seq_labels:
-        p_by_fam = {r["sequence_family_id"]: r for r in primary_seq_labels}
-        s_by_fam = {r["sequence_family_id"]: r for r in secondary_seq_labels}
+        # Use sequence_annotation_id when available, else sequence_family_id
+        if primary_seq_labels and "sequence_annotation_id" in primary_seq_labels[0]:
+            p_key = "sequence_annotation_id"
+            s_key = "sequence_annotation_id"
+        else:
+            p_key = "sequence_family_id"
+            s_key = "sequence_family_id"
+        p_by_id = {r[p_key]: r for r in primary_seq_labels}
+        s_by_id = {r[s_key]: r for r in secondary_seq_labels}
 
-        for sfid in sorted(set(p_by_fam.keys()) & set(s_by_fam.keys())):
-            should_queue, reasons = should_queue_for_review(p_by_fam[sfid], s_by_fam[sfid])
+        for seq_key in sorted(set(p_by_id.keys()) & set(s_by_id.keys())):
+            p_seq = p_by_id[seq_key]
+            s_seq = s_by_id[seq_key]
+            should_queue, reasons = should_queue_for_review(p_seq, s_seq)
+
+            # E4-003: Additional sequence semantic triggers
+            if (
+                p_seq.get("earliest_reconstruction_step") is not None
+                and s_seq.get("earliest_reconstruction_step") is not None
+                and p_seq.get("earliest_reconstruction_step")
+                != s_seq.get("earliest_reconstruction_step")
+            ):
+                reasons.append("disagreement on earliest_reconstruction_step")
+                should_queue = True
+            if (
+                p_seq.get("reconstruction_strength") is not None
+                and s_seq.get("reconstruction_strength") is not None
+                and p_seq.get("reconstruction_strength")
+                != s_seq.get("reconstruction_strength")
+            ):
+                reasons.append("disagreement on reconstruction_strength")
+                should_queue = True
+
             if should_queue:
-                queue.append({
+                entry: dict[str, Any] = {
                     "item_type": "sequence",
-                    "sequence_family_id": sfid,
-                    "primary_label": p_by_fam[sfid],
-                    "secondary_label": s_by_fam[sfid],
+                    "sequence_annotation_id": p_seq.get(
+                        "sequence_annotation_id", seq_key
+                    ),
+                    "sequence_family_id": p_seq.get("sequence_family_id", ""),
+                    "primary_label": p_seq,
+                    "secondary_label": s_seq,
                     "review_reasons": reasons,
-                })
+                }
+                queue.append(entry)
 
     return queue
 
@@ -1460,6 +1462,36 @@ def load_validation_candidates() -> list[dict[str, Any]]:
             line = line.strip()
             if line:
                 candidates.append(json.loads(line))
+    return candidates
+
+
+def load_test_candidates() -> list[dict[str, Any]]:
+    """E4-003: Load all test split candidates from the frozen corpus.
+
+    Validates required fields, sorts by candidate_id, returns exactly 450.
+    """
+    if not _TEST_CANDIDATES_PATH.exists():
+        raise FileNotFoundError(f"Test candidates not found: {_TEST_CANDIDATES_PATH}")
+    candidates: list[dict[str, Any]] = []
+    required = {"candidate_id", "scenario_id", "secret_variant_id", "text", "content_sha256"}
+    with open(_TEST_CANDIDATES_PATH) as f:
+        for lineno, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Malformed JSON in test candidates line {lineno}: {exc}"
+                ) from exc
+            missing = required - set(record.keys())
+            if missing:
+                raise ValueError(
+                    f"Test candidate line {lineno} missing fields: {missing}"
+                )
+            candidates.append(record)
+    candidates.sort(key=lambda c: c["candidate_id"])
     return candidates
 
 
@@ -1649,6 +1681,262 @@ def compute_prompt_manifest_sha256() -> str:
     """Compute SHA-256 of the serialized prompt manifest."""
     manifest_data = json.dumps(build_prompt_manifest(), sort_keys=True, separators=(",", ":"))
     return prompt_sha256(manifest_data)
+
+
+# ---------------------------------------------------------------------------
+# E4-003: Sequence label matching helper
+# ---------------------------------------------------------------------------
+
+
+def sequence_labels_match(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """E4-003: Check if two sequence label dicts agree on the semantic tuple.
+
+    The semantic tuple is:
+      (sequence_reconstructs_target, earliest_reconstruction_step,
+       reconstruction_strength)
+    """
+    if a.get("sequence_reconstructs_target") != b.get("sequence_reconstructs_target"):
+        return False
+    if a.get("earliest_reconstruction_step") != b.get("earliest_reconstruction_step"):
+        return False
+    if a.get("reconstruction_strength") != b.get("reconstruction_strength"):
+        return False
+    return True
+
+
+def row_labels_match(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """E4-003: Check if two row label dicts agree on all core labels."""
+    for fld in CORE_BINARY_LABELS:
+        if a.get(fld) != b.get(fld):
+            return False
+    if a.get("leakage_strength") != b.get("leakage_strength"):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# E4-003 Sec 51: Test input preflight
+# ---------------------------------------------------------------------------
+
+
+def test_input_preflight() -> dict[str, Any]:
+    """E4-003: Ordered preflight checks before test provider calls.
+
+    Order:
+    1. Validation gate = GO
+    2. Validation protocol frozen
+    3. Frozen corpus verifier PASS
+    4. Test candidates = 450
+    5. Test row queue = 450
+    6. Test sequence queue = 72
+    7. Structural families = 24
+    8. Every family has default/high/low trust variants
+    9. Target resolution = 450/450
+    10. Zero empty targets
+    11. Zero invalid sequences
+    12. Prompt/schema hash invariance
+    13. Provider viability (skipped here -- done separately)
+
+    Returns a report dict suitable for JSON serialisation.
+    """
+    findings: list[str] = []
+
+    # --- 1. Validation gate check ---
+    val_gate_path = _VALIDATION_DIR / "validation_annotation_gate.json"
+    if not val_gate_path.exists():
+        findings.append("validation_gate_not_found")
+        val_gate_go = False
+    else:
+        gate = json.loads(val_gate_path.read_text(encoding="utf-8"))
+        val_gate_go = gate.get("go_no_go") == "GO"
+        if not val_gate_go:
+            findings.append(f"validation_gate_not_go: {gate.get('go_no_go')}")
+        if not gate.get("ready_for_test_annotation"):
+            # Also accept protocol_freeze_pass as indicator
+            if not gate.get("protocol_freeze_pass"):
+                findings.append("validation_protocol_not_frozen")
+
+    # --- 2. Frozen corpus manifest ---
+    manifest_sha = frozen_corpus_manifest_file_sha256()
+    expected_fc_sha = "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2"
+    if not manifest_sha:
+        findings.append("frozen_corpus_manifest_missing")
+    elif manifest_sha != expected_fc_sha:
+        findings.append(f"frozen_corpus_manifest_sha_mismatch: expected={expected_fc_sha}, actual={manifest_sha}")
+
+    # --- 3. Load test candidates ---
+    if not _TEST_CANDIDATES_PATH.exists():
+        findings.append(f"test_candidates_not_found: {_TEST_CANDIDATES_PATH}")
+        return {
+            "frozen_corpus_manifest_sha256": manifest_sha,
+            "test_candidate_count": 0,
+            "resolved_target_count": 0,
+            "row_queue_count": 0,
+            "sequence_queue_count": 0,
+            "structural_family_count": 0,
+            "trust_variants_per_family": 0,
+            "target_resolution_failures": [],
+            "sequence_structure_failures": [],
+            "empty_target_count": 0,
+            "queue_hash": "",
+            "validation_gate_go": val_gate_go,
+            "protocol_hash_match": False,
+            "passed": False,
+            "findings": findings,
+        }
+
+    candidates = load_test_candidates()
+    test_count = len(candidates)
+    if test_count != 450:
+        findings.append(f"test_candidate_count_unexpected: {test_count} (expected 450)")
+
+    # --- 4. Target-resolution preflight ---
+    target_report = preflight_target_resolution(candidates)
+    resolved_count = target_report["resolved"]
+    target_failures = target_report["failures"]
+    empty_target_count = target_report["empty_target_count"]
+
+    if resolved_count != test_count:
+        findings.append(
+            f"target_resolution_not_all_resolved: "
+            f"{resolved_count}/{test_count} resolved, "
+            f"{len(target_failures)} failures, "
+            f"{empty_target_count} empty targets"
+        )
+    if empty_target_count > 0:
+        findings.append(f"empty_targets_found: {empty_target_count}")
+
+    # --- 5. Queue completeness preflight ---
+    row_items, sequence_items = build_test_queue()
+    row_count = len(row_items)
+    seq_count = len(sequence_items)
+
+    if row_count != 450:
+        findings.append(f"test_row_queue_count_unexpected: {row_count} (expected 450)")
+    if seq_count != 72:
+        findings.append(f"test_sequence_queue_count_unexpected: {seq_count} (expected 72)")
+
+    # --- 6. Structural family analysis ---
+    structural_families = set()
+    family_trust: dict[str, set[str]] = {}
+    for si in sequence_items:
+        sfid = si["sequence_family_id"]
+        trust = si.get("trust_level", "default")
+        structural_families.add(sfid)
+        family_trust.setdefault(sfid, set()).add(trust)
+
+    family_count = len(structural_families)
+    if family_count != 24:
+        findings.append(f"structural_family_count_unexpected: {family_count} (expected 24)")
+
+    # Every family should have exactly 3 trust variants
+    incomplete_families = [
+        sfid for sfid, trusts in family_trust.items()
+        if len(trusts) != 3 or trusts != {"default", "high", "low"}
+    ]
+    if incomplete_families:
+        findings.append(f"families_without_full_trust_variants: {len(incomplete_families)}")
+
+    min_trust_variants = min(len(v) for v in family_trust.values()) if family_trust else 0
+
+    # --- 7. Sequence structure verification ---
+    seq_structure_failures: list[str] = []
+    candidate_lookup = {c["candidate_id"]: c for c in candidates}
+    for si in sequence_items:
+        members = [candidate_lookup[cid] for cid in si["ordered_candidate_ids"]]
+        errors = validate_sequence_structure(members)
+        if errors:
+            seq_structure_failures.append(
+                f"{si['sequence_annotation_id']}: {errors}"
+            )
+    if seq_structure_failures:
+        findings.append(f"sequence_structure_failures: {len(seq_structure_failures)}")
+
+    # --- 8. Duplicate checks ---
+    candidate_ids = [c["candidate_id"] for c in candidates]
+    if len(candidate_ids) != len(set(candidate_ids)):
+        findings.append("duplicate_candidate_ids_found")
+
+    seq_ann_ids = [s["sequence_annotation_id"] for s in sequence_items]
+    if len(seq_ann_ids) != len(set(seq_ann_ids)):
+        findings.append("duplicate_sequence_annotation_ids_found")
+
+    # --- 9. Prompt/schema hash invariance ---
+    protocol_manifest_path = _ANNOTATIONS_DIR / "annotation_protocol_manifest.json"
+    protocol_hash_match = False
+    if protocol_manifest_path.exists():
+        pm = json.loads(protocol_manifest_path.read_text(encoding="utf-8"))
+        frozen_primary_prompt_sha = pm.get("primary_prompt_sha256", "")
+        frozen_secondary_prompt_sha = pm.get("secondary_prompt_sha256", "")
+        frozen_schema_sha = pm.get("annotation_schema_sha256", "")
+        frozen_prompt_manifest_sha = pm.get("prompt_manifest_sha256", "")
+
+        current_primary_sha = prompt_sha256(ROW_SYSTEM_PROMPT)
+        current_secondary_sha = prompt_sha256(ROW_SYSTEM_PROMPT)
+        current_schema_sha = prompt_sha256(ANNOTATION_SCHEMA_VERSION)
+        current_prompt_manifest_sha = compute_prompt_manifest_sha256()
+
+        if current_primary_sha != frozen_primary_prompt_sha:
+            findings.append(f"primary_prompt_sha_mismatch: expected={frozen_primary_prompt_sha}, actual={current_primary_sha}")
+        if current_secondary_sha != frozen_secondary_prompt_sha:
+            findings.append(f"secondary_prompt_sha_mismatch: expected={frozen_secondary_prompt_sha}, actual={current_secondary_sha}")
+        if current_schema_sha != frozen_schema_sha:
+            findings.append(f"schema_sha_mismatch: expected={frozen_schema_sha}, actual={current_schema_sha}")
+        if current_prompt_manifest_sha != frozen_prompt_manifest_sha:
+            findings.append(f"prompt_manifest_sha_mismatch: expected={frozen_prompt_manifest_sha}, actual={current_prompt_manifest_sha}")
+
+        protocol_hash_match = (
+            current_primary_sha == frozen_primary_prompt_sha
+            and current_secondary_sha == frozen_secondary_prompt_sha
+            and current_schema_sha == frozen_schema_sha
+            and current_prompt_manifest_sha == frozen_prompt_manifest_sha
+        )
+    else:
+        findings.append("annotation_protocol_manifest_not_found")
+
+    # --- 10. Provenance preflight ---
+    queue_sha = compute_queue_sha256(row_items, sequence_items)
+    if not queue_sha:
+        findings.append("test_queue_hash_empty")
+
+    empty_corpus_bindings = sum(
+        1 for r in row_items if not r.get("frozen_corpus_manifest_sha256")
+    )
+    if empty_corpus_bindings:
+        findings.append(f"row_items_with_empty_corpus_binding: {empty_corpus_bindings}")
+
+    passed = (
+        val_gate_go
+        and manifest_sha == expected_fc_sha
+        and test_count == 450
+        and resolved_count == 450
+        and empty_target_count == 0
+        and row_count == 450
+        and seq_count == 72
+        and family_count == 24
+        and min_trust_variants == 3
+        and not seq_structure_failures
+        and not target_failures
+        and protocol_hash_match
+    )
+
+    return {
+        "frozen_corpus_manifest_sha256": manifest_sha,
+        "test_candidate_count": test_count,
+        "resolved_target_count": resolved_count,
+        "row_queue_count": row_count,
+        "sequence_queue_count": seq_count,
+        "structural_family_count": family_count,
+        "trust_variants_per_family": min_trust_variants,
+        "target_resolution_failures": target_failures,
+        "sequence_structure_failures": seq_structure_failures,
+        "empty_target_count": empty_target_count,
+        "queue_hash": queue_sha,
+        "validation_gate_go": val_gate_go,
+        "protocol_hash_match": protocol_hash_match,
+        "passed": passed,
+        "findings": findings,
+    }
 
 
 def validation_input_preflight() -> dict[str, Any]:

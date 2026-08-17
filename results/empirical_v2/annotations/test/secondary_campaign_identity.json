@@ -1,0 +1,13 @@
+{
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "annotation_queue_sha256": "150c7517e422f1bffcab069041dd828932a661b326bf3558f57d080288abba2d",
+  "annotation_schema_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+  "primary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+  "secondary_prompt_sha256": "b6a89376a634a1d7eb4801f030af898ed308dcbdb050a3ab2d60c2cd56049250",
+  "primary_requested_model": "qwen3.8-max",
+  "secondary_requested_model": "glm-5.2",
+  "annotation_config_sha256": "e6c6e414f215f1578f4cad95b630201994d5bf5a3ddea931d90a8207c19976cf",
+  "annotation_code_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
+  "split": "test",
+  "prompt_manifest_sha256": "6bce9ab304bda040cf1cec657a95685d7d5e8d5561070eed6d487502c2ddce77"
+}

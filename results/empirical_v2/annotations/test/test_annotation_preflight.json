@@ -1,0 +1,18 @@
+{
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "test_candidate_count": 450,
+  "resolved_target_count": 450,
+  "row_queue_count": 450,
+  "sequence_queue_count": 72,
+  "structural_family_count": 24,
+  "trust_variants_per_family": 3,
+  "target_resolution_failures": [],
+  "sequence_structure_failures": [],
+  "empty_target_count": 0,
+  "queue_hash": "150c7517e422f1bffcab069041dd828932a661b326bf3558f57d080288abba2d",
+  "validation_gate_go": true,
+  "protocol_hash_match": true,
+  "passed": true,
+  "findings": [],
+  "preflight_timestamp": "2026-08-16T18:07:23.608493+00:00"
+}

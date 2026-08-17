@@ -1,0 +1,92 @@
+{
+  "n": 450,
+  "target_relevant": {
+    "raw_agreement": 0.9711,
+    "cohens_kappa": 0.9396,
+    "positive_agreement": 0.9532,
+    "negative_agreement": 0.9297,
+    "n": 450,
+    "tp": 265,
+    "fp": 6,
+    "fn": 7,
+    "tn": 172
+  },
+  "target_leakage": {
+    "raw_agreement": 0.9667,
+    "cohens_kappa": 0.9305,
+    "positive_agreement": 0.946,
+    "negative_agreement": 0.9198,
+    "n": 450,
+    "tp": 263,
+    "fp": 6,
+    "fn": 9,
+    "tn": 172
+  },
+  "positive_entailment": {
+    "raw_agreement": 0.9667,
+    "cohens_kappa": 0.9329,
+    "positive_agreement": 0.9402,
+    "negative_agreement": 0.9299,
+    "n": 450,
+    "tp": 236,
+    "fp": 2,
+    "fn": 13,
+    "tn": 199
+  },
+  "task_useful": {
+    "raw_agreement": 0.92,
+    "cohens_kappa": 0.8367,
+    "positive_agreement": 0.8286,
+    "negative_agreement": 0.8696,
+    "n": 450,
+    "tp": 174,
+    "fp": 27,
+    "fn": 9,
+    "tn": 240
+  },
+  "leakage_strength": {
+    "exact_agreement": 0.9422,
+    "cohens_kappa": 0.9106,
+    "n": 450,
+    "confusion_matrix": {
+      "full": {
+        "full": 166,
+        "none": 0,
+        "partial": 0
+      },
+      "none": {
+        "full": 4,
+        "none": 172,
+        "partial": 5
+      },
+      "partial": {
+        "full": 11,
+        "none": 6,
+        "partial": 86
+      }
+    }
+  },
+  "sequence": {
+    "n": 72,
+    "primary_count": 72,
+    "secondary_count": 72,
+    "common_sequence_annotation_ids": 72,
+    "unmatched_primary": 0,
+    "unmatched_secondary": 0,
+    "reconstruction_binary_agreement": {
+      "raw_agreement": 1.0,
+      "cohens_kappa": 1.0,
+      "positive_agreement": 1.0,
+      "negative_agreement": 1.0,
+      "n": 72,
+      "tp": 71,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1
+    },
+    "earliest_step_exact_agreement": 1.0,
+    "earliest_step_n": 71
+  },
+  "split": "test",
+  "created_at": "2026-08-17T02:43:23.490273+00:00"
+}

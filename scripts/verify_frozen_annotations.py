@@ -427,14 +427,29 @@ class FrozenAnnotationVerifier:
                 self._pass("validation_annotation_complete: true")
             else:
                 self._fail(f"validation_annotation_complete: {phase.get('validation_annotation_complete')}")
-            if phase.get("test_annotation_complete") is not True:
-                self._pass("test_annotation_complete: false (correct)")
+            # Phase-aware check: after TEST_COMPLETE/ANNOTATIONS_FROZEN, test_annotation_complete should be true
+            current_phase = phase.get("annotation_phase", "")
+            if current_phase in ("TEST_COMPLETE", "FROZEN", "ANNOTATIONS_FROZEN"):
+                if phase.get("test_annotation_complete") is True:
+                    self._pass("test_annotation_complete: true (correct)")
+                else:
+                    self._fail("test_annotation_complete: false (should be true after TEST_COMPLETE)")
             else:
-                self._fail("test_annotation_complete: true (should be false)")
-            if phase.get("annotations_frozen") is False:
-                self._pass("annotations_frozen: false (correct)")
+                if phase.get("test_annotation_complete") is not True:
+                    self._pass("test_annotation_complete: false (correct)")
+                else:
+                    self._fail("test_annotation_complete: true (should be false)")
+            # Phase-aware annotations_frozen check
+            if current_phase == "ANNOTATIONS_FROZEN":
+                if phase.get("annotations_frozen") is True:
+                    self._pass("annotations_frozen: true (correct — globally frozen)")
+                else:
+                    self._fail(f"annotations_frozen: {phase.get('annotations_frozen')} (should be true after ANNOTATIONS_FROZEN)")
             else:
-                self._fail(f"annotations_frozen: {phase.get('annotations_frozen')} (should be false)")
+                if phase.get("annotations_frozen") is False:
+                    self._pass("annotations_frozen: false (correct)")
+                else:
+                    self._fail(f"annotations_frozen: {phase.get('annotations_frozen')} (should be false)")
 
         print("\n" + "=" * 70)
         total = self.checks_passed + self.checks_failed
@@ -711,11 +726,19 @@ class FrozenAnnotationVerifier:
         else:
             self._fail(f"annotation_prompts_frozen: {pm.get('annotation_prompts_frozen')}")
 
-        # annotations_frozen should remain false (Sec 31)
-        if pm.get("annotations_frozen") is False:
-            self._pass("annotations_frozen: false (correct — validation/test pending)")
+        # Phase-aware annotations_frozen check (Sec 31)
+        phase = _load_json(_PHASE_PATH) if _PHASE_PATH.exists() else {}
+        current_phase = phase.get("annotation_phase", "")
+        if current_phase == "ANNOTATIONS_FROZEN":
+            if pm.get("annotations_frozen") is True:
+                self._pass("annotations_frozen: true (correct — globally frozen)")
+            else:
+                self._fail(f"annotations_frozen: {pm.get('annotations_frozen')} (should be true after ANNOTATIONS_FROZEN)")
         else:
-            self._fail(f"annotations_frozen: {pm.get('annotations_frozen')} (should be false)")
+            if pm.get("annotations_frozen") is False:
+                self._pass("annotations_frozen: false (correct — validation/test pending)")
+            else:
+                self._fail(f"annotations_frozen: {pm.get('annotations_frozen')} (should be false)")
 
     def _verify_phase_status(self) -> None:
         """Check 9: Annotation phase status."""
@@ -741,16 +764,24 @@ class FrozenAnnotationVerifier:
         else:
             self._fail(f"phase annotation_prompts_frozen: {phase.get('annotation_prompts_frozen')}")
 
-        # validation should be complete (per §47), test should not
+        # validation should be complete (per §47)
         if phase.get("validation_annotation_complete") is True:
             self._pass("validation_annotation_complete: true (correct)")
         else:
             self._fail("validation_annotation_complete: false (should be true)")
 
-        if phase.get("test_annotation_complete") is not True:
-            self._pass("test_annotation_complete: false (correct)")
+        # Phase-aware check: after TEST_COMPLETE/ANNOTATIONS_FROZEN, test_annotation_complete should be true
+        current_phase = phase.get("annotation_phase", "")
+        if current_phase in ("TEST_COMPLETE", "FROZEN", "ANNOTATIONS_FROZEN"):
+            if phase.get("test_annotation_complete") is True:
+                self._pass("test_annotation_complete: true (correct)")
+            else:
+                self._fail("test_annotation_complete: false (should be true after TEST_COMPLETE)")
         else:
-            self._fail("test_annotation_complete: true (should be false)")
+            if phase.get("test_annotation_complete") is not True:
+                self._pass("test_annotation_complete: false (correct)")
+            else:
+                self._fail("test_annotation_complete: true (should be false)")
 
 
 def main() -> int:

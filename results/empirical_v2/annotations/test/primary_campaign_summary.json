@@ -1,0 +1,24 @@
+{
+  "annotator_role": "J",
+  "total_provider_attempts": 526,
+  "unique_annotation_item_ids": 522,
+  "terminal_success_items": 522,
+  "row_items_annotated": 450,
+  "sequence_items_annotated": 72,
+  "total_terminal_items": 522,
+  "internal_retries_retry_index_gt_0": 0,
+  "repeat_resume_items": 4,
+  "repeat_resume_extra_attempts": 4,
+  "status_counts": {
+    "success": 526
+  },
+  "parse_status_counts": {
+    "valid": 526
+  },
+  "success_attempts": 526,
+  "malformed_attempts": 0,
+  "timeout_attempts": 0,
+  "empty_response_attempts": 0,
+  "provider_error_attempts": 0,
+  "refusal_attempts": 0
+}

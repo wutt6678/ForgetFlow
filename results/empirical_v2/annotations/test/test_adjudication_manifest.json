@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-003: Test annotation adjudication manifest",
+  "created_at": "2026-08-17T02:47:35.552774+00:00",
+  "split": "test",
+  "review_queue_count": 66,
+  "review_row_count": 66,
+  "review_sequence_count": 0,
+  "adjudicated_count": 66,
+  "disagreement_rows": 63,
+  "consensus_rows_in_queue": 3,
+  "resolution_counts": {
+    "consensus_retained": 3,
+    "resolved_by_j3_matching_j": 14,
+    "resolved_by_j3_matching_j2": 25,
+    "still_unresolved": 24
+  },
+  "final_label_counts": {
+    "total_rows": 450,
+    "consensus_rows": 387,
+    "adjudicated_rows": 39,
+    "unresolved_rows": 24,
+    "total_sequences": 72,
+    "unresolved_sequences": 0
+  },
+  "unresolved_row_rate": 0.0533,
+  "unresolved_sequence_rate": 0.0,
+  "j3_model": "qwen-plus",
+  "j3_provider": "litellm",
+  "j3_role": "J3",
+  "adjudication_protocol_version": "1.0",
+  "review_queue_sha256": "57cf2a8c8ca7411bd27aa8cf24ee500392894421db6d128d592d6f15eaf25ace",
+  "llm_adjudication_sha256": "2f9602962e6941aacbf39b8ec8c4367bcefe4d8088d29b53c965b722f9fff37e",
+  "final_adjudicated_labels_sha256": "6f14ec4272dfd0758fe8c60f39602348c4e2ca3dad3f6b5ecc8924ba9c0d317a",
+  "final_sequence_labels_sha256": "0f1b62328aeb3fcd2f799c4c6039983b38b64bc44d057a6d6b547f118046e3b7",
+  "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+  "test_annotation_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
+  "j3_vs_j_agreement_count": 14,
+  "j3_vs_j2_agreement_count": 25,
+  "j3_vs_both_disagree_count": 24
+}

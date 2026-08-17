@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "description": "E4-003: Global annotation post-freeze closure verification",
+  "created_at": "2026-08-17T03:00:19.187592+00:00",
+  "freeze_created_at": "2026-08-17T03:00:19.034018+00:00",
+  "verification_source_commit": "bccad2a8af50c3f1b8f12c7bfb35ba2ff02deae8",
+  "global_freeze_manifest_sha256": "006c8184f5f991a95332fb377492562f53af578e5ec07512d3f1c72047c16796",
+  "annotation_phase_sha256": "f14d44f65a1bdfda300274bb96f38b73575ea8fb29c92953a0914b9fa4ffe6b7",
+  "frozen_corpus_verifier": {
+    "checks_total": 52,
+    "checks_passed": 52,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.036895+00:00"
+  },
+  "development_annotation_verifier": {
+    "checks_total": 49,
+    "checks_passed": 49,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.064444+00:00"
+  },
+  "validation_annotation_verifier": {
+    "checks_total": 48,
+    "checks_passed": 48,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.091327+00:00"
+  },
+  "validation_freeze_closure_verifier": {
+    "checks_total": 11,
+    "checks_passed": 11,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.125335+00:00"
+  },
+  "test_annotation_verifier": {
+    "checks_total": 49,
+    "checks_passed": 49,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.143434+00:00"
+  },
+  "test_freeze_closure_verifier": {
+    "checks_total": 13,
+    "checks_passed": 13,
+    "checks_failed": 0,
+    "exit_code": 0,
+    "timestamp": "2026-08-17T03:00:19.169506+00:00"
+  },
+  "all_verifiers_pass": true
+}
