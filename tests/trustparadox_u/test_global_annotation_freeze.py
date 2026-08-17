@@ -123,11 +123,11 @@ class TestGlobalCounts:
     """Sec 152: Global freeze must record correct counts."""
 
     def test_development_counts(self):
-        """Development counts must be 225 rows, 36 sequences."""
+        """Development counts must be 225 rows, 0 sequences (no final_sequence_labels)."""
         freeze = _load_json(_FREEZE_PATH)
         dev = freeze.get("split_counts", {}).get("development", {})
         assert dev.get("final_rows") == 225
-        assert dev.get("final_sequences") == 36
+        assert dev.get("final_sequences") == 0  # development_v3 has no final_sequence_labels.jsonl (Sec 107)
 
     def test_validation_counts(self):
         """Validation counts must be 225 rows, 36 sequences."""
@@ -150,10 +150,10 @@ class TestGlobalCounts:
         assert totals.get("final_row_labels") == 900
 
     def test_global_total_sequences(self):
-        """Global total must be 144 final sequence units."""
+        """Global total must be 108 final sequence units (dev=0 + val=36 + test=72)."""
         freeze = _load_json(_FREEZE_PATH)
         totals = freeze.get("global_totals", {})
-        assert totals.get("final_sequence_labels") == 144
+        assert totals.get("final_sequence_labels") == 108  # 0 + 36 + 72
 
 
 # ===========================================================================

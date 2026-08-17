@@ -662,14 +662,14 @@ class TestPhaseFreezeConsistency:
         assert phase["validation_annotation_complete"] is True
 
     def test_test_annotation_not_complete(self):
-        """§52: test_annotation_complete == false."""
+        """§52: After global freeze, test_annotation_complete should be true."""
         phase = _load_json(_PHASE_PATH)
-        assert phase["test_annotation_complete"] is False
+        assert phase["test_annotation_complete"] is True  # completed by E4-003
 
     def test_annotations_not_frozen(self):
-        """§52: annotations_frozen == false."""
+        """After global freeze, annotations_frozen should be true."""
         phase = _load_json(_PHASE_PATH)
-        assert phase["annotations_frozen"] is False
+        assert phase["annotations_frozen"] is True  # global freeze completed
 
     def test_gate_is_go(self):
         """§52: Validation gate must be GO."""
