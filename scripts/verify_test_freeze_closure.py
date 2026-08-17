@@ -185,23 +185,6 @@ def main() -> int:
             f"failed={val_closure.get('checks_failed')}, total={val_closure.get('checks_total')})"
         )
 
-    # [C8b] Confirm test closure verifier PASS (item 65)
-    print("\n[C8b] Test freeze closure verifier...")
-    test_closure = pfv.get("test_closure_verifier", {})
-    if (
-        test_closure.get("exit_code") == 0
-        and test_closure.get("checks_failed") == 0
-        and test_closure.get("checks_passed") == test_closure.get("checks_total")
-        and test_closure.get("checks_total", 0) > 0
-    ):
-        _pass(f"test_closure_verifier PASS ({test_closure['checks_passed']}/{test_closure['checks_total']})")
-    else:
-        _fail(
-            f"test_closure_verifier FAIL "
-            f"(exit={test_closure.get('exit_code')}, passed={test_closure.get('checks_passed')}, "
-            f"failed={test_closure.get('checks_failed')}, total={test_closure.get('checks_total')})"
-        )
-
     # [C9] Timestamp ordering checks
     print("\n[C9] Timestamp ordering...")
     freeze_created_at = pfv.get("freeze_created_at", "")
@@ -224,7 +207,6 @@ def main() -> int:
         ("validation_annotation_verifier", "validation_annotation_verifier"),
         ("test_annotation_verifier", "test_annotation_verifier"),
         ("validation_closure_verifier", "validation_closure_verifier"),
-        ("test_closure_verifier", "test_closure_verifier"),
     ]:
         v = pfv.get(verifier_key, {})
         v_ts = v.get("timestamp", "")

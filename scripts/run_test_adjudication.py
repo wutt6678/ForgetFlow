@@ -468,6 +468,7 @@ def run_test_adjudication(
             record = {
                 "adjudication_id": f"adj_{_sha256_str(cid + J3_ROLE)[:16]}",
                 "candidate_id": cid,
+                "item_type": "row",
                 "candidate_content_sha256": j_label.get("candidate_content_sha256", ""),
                 "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
                 "review_queue_sha256": review_queue_sha,
@@ -514,6 +515,7 @@ def run_test_adjudication(
             record = {
                 "adjudication_id": f"adj_{_sha256_str(cid + J3_ROLE)[:16]}",
                 "candidate_id": cid,
+                "item_type": "row",
                 "candidate_content_sha256": j_label.get("candidate_content_sha256", ""),
                 "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
                 "review_queue_sha256": review_queue_sha,
@@ -647,8 +649,12 @@ def run_test_adjudication(
     resolution_counts["seq_resolved_by_j3_matching_j2"] = seq_resolution_counts["resolved_by_j3_matching_j2"]
     resolution_counts["seq_still_unresolved"] = seq_resolution_counts["still_unresolved"]
 
-    _write_jsonl(_LLM_ADJUDICATION_PATH, adjudication_records)
-    print(f"Wrote {len(adjudication_records)} adjudication records to {_LLM_ADJUDICATION_PATH.name}")
+    # Fix B: write combined row + sequence adjudication records
+    all_adjudication_records = [*adjudication_records, *seq_adjudication_records]
+    _write_jsonl(_LLM_ADJUDICATION_PATH, all_adjudication_records)
+    print(f"Wrote {len(all_adjudication_records)} adjudication records "
+          f"({len(adjudication_records)} row + {len(seq_adjudication_records)} sequence) "
+          f"to {_LLM_ADJUDICATION_PATH.name}")
 
     # --- Sec 39: Construct final test labels ---
     print(f"\n--- Sec 39: Final Test Labels ---")
@@ -741,6 +747,18 @@ def run_test_adjudication(
     j_seq_by_id = {sequence_unit_key(r): r for r in j_seqs}
     j2_seq_by_id = {sequence_unit_key(r): r for r in j2_seqs}
 
+    # Fix C: build seq adjudication lookup
+    seq_adj_by_id = {
+        r["sequence_annotation_id"]: r
+        for r in seq_adjudication_records
+    }
+
+    _SEQ_SEMANTIC_FIELDS = (
+        "sequence_reconstructs_target",
+        "earliest_reconstruction_step",
+        "reconstruction_strength",
+    )
+
     for sid in sorted(j_seq_by_id.keys()):
         j_seq = j_seq_by_id[sid]
         j2_seq = j2_seq_by_id.get(sid, {})
@@ -749,6 +767,46 @@ def run_test_adjudication(
         # Preserve trust-conditioned identity
         trust_level = derive_trust_level(j_seq)
 
+        # Fix C: consume sequence adjudication if available
+        seq_adj = seq_adj_by_id.get(sid)
+        if seq_adj is not None:
+            res_status = seq_adj["resolution_status"]
+            if res_status == "consensus_retained":
+                src_tuple = j_seq
+                res_source = "llm_consensus"
+                j_agreed, j2_agreed = True, True
+            elif res_status == "resolved_by_j3_matching_j":
+                src_tuple = j_seq
+                res_source = "llm_adjudication"
+                j_agreed, j2_agreed = True, False
+            elif res_status == "resolved_by_j3_matching_j2":
+                src_tuple = j2_seq
+                res_source = "llm_adjudication"
+                j_agreed, j2_agreed = False, True
+            else:  # still_unresolved
+                src_tuple = None
+                res_source = "unresolved"
+                j_agreed, j2_agreed = False, False
+        else:
+            # No adjudication record — fall back to J/J2 agreement
+            if seq_agree:
+                src_tuple = j_seq
+                res_source = "llm_consensus"
+                j_agreed, j2_agreed = True, True
+            else:
+                src_tuple = None
+                res_source = "unresolved"
+                j_agreed, j2_agreed = False, False
+
+        if src_tuple is not None:
+            final_reconstructs = src_tuple.get("sequence_reconstructs_target")
+            final_step = src_tuple.get("earliest_reconstruction_step")
+            final_strength = src_tuple.get("reconstruction_strength")
+        else:
+            final_reconstructs = None
+            final_step = None
+            final_strength = None
+
         final_seq = {
             "sequence_annotation_id": sid,
             "sequence_family_id": j_seq.get("sequence_family_id", ""),
@@ -756,13 +814,13 @@ def run_test_adjudication(
             "scenario_id": j_seq.get("scenario_id", ""),
             "secret_variant_id": j_seq.get("secret_variant_id", ""),
             "ordered_candidate_ids": j_seq.get("ordered_candidate_ids", []),
-            "final_sequence_reconstructs_target": j_seq.get("sequence_reconstructs_target") if seq_agree else None,
-            "final_earliest_reconstruction_step": j_seq.get("earliest_reconstruction_step") if seq_agree else None,
-            "final_reconstruction_strength": j_seq.get("reconstruction_strength") if seq_agree else None,
-            "resolution_source": "llm_consensus" if seq_agree else "unresolved",
-            "resolution_status": "resolved" if seq_agree else "unresolved",
-            "j_agreed": seq_agree,
-            "j2_agreed": seq_agree,
+            "final_sequence_reconstructs_target": final_reconstructs,
+            "final_earliest_reconstruction_step": final_step,
+            "final_reconstruction_strength": final_strength,
+            "resolution_source": res_source,
+            "resolution_status": "resolved" if res_source != "unresolved" else "unresolved",
+            "j_agreed": j_agreed,
+            "j2_agreed": j2_agreed,
             "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
             "annotation_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
             "sequence_content_sha256": j_seq.get("sequence_content_sha256", ""),
@@ -809,10 +867,16 @@ def run_test_adjudication(
         "review_queue_count": len(review_queue),
         "review_row_count": len(review_rows),
         "review_sequence_count": len(review_seqs),
-        "adjudicated_count": len(adjudication_records),
+        "adjudicated_count": len(adjudication_records) + len(seq_adjudication_records),
+        "row_adjudication_record_count": len(adjudication_records),
+        "sequence_adjudication_record_count": len(seq_adjudication_records),
         "disagreement_rows": len(disagreement_recs),
         "consensus_rows_in_queue": len(adjudication_records) - len(disagreement_recs),
         "resolution_counts": resolution_counts,
+        "sequence_consensus_retained": seq_resolution_counts["consensus_retained"],
+        "sequence_resolved_by_j3_matching_j": seq_resolution_counts["resolved_by_j3_matching_j"],
+        "sequence_resolved_by_j3_matching_j2": seq_resolution_counts["resolved_by_j3_matching_j2"],
+        "sequence_still_unresolved": seq_resolution_counts["still_unresolved"],
         "final_label_counts": {
             "total_rows": len(final_labels),
             "consensus_rows": consensus_rows,
@@ -876,9 +940,291 @@ def run_test_adjudication(
     }
 
 
+def finalize_test_annotations(
+    j_rows: list[dict[str, Any]],
+    j2_rows: list[dict[str, Any]],
+    j_seqs: list[dict[str, Any]],
+    j2_seqs: list[dict[str, Any]],
+    review_queue: list[dict[str, Any]],
+    adjudication_records: list[dict[str, Any]],
+    seq_adjudication_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Construct final row/sequence labels from existing adjudication evidence.
+
+    This is a pure offline helper — no provider calls are made.
+    """
+    j_by_cid = {r["candidate_id"]: r for r in j_rows}
+    j2_by_cid = {r["candidate_id"]: r for r in j2_rows}
+
+    # --- Final row labels ---
+    adj_by_cid = {r["candidate_id"]: r for r in adjudication_records}
+    final_labels: list[dict[str, Any]] = []
+
+    for cid in sorted(j_by_cid.keys()):
+        j_label = j_by_cid[cid]
+        j2_label = j2_by_cid.get(cid, {})
+        adj = adj_by_cid.get(cid)
+
+        if adj:
+            if adj["resolution_source"] == "llm_consensus":
+                final = {fld: j_label.get(fld) for fld in ALL_CORE_LABELS}
+                source = "llm_consensus"
+                j_agreed_r = True
+                j2_agreed_r = True
+            elif adj["resolution_source"] == "llm_adjudication":
+                if adj["resolution_status"] == "resolved_by_j3_matching_j":
+                    final = {fld: j_label.get(fld) for fld in ALL_CORE_LABELS}
+                elif adj["resolution_status"] == "resolved_by_j3_matching_j2":
+                    final = {fld: j2_label.get(fld) for fld in ALL_CORE_LABELS}
+                else:
+                    final = {fld: None for fld in ALL_CORE_LABELS}
+                source = "llm_adjudication"
+                j_agreed_r = False
+                j2_agreed_r = False
+            else:
+                final = {fld: None for fld in ALL_CORE_LABELS}
+                source = "unresolved"
+                j_agreed_r = False
+                j2_agreed_r = False
+        else:
+            j_j2_agree = _labels_match(j_label, j2_label)
+            if j_j2_agree:
+                final = {fld: j_label.get(fld) for fld in ALL_CORE_LABELS}
+                source = "llm_consensus"
+            else:
+                final = {fld: None for fld in ALL_CORE_LABELS}
+                source = "unresolved"
+            j_agreed_r = j_j2_agree
+            j2_agreed_r = j_j2_agree
+
+        final_record = {
+            "candidate_id": cid,
+            "final_target_relevant": final.get("target_relevant"),
+            "final_target_leakage": final.get("target_leakage"),
+            "final_positive_entailment": final.get("positive_entailment"),
+            "final_task_useful": final.get("task_useful"),
+            "final_leakage_strength": final.get("leakage_strength"),
+            "resolution_source": source,
+            "resolution_status": "resolved" if source != "unresolved" else "unresolved",
+            "j_agreed": j_agreed_r,
+            "j2_agreed": j2_agreed_r,
+            "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
+            "annotation_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+        }
+        final_labels.append(final_record)
+
+    _write_jsonl(_FINAL_LABELS_PATH, final_labels)
+    print(f"[finalize] Wrote {len(final_labels)} final row labels")
+
+    # --- Final sequence labels (Fix C logic) ---
+    j_seq_by_id = {sequence_unit_key(r): r for r in j_seqs}
+    j2_seq_by_id = {sequence_unit_key(r): r for r in j2_seqs}
+    seq_adj_by_id = {
+        r["sequence_annotation_id"]: r
+        for r in seq_adjudication_records
+    }
+
+    final_seq_labels: list[dict[str, Any]] = []
+    for sid in sorted(j_seq_by_id.keys()):
+        j_seq = j_seq_by_id[sid]
+        j2_seq = j2_seq_by_id.get(sid, {})
+        seq_agree = _sequence_labels_match(j_seq, j2_seq)
+        trust_level = derive_trust_level(j_seq)
+
+        seq_adj = seq_adj_by_id.get(sid)
+        if seq_adj is not None:
+            res_status = seq_adj["resolution_status"]
+            if res_status == "consensus_retained":
+                src_tuple = j_seq
+                res_source = "llm_consensus"
+                j_a, j2_a = True, True
+            elif res_status == "resolved_by_j3_matching_j":
+                src_tuple = j_seq
+                res_source = "llm_adjudication"
+                j_a, j2_a = True, False
+            elif res_status == "resolved_by_j3_matching_j2":
+                src_tuple = j2_seq
+                res_source = "llm_adjudication"
+                j_a, j2_a = False, True
+            else:
+                src_tuple = None
+                res_source = "unresolved"
+                j_a, j2_a = False, False
+        else:
+            if seq_agree:
+                src_tuple = j_seq
+                res_source = "llm_consensus"
+                j_a, j2_a = True, True
+            else:
+                src_tuple = None
+                res_source = "unresolved"
+                j_a, j2_a = False, False
+
+        if src_tuple is not None:
+            fr = src_tuple.get("sequence_reconstructs_target")
+            fs = src_tuple.get("earliest_reconstruction_step")
+            fst = src_tuple.get("reconstruction_strength")
+        else:
+            fr = fs = fst = None
+
+        final_seq_labels.append({
+            "sequence_annotation_id": sid,
+            "sequence_family_id": j_seq.get("sequence_family_id", ""),
+            "trust_level": trust_level,
+            "scenario_id": j_seq.get("scenario_id", ""),
+            "secret_variant_id": j_seq.get("secret_variant_id", ""),
+            "ordered_candidate_ids": j_seq.get("ordered_candidate_ids", []),
+            "final_sequence_reconstructs_target": fr,
+            "final_earliest_reconstruction_step": fs,
+            "final_reconstruction_strength": fst,
+            "resolution_source": res_source,
+            "resolution_status": "resolved" if res_source != "unresolved" else "unresolved",
+            "j_agreed": j_a,
+            "j2_agreed": j2_a,
+            "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
+            "annotation_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+            "sequence_content_sha256": j_seq.get("sequence_content_sha256", ""),
+        })
+
+    _write_jsonl(_FINAL_SEQ_LABELS_PATH, final_seq_labels)
+    print(f"[finalize] Wrote {len(final_seq_labels)} final sequence labels")
+
+    # --- Statistics ---
+    review_rows_list = [q for q in review_queue if q["item_type"] == "row"]
+    review_seqs_list = [q for q in review_queue if q["item_type"] == "sequence"]
+    unresolved_rows = sum(1 for r in final_labels if r["resolution_source"] == "unresolved")
+    consensus_rows = sum(1 for r in final_labels if r["resolution_source"] == "llm_consensus")
+    adjudicated_rows_count = sum(1 for r in final_labels if r["resolution_source"] == "llm_adjudication")
+    unresolved_seqs = sum(1 for r in final_seq_labels if r["resolution_source"] == "unresolved")
+
+    # --- Write adjudication manifest ---
+    all_adj = [*adjudication_records, *seq_adjudication_records]
+    _write_jsonl(_LLM_ADJUDICATION_PATH, all_adj)
+
+    llm_adj_sha = _sha256_file(_LLM_ADJUDICATION_PATH)
+    final_labels_sha = _sha256_file(_FINAL_LABELS_PATH)
+    final_seq_sha = _sha256_file(_FINAL_SEQ_LABELS_PATH)
+    review_queue_sha = _sha256_file(_REVIEW_QUEUE_PATH)
+
+    try:
+        code_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT
+        ).decode().strip()
+    except Exception:
+        code_commit = "unknown"
+
+    row_res_counts: dict[str, int] = {}
+    for r in adjudication_records:
+        s = r["resolution_status"]
+        row_res_counts[s] = row_res_counts.get(s, 0) + 1
+    seq_res_counts: dict[str, int] = {}
+    for r in seq_adjudication_records:
+        s = r["resolution_status"]
+        seq_res_counts[s] = seq_res_counts.get(s, 0) + 1
+
+    adj_manifest = {
+        "schema_version": "1.0",
+        "description": "E4-003: Test annotation adjudication manifest (offline finalize)",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "split": "test",
+        "review_queue_count": len(review_queue),
+        "review_row_count": len(review_rows_list),
+        "review_sequence_count": len(review_seqs_list),
+        "adjudicated_count": len(all_adj),
+        "row_adjudication_record_count": len(adjudication_records),
+        "sequence_adjudication_record_count": len(seq_adjudication_records),
+        "disagreement_rows": sum(1 for r in adjudication_records if r["j3_called"]),
+        "consensus_rows_in_queue": sum(1 for r in adjudication_records if not r["j3_called"]),
+        "resolution_counts": {
+            "consensus_retained": row_res_counts.get("consensus_retained", 0),
+            "resolved_by_j3_matching_j": row_res_counts.get("resolved_by_j3_matching_j", 0),
+            "resolved_by_j3_matching_j2": row_res_counts.get("resolved_by_j3_matching_j2", 0),
+            "still_unresolved": row_res_counts.get("still_unresolved", 0),
+            "seq_consensus_retained": seq_res_counts.get("consensus_retained", 0),
+            "seq_resolved_by_j3_matching_j": seq_res_counts.get("resolved_by_j3_matching_j", 0),
+            "seq_resolved_by_j3_matching_j2": seq_res_counts.get("resolved_by_j3_matching_j2", 0),
+            "seq_still_unresolved": seq_res_counts.get("still_unresolved", 0),
+        },
+        "sequence_consensus_retained": seq_res_counts.get("consensus_retained", 0),
+        "sequence_resolved_by_j3_matching_j": seq_res_counts.get("resolved_by_j3_matching_j", 0),
+        "sequence_resolved_by_j3_matching_j2": seq_res_counts.get("resolved_by_j3_matching_j2", 0),
+        "sequence_still_unresolved": seq_res_counts.get("still_unresolved", 0),
+        "final_label_counts": {
+            "total_rows": len(final_labels),
+            "consensus_rows": consensus_rows,
+            "adjudicated_rows": adjudicated_rows_count,
+            "unresolved_rows": unresolved_rows,
+            "total_sequences": len(final_seq_labels),
+            "unresolved_sequences": unresolved_seqs,
+        },
+        "unresolved_row_rate": round(unresolved_rows / len(final_labels), 4) if final_labels else 1.0,
+        "unresolved_sequence_rate": round(unresolved_seqs / len(final_seq_labels), 4) if final_seq_labels else 1.0,
+        "j3_model": MODEL_ADJUDICATOR,
+        "j3_provider": J3_PROVIDER,
+        "j3_role": J3_ROLE,
+        "adjudication_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+        "review_queue_sha256": review_queue_sha,
+        "llm_adjudication_sha256": llm_adj_sha,
+        "final_adjudicated_labels_sha256": final_labels_sha,
+        "final_sequence_labels_sha256": final_seq_sha,
+        "frozen_corpus_manifest_sha256": _FROZEN_CORPUS_SHA,
+        "test_annotation_source_commit": code_commit,
+        "offline_finalization": True,
+    }
+    _write_json(_ADJUDICATION_MANIFEST_PATH, adj_manifest)
+    print(f"[finalize] Wrote adjudication manifest")
+
+    return {
+        "final_rows": len(final_labels),
+        "final_sequences": len(final_seq_labels),
+        "unresolved_rows": unresolved_rows,
+        "unresolved_sequences": unresolved_seqs,
+    }
+
+
+def run_finalize_only() -> int:
+    """Fix D: Offline finalization — no provider calls."""
+    print("=" * 60)
+    print("E4-003 OFFLINE FINALIZATION (--finalize-only)")
+    print("=" * 60)
+
+    # Load inputs
+    j_rows = _load_jsonl(_J_ROW_LABELS_PATH)
+    j2_rows = _load_jsonl(_J2_ROW_LABELS_PATH)
+    j_seqs = _load_jsonl(_J_SEQ_LABELS_PATH)
+    j2_seqs = _load_jsonl(_J2_SEQ_LABELS_PATH)
+    review_queue = _load_jsonl(_REVIEW_QUEUE_PATH)
+
+    # Load existing adjudication evidence
+    if not _LLM_ADJUDICATION_PATH.exists():
+        print(f"ERROR: {_LLM_ADJUDICATION_PATH} not found. Run full adjudication first.")
+        return 1
+    all_records = _load_jsonl(_LLM_ADJUDICATION_PATH)
+    adjudication_records = [r for r in all_records if r.get("item_type") == "row"]
+    seq_adjudication_records = [r for r in all_records if r.get("item_type") == "sequence"]
+
+    print(f"Loaded {len(adjudication_records)} row + {len(seq_adjudication_records)} sequence adjudication records")
+
+    result = finalize_test_annotations(
+        j_rows, j2_rows, j_seqs, j2_seqs,
+        review_queue, adjudication_records, seq_adjudication_records,
+    )
+    print(f"\nOffline finalization complete:")
+    print(f"  Final rows: {result['final_rows']}")
+    print(f"  Final sequences: {result['final_sequences']}")
+    print(f"  Unresolved rows: {result['unresolved_rows']}")
+    print(f"  Unresolved sequences: {result['unresolved_sequences']}")
+    return 0
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run J3 adjudication on test review queue (E4-003)")
     parser.add_argument("--api-base", type=str, default=None, help="API base URL")
     parser.add_argument("--api-key-env", type=str, default=None, help="Environment variable name for API key")
+    parser.add_argument("--finalize-only", action="store_true",
+                        help="Offline finalization: load existing evidence, no provider calls")
     args = parser.parse_args()
-    run_test_adjudication(api_base=args.api_base, api_key_env=args.api_key_env)
+    if args.finalize_only:
+        sys.exit(run_finalize_only())
+    else:
+        run_test_adjudication(api_base=args.api_base, api_key_env=args.api_key_env)

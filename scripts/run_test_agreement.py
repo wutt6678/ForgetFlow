@@ -264,21 +264,18 @@ def compute_sequence_agreement(
         result["earliest_step_exact_agreement"] = "not_estimable"
         result["earliest_step_n"] = 0
 
-    # Item 13: reconstruction_strength exact agreement
+    # Item 13: reconstruction_strength categorical agreement (item 7)
     strength_a = [p_by_id[sid].get("reconstruction_strength") for sid in common_ids]
     strength_b = [s_by_id[sid].get("reconstruction_strength") for sid in common_ids]
-    strength_exact = sum(
-        1 for a, b in zip(strength_a, strength_b) if a is not None and b is not None and a == b
-    )
-    strength_n = sum(
-        1 for a, b in zip(strength_a, strength_b) if a is not None and b is not None
-    )
+    # Filter pairs where both are non-None
+    paired_a = [str(a) for a, b in zip(strength_a, strength_b) if a is not None and b is not None]
+    paired_b = [str(b) for a, b in zip(strength_a, strength_b) if a is not None and b is not None]
+    strength_cat = compute_categorical_agreement(paired_a, paired_b)
     result["reconstruction_strength"] = {
-        "exact_agreement": round(strength_exact / strength_n, 4) if strength_n > 0 else 0.0,
-        "cohens_kappa": _cohen_kappa(
-            [str(s) for s in strength_a], [str(s) for s in strength_b]
-        ),
-        "n": strength_n,
+        "exact_agreement": strength_cat["exact_agreement"],
+        "cohens_kappa": strength_cat["cohens_kappa"],
+        "n": strength_cat["n"],
+        "confusion_matrix": strength_cat["confusion_matrix"],
     }
 
     return result

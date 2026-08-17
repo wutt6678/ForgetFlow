@@ -750,30 +750,116 @@ class FrozenAnnotationVerifier:
         else:
             self._fail("test_annotation_manifest.json not found")
 
-        # [T10] Campaign identities (item 23)
-        print("\n[T10] Test campaign identities...")
+        # [T10] Campaign identity verification (item 9)
+        print("\n[T10] Test campaign identity verification...")
         p_id_path = _TEST_DIR / "primary_campaign_identity.json"
+        s_id_path = _TEST_DIR / "secondary_campaign_identity.json"
+
+        # Campaign identity fields to verify (item 9)
+        _CAMPAIGN_IDENTITY_FIELDS = [
+            "frozen_corpus_manifest_sha256",
+            "annotation_queue_sha256",
+            "annotation_schema_sha256",
+            "primary_prompt_sha256",
+            "secondary_prompt_sha256",
+            "annotation_config_sha256",
+            "prompt_manifest_sha256",
+            "split",
+            "primary_requested_model",
+            "secondary_requested_model",
+        ]
+
         if p_id_path.exists():
             p_id = _load_json(p_id_path)
-            if p_id.get("split") == "test":
-                self._pass("primary split == test")
-            else:
-                self._fail(f"primary split: {p_id.get('split')}")
-            if p_id.get("primary_requested_model") == "qwen3.8-max":
-                self._pass("primary model: qwen3.8-max")
-            else:
-                self._fail(f"primary model: {p_id.get('primary_requested_model')}")
-            if p_id.get("secondary_requested_model") == "glm-5.2":
-                self._pass("secondary model: glm-5.2")
-            else:
-                self._fail(f"secondary model: {p_id.get('secondary_requested_model')}")
-            # Frozen corpus SHA in identity
+
+            # Verify all 10 required fields are present and non-empty
+            for field in _CAMPAIGN_IDENTITY_FIELDS:
+                val = p_id.get(field)
+                if val and isinstance(val, str) and len(val) > 0:
+                    self._pass(f"primary identity field present: {field}")
+                else:
+                    self._fail(f"primary identity field missing/empty: {field}")
+
+            # Cross-check frozen_corpus_manifest_sha256 against expected constant
             if p_id.get("frozen_corpus_manifest_sha256") == _FROZEN_CORPUS_SHA:
-                self._pass("primary identity frozen_corpus SHA matches")
+                self._pass("primary identity frozen_corpus SHA matches expected")
             else:
                 self._fail("primary identity frozen_corpus SHA MISMATCH")
+
+            # Cross-check annotation_queue_sha256 against actual test review queue
+            queue_path = _TEST_DIR / "test_review_queue.jsonl"
+            if queue_path.exists():
+                actual_queue_sha = _sha256(queue_path)
+                if p_id.get("annotation_queue_sha256") == actual_queue_sha:
+                    self._pass("primary identity annotation_queue SHA matches actual queue")
+                else:
+                    self._fail("primary identity annotation_queue SHA MISMATCH with actual queue")
+            else:
+                self._fail("test_review_queue.jsonl not found for queue SHA cross-check")
+
+            # Cross-check schema/prompt/config against frozen protocol manifest
+            if _PROTOCOL_PATH.exists():
+                pm = _load_json(_PROTOCOL_PATH)
+                if p_id.get("annotation_schema_sha256") == pm.get("annotation_schema_sha256"):
+                    self._pass("primary identity schema SHA matches protocol")
+                else:
+                    self._fail("primary identity schema SHA MISMATCH with protocol")
+                if p_id.get("primary_prompt_sha256") == pm.get("primary_prompt_sha256"):
+                    self._pass("primary identity primary_prompt SHA matches protocol")
+                else:
+                    self._fail("primary identity primary_prompt SHA MISMATCH with protocol")
+                if p_id.get("secondary_prompt_sha256") == pm.get("secondary_prompt_sha256"):
+                    self._pass("primary identity secondary_prompt SHA matches protocol")
+                else:
+                    self._fail("primary identity secondary_prompt SHA MISMATCH with protocol")
+                if p_id.get("annotation_config_sha256") == pm.get("annotation_config_sha256"):
+                    self._pass("primary identity config SHA matches protocol")
+                else:
+                    self._fail("primary identity config SHA MISMATCH with protocol")
+                if p_id.get("prompt_manifest_sha256") == pm.get("prompt_manifest_sha256"):
+                    self._pass("primary identity prompt_manifest SHA matches protocol")
+                else:
+                    self._fail("primary identity prompt_manifest SHA MISMATCH with protocol")
+            else:
+                self._fail("annotation_protocol_manifest.json not found for cross-check")
+
+            # Model verification (item 9)
+            if p_id.get("split") == "test":
+                self._pass("primary identity split == test")
+            else:
+                self._fail(f"primary identity split: {p_id.get('split')}")
+            if p_id.get("primary_requested_model") == "qwen3.8-max":
+                self._pass("primary identity model: qwen3.8-max")
+            else:
+                self._fail(f"primary identity model: {p_id.get('primary_requested_model')}")
+            if p_id.get("secondary_requested_model") == "glm-5.2":
+                self._pass("primary identity secondary model: glm-5.2")
+            else:
+                self._fail(f"primary identity secondary model: {p_id.get('secondary_requested_model')}")
         else:
             self._fail("primary_campaign_identity.json not found")
+
+        # Secondary campaign identity verification
+        if s_id_path.exists():
+            s_id = _load_json(s_id_path)
+            for field in _CAMPAIGN_IDENTITY_FIELDS:
+                val = s_id.get(field)
+                if val and isinstance(val, str) and len(val) > 0:
+                    self._pass(f"secondary identity field present: {field}")
+                else:
+                    self._fail(f"secondary identity field missing/empty: {field}")
+
+            if s_id.get("frozen_corpus_manifest_sha256") == _FROZEN_CORPUS_SHA:
+                self._pass("secondary identity frozen_corpus SHA matches expected")
+            else:
+                self._fail("secondary identity frozen_corpus SHA MISMATCH")
+
+            if s_id.get("split") == "test":
+                self._pass("secondary identity split == test")
+            else:
+                self._fail(f"secondary identity split: {s_id.get('split')}")
+        else:
+            self._fail("secondary_campaign_identity.json not found")
 
         # [T11] Attempt coverage (item 24)
         print("\n[T11] Test attempt coverage...")

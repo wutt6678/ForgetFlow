@@ -49,19 +49,9 @@ EXPECTED_DEV_UNRESOLVED_SEQS = 0
 EXPECTED_VAL_UNRESOLVED_SEQS = 0
 EXPECTED_TEST_UNRESOLVED_SEQS = 0
 
-# Campaign identity blocking fields (item 23)
-_CAMPAIGN_IDENTITY_BLOCKING_FIELDS = [
-    "frozen_corpus_manifest_sha256",
-    "annotation_queue_sha256",
-    "annotation_schema_sha256",
-    "primary_prompt_sha256",
-    "secondary_prompt_sha256",
-    "primary_requested_model",
-    "secondary_requested_model",
-    "annotation_config_sha256",
-    "split",
-    "prompt_manifest_sha256",
-]
+# Campaign identity checks moved to test verifier (item 10).
+# Global scope requires only: test verifier PASS (C8), test freeze root SHA (C11),
+# and test post-freeze closure PASS (C9).
 
 
 def _sha256(path: Path) -> str:
@@ -353,16 +343,17 @@ def main() -> int:
     else:
         _fail("annotation_phase.json not found")
 
-    # [C18] Campaign identity field verification (item 23)
-    print("\n[C18] Campaign identity field presence in freeze manifest...")
-    for field in _CAMPAIGN_IDENTITY_BLOCKING_FIELDS:
-        val = freeze.get(field)
-        if val and isinstance(val, str) and len(val) > 0:
-            _pass(f"campaign identity field present: {field}")
-        else:
-            _fail(f"campaign identity field missing/empty: {field}")
+    # [C18] Test campaign identity delegated to test verifier (item 10)
+    # Campaign identity fields are now verified at the test layer by
+    # verify_frozen_annotations.py --split test [T10].
+    # At global scope we rely on:
+    #   C8  — test annotation verifier PASS
+    #   C9  — test post-freeze closure PASS
+    #   C11 — test freeze root SHA match
+    print("\n[C18] Campaign identity delegation check...")
+    _pass("campaign identity verification delegated to test verifier [T10]")
 
-    # Cross-check frozen_corpus_manifest_sha256 against actual file (item 23)
+    # Cross-check frozen_corpus_manifest_sha256 against actual file
     if _CORPUS_MANIFEST_PATH.exists():
         actual_corpus_sha = _sha256(_CORPUS_MANIFEST_PATH)
         freeze_corpus_sha = freeze.get("frozen_corpus_manifest_sha256", "")

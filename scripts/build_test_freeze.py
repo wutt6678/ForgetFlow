@@ -442,6 +442,12 @@ def build_test_gate(manifest: dict[str, Any]) -> dict[str, Any]:
     if not agreement_thresholds_pass:
         blocking.append("agreement thresholds failed")
 
+    # Item 8: agreement-report / gate consistency enforcement
+    persisted_thresholds_pass = agreement.get("agreement_thresholds_pass")
+    if persisted_thresholds_pass is not None and persisted_thresholds_pass != agreement_thresholds_pass:
+        blocking.append("agreement threshold metadata inconsistent")
+        agreement_thresholds_pass = False  # force NO-GO
+
     adj_audit = compute_adjudication_audit()
     adjudication_complete = adj_audit["adjudication_complete"]
     if not adjudication_complete:

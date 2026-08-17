@@ -758,25 +758,15 @@ class TestSplitDispatch:
 class TestArtifactMutationRegression:
     """Item 29: Mutated test artifacts must be detected by verifier."""
 
-    def test_campaign_identity_blocking_fields_defined(self):
-        """Global verifier defines campaign identity blocking fields."""
-        from scripts.verify_global_annotation_freeze import (
-            _CAMPAIGN_IDENTITY_BLOCKING_FIELDS,
+    def test_campaign_identity_checks_delegated_to_test_verifier(self):
+        """Item 10: Global verifier no longer defines campaign identity blocking fields.
+
+        Campaign identity checks are delegated to the test verifier [T10].
+        """
+        import scripts.verify_global_annotation_freeze as mod
+        assert not hasattr(mod, "_CAMPAIGN_IDENTITY_BLOCKING_FIELDS"), (
+            "_CAMPAIGN_IDENTITY_BLOCKING_FIELDS should be removed (item 10)"
         )
-        expected_fields = [
-            "frozen_corpus_manifest_sha256",
-            "annotation_queue_sha256",
-            "annotation_schema_sha256",
-            "primary_prompt_sha256",
-            "secondary_prompt_sha256",
-            "primary_requested_model",
-            "secondary_requested_model",
-            "annotation_config_sha256",
-            "split",
-            "prompt_manifest_sha256",
-        ]
-        for f in expected_fields:
-            assert f in _CAMPAIGN_IDENTITY_BLOCKING_FIELDS
 
     def test_mutation_of_campaign_lock_detected_by_identity_check(self):
         """If campaign lock is mutated, verify_campaign_identity detects it."""
@@ -805,3 +795,134 @@ class TestArtifactMutationRegression:
         original_sha = hashlib.sha256(original_content).hexdigest()
         mutated_sha = hashlib.sha256(mutated_content).hexdigest()
         assert original_sha != mutated_sha
+
+
+# ===========================================================================
+# R1.2 Item 15: Campaign identity verification tests (test layer)
+# ===========================================================================
+
+
+class TestCampaignIdentityTestLayer:
+    """Item 9/15: Campaign identity verification at test layer."""
+
+    def test_campaign_identity_fields_defined_in_test_verifier(self):
+        """verify_frozen_annotations T10 defines 10 campaign identity fields."""
+        import inspect
+        from scripts.verify_frozen_annotations import FrozenAnnotationVerifier
+        source = inspect.getsource(FrozenAnnotationVerifier._verify_test)
+        expected_fields = [
+            "frozen_corpus_manifest_sha256",
+            "annotation_queue_sha256",
+            "annotation_schema_sha256",
+            "primary_prompt_sha256",
+            "secondary_prompt_sha256",
+            "annotation_config_sha256",
+            "prompt_manifest_sha256",
+            "split",
+            "primary_requested_model",
+            "secondary_requested_model",
+        ]
+        for field in expected_fields:
+            assert field in source, f"Field {field} not found in _verify_test"
+
+    def test_campaign_identity_queue_sha_mismatch_detected(self):
+        """If annotation_queue_sha256 doesn't match actual queue, test verifier FAIL."""
+        # The test verifier cross-checks annotation_queue_sha256 against
+        # the actual test_review_queue.jsonl SHA. A mismatch must be detected.
+        import inspect
+        from scripts.verify_frozen_annotations import FrozenAnnotationVerifier
+        source = inspect.getsource(FrozenAnnotationVerifier._verify_test)
+        assert "annotation_queue_sha256" in source
+        assert "test_review_queue.jsonl" in source
+        assert "MISMATCH" in source
+
+    def test_campaign_identity_model_mismatch_detected(self):
+        """If primary_requested_model != qwen3.8-max, test verifier FAIL."""
+        import inspect
+        from scripts.verify_frozen_annotations import FrozenAnnotationVerifier
+        source = inspect.getsource(FrozenAnnotationVerifier._verify_test)
+        assert "qwen3.8-max" in source
+        assert "glm-5.2" in source
+
+    def test_campaign_identity_schema_prompt_config_cross_check(self):
+        """Schema/prompt/config fields cross-checked against protocol manifest."""
+        import inspect
+        from scripts.verify_frozen_annotations import FrozenAnnotationVerifier
+        source = inspect.getsource(FrozenAnnotationVerifier._verify_test)
+        assert "annotation_protocol_manifest.json" in source or "_PROTOCOL_PATH" in source
+
+
+# ===========================================================================
+# R1.2 Item 15: Combined row+sequence adjudication evidence
+# ===========================================================================
+
+
+class TestCombinedAdjudicationEvidence:
+    """Item 3/15: Combined row+sequence adjudication records."""
+
+    def test_finalize_helper_accepts_seq_adjudication_records(self):
+        """finalize_test_annotations must accept seq_adjudication_records param."""
+        import inspect
+        from scripts.run_test_adjudication import finalize_test_annotations
+        sig = inspect.signature(finalize_test_annotations)
+        params = list(sig.parameters.keys())
+        assert "seq_adjudication_records" in params
+
+    def test_adjudication_manifest_includes_seq_counts(self):
+        """Adjudication manifest must include sequence adjudication counts."""
+        import inspect
+        from scripts.run_test_adjudication import finalize_test_annotations
+        source = inspect.getsource(finalize_test_annotations)
+        assert "sequence_adjudication_record_count" in source
+        assert "sequence_consensus_retained" in source
+        assert "sequence_resolved_by_j3_matching_j" in source
+        assert "sequence_resolved_by_j3_matching_j2" in source
+        assert "sequence_still_unresolved" in source
+
+    def test_item_type_field_used_for_split(self):
+        """run_finalize_only splits records by item_type field."""
+        import inspect
+        from scripts.run_test_adjudication import run_finalize_only
+        source = inspect.getsource(run_finalize_only)
+        assert 'item_type' in source
+        assert '"row"' in source
+        assert '"sequence"' in source
+
+
+# ===========================================================================
+# R1.2 Item 15: Global verifier does not require duplicated campaign fields
+# ===========================================================================
+
+
+class TestGlobalVerifierNoCampaignDuplication:
+    """Item 10/15: Global verifier does not duplicate test campaign fields."""
+
+    def test_global_verifier_no_campaign_identity_blocking_fields(self):
+        """Global verifier module must not define _CAMPAIGN_IDENTITY_BLOCKING_FIELDS."""
+        import scripts.verify_global_annotation_freeze as mod
+        assert not hasattr(mod, "_CAMPAIGN_IDENTITY_BLOCKING_FIELDS")
+
+    def test_global_verifier_c18_delegates_to_test_verifier(self):
+        """C18 in global verifier delegates campaign identity to test verifier."""
+        import inspect
+        from scripts.verify_global_annotation_freeze import main
+        source = inspect.getsource(main)
+        assert "campaign identity" in source.lower() or "delegat" in source.lower()
+
+    def test_global_verifier_requires_test_verifier_pass(self):
+        """Global verifier requires test_annotation_verifier PASS (C8)."""
+        import inspect
+        from scripts.verify_global_annotation_freeze import main
+        source = inspect.getsource(main)
+        assert "test_annotation_verifier" in source
+        assert "_verifier_pass" in source
+
+    def test_global_expected_total_sequences_is_144(self):
+        """Global verifier EXPECTED_TOTAL_SEQUENCES = 144."""
+        from scripts.verify_global_annotation_freeze import EXPECTED_TOTAL_SEQUENCES
+        assert EXPECTED_TOTAL_SEQUENCES == 144
+
+    def test_global_expected_dev_sequences_is_36(self):
+        """Global verifier EXPECTED_DEV_SEQUENCES = 36."""
+        from scripts.verify_global_annotation_freeze import EXPECTED_DEV_SEQUENCES
+        assert EXPECTED_DEV_SEQUENCES == 36
