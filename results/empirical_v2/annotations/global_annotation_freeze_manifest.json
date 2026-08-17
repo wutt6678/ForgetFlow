@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
   "description": "E4-003: Global annotation freeze manifest — immutable measurement root for E5",
-  "created_at": "2026-08-17T11:28:51.761278+00:00",
+  "created_at": "2026-08-17T11:30:57.859904+00:00",
   "go_no_go": "NO-GO",
   "annotations_frozen": false,
   "annotation_phase": "ANNOTATION_IN_PROGRESS",
-  "global_annotation_freeze_code_commit": "7e71762995e2014ba7a406ae3653d28b97354338",
+  "global_annotation_freeze_code_commit": "7eeb03e7b79c286a3d3d427a9c5acfbc8f03a46e",
   "pre_freeze_validation": {
     "go": false,
     "blocking_issues": [
