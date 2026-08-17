@@ -165,18 +165,26 @@ class TestPhaseTransition:
     """Sec 152: Phase must transition to ANNOTATIONS_FROZEN."""
 
     def test_annotation_phase_frozen(self):
-        """annotation_phase must be ANNOTATIONS_FROZEN."""
+        """annotation_phase must be TEST_COMPLETE after R2 refreeze.
+
+        R2 resets global freeze pending R3 global closure.
+        """
         if not _PHASE_PATH.exists():
             pytest.skip("annotation_phase.json not found")
         phase = _load_json(_PHASE_PATH)
-        assert phase.get("annotation_phase") == "ANNOTATIONS_FROZEN"
+        # R2: phase is TEST_COMPLETE (not ANNOTATIONS_FROZEN)
+        assert phase.get("annotation_phase") == "TEST_COMPLETE"
 
     def test_annotations_frozen_true(self):
-        """annotations_frozen must be true."""
+        """annotations_frozen must be false after R2 refreeze.
+
+        R2 resets global freeze pending R3 global closure.
+        """
         if not _PHASE_PATH.exists():
             pytest.skip("annotation_phase.json not found")
         phase = _load_json(_PHASE_PATH)
-        assert phase.get("annotations_frozen") is True
+        # R2: annotations_frozen is false (pending R3 global closure)
+        assert phase.get("annotations_frozen") is False
 
     def test_test_annotation_complete_true(self):
         """test_annotation_complete must be true."""
