@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "E4-003: Test annotation manifest — binds all test artifacts by SHA256",
-  "created_at": "2026-08-17T11:26:20.449282+00:00",
+  "created_at": "2026-08-17T11:56:04.666338+00:00",
   "split": "test",
   "frozen_corpus_manifest_sha256": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
   "frozen_annotation_protocol_sha256": "3516a95a55899312cbc4cdffcd5c57a5b00cf56621e39c0e068ea6b111bc916d",
