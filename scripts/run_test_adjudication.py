@@ -137,15 +137,49 @@ def _labels_match(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return True
 
 
+def _sequence_labels_match(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Check if two sequence annotations match on the full semantic tuple.
+
+    The semantic tuple is:
+      (sequence_reconstructs_target, earliest_reconstruction_step,
+       reconstruction_strength)
+    """
+    if a.get("sequence_reconstructs_target") != b.get("sequence_reconstructs_target"):
+        return False
+    if a.get("earliest_reconstruction_step") != b.get("earliest_reconstruction_step"):
+        return False
+    if a.get("reconstruction_strength") != b.get("reconstruction_strength"):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # J3 provider
 # ---------------------------------------------------------------------------
 
 
 def _build_j3_prompt(candidate: dict[str, Any]) -> tuple[str, str]:
-    """Build blinded (system_prompt, user_prompt) for J3 adjudication."""
+    """Build blinded (system_prompt, user_prompt) for J3 row adjudication."""
     from experiments.trustparadox_u.empirical_annotation import build_row_prompt
     return build_row_prompt(candidate)
+
+
+def _build_j3_sequence_prompt(
+    seq_annotation_id: str,
+    j_seq_by_id: dict[str, Any],
+    cand_by_cid: dict[str, Any],
+) -> tuple[str, str]:
+    """Build (system_prompt, user_prompt) for J3 sequence adjudication.
+
+    Uses the frozen build_sequence_prompt() from empirical_annotation.
+    """
+    from experiments.trustparadox_u.empirical_annotation import build_sequence_prompt
+    j_seq = j_seq_by_id.get(seq_annotation_id, {})
+    ordered_cids = j_seq.get("ordered_candidate_ids", [])
+    members = [cand_by_cid[cid] for cid in ordered_cids if cid in cand_by_cid]
+    if not members:
+        raise ValueError(f"No candidate members found for sequence {seq_annotation_id}")
+    return build_sequence_prompt(members)
 
 
 def _call_j3(
@@ -156,8 +190,17 @@ def _call_j3(
     api_key: str,
     max_retries: int = 3,
 ) -> dict[str, Any]:
-    """Call J3 (qwen-plus) and parse the JSON annotation response."""
+    """Call J3 (qwen-plus) and parse the JSON annotation response.
+
+    Item 11: Uses parse_annotation_response + validate_row_label for
+    future-correctness instead of raw json.loads.
+    """
     from litellm import completion
+    from experiments.trustparadox_u.empirical_annotation import (
+        parse_annotation_response,
+        validate_row_label,
+        AnnotationParseError,
+    )
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -181,14 +224,10 @@ def _call_j3(
             raw_text = resp.choices[0].message.content or ""
             model_returned = resp.model or J3_MODEL
 
-            text = raw_text.strip()
-            md_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
-            if md_match:
-                text = md_match.group(1).strip()
-
-            labels = json.loads(text)
-            if not isinstance(labels, dict):
-                raise ValueError(f"J3 returned non-object: {type(labels).__name__}")
+            # Item 11: hardened parsing via parse_annotation_response
+            labels = parse_annotation_response(raw_text)
+            # Validate row label schema
+            validate_row_label(labels)
 
             return {
                 "status": "success",
@@ -200,6 +239,108 @@ def _call_j3(
                 "provider_request_id": getattr(resp, "id", ""),
             }
 
+        except (AnnotationParseError, ValueError) as exc:
+            # Schema/parse errors are not transient — stop retrying
+            return {
+                "status": "parse_error",
+                "labels": {},
+                "raw_response": raw_text if 'raw_text' in dir() else "",
+                "model_returned": model_returned if 'model_returned' in dir() else J3_MODEL,
+                "latency_ms": 0.0,
+                "retry_index": attempt,
+                "provider_request_id": "",
+                "error": str(exc)[:200],
+            }
+        except Exception as exc:
+            last_exc = exc
+            exc_str = str(exc).lower()
+            is_transient = any(
+                kw in exc_str
+                for kw in ("timeout", "timed out", "rate limit", "429", "500", "502", "503", "504")
+            )
+            if not is_transient or attempt >= max_retries - 1:
+                break
+            time.sleep(2 ** attempt)
+
+    return {
+        "status": "provider_error",
+        "labels": {},
+        "raw_response": "",
+        "model_returned": J3_MODEL,
+        "latency_ms": 0.0,
+        "retry_index": 0,
+        "provider_request_id": "",
+        "error": str(last_exc)[:200],
+    }
+
+
+def _call_j3_sequence(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    api_base: str,
+    api_key: str,
+    max_retries: int = 3,
+) -> dict[str, Any]:
+    """Call J3 for sequence adjudication.
+
+    Item 10: Uses parse_annotation_response + validate_sequence_label.
+    """
+    from litellm import completion
+    from experiments.trustparadox_u.empirical_annotation import (
+        parse_annotation_response,
+        validate_sequence_label,
+        AnnotationParseError,
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    last_exc: Exception | None = None
+    raw_text = ""
+    model_returned = J3_MODEL
+    for attempt in range(max_retries):
+        try:
+            start = time.monotonic()
+            resp = completion(
+                model=f"openai/{J3_MODEL}",
+                messages=messages,
+                temperature=0.0,
+                max_tokens=512,
+                api_base=api_base,
+                api_key=api_key,
+                timeout=60,
+            )
+            elapsed_ms = (time.monotonic() - start) * 1000.0
+            raw_text = resp.choices[0].message.content or ""
+            model_returned = resp.model or J3_MODEL
+
+            labels = parse_annotation_response(raw_text)
+            validate_sequence_label(labels)
+
+            return {
+                "status": "success",
+                "labels": labels,
+                "raw_response": raw_text,
+                "model_returned": model_returned,
+                "latency_ms": elapsed_ms,
+                "retry_index": attempt,
+                "provider_request_id": getattr(resp, "id", ""),
+            }
+
+        except (AnnotationParseError, ValueError) as exc:
+            return {
+                "status": "parse_error",
+                "labels": {},
+                "raw_response": raw_text,
+                "model_returned": model_returned,
+                "latency_ms": 0.0,
+                "retry_index": attempt,
+                "provider_request_id": "",
+                "error": str(exc)[:200],
+            }
         except Exception as exc:
             last_exc = exc
             exc_str = str(exc).lower()
@@ -403,6 +544,109 @@ def run_test_adjudication(
         status = record["resolution_status"]
         print(f"  [{i+1:3d}/{len(review_row_items)}] {cid[-40:]:40s} -> {status}")
 
+    # --- Item 10: Sequence J3 adjudication path ---
+    review_seq_items = [q for q in review_queue if q["item_type"] == "sequence"]
+    seq_adjudication_records: list[dict[str, Any]] = []
+    j_seq_by_id_local = {sequence_unit_key(r): r for r in j_seqs}
+    j2_seq_by_id_local = {sequence_unit_key(r): r for r in j2_seqs}
+
+    seq_resolution_counts = {
+        "consensus_retained": 0,
+        "resolved_by_j3_matching_j": 0,
+        "resolved_by_j3_matching_j2": 0,
+        "still_unresolved": 0,
+    }
+
+    for i, sq_item in enumerate(review_seq_items):
+        sid = sq_item["sequence_annotation_id"]
+        j_seq = j_seq_by_id_local.get(sid)
+        j2_seq = j2_seq_by_id_local.get(sid)
+
+        if not j_seq or not j2_seq:
+            print(f"  WARNING: Missing sequence data for {sid}, skipping")
+            continue
+
+        j_j2_seq_agree = _sequence_labels_match(j_seq, j2_seq)
+
+        if j_j2_seq_agree:
+            seq_record = {
+                "adjudication_id": f"adj_seq_{_sha256_str(sid + J3_ROLE)[:16]}",
+                "sequence_annotation_id": sid,
+                "item_type": "sequence",
+                "j3_called": False,
+                "resolution_source": "llm_consensus",
+                "resolution_status": "consensus_retained",
+                "adjudicator_role": J3_ROLE,
+                "adjudicator_model": MODEL_ADJUDICATOR,
+                "adjudicator_provider": J3_PROVIDER,
+                "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
+                "adjudication_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+                "adjudicated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            seq_resolution_counts["consensus_retained"] += 1
+        else:
+            # Build sequence prompt and call J3
+            sys_prompt, usr_prompt = _build_j3_sequence_prompt(
+                sid, j_seq_by_id_local, cand_by_cid
+            )
+            j3_seq_result = _call_j3_sequence(
+                sys_prompt, usr_prompt, api_base=api_base, api_key=api_key
+            )
+
+            j3_seq_labels = j3_seq_result.get("labels", {})
+            j3_seq_success = j3_seq_result["status"] == "success"
+
+            j3_matches_j_seq = j3_seq_success and _sequence_labels_match(j3_seq_labels, j_seq)
+            j3_matches_j2_seq = j3_seq_success and _sequence_labels_match(j3_seq_labels, j2_seq)
+
+            if j3_matches_j_seq:
+                res_source = "llm_adjudication"
+                res_status = "resolved_by_j3_matching_j"
+                seq_resolution_counts["resolved_by_j3_matching_j"] += 1
+            elif j3_matches_j2_seq:
+                res_source = "llm_adjudication"
+                res_status = "resolved_by_j3_matching_j2"
+                seq_resolution_counts["resolved_by_j3_matching_j2"] += 1
+            else:
+                res_source = "unresolved"
+                res_status = "still_unresolved"
+                seq_resolution_counts["still_unresolved"] += 1
+
+            seq_record = {
+                "adjudication_id": f"adj_seq_{_sha256_str(sid + J3_ROLE)[:16]}",
+                "sequence_annotation_id": sid,
+                "item_type": "sequence",
+                "j3_called": True,
+                "j3_status": j3_seq_result["status"],
+                "j3_raw_response_sha256": _sha256_str(j3_seq_result.get("raw_response", "")),
+                "j3_model_returned": j3_seq_result.get("model_returned", ""),
+                "j3_latency_ms": j3_seq_result.get("latency_ms", 0.0),
+                "j3_retry_index": j3_seq_result.get("retry_index", 0),
+                "j3_provider_request_id": j3_seq_result.get("provider_request_id", ""),
+                "resolution_source": res_source,
+                "resolution_status": res_status,
+                "adjudicator_role": J3_ROLE,
+                "adjudicator_model": MODEL_ADJUDICATOR,
+                "adjudicator_provider": J3_PROVIDER,
+                "annotation_schema_version": ANNOTATION_SCHEMA_VERSION,
+                "adjudication_protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+                "adjudicated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        seq_adjudication_records.append(seq_record)
+        status = seq_record["resolution_status"]
+        print(f"  SEQ [{i+1:3d}/{len(review_seq_items)}] {sid[-40:]:40s} -> {status}")
+
+    print(f"Sequence review items: {len(review_seq_items)} "
+          f"(consensus={seq_resolution_counts['consensus_retained']}, "
+          f"j3_calls={sum(1 for r in seq_adjudication_records if r['j3_called'])})")
+
+    # Merge sequence adjudication stats into resolution_counts
+    resolution_counts["seq_consensus_retained"] = seq_resolution_counts["consensus_retained"]
+    resolution_counts["seq_resolved_by_j3_matching_j"] = seq_resolution_counts["resolved_by_j3_matching_j"]
+    resolution_counts["seq_resolved_by_j3_matching_j2"] = seq_resolution_counts["resolved_by_j3_matching_j2"]
+    resolution_counts["seq_still_unresolved"] = seq_resolution_counts["still_unresolved"]
+
     _write_jsonl(_LLM_ADJUDICATION_PATH, adjudication_records)
     print(f"Wrote {len(adjudication_records)} adjudication records to {_LLM_ADJUDICATION_PATH.name}")
 
@@ -500,7 +744,7 @@ def run_test_adjudication(
     for sid in sorted(j_seq_by_id.keys()):
         j_seq = j_seq_by_id[sid]
         j2_seq = j2_seq_by_id.get(sid, {})
-        seq_agree = j_seq.get("sequence_reconstructs_target") == j2_seq.get("sequence_reconstructs_target")
+        seq_agree = _sequence_labels_match(j_seq, j2_seq)
 
         # Preserve trust-conditioned identity
         trust_level = derive_trust_level(j_seq)
@@ -514,6 +758,7 @@ def run_test_adjudication(
             "ordered_candidate_ids": j_seq.get("ordered_candidate_ids", []),
             "final_sequence_reconstructs_target": j_seq.get("sequence_reconstructs_target") if seq_agree else None,
             "final_earliest_reconstruction_step": j_seq.get("earliest_reconstruction_step") if seq_agree else None,
+            "final_reconstruction_strength": j_seq.get("reconstruction_strength") if seq_agree else None,
             "resolution_source": "llm_consensus" if seq_agree else "unresolved",
             "resolution_status": "resolved" if seq_agree else "unresolved",
             "j_agreed": seq_agree,

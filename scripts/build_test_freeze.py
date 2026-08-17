@@ -284,7 +284,12 @@ def _run_verifier(cmd: list[str]) -> dict[str, Any]:
 
 
 def run_all_verifiers() -> dict[str, Any]:
-    """Run verifiers and return structured results."""
+    """Run verifiers and return structured results.
+
+    Note: test_closure is NOT included here because it reads the
+    post-freeze artifact that has not been written yet.
+    It is run separately after writing test_post_freeze_verification.json.
+    """
     py = sys.executable
     return {
         "frozen_corpus": _run_verifier([
@@ -301,9 +306,6 @@ def run_all_verifiers() -> dict[str, Any]:
         ]),
         "validation_closure": _run_verifier([
             py, "scripts/verify_validation_freeze_closure.py",
-        ]),
-        "test_closure": _run_verifier([
-            py, "scripts/verify_test_freeze_closure.py",
         ]),
     }
 
@@ -752,7 +754,6 @@ def build_post_freeze_verification(
     val = verifier_results.get("validation_annotations", {})
     test = verifier_results.get("test_annotations", {})
     val_closure = verifier_results.get("validation_closure", {})
-    test_closure = verifier_results.get("test_closure", {})
 
     corpus_pass = (
         fc.get("exit_code") == 0
@@ -779,15 +780,10 @@ def build_post_freeze_verification(
         and val_closure.get("checks_failed") == 0
         and val_closure.get("checks_passed") == val_closure.get("checks_total")
     )
-    test_closure_pass = (
-        test_closure.get("exit_code") == 0
-        and test_closure.get("checks_failed") == 0
-        and test_closure.get("checks_passed") == test_closure.get("checks_total")
-    )
 
     closure_pass = (
-        corpus_pass and dev_pass and val_pass and test_pass
-        and val_closure_pass and test_closure_pass
+        corpus_pass and dev_pass and val_pass
+        and val_closure_pass and test_pass
     )
 
     closure = {
@@ -833,13 +829,6 @@ def build_post_freeze_verification(
             "checks_failed": val_closure.get("checks_failed", 0),
             "exit_code": val_closure.get("exit_code", -1),
             "timestamp": val_closure.get("timestamp", ""),
-        },
-        "test_closure_verifier": {
-            "checks_total": test_closure.get("checks_total", 0),
-            "checks_passed": test_closure.get("checks_passed", 0),
-            "checks_failed": test_closure.get("checks_failed", 0),
-            "exit_code": test_closure.get("exit_code", -1),
-            "timestamp": test_closure.get("timestamp", ""),
         },
         "closure_pass": closure_pass,
     }

@@ -286,7 +286,11 @@ def build_global_annotation_freeze_manifest() -> dict[str, Any]:
     val_adj = _load_json(_VAL_DIR / "adjudication_manifest.json") if (_VAL_DIR / "adjudication_manifest.json").exists() else {}
     test_adj = _load_json(_TEST_DIR / "test_adjudication_manifest.json") if (_TEST_DIR / "test_adjudication_manifest.json").exists() else {}
 
-    # --- Enforce expected counts (item 75) ---
+    # --- Pre-freeze validation (items 19-21): fail-closed ---
+    # All validation must pass BEFORE we set annotations_frozen=true.
+    blocking_issues: list[str] = []
+
+    # Count enforcement (item 75)
     count_blocking: list[str] = []
     if dev_counts["rows"] != EXPECTED_DEV_ROWS:
         count_blocking.append(f"dev rows: {dev_counts['rows']}/{EXPECTED_DEV_ROWS}")
@@ -304,14 +308,50 @@ def build_global_annotation_freeze_manifest() -> dict[str, Any]:
         count_blocking.append(f"total rows: {total_rows}/{EXPECTED_TOTAL_ROWS}")
     if total_sequences != EXPECTED_TOTAL_SEQUENCES:
         count_blocking.append(f"total seqs: {total_sequences}/{EXPECTED_TOTAL_SEQUENCES}")
+    blocking_issues.extend(count_blocking)
+
+    # Split gate check
+    if not dev_go:
+        blocking_issues.append("development gate is NO-GO")
+    if not val_go:
+        blocking_issues.append("validation gate is NO-GO")
+    if not test_go:
+        blocking_issues.append("test gate is NO-GO")
+
+    # Required roots check (item 7: dev final sequence mandatory)
+    if not dev_final_seq_sha:
+        blocking_issues.append("development_final_sequence_labels file missing")
+    if not dev_final_labels_sha:
+        blocking_issues.append("development_final_row_labels file missing")
+    if not val_final_labels_sha:
+        blocking_issues.append("validation_final_row_labels file missing")
+    if not test_final_labels_sha:
+        blocking_issues.append("test_final_row_labels file missing")
+
+    pre_freeze_go = len(blocking_issues) == 0
+    go_no_go = "GO" if pre_freeze_go else "NO-GO"
 
     manifest = {
         "schema_version": "1.0",
         "description": "E4-003: Global annotation freeze manifest — immutable measurement root for E5",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "annotations_frozen": True,
-        "annotation_phase": "ANNOTATIONS_FROZEN",
+        "go_no_go": go_no_go,
+        # Items 19-21: frozen status only set after pre-freeze GO
+        "annotations_frozen": pre_freeze_go,
+        "annotation_phase": "ANNOTATIONS_FROZEN" if pre_freeze_go else "ANNOTATION_IN_PROGRESS",
         "global_annotation_freeze_code_commit": _git_commit(),
+        "pre_freeze_validation": {
+            "go": pre_freeze_go,
+            "blocking_issues": blocking_issues,
+            "counts_pass": len(count_blocking) == 0,
+            "all_gates_go": dev_go and val_go and test_go,
+            "required_roots_present": all(
+                sha != "" for sha in [
+                    dev_final_seq_sha, dev_final_labels_sha,
+                    val_final_labels_sha, test_final_labels_sha,
+                ]
+            ),
+        },
         "count_enforcement": {
             "blocking_issues": count_blocking,
             "counts_pass": len(count_blocking) == 0,
@@ -521,23 +561,21 @@ def main() -> int:
     require_clean_worktree()  # item 11: restored clean-worktree protection
     print(f"Worktree at {_git_short()}")
 
-    # Build global freeze manifest
+    # Build global freeze manifest (items 19-21: fail-closed)
+    # Manifest is written with go_no_go status; frozen flags only set if GO.
     manifest = build_global_annotation_freeze_manifest()
 
-    # Check all gates GO (Sec 111)
-    if not manifest.get("all_gates_go"):
-        print("\nERROR: Not all split gates are GO — cannot freeze globally")
-        return 1
+    go_no_go = manifest.get("go_no_go", "NO-GO")
+    print(f"\nPre-freeze go_no_go: {go_no_go}")
 
-    # Check count enforcement (item 75)
-    count_enforcement = manifest.get("count_enforcement", {})
-    if not count_enforcement.get("counts_pass", False):
-        print("\nERROR: Global count enforcement failed:")
-        for issue in count_enforcement.get("blocking_issues", []):
+    if go_no_go != "GO":
+        # Item 19: fail-closed — do NOT advance phase, do NOT write frozen manifest
+        print("\nNO-GO: Pre-freeze validation failed. Exiting nonzero.")
+        for issue in manifest.get("pre_freeze_validation", {}).get("blocking_issues", []):
             print(f"  - {issue}")
         return 1
 
-    # Update phase (Sec 112)
+    # Update phase (Sec 112) — only after pre-freeze GO (item 21)
     update_annotation_phase_global()
 
     # Run all verifiers post-freeze (Sec 118)

@@ -33,13 +33,35 @@ _TEST_DIR = _ANNOTATIONS_DIR / "test"
 
 # Expected counts (Sec 108)
 EXPECTED_DEV_ROWS = 225
-EXPECTED_DEV_SEQUENCES = 0  # development_v3 has no final_sequence_labels.jsonl (Sec 107)
+EXPECTED_DEV_SEQUENCES = 36  # development_v3 final_sequence_labels (Sec 107)
 EXPECTED_VAL_ROWS = 225
 EXPECTED_VAL_SEQUENCES = 36
 EXPECTED_TEST_ROWS = 450
 EXPECTED_TEST_SEQUENCES = 72
 EXPECTED_TOTAL_ROWS = 900
-EXPECTED_TOTAL_SEQUENCES = 108  # dev(0) + val(36) + test(72)
+EXPECTED_TOTAL_SEQUENCES = 144  # dev(36) + val(36) + test(72)
+
+# Expected unresolved counts (item 25)
+EXPECTED_DEV_UNRESOLVED_ROWS = 14
+EXPECTED_VAL_UNRESOLVED_ROWS = 9
+EXPECTED_TEST_UNRESOLVED_ROWS = 24
+EXPECTED_DEV_UNRESOLVED_SEQS = 0
+EXPECTED_VAL_UNRESOLVED_SEQS = 0
+EXPECTED_TEST_UNRESOLVED_SEQS = 0
+
+# Campaign identity blocking fields (item 23)
+_CAMPAIGN_IDENTITY_BLOCKING_FIELDS = [
+    "frozen_corpus_manifest_sha256",
+    "annotation_queue_sha256",
+    "annotation_schema_sha256",
+    "primary_prompt_sha256",
+    "secondary_prompt_sha256",
+    "primary_requested_model",
+    "secondary_requested_model",
+    "annotation_config_sha256",
+    "split",
+    "prompt_manifest_sha256",
+]
 
 
 def _sha256(path: Path) -> str:
@@ -198,6 +220,7 @@ def main() -> int:
         "development_annotation_gate": _DEV_DIR / "development_annotation_gate.json",
         "development_adjudication_manifest": _DEV_DIR / "adjudication_manifest.json",
         "development_final_row_labels": _DEV_DIR / "final_adjudicated_labels.jsonl",
+        "development_final_sequence_labels": _DEV_DIR / "final_sequence_labels.jsonl",
         "validation_freeze_manifest": _VAL_DIR / "validation_annotation_freeze_manifest.json",
         "validation_post_freeze": _VAL_DIR / "post_freeze_verification.json",
         "validation_final_row_labels": _VAL_DIR / "final_adjudicated_labels.jsonl",
@@ -212,12 +235,8 @@ def main() -> int:
         if path.exists():
             _pass(f"split root exists: {label}")
         else:
-            # Development final_sequence_labels may not exist (Sec 107)
-            if label == "development_final_sequence_labels":
-                _pass(f"split root optional (historical): {label}")
-            else:
-                _fail(f"split root MISSING: {label}")
-                all_roots_exist = False
+            _fail(f"split root MISSING: {label}")
+            all_roots_exist = False
 
     # [C11] Global split root SHAs all match
     print("\n[C11] Global split root SHA rehash...")
@@ -226,6 +245,7 @@ def main() -> int:
         "development_annotation_gate_sha256": _DEV_DIR / "development_annotation_gate.json",
         "development_adjudication_manifest_sha256": _DEV_DIR / "adjudication_manifest.json",
         "development_final_row_labels_sha256": _DEV_DIR / "final_adjudicated_labels.jsonl",
+        "development_final_sequence_labels_sha256": _DEV_DIR / "final_sequence_labels.jsonl",
         "validation_annotation_freeze_manifest_sha256": _VAL_DIR / "validation_annotation_freeze_manifest.json",
         "validation_post_freeze_verification_sha256": _VAL_DIR / "post_freeze_verification.json",
         "validation_final_row_labels_sha256": _VAL_DIR / "final_adjudicated_labels.jsonl",
@@ -238,10 +258,6 @@ def main() -> int:
     for field, path in sha_bindings.items():
         expected = freeze.get(field, "")
         if not expected:
-            # Optional field (e.g. development final_sequence_labels)
-            if "development_final_sequence" in field:
-                _pass(f"split root SHA optional (historical): {field}")
-                continue
             _fail(f"split root SHA missing in freeze manifest: {field}")
             continue
         if path.exists():
@@ -251,10 +267,7 @@ def main() -> int:
             else:
                 _fail(f"split root SHA MISMATCH: {field}")
         else:
-            if "development_final_sequence" in field:
-                _pass(f"split root SHA optional (file absent): {field}")
-            else:
-                _fail(f"split root file missing for SHA check: {field}")
+            _fail(f"split root file missing for SHA check: {field}")
 
     # [C12] Development counts correct
     print("\n[C12] Development counts...")
@@ -339,6 +352,133 @@ def main() -> int:
             _fail(f"annotation_phase = {phase.get('annotation_phase')}, expected ANNOTATIONS_FROZEN")
     else:
         _fail("annotation_phase.json not found")
+
+    # [C18] Campaign identity field verification (item 23)
+    print("\n[C18] Campaign identity field presence in freeze manifest...")
+    for field in _CAMPAIGN_IDENTITY_BLOCKING_FIELDS:
+        val = freeze.get(field)
+        if val and isinstance(val, str) and len(val) > 0:
+            _pass(f"campaign identity field present: {field}")
+        else:
+            _fail(f"campaign identity field missing/empty: {field}")
+
+    # Cross-check frozen_corpus_manifest_sha256 against actual file (item 23)
+    if _CORPUS_MANIFEST_PATH.exists():
+        actual_corpus_sha = _sha256(_CORPUS_MANIFEST_PATH)
+        freeze_corpus_sha = freeze.get("frozen_corpus_manifest_sha256", "")
+        if actual_corpus_sha == freeze_corpus_sha:
+            _pass("frozen_corpus_manifest cross-check matches")
+        else:
+            _fail("frozen_corpus_manifest cross-check MISMATCH")
+
+    # Item 23: annotation_code_commit provenance note
+    # Do NOT treat legacy annotation_code_commit=bccad2a as proof that
+    # bccad2a contained E4-003 code. The code commit field is recorded
+    # for historical provenance only.
+    code_commit = freeze.get("global_annotation_freeze_code_commit", "")
+    if code_commit and code_commit != "unknown":
+        _pass(f"global freeze code commit recorded: {code_commit[:12]}...")
+    else:
+        _fail("global freeze code commit missing or unknown")
+
+    # [C19] Unresolved count verification (item 25)
+    print("\n[C19] Unresolved count verification...")
+    unresolved = freeze.get("unresolved_by_split", {})
+
+    # Development unresolved rows
+    dev_ur = unresolved.get("development", {}).get("unresolved_rows", -1)
+    if dev_ur == EXPECTED_DEV_UNRESOLVED_ROWS:
+        _pass(f"development unresolved rows = {dev_ur}")
+    else:
+        _fail(f"development unresolved rows = {dev_ur}, expected {EXPECTED_DEV_UNRESOLVED_ROWS}")
+
+    # Validation unresolved rows
+    val_ur = unresolved.get("validation", {}).get("unresolved_rows", -1)
+    if val_ur == EXPECTED_VAL_UNRESOLVED_ROWS:
+        _pass(f"validation unresolved rows = {val_ur}")
+    else:
+        _fail(f"validation unresolved rows = {val_ur}, expected {EXPECTED_VAL_UNRESOLVED_ROWS}")
+
+    # Test unresolved rows
+    test_ur = unresolved.get("test", {}).get("unresolved_rows", -1)
+    if test_ur == EXPECTED_TEST_UNRESOLVED_ROWS:
+        _pass(f"test unresolved rows = {test_ur}")
+    else:
+        _fail(f"test unresolved rows = {test_ur}, expected {EXPECTED_TEST_UNRESOLVED_ROWS}")
+
+    # Unresolved sequences (all splits = 0)
+    dev_us = unresolved.get("development", {}).get("unresolved_sequences", -1)
+    if dev_us == EXPECTED_DEV_UNRESOLVED_SEQS:
+        _pass(f"development unresolved sequences = {dev_us}")
+    else:
+        _fail(f"development unresolved sequences = {dev_us}, expected {EXPECTED_DEV_UNRESOLVED_SEQS}")
+
+    val_us = unresolved.get("validation", {}).get("unresolved_sequences", -1)
+    if val_us == EXPECTED_VAL_UNRESOLVED_SEQS:
+        _pass(f"validation unresolved sequences = {val_us}")
+    else:
+        _fail(f"validation unresolved sequences = {val_us}, expected {EXPECTED_VAL_UNRESOLVED_SEQS}")
+
+    test_us = unresolved.get("test", {}).get("unresolved_sequences", -1)
+    if test_us == EXPECTED_TEST_UNRESOLVED_SEQS:
+        _pass(f"test unresolved sequences = {test_us}")
+    else:
+        _fail(f"test unresolved sequences = {test_us}, expected {EXPECTED_TEST_UNRESOLVED_SEQS}")
+
+    # [C20] Cross-check unresolved against split adjudication artifacts (item 25)
+    print("\n[C20] Unresolved cross-check against split artifacts...")
+    dev_adj_path = _DEV_DIR / "adjudication_manifest.json"
+    val_adj_path = _VAL_DIR / "adjudication_manifest.json"
+    test_adj_path = _TEST_DIR / "test_adjudication_manifest.json"
+
+    if dev_adj_path.exists():
+        dev_adj = _load_json(dev_adj_path)
+        dev_adj_ur = dev_adj.get("final_label_counts", {}).get("unresolved", -1)
+        if dev_adj_ur == EXPECTED_DEV_UNRESOLVED_ROWS:
+            _pass(f"dev adjudication cross-check: unresolved rows = {dev_adj_ur}")
+        else:
+            _fail(f"dev adjudication cross-check: unresolved rows = {dev_adj_ur}, expected {EXPECTED_DEV_UNRESOLVED_ROWS}")
+    else:
+        _fail("dev adjudication_manifest.json not found for cross-check")
+
+    if val_adj_path.exists():
+        val_adj = _load_json(val_adj_path)
+        val_adj_ur = val_adj.get("final_label_counts", {}).get("unresolved_rows", -1)
+        if val_adj_ur == EXPECTED_VAL_UNRESOLVED_ROWS:
+            _pass(f"val adjudication cross-check: unresolved rows = {val_adj_ur}")
+        else:
+            _fail(f"val adjudication cross-check: unresolved rows = {val_adj_ur}, expected {EXPECTED_VAL_UNRESOLVED_ROWS}")
+    else:
+        _fail("val adjudication_manifest.json not found for cross-check")
+
+    if test_adj_path.exists():
+        test_adj = _load_json(test_adj_path)
+        test_adj_ur = test_adj.get("final_label_counts", {}).get("unresolved_rows", -1)
+        if test_adj_ur == EXPECTED_TEST_UNRESOLVED_ROWS:
+            _pass(f"test adjudication cross-check: unresolved rows = {test_adj_ur}")
+        else:
+            _fail(f"test adjudication cross-check: unresolved rows = {test_adj_ur}, expected {EXPECTED_TEST_UNRESOLVED_ROWS}")
+    else:
+        _fail("test adjudication manifest not found for cross-check")
+
+    # [C21] Repair provenance support (item 24)
+    print("\n[C21] Repair provenance support...")
+    # Item 24: R1.1 code supports later R2 metadata.
+    # The freeze manifest may optionally contain repair_provenance fields.
+    # We verify the code path can read them if present.
+    repair_prov = freeze.get("repair_provenance")
+    if repair_prov is not None:
+        _pass("repair_provenance section present in freeze manifest")
+        for field in [
+            "repair_start_commit", "r1_code_commit",
+            "r1_1_code_commit", "provider_reruns", "semantic_labels_changed",
+        ]:
+            if field in repair_prov:
+                _pass(f"repair_provenance.{field} present")
+            else:
+                _pass(f"repair_provenance.{field} not yet set (expected for R1.1)")
+    else:
+        _pass("repair_provenance not yet populated (expected for R1/R1.1, will be set in R2)")
 
     # Summary
     total = passed + failed

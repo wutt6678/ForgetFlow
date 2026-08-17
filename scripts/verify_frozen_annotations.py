@@ -99,6 +99,8 @@ _TEST_HASH_MAP = {
     "secondary_campaign_summary_sha256": "secondary_campaign_summary",
     "primary_campaign_identity_sha256": "primary_campaign_identity",
     "secondary_campaign_identity_sha256": "secondary_campaign_identity",
+    "test_campaign_lock_sha256": "test_campaign_lock",
+    "test_annotation_preflight_sha256": "test_annotation_preflight",
 }
 
 # Files bound in the validation annotation manifest (Sec 43)
@@ -828,8 +830,8 @@ class FrozenAnnotationVerifier:
             if a.get("status") == "success":
                 s_success_keys.add(a.get("annotation_item_id", ""))
 
-        p_label_ids = {r.get("candidate_id", "") for r in p_labels}
-        s_label_ids = {r.get("candidate_id", "") for r in s_labels}
+        p_label_ids = {r.get("annotation_id", "") for r in p_labels}
+        s_label_ids = {r.get("annotation_id", "") for r in s_labels}
 
         p_missing = p_label_ids - p_success_keys
         s_missing = s_label_ids - s_success_keys
@@ -841,6 +843,24 @@ class FrozenAnnotationVerifier:
             self._pass(f"all {len(s_label_ids)} J2 labels have matching successful attempts")
         else:
             self._fail(f"{len(s_missing)} J2 labels without matching successful attempts")
+
+        # Sequence lineage (item 3)
+        p_seq_labels = _load_jsonl_records(_TEST_DIR / "primary_sequence_annotations.jsonl")
+        s_seq_labels = _load_jsonl_records(_TEST_DIR / "secondary_sequence_annotations.jsonl")
+
+        p_seq_ann_ids = {r.get("sequence_annotation_id", "") for r in p_seq_labels}
+        s_seq_ann_ids = {r.get("sequence_annotation_id", "") for r in s_seq_labels}
+
+        p_seq_missing = p_seq_ann_ids - p_success_keys
+        s_seq_missing = s_seq_ann_ids - s_success_keys
+        if len(p_seq_missing) == 0:
+            self._pass(f"all {len(p_seq_ann_ids)} J sequence labels have matching successful attempts")
+        else:
+            self._fail(f"{len(p_seq_missing)} J sequence labels without matching successful attempts")
+        if len(s_seq_missing) == 0:
+            self._pass(f"all {len(s_seq_ann_ids)} J2 sequence labels have matching successful attempts")
+        else:
+            self._fail(f"{len(s_seq_missing)} J2 sequence labels without matching successful attempts")
 
         # [T13] Retry accounting (item 26)
         print("\n[T13] Test retry accounting...")

@@ -33,6 +33,7 @@ from experiments.trustparadox_u.empirical_annotation import (  # noqa: E402
     SequenceAnnotation,
     build_annotation_config,
     build_campaign_identity,
+    verify_campaign_identity,
     build_prompt_manifest,
     build_row_prompt,
     build_sequence_prompt,
@@ -158,9 +159,16 @@ def run_test_secondary_annotation(
     campaign_sha = prompt_sha256(json.dumps(campaign_id, sort_keys=True, separators=(",", ":")))
     manifest_sha = frozen_corpus_manifest_file_sha256()
 
-    # Write campaign identity
+    # Write campaign identity with resume verification (items 15-16)
     campaign_path = output_dir / "secondary_campaign_identity.json"
-    if not campaign_path.exists():
+    if campaign_path.exists():
+        existing_identity = json.loads(campaign_path.read_text())
+        mismatches = verify_campaign_identity(existing_identity, campaign_id)
+        if mismatches:
+            raise RuntimeError(
+                f"Campaign identity mismatch on resume: {mismatches}"
+            )
+    else:
         with open(campaign_path, "w") as f:
             json.dump(campaign_id, f, indent=2)
 

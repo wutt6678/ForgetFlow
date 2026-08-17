@@ -264,6 +264,23 @@ def compute_sequence_agreement(
         result["earliest_step_exact_agreement"] = "not_estimable"
         result["earliest_step_n"] = 0
 
+    # Item 13: reconstruction_strength exact agreement
+    strength_a = [p_by_id[sid].get("reconstruction_strength") for sid in common_ids]
+    strength_b = [s_by_id[sid].get("reconstruction_strength") for sid in common_ids]
+    strength_exact = sum(
+        1 for a, b in zip(strength_a, strength_b) if a is not None and b is not None and a == b
+    )
+    strength_n = sum(
+        1 for a, b in zip(strength_a, strength_b) if a is not None and b is not None
+    )
+    result["reconstruction_strength"] = {
+        "exact_agreement": round(strength_exact / strength_n, 4) if strength_n > 0 else 0.0,
+        "cohens_kappa": _cohen_kappa(
+            [str(s) for s in strength_a], [str(s) for s in strength_b]
+        ),
+        "n": strength_n,
+    }
+
     return result
 
 
@@ -456,27 +473,43 @@ def run_test_agreement(build_review_queue_only: bool = False) -> dict[str, Any]:
     agreement_report["split"] = "test"
     agreement_report["created_at"] = datetime.now(timezone.utc).isoformat()
 
-    _write_json(_AGREEMENT_REPORT_PATH, agreement_report)
-    print(f"Wrote agreement report to {_AGREEMENT_REPORT_PATH.name}")
-
-    # Check thresholds (Sec 36)
+    # Item 12: Compute thresholds BEFORE writing so they persist in the report
     MIN_RAW_AGREEMENT = 0.85
     MIN_KAPPA = 0.60
     thresholds_pass = True
+    per_metric_pass: dict[str, bool] = {}
+
     for fld in CORE_BINARY_LABELS:
         raw = agreement_report[fld]["raw_agreement"]
-        if raw < MIN_RAW_AGREEMENT:
-            print(f"  WARNING: {fld} raw agreement {raw:.4f} < {MIN_RAW_AGREEMENT}")
-            thresholds_pass = False
         kappa = agreement_report[fld]["cohens_kappa"]
-        if isinstance(kappa, float) and kappa < MIN_KAPPA:
-            print(f"  WARNING: {fld} kappa {kappa:.4f} < {MIN_KAPPA}")
+        raw_ok = raw >= MIN_RAW_AGREEMENT
+        kappa_ok = not (isinstance(kappa, float) and kappa < MIN_KAPPA)
+        field_pass = raw_ok and kappa_ok
+        per_metric_pass[f"{fld}_pass"] = field_pass
+        if not field_pass:
             thresholds_pass = False
+            if not raw_ok:
+                print(f"  WARNING: {fld} raw agreement {raw:.4f} < {MIN_RAW_AGREEMENT}")
+            if not kappa_ok:
+                print(f"  WARNING: {fld} kappa {kappa} < {MIN_KAPPA}")
 
     seq_raw = seq_agreement["reconstruction_binary_agreement"]["raw_agreement"]
-    if seq_raw < MIN_RAW_AGREEMENT:
+    seq_pass = seq_raw >= MIN_RAW_AGREEMENT
+    per_metric_pass["sequence_reconstruction_pass"] = seq_pass
+    if not seq_pass:
         print(f"  WARNING: sequence raw agreement {seq_raw:.4f} < {MIN_RAW_AGREEMENT}")
         thresholds_pass = False
+
+    # Persist threshold metadata and per-metric pass fields in the report
+    agreement_report["agreement_thresholds"] = {
+        "min_raw_agreement": MIN_RAW_AGREEMENT,
+        "min_kappa": MIN_KAPPA,
+    }
+    agreement_report["agreement_thresholds_pass"] = thresholds_pass
+    agreement_report.update(per_metric_pass)
+
+    _write_json(_AGREEMENT_REPORT_PATH, agreement_report)
+    print(f"Wrote agreement report to {_AGREEMENT_REPORT_PATH.name}")
 
     print(f"Thresholds gate: {'PASS' if thresholds_pass else 'FAIL'}")
 
