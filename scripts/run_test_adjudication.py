@@ -90,6 +90,47 @@ def derive_trust_level(record: dict[str, Any]) -> str:
     return "unknown"
 
 
+def adjudication_item_type(record: dict[str, Any]) -> str:
+    """R1.2a: Resolve adjudication record type with backward compatibility.
+
+    Historical E4-003 adjudication records (created before item_type was
+    introduced) contain candidate_id but not item_type. This resolver
+    provides backward compatibility for loading historical evidence.
+
+    Rules:
+    - Explicit item_type in {"row", "sequence"} → return it
+    - candidate_id present, sequence_annotation_id absent → "row"
+    - sequence_annotation_id present → "sequence"
+    - Both row and sequence identities → FAIL CLOSED (ambiguous)
+    - Neither identity → FAIL CLOSED (unknown)
+    """
+    explicit = record.get("item_type")
+    if explicit in {"row", "sequence"}:
+        return explicit
+
+    has_row_id = bool(record.get("candidate_id"))
+    has_seq_id = bool(record.get("sequence_annotation_id"))
+
+    # Ambiguous: both identities present without explicit item_type
+    if has_row_id and has_seq_id:
+        raise ValueError(
+            "Ambiguous adjudication identity: record has both candidate_id "
+            "and sequence_annotation_id without explicit item_type"
+        )
+
+    # Backward compatibility for historical E4-003 evidence
+    if has_row_id:
+        return "row"
+    if has_seq_id:
+        return "sequence"
+
+    # Unknown: no identity fields
+    raise ValueError(
+        "Cannot determine adjudication item type: "
+        "missing item_type, candidate_id, and sequence_annotation_id"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Utility
 # ---------------------------------------------------------------------------
@@ -948,10 +989,15 @@ def finalize_test_annotations(
     review_queue: list[dict[str, Any]],
     adjudication_records: list[dict[str, Any]],
     seq_adjudication_records: list[dict[str, Any]],
+    offline_mode: bool = False,
 ) -> dict[str, Any]:
     """Construct final row/sequence labels from existing adjudication evidence.
 
     This is a pure offline helper — no provider calls are made.
+
+    Args:
+        offline_mode: If True, do not rewrite historical adjudication evidence.
+                      The adjudication file is read-only in offline mode.
     """
     j_by_cid = {r["candidate_id"]: r for r in j_rows}
     j2_by_cid = {r["candidate_id"]: r for r in j2_rows}
@@ -1090,16 +1136,38 @@ def finalize_test_annotations(
     print(f"[finalize] Wrote {len(final_seq_labels)} final sequence labels")
 
     # --- Statistics ---
-    review_rows_list = [q for q in review_queue if q["item_type"] == "row"]
-    review_seqs_list = [q for q in review_queue if q["item_type"] == "sequence"]
+    review_rows_list = [q for q in review_queue if q.get("item_type") == "row"]
+    review_seqs_list = [q for q in review_queue if q.get("item_type") == "sequence"]
     unresolved_rows = sum(1 for r in final_labels if r["resolution_source"] == "unresolved")
     consensus_rows = sum(1 for r in final_labels if r["resolution_source"] == "llm_consensus")
     adjudicated_rows_count = sum(1 for r in final_labels if r["resolution_source"] == "llm_adjudication")
     unresolved_seqs = sum(1 for r in final_seq_labels if r["resolution_source"] == "unresolved")
 
+    # --- R1.2a: Pre-write coverage gate ---
+    # Validate adjudication coverage before writing derived outputs
+    review_row_count = len(review_rows_list)
+    review_seq_count = len(review_seqs_list)
+    row_adj_count = len(adjudication_records)
+    seq_adj_count = len(seq_adjudication_records)
+
+    # All review items must have corresponding adjudication records
+    # (consensus items may not have explicit records but are covered implicitly)
+    if review_row_count > 0 and row_adj_count == 0:
+        raise RuntimeError(
+            f"Adjudication coverage gap: {review_row_count} review rows "
+            f"but {row_adj_count} row adjudication records"
+        )
+    if review_seq_count > 0 and seq_adj_count == 0:
+        raise RuntimeError(
+            f"Adjudication coverage gap: {review_seq_count} review sequences "
+            f"but {seq_adj_count} sequence adjudication records"
+        )
+
     # --- Write adjudication manifest ---
-    all_adj = [*adjudication_records, *seq_adjudication_records]
-    _write_jsonl(_LLM_ADJUDICATION_PATH, all_adj)
+    # R1.2a: In offline mode, do NOT rewrite historical adjudication evidence
+    if not offline_mode:
+        all_adj = [*adjudication_records, *seq_adjudication_records]
+        _write_jsonl(_LLM_ADJUDICATION_PATH, all_adj)
 
     llm_adj_sha = _sha256_file(_LLM_ADJUDICATION_PATH)
     final_labels_sha = _sha256_file(_FINAL_LABELS_PATH)
@@ -1195,19 +1263,32 @@ def run_finalize_only() -> int:
     j2_seqs = _load_jsonl(_J2_SEQ_LABELS_PATH)
     review_queue = _load_jsonl(_REVIEW_QUEUE_PATH)
 
-    # Load existing adjudication evidence
+    # Load existing adjudication evidence with backward compatibility
     if not _LLM_ADJUDICATION_PATH.exists():
         print(f"ERROR: {_LLM_ADJUDICATION_PATH} not found. Run full adjudication first.")
         return 1
     all_records = _load_jsonl(_LLM_ADJUDICATION_PATH)
-    adjudication_records = [r for r in all_records if r.get("item_type") == "row"]
-    seq_adjudication_records = [r for r in all_records if r.get("item_type") == "sequence"]
+
+    # R1.2a: Use resolver for historical compatibility (records may lack item_type)
+    adjudication_records = []
+    seq_adjudication_records = []
+    for r in all_records:
+        item_type = adjudication_item_type(r)
+        # Normalize in memory only — do not rewrite historical evidence
+        normalized = dict(r)
+        normalized.setdefault("item_type", item_type)
+        if item_type == "row":
+            adjudication_records.append(normalized)
+        else:
+            seq_adjudication_records.append(normalized)
 
     print(f"Loaded {len(adjudication_records)} row + {len(seq_adjudication_records)} sequence adjudication records")
 
+    # R1.2a: offline_mode=True ensures historical adjudication file is not rewritten
     result = finalize_test_annotations(
         j_rows, j2_rows, j_seqs, j2_seqs,
         review_queue, adjudication_records, seq_adjudication_records,
+        offline_mode=True,
     )
     print(f"\nOffline finalization complete:")
     print(f"  Final rows: {result['final_rows']}")

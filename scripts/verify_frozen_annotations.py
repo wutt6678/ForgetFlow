@@ -18,6 +18,12 @@ import json
 import sys
 from pathlib import Path
 
+# R1.2a: Import queue builder for correct annotation queue verification
+from experiments.trustparadox_u.empirical_annotation import (
+    build_test_queue,
+    compute_queue_sha256,
+)
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _ANNOTATIONS_DIR = _PROJECT_ROOT / "results" / "empirical_v2" / "annotations"
 _DEV_DIR = _ANNOTATIONS_DIR / "development_v3"
@@ -786,16 +792,44 @@ class FrozenAnnotationVerifier:
             else:
                 self._fail("primary identity frozen_corpus SHA MISMATCH")
 
-            # Cross-check annotation_queue_sha256 against actual test review queue
-            queue_path = _TEST_DIR / "test_review_queue.jsonl"
-            if queue_path.exists():
-                actual_queue_sha = _sha256(queue_path)
-                if p_id.get("annotation_queue_sha256") == actual_queue_sha:
-                    self._pass("primary identity annotation_queue SHA matches actual queue")
+            # R1.2a: Cross-check annotation_queue_sha256 against RECONSTRUCTED annotation queue
+            # The annotation queue (522 items: 450 rows + 72 sequences) is different from
+            # the review queue (66 post-disagreement items). Do NOT confuse them.
+            try:
+                row_items, sequence_items = build_test_queue()
+                row_count = len(row_items)
+                seq_count = len(sequence_items)
+
+                # Count sanity check before SHA comparison (item 44)
+                if row_count != 450 or seq_count != 72:
+                    self._fail(
+                        f"annotation queue count mismatch: "
+                        f"rows={row_count} (expected 450), sequences={seq_count} (expected 72)"
+                    )
                 else:
-                    self._fail("primary identity annotation_queue SHA MISMATCH with actual queue")
+                    recomputed_annotation_queue_sha = compute_queue_sha256(row_items, sequence_items)
+                    if p_id.get("annotation_queue_sha256") == recomputed_annotation_queue_sha:
+                        self._pass("primary identity annotation_queue SHA matches reconstructed queue")
+                    else:
+                        self._fail("primary identity annotation_queue SHA MISMATCH with reconstructed queue")
+            except Exception as e:
+                self._fail(f"annotation queue reconstruction failed: {e}")
+
+            # R1.2a: Keep review queue verification SEPARATE (item 31)
+            # Review queue SHA is checked against adjudication manifest, not campaign identity
+            review_queue_path = _TEST_DIR / "test_review_queue.jsonl"
+            if review_queue_path.exists():
+                review_queue_sha = _sha256(review_queue_path)
+                # Review queue SHA should NOT equal annotation queue SHA (item 39)
+                try:
+                    if recomputed_annotation_queue_sha == review_queue_sha:
+                        self._fail("review queue SHA equals annotation queue SHA — these must differ")
+                    else:
+                        self._pass("review queue SHA correctly differs from annotation queue SHA")
+                except NameError:
+                    pass  # reconstruction failed above, skip this check
             else:
-                self._fail("test_review_queue.jsonl not found for queue SHA cross-check")
+                self._fail("test_review_queue.jsonl not found for review queue verification")
 
             # Cross-check schema/prompt/config against frozen protocol manifest
             if _PROTOCOL_PATH.exists():

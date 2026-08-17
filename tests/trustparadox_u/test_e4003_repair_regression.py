@@ -826,14 +826,15 @@ class TestCampaignIdentityTestLayer:
             assert field in source, f"Field {field} not found in _verify_test"
 
     def test_campaign_identity_queue_sha_mismatch_detected(self):
-        """If annotation_queue_sha256 doesn't match actual queue, test verifier FAIL."""
-        # The test verifier cross-checks annotation_queue_sha256 against
-        # the actual test_review_queue.jsonl SHA. A mismatch must be detected.
+        """R1.2a: annotation_queue_sha256 is checked against RECONSTRUCTED queue, not review queue."""
+        # The test verifier now rebuilds the annotation queue using build_test_queue()
+        # and compute_queue_sha256(), NOT by hashing test_review_queue.jsonl.
         import inspect
         from scripts.verify_frozen_annotations import FrozenAnnotationVerifier
         source = inspect.getsource(FrozenAnnotationVerifier._verify_test)
         assert "annotation_queue_sha256" in source
-        assert "test_review_queue.jsonl" in source
+        # R1.2a: Must use queue reconstruction, not review queue file hash
+        assert "build_test_queue" in source or "compute_queue_sha256" in source
         assert "MISMATCH" in source
 
     def test_campaign_identity_model_mismatch_detected(self):
@@ -880,13 +881,13 @@ class TestCombinedAdjudicationEvidence:
         assert "sequence_still_unresolved" in source
 
     def test_item_type_field_used_for_split(self):
-        """run_finalize_only splits records by item_type field."""
+        """R1.2a: run_finalize_only uses adjudication_item_type resolver."""
         import inspect
         from scripts.run_test_adjudication import run_finalize_only
         source = inspect.getsource(run_finalize_only)
+        # R1.2a: Must use the resolver for backward compatibility
+        assert 'adjudication_item_type' in source
         assert 'item_type' in source
-        assert '"row"' in source
-        assert '"sequence"' in source
 
 
 # ===========================================================================
