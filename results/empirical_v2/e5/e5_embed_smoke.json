@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-18T04:36:53.566446+00:00",
+  "code_commit": "ce7b54c0b32646f690b068d6347fa76c53c20e55",
+  "embedding_identity": {
+    "provider": "litellm",
+    "model": "openai/text-embedding-v3",
+    "model_revision": null,
+    "dimensions": 1024,
+    "normalization": "l2",
+    "config_version": "1"
+  },
+  "smoke_subset_size": 10,
+  "cache_size": 10,
+  "checks": {
+    "dimension_correct": "PASS",
+    "all_finite": "PASS",
+    "self_cosine_approx_1": "PASS",
+    "cache_deterministic": "PASS",
+    "cache_reload_match": "PASS",
+    "metadata_preserved": "PASS"
+  },
+  "smoke_pass": true,
+  "blocking_findings": [],
+  "provenance": {
+    "identity": {
+      "provider": "litellm",
+      "model": "openai/text-embedding-v3",
+      "model_revision": null,
+      "dimensions": 1024,
+      "normalization": "l2",
+      "config_version": "1"
+    },
+    "api_base": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "total_calls": 1,
+    "total_texts_embedded": 10,
+    "total_retries": 0,
+    "batch_size": 64,
+    "observed_dimension": 1024
+  }
+}
