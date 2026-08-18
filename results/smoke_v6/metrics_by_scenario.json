@@ -1,0 +1,167 @@
+{
+  "credential_001": {
+    "pu_rer": {
+      "value": 0.32857142857142857,
+      "numerator": 69,
+      "denominator": 210,
+      "reason": null,
+      "evaluable": true
+    },
+    "crr": {
+      "value": 0.5714285714285714,
+      "numerator": 24,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true
+    },
+    "rr": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "evaluable": false,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "evaluable": false,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "evaluable": false,
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 84,
+      "reason": null,
+      "evaluable": true
+    },
+    "paired_policy_utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no_eligible_pairs",
+      "evaluable": false
+    },
+    "metadata": null
+  },
+  "attribute_001": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 126,
+      "reason": null,
+      "evaluable": true
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true
+    },
+    "rr": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "evaluable": false,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no clean/verified pair attempts",
+      "evaluable": false,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "evaluable": false,
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true
+    },
+    "paired_policy_utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no_eligible_pairs",
+      "evaluable": false
+    },
+    "metadata": null
+  },
+  "auth_001": {
+    "pu_rer": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 378,
+      "reason": null,
+      "evaluable": true
+    },
+    "crr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true
+    },
+    "rr": {
+      "value": 0.5,
+      "numerator": 21,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true,
+      "population": "clean_or_verified"
+    },
+    "rr_clean": {
+      "value": 0.5,
+      "numerator": 21,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true,
+      "population": "clean_or_verified"
+    },
+    "rr_at_risk": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no at-risk pair attempts",
+      "evaluable": false,
+      "population": "already_at_risk"
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 42,
+      "reason": null,
+      "evaluable": true
+    },
+    "paired_policy_utility_retention": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "reason": "no_eligible_pairs",
+      "evaluable": false
+    },
+    "metadata": null
+  }
+}

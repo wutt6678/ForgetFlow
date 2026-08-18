@@ -1,0 +1,57 @@
+{
+  "api_base_sanitized": null,
+  "audit_error_count": 0,
+  "audit_valid": true,
+  "config_hashes": [
+    "09e15fe465d767d933b8ea11a1d4e3d861230dbd7e2dfeaa8fd1ab4713a08b15",
+    "22f2edf316e2b07af30037f033999733b0dbe75db27b374670e988665d6136a8",
+    "2a94e4638d5cbae7bc56f9085d6c4b1df181f3034032b8efde06605720f74b6d",
+    "3b776efe8c6b46c142a66071f137acd7b7afc4c42f6eaa5e5d7c50b7a77a7ebb",
+    "4ed3126997a71bf9cb7039ea3165e8bc773685a56882bfa0773fa5ef2d8de05e",
+    "70810592935154102b1be2bcdb5541872301b34086aea79d712533ec082d14ab",
+    "8acf75113c39a499dc17e1df8e95ea846c25d2e770948b5fec03a46c586edb4a",
+    "8cc12937686253b1a5ed3d03589b2588afe78d09c5afcc9efec813972abb0d50",
+    "98875c01ad0ae2deee90ca2b37a9eb048c8753b76dc1aa4854c2040ad3e368ce",
+    "99039e89c405e61bf8601a6b53dd37b930fcbef48e689c2c2eeaf1fa63911130",
+    "9a4cfc1d6638782e5b4d9a5cfc34c3f61cc0431473d6f7e2e1ab056acc280c2d",
+    "b2c33997c69d77cd4650874c38d1b06088058bb1d6185b783c428c26d76901a9",
+    "c04642f54a0931db0fa63e1c7b742f554c06e7ce6349d2db9981d0048dcc6023",
+    "c5e663038fe90fffce8911544e6cd35f2a2f65a524d5df54f2d314ed92729f1e"
+  ],
+  "dimension": null,
+  "embedding_threshold": 0.8,
+  "episode_ids": [
+    "attribute_001_high_direct",
+    "auth_001_high_direct",
+    "credential_001_high_direct"
+  ],
+  "generated_at_utc": "2026-08-18T11:42:51.319836+00:00",
+  "metric_counts": {
+    "crr": {
+      "denominator": 126,
+      "numerator": 24
+    },
+    "fbr": {
+      "denominator": 168,
+      "numerator": 0
+    },
+    "pu_rer": {
+      "denominator": 714,
+      "numerator": 69
+    },
+    "rr": {
+      "denominator": 42,
+      "numerator": 21
+    }
+  },
+  "model": null,
+  "provider": "fixed",
+  "repository_commit": "006247c0f479c4fd2264a5e9afd85a5c6b768754-dirty",
+  "result_count": 126,
+  "run_mode": "diagnostic",
+  "seeds": [
+    7,
+    42,
+    123
+  ]
+}
