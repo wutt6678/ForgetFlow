@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-18T07:49:56.402594+00:00",
+  "experiment_name": "E5 Real-Embedding Downstream Evaluation",
+  "embedding": {
+    "model": "openai/text-embedding-v3",
+    "normalization": "l2",
+    "config_version": "1"
+  },
+  "detector": {
+    "version": "e5-002-r1"
+  },
+  "calibration": {
+    "semantic_threshold": "from_calibration",
+    "selection_rule": "min_recall_0.90_lowest_fbr"
+  },
+  "conditions": {
+    "n_conditions": 5,
+    "condition_ids": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4"
+    ],
+    "primary_baseline": "C0",
+    "detector_baseline": "C1",
+    "full_system": "C4"
+  },
+  "policy": {
+    "actions": [
+      "allow",
+      "redact",
+      "abstract",
+      "block"
+    ],
+    "trust_invariant": true
+  },
+  "splits": {
+    "development": "calibration",
+    "validation": "confirmation",
+    "test": "held-out evaluation"
+  },
+  "code_commit": "unknown"
+}

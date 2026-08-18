@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-18T07:49:56.400682+00:00",
+  "n_conditions": 5,
+  "condition_order": [
+    "C0",
+    "C1",
+    "C2",
+    "C3",
+    "C4"
+  ],
+  "conditions": [
+    {
+      "condition_id": "C0",
+      "description": "No firewall (pass-through)",
+      "enabled_modules": [],
+      "disabled_modules": [
+        "alias_detector",
+        "exact_detector",
+        "firewall",
+        "history",
+        "reconstruction_guard",
+        "rich_policy",
+        "semantic_detector"
+      ],
+      "thresholds": {},
+      "policy_rules": {
+        "actions": [
+          "allow",
+          "redact",
+          "abstract",
+          "block"
+        ],
+        "rich_actions": false
+      },
+      "embedding_config_sha": "1",
+      "code_commit": "unknown"
+    },
+    {
+      "condition_id": "C1",
+      "description": "Exact-match only",
+      "enabled_modules": [
+        "firewall",
+        "exact_detector"
+      ],
+      "disabled_modules": [
+        "alias_detector",
+        "history",
+        "reconstruction_guard",
+        "rich_policy",
+        "semantic_detector"
+      ],
+      "thresholds": {},
+      "policy_rules": {
+        "actions": [
+          "allow",
+          "redact",
+          "abstract",
+          "block"
+        ],
+        "rich_actions": false
+      },
+      "embedding_config_sha": "1",
+      "code_commit": "unknown"
+    },
+    {
+      "condition_id": "C2",
+      "description": "Exact + alias",
+      "enabled_modules": [
+        "firewall",
+        "exact_detector",
+        "alias_detector"
+      ],
+      "disabled_modules": [
+        "history",
+        "reconstruction_guard",
+        "rich_policy",
+        "semantic_detector"
+      ],
+      "thresholds": {},
+      "policy_rules": {
+        "actions": [
+          "allow",
+          "redact",
+          "abstract",
+          "block"
+        ],
+        "rich_actions": false
+      },
+      "embedding_config_sha": "1",
+      "code_commit": "unknown"
+    },
+    {
+      "condition_id": "C3",
+      "description": "Exact + alias + semantic detector",
+      "enabled_modules": [
+        "firewall",
+        "exact_detector",
+        "alias_detector",
+        "semantic_detector"
+      ],
+      "disabled_modules": [
+        "history",
+        "reconstruction_guard",
+        "rich_policy"
+      ],
+      "thresholds": {
+        "semantic_threshold": "from_calibration"
+      },
+      "policy_rules": {
+        "actions": [
+          "allow",
+          "redact",
+          "abstract",
+          "block"
+        ],
+        "rich_actions": false
+      },
+      "embedding_config_sha": "1",
+      "code_commit": "unknown"
+    },
+    {
+      "condition_id": "C4",
+      "description": "Full ForgetFlow: exact + alias + semantic + recipient/history-aware protection + reconstruction guard + purge/recontamination handling",
+      "enabled_modules": [
+        "firewall",
+        "exact_detector",
+        "alias_detector",
+        "semantic_detector",
+        "history",
+        "reconstruction_guard",
+        "rich_policy"
+      ],
+      "disabled_modules": [],
+      "thresholds": {
+        "semantic_threshold": "from_calibration",
+        "reconstruction_threshold": "from_calibration"
+      },
+      "policy_rules": {
+        "actions": [
+          "allow",
+          "redact",
+          "abstract",
+          "block"
+        ],
+        "rich_actions": true
+      },
+      "embedding_config_sha": "1",
+      "code_commit": "unknown"
+    }
+  ],
+  "frozen_policy_actions": [
+    "allow",
+    "redact",
+    "abstract",
+    "block"
+  ],
+  "code_commit": "unknown"
+}

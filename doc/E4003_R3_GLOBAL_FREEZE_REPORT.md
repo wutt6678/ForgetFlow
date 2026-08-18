@@ -1,16 +1,52 @@
 
-# E4-003 R3 Global Annotation Freeze — Completion Report
+# E4-003 Final Provenance & Closure Report (R4)
 
-## Overview
+## Executive Summary
 
-R3 closes the global annotation freeze by materializing the 36 development
-final sequence labels, fixing the trust_level verifier bug discovered in R2,
-and advancing the annotation phase to `ANNOTATIONS_FROZEN`.
+E4-003 (Independent Annotation Campaign) is **fully closed**. The annotation
+pipeline produced a deterministic, reproducible freeze of 900 row labels and
+144 sequence labels across three splits (development, validation, test), with
+all verifiers passing and all gates GO.
 
-R3 added **zero** provider (LLM) calls. All work was deterministic offline
-recomputation.
+The path to closure required two repair rounds:
 
-## Provider-Call Counts
+1. **R2 (Deterministic Test Refreeze):** Regenerated test-derived evidence
+   and corrected verification/freeze closure without modifying any
+   provider-generated semantic evidence. R2 ended with a known verifier
+   defect: the test annotation verifier scored 121/122 because a trust_level
+   derivation bug in the verifier itself (not in source annotations) caused
+   one structural check to fail. This cascaded to test closure 14/15.
+
+2. **R3 (Global Annotation Freeze):** Materialized the 36 missing development
+   final sequence labels and corrected the trust_level verifier bug — without
+   modifying any source annotations. The rebuilt test freeze passed 122/122
+   and 15/15. The final global freeze passed 297/297 with 900 rows / 144
+   sequences, achieving GO status.
+
+**Zero provider (LLM) calls were added in either R2 or R3.**
+
+## Corrected Historical Narrative
+
+| Phase | What happened | Verifier result |
+|-------|---------------|-----------------|
+| Original campaign | J, J2, J3 annotation campaigns executed | — |
+| R2 | Deterministic test refreeze; discovered verifier bug | 121/122 (KNOWN ISSUE) |
+| R3 | Fixed verifier (not source); materialized dev sequences | 297/297 (ALL PASS) |
+
+The R2 report initially documented the 121/122 result as a known issue
+caused by a source-evidence bug. Upon investigation in R3, the root cause
+was identified as a **verifier defect**: `verify_frozen_annotations.py` T7
+was reading `trust_level` directly from raw `primary_sequence_annotations.jsonl`
+records, but that field does not exist in the raw annotation schema. Trust
+level is encoded in the `ordered_candidate_ids` suffix (e.g., `..._high`) and
+must be derived, not read. R3 corrected the verifier to derive trust_level
+from `ordered_candidate_ids[0].rsplit("_", 1)[-1]`, matching the
+`derive_trust_level()` function used throughout the pipeline.
+
+No source annotations were modified. All 9 evidence files remain byte-identical
+to their original campaign output.
+
+## Provider-Call Counts (Cumulative R2 + R3)
 
 | Campaign | Calls Added |
 |----------|-------------|
@@ -18,50 +54,31 @@ recomputation.
 | J2       | 0           |
 | J3       | 0           |
 
-## Starting State (Post-R2)
+## Final Annotation Outcomes
 
-| Field                             | Value           |
-|-----------------------------------|-----------------|
-| annotation_phase                  | TEST_COMPLETE   |
-| annotations_frozen                | false           |
-| global_annotation_freeze_complete | false           |
-| Global freeze                     | NO-GO           |
-| Blocking issues                   | dev seqs: 0/36  |
+### Row Labels
 
-## R3 Changes
+| Split        | Final Rows | Consensus | J3-Resolved | Unresolved |
+|--------------|------------|-----------|-------------|------------|
+| Development  | 225        | —         | —           | —          |
+| Validation   | 225        | —         | —           | —          |
+| Test         | 450        | 387       | 39          | 24         |
+| **Total**    | **900**    |           |             |            |
 
-### 1. Development Final Sequence Labels (36 records)
+Test unresolved rate: 24/450 = 5.33%
 
-Materialized `development_v3/final_sequence_labels.jsonl` by comparing J and J2
-sequence annotations keyed by `sequence_annotation_id`.
+### Sequence Labels
 
-| Metric              | Count |
-|---------------------|-------|
-| J sequences         | 36    |
-| J2 sequences        | 36    |
-| Consensus (J == J2) | 36    |
-| Unresolved          | 0     |
-| Resolution source   | llm_consensus |
+| Split        | Final Sequences | Consensus | Unresolved |
+|--------------|-----------------|-----------|------------|
+| Development  | 36              | 36        | 0          |
+| Validation   | 36              | 36        | 0          |
+| Test         | 72              | 72        | 0          |
+| **Total**    | **144**         | **144**   | **0**      |
 
-All 36 J/J2 pairs agree on the full semantic tuple
-`(sequence_reconstructs_target, earliest_reconstruction_step, reconstruction_strength)`.
+All sequences resolve by J/J2 full-tuple consensus.
 
-Trust level distribution: derived from `ordered_candidate_ids[0]` suffix,
-yielding `{high, default, low}` per family across 24 structural families.
-
-SHA-256: `e32b0979c0a43eeee1948e80eb9b176950e94a5305d20949b0b50c256f1e3e50`
-
-### 2. Verifier Bug Fix
-
-`verify_frozen_annotations.py` T7 check was reading `trust_level` directly from
-raw `primary_sequence_annotations.jsonl` records, but that field does not exist
-in the raw schema. Fixed to derive trust_level from `ordered_candidate_ids[0]`
-suffix, matching the `derive_trust_level()` logic used throughout the pipeline.
-
-**Before fix:** test_annotations 121/122, test_closure 14/15
-**After fix:**  test_annotations 122/122, test_closure 15/15
-
-## Global Freeze Result
+## Final Verifier Results (Post-R3)
 
 | Verifier                        | Result | Checks     |
 |---------------------------------|--------|------------|
@@ -71,20 +88,20 @@ suffix, matching the `derive_trust_level()` logic used throughout the pipeline.
 | Validation freeze closure       | PASS   | 11 / 11    |
 | Test annotations                | PASS   | 122 / 122  |
 | Test freeze closure             | PASS   | 15 / 15    |
+| **Total**                       | **ALL PASS** | **297 / 297** |
 
-**all_verifiers_pass: True**
+## Final Gate Status
 
-### Global Totals
-
-| Metric              | Count                          |
-|---------------------|--------------------------------|
-| Final row labels    | 900 (225 + 225 + 450)          |
-| Final sequence labels | 144 (36 + 36 + 72)           |
-| All gates GO        | True                           |
+| Split        | Gate |
+|--------------|------|
+| Development  | GO   |
+| Validation   | GO   |
+| Test         | GO   |
+| **All gates**| **GO** |
 
 ## Immutable Evidence Hashes
 
-All source evidence files remained byte-identical throughout R3 (and R2).
+All 9 source evidence files remained byte-identical throughout R2 and R3.
 
 | File                              | SHA-256                                                            |
 |-----------------------------------|--------------------------------------------------------------------|
@@ -98,7 +115,7 @@ All source evidence files remained byte-identical throughout R3 (and R2).
 | secondary_campaign_identity.json   | `8f7a6a7123f04190aeaaca8d9d258defb2cd3119529971728c5e2866ba6ba29d` |
 | test_llm_adjudication.jsonl        | `2f9602962e6941aacbf39b8ec8c4367bcefe4d8088d29b53c965b722f9fff37e` |
 
-## Post-R3 Annotation Phase State
+## Final Annotation Phase State
 
 | Field                             | Value                |
 |-----------------------------------|----------------------|
@@ -106,25 +123,21 @@ All source evidence files remained byte-identical throughout R3 (and R2).
 | validation_annotation_complete    | true                 |
 | test_annotation_complete          | true                 |
 | annotations_frozen                | **true**             |
-| annotation_phase                  | ANNOTATIONS_FROZEN   |
+| annotation_phase                  | **ANNOTATIONS_FROZEN** |
 | global_annotation_freeze_complete | **true**             |
 
-## Changed Derived Artifacts
+## Agreement Results (Test Split)
 
-The following artifacts were regenerated during R3:
+| Metric               | Raw Agreement | Cohen's Kappa | Pass |
+|----------------------|---------------|---------------|------|
+| target_relevant      | 0.9711        | 0.9396        | YES  |
+| target_leakage       | 0.9667        | 0.9305        | YES  |
+| positive_entailment  | 0.9667        | 0.9329        | YES  |
+| task_useful          | 0.9200        | 0.8367        | YES  |
+| leakage_strength     | 0.9422        | 0.9106        | YES  |
+| sequence reconstruction | 1.0000     | 1.0000        | YES  |
 
-- `development_v3/final_sequence_labels.jsonl` (created)
-- `scripts/verify_frozen_annotations.py` (trust_level derivation fix)
-- `test/test_annotation_freeze_manifest.json`
-- `test/test_annotation_gate.json`
-- `test/test_annotation_manifest.json`
-- `test/test_post_freeze_verification.json`
-- `test/test_verifier_results.json`
-- `annotation_phase.json`
-- `annotation_protocol_manifest.json`
-- `global_annotation_freeze_manifest.json`
-- `global_annotation_post_freeze_verification.json`
-- Tests updated for R3 freeze state
+Thresholds: min_raw_agreement = 0.85, min_kappa = 0.60 — **all pass**.
 
 ## Test Suite Results
 
@@ -133,117 +146,94 @@ The following artifacts were regenerated during R3:
 3479 passed, 4 skipped, 1 warning in 19.05s
 ```
 
-Skipped tests (all expected — no real embedding provider configured):
-- `test_real_embedding_smoke.py::50` — No real embedding provider configured
-- `test_real_embedding_smoke.py::70` — No real embedding provider configured
-- `test_real_embedding_smoke.py::97` — No real embedding provider configured
-- `test_real_embedding_smoke.py::123` — No real embedding provider configured
-
-## Compileall
-
+**Compileall:**
 ```
 PYTHONPATH=. python -m compileall experiments scripts marble
 ```
-**PASS** — clean completion.
+PASS — clean completion.
 
-## R3 Commit History
+## Commit History (R2 + R3 + R4)
 
 | Commit    | Description                                                          |
 |-----------|----------------------------------------------------------------------|
-| `43f6975` | results: materialize 36 development final sequence labels (R3)       |
-| `6a22e75` | fix: derive trust_level from ordered_candidate_ids in test verifier  |
-| `0ca5261` | results: rebuild test freeze with fixed trust_level verifier (R3)    |
-| `5e6a450` | results: global annotation freeze GO — 900 rows, 144 sequences (R3) |
-| `a487e0a` | test: update freeze state tests for R3 global closure                |
+| `26f0992` | R2a: Regenerate E4-003 deterministic test derived evidence            |
+| `d9f63e3` | R2b: Refreeze E4-003 test annotations with corrected closure          |
+| `d845e33` | Fix: Reset annotations_frozen in protocol manifest for R2             |
+| `2b25591` | Test: Update freeze state tests for R2 refreeze                       |
+| `7eeb03e` | Test: Update global freeze tests for R2 refreeze state                |
+| `1159779` | Results: Rebuild global freeze manifest with updated protocol SHA      |
+| `4998562` | Results: Update global post-freeze verification SHAs for R2           |
+| `f99b46e` | Doc: E4-003 R2 deterministic test refreeze completion report          |
+| `43f6975` | R3: Materialize 36 development final sequence labels                  |
+| `6a22e75` | R3: Fix trust_level derivation from ordered_candidate_ids in verifier |
+| `0ca5261` | R3: Rebuild test freeze with fixed trust_level verifier               |
+| `5e6a450` | R3: Global annotation freeze GO — 900 rows, 144 sequences            |
+| `a487e0a` | R3: Update freeze state tests for global closure                      |
+| `ce7b54c` | R4: Final E4 provenance & closure report                              |
 
 ---
 
-## E4-003 R3 Global Annotation Freeze — Completion Block
+## E4-003 Final Closure Block
 
 ```
-E4-003 R3 Global Annotation Freeze
+E4-003 Independent Annotation Campaign — FINAL CLOSURE
 
-Starting code commit:
-f99b46e (R2 final)
+Final code commit:
+ce7b54c
 
-R3 dev final sequences commit:
-43f6975
+Provider calls added (R2 + R3 combined):
+J = 0, J2 = 0, J3 = 0
 
-R3 verifier fix commit:
-6a22e75
+Final row labels:
+900 (225 development + 225 validation + 450 test)
 
-R3 test freeze rebuild commit:
-0ca5261
+Final sequence labels:
+144 (36 development + 36 validation + 72 test)
 
-R3 global freeze commit:
-5e6a450
+Verifier results (post-R3):
+297 / 297 ALL PASS
+  Frozen corpus:         52/52
+  Development annot:     49/49
+  Validation annot:      48/48
+  Validation closure:    11/11
+  Test annotations:      122/122
+  Test closure:          15/15
 
-R3 test update commit:
-a487e0a
-
-Provider calls added:
-J = 0
-J2 = 0
-J3 = 0
-
-Development final sequences:
-36 (all consensus, 0 unresolved)
-SHA = e32b0979c0a43eeee1948e80eb9b176950e94a5305d20949b0b50c256f1e3e50
-
-Global freeze:
-GO
-
-Global totals:
-900 final row labels (225 + 225 + 450)
-144 final sequence labels (36 + 36 + 72)
-
-All verifiers pass:
-True (297 / 297 checks)
-
-Frozen corpus:         PASS 52/52
-Development annot:     PASS 49/49
-Validation annot:      PASS 48/48
-Validation closure:    PASS 11/11
-Test annotations:      PASS 122/122
-Test closure:          PASS 15/15
-
-All gates GO:
-True (development, validation, test)
+Gate status:
+ALL GO (development, validation, test)
 
 Annotation phase:
 ANNOTATIONS_FROZEN
 
-annotations_frozen:
-true
+Source evidence:
+Byte-identical to original campaign (9 files verified)
 
-global_annotation_freeze_complete:
-true
+Test suite:
+3479 passed, 4 skipped
+Compileall: PASS
 
-Full pytest:
-PASS (3479 passed, 4 skipped)
-
-Compileall:
-PASS
-
-Source evidence byte-identical:
-PASS (all 9 files match R2 hashes)
+E4-003 STATUS: CLOSED
 ```
 
-## R3 GO Criteria
+## E4-003 Closure Criteria
 
 | Criterion                                        | Status |
 |--------------------------------------------------|--------|
-| 0 J calls                                        | PASS   |
-| 0 J2 calls                                       | PASS   |
-| 0 J3 calls                                       | PASS   |
-| Dev final sequences: 36/36                       | PASS   |
-| Total sequences: 144 (36+36+72)                  | PASS   |
-| Total rows: 900 (225+225+450)                    | PASS   |
+| All 3 splits annotated and frozen                | PASS   |
+| Global annotation freeze: GO                     | PASS   |
+| 900 final row labels                             | PASS   |
+| 144 final sequence labels                        | PASS   |
 | All 6 verifiers PASS (297/297)                   | PASS   |
 | All 3 split gates GO                             | PASS   |
 | annotations_frozen = true                        | PASS   |
 | annotation_phase = ANNOTATIONS_FROZEN            | PASS   |
 | global_annotation_freeze_complete = true         | PASS   |
 | Source evidence byte-identical                   | PASS   |
+| Zero provider calls in R2 + R3                   | PASS   |
 | Full pytest: 3479 passed, 4 skipped              | PASS   |
 | Compileall: clean                                | PASS   |
+| Inter-annotator agreement above thresholds       | PASS   |
+| Corrected historical narrative documented        | PASS   |
+
+**E4-003 is fully closed. Ready to proceed to E5 (empirical embeddings /
+downstream ForgetFlow evaluation).**

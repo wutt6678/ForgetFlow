@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-18T07:49:56.404783+00:00",
+  "code_commit": "unknown",
+  "config_sha": "dbc332c7d1c256676fc33a3e1ce5d2b629160f4132f152127dd39de6cacf24dc",
+  "condition_manifest_sha": "f2a4d15e9aad1fe4f01165c20f88edaa1863106d5a94cd9c3bae889797ceafb9",
+  "embedding_manifest_sha": "5431511ff64e9531d03cf0643e9da52d1cb38448ad12174a865ac30be05e686f",
+  "global_annotation_freeze_sha": "78a03c60ee57c1f9c448f7fa65be2efde6c87716585eae88c97e574882090f89",
+  "test_access_started": false,
+  "test_access_started_at": null,
+  "execution_commit": null
+}
