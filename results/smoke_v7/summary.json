@@ -1,0 +1,43 @@
+{
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "artifact_provenance": {
+    "tested_code_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "results_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "repository_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "repository_clean": true,
+    "artifact_dirty": false,
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "certification_mode": "diagnostic",
+    "run_mode": "diagnostic",
+    "schema_version": "1.1",
+    "generated_at": "2026-08-18T11:43:19.179454+00:00",
+    "is_certifying": false
+  },
+  "repository_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+  "repository_clean": true,
+  "audit_valid": true,
+  "duplicate_identity_count": 0,
+  "utility_defined": true,
+  "paired_policy_utility_retention": {
+    "value": 1.0,
+    "numerator": 3,
+    "denominator": 3,
+    "reason": null,
+    "evaluable": true
+  },
+  "directional_checks_pass": true,
+  "artifact_set_complete": true,
+  "total_runs": 126,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 14,
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0",
+  "generated_at": "2026-08-18T11:43:19.179454+00:00",
+  "mode": "diagnostic",
+  "failure_reasons": [],
+  "execution_status": "RESEARCH_VALID",
+  "research_valid": true,
+  "release_candidate": false
+}

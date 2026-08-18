@@ -1,0 +1,123 @@
+{
+  "audit_valid": true,
+  "manifest_valid": true,
+  "directional_checks_pass": true,
+  "no_unmatched_pairs": true,
+  "utility_defined": true,
+  "repository_clean": true,
+  "artifacts_complete": true,
+  "no_duplicate_identities": true,
+  "all_passed": true,
+  "top_line_status": "DIAGNOSTIC ONLY",
+  "failure_reasons": [],
+  "repository_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+  "generated_at": "2026-08-18T11:43:19.179454+00:00",
+  "mode": "diagnostic",
+  "total_runs": 126,
+  "fixture_count": 3,
+  "seed_count": 3,
+  "condition_count": 14,
+  "audit_error_count": 0,
+  "duplicate_identity_count": 0,
+  "aggregate_metrics": {
+    "pu_rer": {
+      "value": 0.09663865546218488,
+      "numerator": 69,
+      "denominator": 714
+    },
+    "crr": {
+      "value": 0.19047619047619047,
+      "numerator": 24,
+      "denominator": 126
+    },
+    "rr": {
+      "value": 0.5,
+      "numerator": 21,
+      "denominator": 42
+    },
+    "fbr": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 168
+    }
+  },
+  "directional_checks": {
+    "privacy_mvp_better": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_firewall PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.17647058823529413,
+      "passed": true
+    },
+    "semantic_protection": {
+      "claim_type": "strict_improvement",
+      "check": "full_mvp PU-RER < no_embedding PU-RER",
+      "lhs": 0.0,
+      "rhs": 0.058823529411764705,
+      "passed": true
+    },
+    "stateful_reconstruction_safer": {
+      "claim_type": "strict_improvement",
+      "check": "stateful CRR < stateless CRR",
+      "lhs": 0.0,
+      "rhs": 0.3333333333333333,
+      "passed": true
+    },
+    "rich_utility_ge_binary": {
+      "claim_type": "non_inferiority",
+      "check": "full_mvp task_success >= binary task_success",
+      "lhs": 3,
+      "rhs": 0,
+      "passed": true
+    },
+    "firewall_reduces_rr": {
+      "claim_type": "strict_improvement",
+      "check": "no_firewall RR > full_mvp RR",
+      "lhs": 1.0,
+      "rhs": 0.0,
+      "passed": true
+    },
+    "binary_policy_reconstruction_increases": {
+      "claim_type": "non_inferiority",
+      "check": "binary_policy CRR >= full_mvp CRR",
+      "lhs": 0.0,
+      "rhs": 0.0,
+      "passed": true
+    },
+    "one_time_monitoring_recontamination_increases": {
+      "claim_type": "non_inferiority",
+      "check": "one_time_monitoring RR >= full_mvp RR",
+      "lhs": 0.0,
+      "rhs": 0.0,
+      "passed": true
+    }
+  },
+  "expected_pairs": 9,
+  "matched_pairs": 9,
+  "unmatched_pair_count": 0,
+  "baseline_successful_pairs": 3,
+  "paired_policy_utility_retention": {
+    "value": 1.0,
+    "numerator": 3,
+    "denominator": 3,
+    "reason": null,
+    "evaluable": true
+  },
+  "smoke_report_version": "1.0.0",
+  "artifact_schema_version": "1.0.0",
+  "artifact_provenance": {
+    "tested_code_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "results_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "repository_commit": "70cf20c93e64d89fa60bf26767b59c73fdbdd15b",
+    "repository_clean": true,
+    "artifact_dirty": false,
+    "workflow_run_id": "local",
+    "workflow_attempt": "local",
+    "certification_mode": "diagnostic",
+    "run_mode": "diagnostic",
+    "schema_version": "1.1",
+    "generated_at": "2026-08-18T11:43:19.179454+00:00",
+    "is_certifying": false
+  },
+  "execution_status": "RESEARCH_VALID"
+}
