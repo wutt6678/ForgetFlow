@@ -398,7 +398,7 @@ def run_feature_extraction(
     *,
     backend: EmbeddingBackend,
     cache: EmbeddingCache,
-    splits: Sequence[str] = ("development", "validation", "test"),
+    splits: Sequence[str] = ("development", "validation"),
     code_commit: str = "unknown",
 ) -> dict[str, Any]:
     """Run feature extraction for all requested splits.

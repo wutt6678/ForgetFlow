@@ -68,6 +68,134 @@ _VALIDATION_DIR = (
 _EXPERIMENT_CONFIG_PATH = _CONFIG_DIR / "e5_experiment_config.json"
 _CONDITION_MANIFEST_PATH = _CONFIG_DIR / "e5_condition_manifest.json"
 _TEST_LOCK_PATH = _CONFIG_DIR / "e5_test_lock.json"
+_METRIC_SPEC_PATH = _CONFIG_DIR / "e5_metric_spec.json"
+
+# ---------------------------------------------------------------------------
+# Placeholder values that must never appear in authoritative artifacts
+# ---------------------------------------------------------------------------
+
+_FORBIDDEN_PLACEHOLDERS: frozenset[str] = frozenset({
+    "unknown", "missing", "", "from_calibration", "pending_calibration",
+})
+
+# ---------------------------------------------------------------------------
+# Test-access guard (§6)
+# ---------------------------------------------------------------------------
+
+
+class TestAccessError(RuntimeError):
+    """Raised when held-out test access is attempted without authorisation."""
+
+
+def require_test_access_started(
+    *,
+    lock_path: Path = _TEST_LOCK_PATH,
+) -> dict[str, Any]:
+    """Verify that held-out test access is properly authorised.
+
+    Checks:
+        1. e5_test_lock file exists
+        2. test_access_started == true
+        3. execution_commit is non-empty
+        4. config hashes are concrete and valid (not placeholders)
+
+    Raises:
+        TestAccessError: If any check fails.
+
+    Returns:
+        The parsed test-lock dict.
+    """
+    if not lock_path.exists():
+        raise TestAccessError(
+            f"Test lock file not found: {lock_path}. "
+            "Cannot proceed with held-out test access."
+        )
+
+    with open(lock_path) as f:
+        lock = json.load(f)
+
+    if not lock.get("test_access_started"):
+        raise TestAccessError(
+            "test_access_started is not true in the test lock. "
+            "Held-out test access is not authorised."
+        )
+
+    execution_commit = lock.get("execution_commit")
+    if not execution_commit:
+        raise TestAccessError(
+            "execution_commit is empty or missing in the test lock."
+        )
+
+    # Verify all hash fields are concrete (not placeholders)
+    hash_fields = [
+        "config_sha", "condition_manifest_sha", "embedding_manifest_sha",
+        "selected_config_sha", "metric_spec_sha",
+        "global_annotation_freeze_sha",
+    ]
+    for field in hash_fields:
+        value = lock.get(field, "")
+        if value in _FORBIDDEN_PLACEHOLDERS:
+            raise TestAccessError(
+                f"Test lock field {field!r} has placeholder value {value!r}. "
+                "Concrete hashes are required before test access."
+            )
+
+    return lock
+
+
+def require_phase_order(
+    *,
+    phase_path: Path | None = None,
+) -> dict[str, Any]:
+    """Load and return the phase status artifact (§71, §72).
+
+    Raises:
+        FileNotFoundError: If the phase file doesn't exist.
+    """
+    if phase_path is None:
+        phase_path = (
+            Path(__file__).resolve().parents[2]
+            / "results" / "empirical_v2" / "e5" / "e5_phase.json"
+        )
+    if not phase_path.exists():
+        raise FileNotFoundError(f"Phase file not found: {phase_path}")
+    with open(phase_path) as f:
+        return json.load(f)
+
+
+def assert_phase_transition(
+    phase: dict[str, Any],
+    target: str,
+) -> None:
+    """Assert that a phase transition is valid (§72).
+
+    Prevents invalid transitions:
+        - validation before calibration
+        - test lock before validation acceptance
+        - test evaluation before lock
+        - test freeze before evaluation
+        - E5 closure before freeze verification
+
+    Raises:
+        ValueError: If the transition is invalid.
+    """
+    guards = {
+        "development_calibration": [],
+        "validation": ["development_calibration_complete"],
+        "test_lock": ["validation_complete"],
+        "test_access": ["test_lock_complete"],
+        "test_evaluation": ["test_access_started"],
+        "test_freeze": ["test_evaluation_complete"],
+        "e5_closure": ["e5_frozen"],
+    }
+    prerequisites = guards.get(target, [])
+    for prereq in prerequisites:
+        if not phase.get(prereq):
+            raise ValueError(
+                f"Phase transition to {target!r} requires "
+                f"{prereq!r} to be true, but it is false."
+            )
+
 
 # ---------------------------------------------------------------------------
 # Frozen policy actions (plan §22)
@@ -176,6 +304,9 @@ class RowResult:
 
     Captures the firewall decision for one candidate under one condition.
     Labels are joined *after* execution (plan §30).
+
+    Decision provenance fields (§12) explain *why* the firewall made
+    its decision, enabling research auditability.
     """
 
     candidate_id: str
@@ -201,10 +332,20 @@ class RowResult:
     condition_manifest_sha: str
     embedding_model: str
 
+    # Decision provenance (§12)
+    decision_reason: str = ""
+    triggered_modules: tuple[str, ...] = ()
+    history_state_used: bool = False
+    reconstruction_guard_triggered: bool = False
+    purge_triggered: bool = False
+
 
 def row_result_to_dict(rr: RowResult) -> dict[str, Any]:
     """Serialise a RowResult to a plain dict."""
-    return asdict(rr)
+    d = asdict(rr)
+    # Convert tuple fields to lists for JSON
+    d["triggered_modules"] = list(d["triggered_modules"])
+    return d
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +374,7 @@ def build_condition_manifest(
                 "actions": list(FROZEN_POLICY_ACTIONS),
                 "rich_actions": spec.policy_rich_actions,
             },
-            "embedding_config_sha": E5_EMBEDDING_CONFIG_VERSION,
+            "embedding_config_version": E5_EMBEDDING_CONFIG_VERSION,
             "code_commit": code_commit,
         })
 
@@ -285,12 +426,17 @@ def _disabled_modules(spec: ConditionSpec) -> list[str]:
 
 
 def _thresholds(spec: ConditionSpec) -> dict[str, Any]:
-    """Thresholds relevant to this condition."""
+    """Thresholds relevant to this condition.
+
+    Before calibration, concrete placeholder values are used.
+    After calibration/lock (§47), these must be replaced with real values.
+    The ``require_test_access_started`` guard enforces this.
+    """
     t: dict[str, Any] = {}
     if spec.semantic_enabled:
-        t["semantic_threshold"] = "from_calibration"
+        t["semantic_threshold"] = "pending_calibration"
     if spec.history_enabled:
-        t["reconstruction_threshold"] = "from_calibration"
+        t["reconstruction_threshold"] = "pending_calibration"
     return t
 
 
@@ -327,7 +473,7 @@ def build_experiment_config(
             "version": _DETECTOR_VERSION,
         },
         "calibration": {
-            "semantic_threshold": dev_config.get("semantic_threshold", "from_calibration"),
+            "semantic_threshold": dev_config.get("semantic_threshold", "pending_calibration"),
             "selection_rule": dev_config.get("selection_rule", "min_recall_0.90_lowest_fbr"),
         },
         "conditions": {
@@ -366,10 +512,15 @@ def build_test_lock(
     *,
     code_commit: str = "unknown",
 ) -> dict[str, Any]:
-    """Build the test-access lock (plan §24).
+    """Build the test-access lock (plan §24, §49 repair).
 
     This must be committed *before* any test-split evaluation.
     ``test_access_started`` is initially false.
+
+    §49 requires these hash fields:
+        code_commit, config_sha, condition_manifest_sha,
+        embedding_manifest_sha, selected_config_sha,
+        metric_spec_sha, global_annotation_freeze_sha
     """
     # Compute SHAs of prerequisite artifacts
     config_sha = _sha_file(_EXPERIMENT_CONFIG_PATH)
@@ -381,6 +532,13 @@ def build_test_lock(
         / "results" / "empirical_v2" / "e5" / "embeddings" / "embedding_manifest.json"
     )
     embedding_sha = _sha_file(embedding_manifest)
+
+    # Selected calibration config SHA (§49)
+    selected_config = _CALIBRATION_DIR / "selected_config.json"
+    selected_config_sha = _sha_file(selected_config)
+
+    # Metric spec SHA (§30, §49)
+    metric_spec_sha = _sha_file(_METRIC_SPEC_PATH)
 
     # Annotation freeze SHA
     annotation_freeze = (
@@ -397,6 +555,8 @@ def build_test_lock(
         "config_sha": config_sha,
         "condition_manifest_sha": manifest_sha,
         "embedding_manifest_sha": embedding_sha,
+        "selected_config_sha": selected_config_sha,
+        "metric_spec_sha": metric_spec_sha,
         "global_annotation_freeze_sha": annotation_sha,
         "test_access_started": False,
         "test_access_started_at": None,
@@ -405,6 +565,55 @@ def build_test_lock(
 
     _TEST_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(_TEST_LOCK_PATH, "w") as f:
+        json.dump(lock, f, indent=2)
+        f.write("\n")
+
+    return lock
+
+
+def start_test_access(
+    *,
+    execution_commit: str,
+    lock_path: Path = _TEST_LOCK_PATH,
+) -> dict[str, Any]:
+    """Transition to official test access (§50).
+
+    At official test start, update ONLY the access state:
+        test_access_started = true
+        test_access_started_at = timestamp
+        execution_commit = exact committed code
+
+    Do NOT change scientific config at the same time.
+
+    Raises:
+        TestAccessError: If the lock file doesn't exist or access already started.
+        ValueError: If execution_commit is empty.
+
+    Returns:
+        The updated test-lock dict.
+    """
+    if not lock_path.exists():
+        raise TestAccessError(
+            f"Test lock file not found: {lock_path}. "
+            "Cannot start test access without a lock."
+        )
+    if not execution_commit:
+        raise ValueError("execution_commit must be a non-empty string.")
+
+    with open(lock_path) as f:
+        lock = json.load(f)
+
+    if lock.get("test_access_started"):
+        raise TestAccessError(
+            "test_access_started is already true. "
+            "Cannot start test access twice."
+        )
+
+    lock["test_access_started"] = True
+    lock["test_access_started_at"] = datetime.now(timezone.utc).isoformat()
+    lock["execution_commit"] = execution_commit
+
+    with open(lock_path, "w") as f:
         json.dump(lock, f, indent=2)
         f.write("\n")
 

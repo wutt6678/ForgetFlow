@@ -326,7 +326,17 @@ def build_ablation_table(
     Returns:
         Dict with ablation metrics and impacts.
     """
-    study = run_ablation_study(row_results, row_labels, corpus, tau_sem)
+    # Convert row_results list → features_by_id dict (§20-§26 new API)
+    features_by_id: dict[str, dict[str, Any]] = {}
+    for r in row_results:
+        cid = r["candidate_id"]
+        features_by_id[cid] = {
+            "exact_match": r.get("exact_match", False),
+            "alias_match": r.get("alias_match", False),
+            "semantic_similarity": r.get("semantic_similarity", 0.0),
+        }
+
+    study = run_ablation_study(features_by_id, row_labels, tau_sem=tau_sem)
     impacts = compute_ablation_impacts(study)
 
     return {

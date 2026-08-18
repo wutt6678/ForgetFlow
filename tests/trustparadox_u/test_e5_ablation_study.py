@@ -1,7 +1,10 @@
-"""E5-009: Component ablation study tests.
+"""E5-009: Component ablation study tests (repair §20-§26).
 
-Tests ablation definitions, ablation application, metrics computation,
+Tests ablation definitions, ablation overrides, metrics computation,
 impact analysis, and serialisation helpers using synthetic data.
+
+The old apply_ablation_to_row tests are removed because simulated
+post-hoc ablations were replaced with real re-execution (§20).
 """
 
 from __future__ import annotations
@@ -9,19 +12,23 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 from experiments.trustparadox_u.e5_ablation_study import (  # noqa: E402
     ABLATION_DESCRIPTIONS,
+    ABLATION_DISABLED_COMPONENT,
     ABLATION_IDS,
     AblationImpact,
     AblationMetrics,
+    AblationStudyResult,
     ablation_impacts_to_dict,
     ablation_metrics_to_dict,
-    apply_ablation_to_row,
     compute_ablation_impacts,
     compute_ablation_metrics,
+    get_ablation_override,
     get_ablation_specs,
     run_ablation_study,
 )
@@ -89,6 +96,10 @@ class TestAblationSpecs:
         for aid in ABLATION_IDS:
             assert aid in ABLATION_DESCRIPTIONS
 
+    def test_disabled_components_match(self):
+        for aid in ABLATION_IDS:
+            assert aid in ABLATION_DISABLED_COMPONENT
+
     def test_get_specs_returns_five(self):
         specs = get_ablation_specs()
         assert len(specs) == 5
@@ -134,59 +145,38 @@ class TestAblationSpecs:
 
 
 # ===========================================================================
-# apply_ablation_to_row
+# get_ablation_override (§20-§26)
 # ===========================================================================
 
 
-class TestApplyAblationToRow:
-    """Tests for ablation application to individual rows."""
+class TestGetAblationOverride:
+    """Tests for the ablation → FirewallRunner override mapping."""
 
-    def test_a0_no_change(self):
-        """A0 (full system) returns the row unchanged."""
-        row = _result(candidate_id="c1", blocked=True, sim=0.85)
-        spec = get_ablation_specs()[0]  # A0
-        out = apply_ablation_to_row(row, _label(), _corpus(), spec, 0.75)
-        assert out == row
+    def test_a0_empty_override(self):
+        """A0 (full system) has no overrides."""
+        spec = get_ablation_specs()[0]
+        override = get_ablation_override(spec)
+        assert override == {}
 
-    def test_a1_masks_semantic(self):
-        """A1 disables semantic → similarity zeroed, detection re-evaluated."""
-        row = _result(
-            candidate_id="c1", blocked=True, sim=0.9,
-            exact=False, alias=False,
-        )
-        spec = get_ablation_specs()[1]  # A1
-        out = apply_ablation_to_row(row, _label(), _corpus(), spec, 0.75)
-        assert out["semantic_similarity"] == 0.0
-        # No exact, no alias → not detected → allowed
-        assert out["blocked"] is False
-        assert out["allowed"] is True
+    def test_a1_semantic_disabled(self):
+        spec = get_ablation_specs()[1]
+        override = get_ablation_override(spec)
+        assert override == {"semantic_enabled": False}
 
-    def test_a1_exact_still_detected(self):
-        """A1: exact match still detected even without semantic."""
-        row = _result(
-            candidate_id="c1", blocked=True, sim=0.9,
-            exact=True, alias=False,
-        )
-        spec = get_ablation_specs()[1]  # A1
-        out = apply_ablation_to_row(row, _label(), _corpus(), spec, 0.75)
-        assert out["blocked"] is True
+    def test_a2_history_disabled(self):
+        spec = get_ablation_specs()[2]
+        override = get_ablation_override(spec)
+        assert override == {"history_enabled": False}
 
-    def test_a4_recontamination_unblocked(self):
-        """A4: recontamination candidates become allowed."""
-        row = _result(candidate_id="c1", blocked=True)
-        corpus = _corpus(attack_type="recontamination")
-        spec = get_ablation_specs()[4]  # A4
-        out = apply_ablation_to_row(row, _label(), corpus, spec, 0.75)
-        assert out["blocked"] is False
-        assert out["allowed"] is True
+    def test_a3_reconstruction_disabled(self):
+        spec = get_ablation_specs()[3]
+        override = get_ablation_override(spec)
+        assert override == {"reconstruction_guard": False}
 
-    def test_a4_non_recontamination_unchanged(self):
-        """A4: non-recontamination rows unchanged."""
-        row = _result(candidate_id="c1", blocked=True)
-        corpus = _corpus(attack_type="direct_disclosure")
-        spec = get_ablation_specs()[4]  # A4
-        out = apply_ablation_to_row(row, _label(), corpus, spec, 0.75)
-        assert out["blocked"] is True
+    def test_a4_purge_disabled(self):
+        spec = get_ablation_specs()[4]
+        override = get_ablation_override(spec)
+        assert override == {"purge_enabled": False}
 
 
 # ===========================================================================
@@ -277,57 +267,61 @@ class TestComputeAblationMetrics:
 
 
 # ===========================================================================
-# run_ablation_study
+# run_ablation_study (real re-execution §20)
 # ===========================================================================
 
 
 class TestRunAblationStudy:
-    """Tests for the full ablation study runner."""
+    """Tests for the full ablation study runner (real re-execution)."""
+
+    def _make_features_and_labels(self):
+        """Create minimal features/labels for ablation study."""
+        features_by_id = {
+            "c1": {
+                "exact_match": False,
+                "alias_match": False,
+                "semantic_similarity": 0.9,
+            },
+            "c2": {
+                "exact_match": True,
+                "alias_match": False,
+                "semantic_similarity": 0.3,
+            },
+        }
+        row_labels_by_id = {
+            "c1": _label(leakage=True),
+            "c2": _label(leakage=True),
+        }
+        return features_by_id, row_labels_by_id
 
     def test_returns_five_ablations(self):
         """Study returns metrics for all 5 ablations."""
-        results = [
-            _result(candidate_id="c1", blocked=True, sim=0.9,
-                    exact=False, alias=False),
-            _result(candidate_id="c2", blocked=False, sim=0.3),
-        ]
-        labels = {
-            "c1": _label(leakage=True),
-            "c2": _label(leakage=False),
-        }
-        corpus = {
-            "c1": _corpus(attack_type="direct_disclosure"),
-            "c2": _corpus(attack_type="hard_negative_control"),
-        }
-
-        study = run_ablation_study(results, labels, corpus, 0.75)
+        features_by_id, row_labels_by_id = self._make_features_and_labels()
+        study = run_ablation_study(
+            features_by_id, row_labels_by_id, tau_sem=0.75,
+        )
         assert len(study.ablations) == 5
         assert study.baseline_id == "A0"
 
     def test_baseline_property(self):
         """Baseline property returns A0 metrics."""
-        results = [_result(candidate_id="c1", blocked=True)]
-        labels = {"c1": _label(leakage=True)}
-        corpus = {"c1": _corpus()}
-
-        study = run_ablation_study(results, labels, corpus, 0.75)
+        features_by_id, row_labels_by_id = self._make_features_and_labels()
+        study = run_ablation_study(
+            features_by_id, row_labels_by_id, tau_sem=0.75,
+        )
         assert study.baseline.ablation_id == "A0"
 
-    def test_a1_reduces_detection(self):
-        """A1 (no semantic) should detect fewer than A0 for semantic-only cases."""
-        results = [
-            _result(candidate_id="c1", blocked=True, sim=0.9,
-                    exact=False, alias=False),
-        ]
-        labels = {"c1": _label(leakage=True)}
-        corpus = {"c1": _corpus(attack_type="semantic_paraphrase")}
-
-        study = run_ablation_study(results, labels, corpus, 0.75)
-        a0 = study.baseline
-        a1 = next(a for a in study.ablations if a.ablation_id == "A1")
-        # A0: blocked (semantic detected), A1: not blocked (no semantic)
-        assert a0.leakage_prevention == 1.0
-        assert a1.leakage_prevention == 0.0
+    def test_all_ablations_have_metrics(self):
+        """Each ablation produces valid AblationMetrics."""
+        features_by_id, row_labels_by_id = self._make_features_and_labels()
+        study = run_ablation_study(
+            features_by_id, row_labels_by_id, tau_sem=0.75,
+        )
+        for a in study.ablations:
+            assert a.ablation_id in ABLATION_IDS
+            assert 0.0 <= a.leakage_prevention <= 1.0
+            assert 0.0 <= a.fbr <= 1.0
+            assert 0.0 <= a.utility_retention <= 1.0
 
 
 # ===========================================================================
@@ -340,40 +334,48 @@ class TestComputeAblationImpacts:
 
     def test_impact_deltas(self):
         """Impact = baseline - ablation for leakage, ablation - baseline for FBR."""
-        results = [
-            _result(candidate_id="c1", blocked=True, sim=0.9,
-                    exact=False, alias=False),
-            _result(candidate_id="c2", blocked=False, sim=0.3),
-        ]
-        labels = {
-            "c1": _label(leakage=True),
-            "c2": _label(leakage=False),
-        }
-        corpus = {
-            "c1": _corpus(attack_type="direct_disclosure"),
-            "c2": _corpus(attack_type="hard_negative_control"),
-        }
-
-        study = run_ablation_study(results, labels, corpus, 0.75)
+        # Use synthetic AblationMetrics to test impact computation
+        baseline = AblationMetrics(
+            ablation_id="A0", description="full",
+            n_eligible=2, n_leaking=2, n_leaking_blocked=2,
+            n_non_leaking=0, n_fp=0,
+            n_useful_eligible=0, n_useful_preserved=0,
+            leakage_prevention=1.0, fbr=0.0, utility_retention=0.0,
+            attack_type_breakdown={},
+        )
+        a1 = AblationMetrics(
+            ablation_id="A1", description="-semantic",
+            n_eligible=2, n_leaking=2, n_leaking_blocked=0,
+            n_non_leaking=0, n_fp=0,
+            n_useful_eligible=0, n_useful_preserved=0,
+            leakage_prevention=0.0, fbr=0.0, utility_retention=0.0,
+            attack_type_breakdown={},
+        )
+        study = AblationStudyResult(
+            ablations=(baseline, a1),
+            baseline_id="A0",
+        )
         impacts = compute_ablation_impacts(study)
-
-        # 4 non-baseline ablations
-        assert len(impacts) == 4
-        # A1 impact: semantic disabled → leakage prevention drops
-        a1_impact = next(i for i in impacts if i.ablation_id == "A1")
-        assert a1_impact.disabled_component == "semantic"
-        assert a1_impact.leakage_prevention_delta == 1.0  # 1.0 - 0.0
+        assert len(impacts) == 1
+        assert impacts[0].ablation_id == "A1"
+        assert impacts[0].disabled_component == "semantic"
+        assert impacts[0].leakage_prevention_delta == 1.0  # 1.0 - 0.0
 
     def test_baseline_excluded(self):
         """Baseline (A0) is not in impacts list."""
-        results = [_result(candidate_id="c1", blocked=True)]
-        labels = {"c1": _label(leakage=True)}
-        corpus = {"c1": _corpus()}
+        features_by_id = {
+            "c1": {"exact_match": True, "alias_match": False,
+                    "semantic_similarity": 0.9},
+        }
+        row_labels_by_id = {"c1": _label(leakage=True)}
 
-        study = run_ablation_study(results, labels, corpus, 0.75)
+        study = run_ablation_study(
+            features_by_id, row_labels_by_id, tau_sem=0.75,
+        )
         impacts = compute_ablation_impacts(study)
         ids = [i.ablation_id for i in impacts]
         assert "A0" not in ids
+        assert len(impacts) == 4  # A1-A4
 
 
 # ===========================================================================

@@ -10,6 +10,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -50,6 +52,8 @@ def _step(
     *,
     detected: bool = False,
     sim: float = 0.0,
+    recon_guard: bool = False,
+    recon_score: float = 0.0,
 ) -> StepDecision:
     return StepDecision(
         step_index=idx,
@@ -59,6 +63,8 @@ def _step(
         semantic_similarity=sim,
         detected=detected,
         policy_action="block" if detected else "allow",
+        reconstruction_guard_result=recon_guard,
+        reconstruction_score=recon_score,
     )
 
 
@@ -94,24 +100,33 @@ class TestPredictSequenceReconstruction:
         assert strength == 0.0
 
     def test_one_undetected_reconstructs(self):
-        """One undetected step → reconstruction."""
-        steps = [_step(0, "a", detected=True), _step(1, "b", detected=False)]
+        """One undetected step with reconstruction guard → reconstruction."""
+        steps = [
+            _step(0, "a", detected=True),
+            _step(1, "b", detected=False, recon_guard=True, recon_score=0.5),
+        ]
         recon, earliest, strength = predict_sequence_reconstruction(steps)
         assert recon is True
         assert earliest == 1
         assert strength == 0.5
 
     def test_first_step_undetected(self):
-        """First step undetected → earliest = 0."""
-        steps = [_step(0, "a", detected=False), _step(1, "b", detected=True)]
+        """First step undetected with guard → earliest = 0."""
+        steps = [
+            _step(0, "a", detected=False, recon_guard=True, recon_score=0.5),
+            _step(1, "b", detected=True),
+        ]
         recon, earliest, strength = predict_sequence_reconstruction(steps)
         assert recon is True
         assert earliest == 0
         assert strength == 0.5
 
     def test_all_undetected(self):
-        """All undetected → full reconstruction."""
-        steps = [_step(0, "a", detected=False), _step(1, "b", detected=False)]
+        """All undetected with guard → full reconstruction."""
+        steps = [
+            _step(0, "a", detected=False, recon_guard=True, recon_score=0.8),
+            _step(1, "b", detected=False, recon_guard=True, recon_score=1.0),
+        ]
         recon, earliest, strength = predict_sequence_reconstruction(steps)
         assert recon is True
         assert earliest == 0
@@ -134,39 +149,40 @@ class TestReplaySequence:
     """Tests for step-by-step sequence replay."""
 
     def test_basic_replay(self):
-        """Replay with mixed detection."""
+        """Replay with mixed detection and reconstruction."""
         features = {
             "a": _feat("a", exact=True, sim=0.9),
-            "b": _feat("b", sim=0.3),
+            "b": _feat("b", sim=0.6),
+            "c": _feat("c", sim=0.7),
         }
         result = replay_sequence(
             sequence_annotation_id="seq-001",
-            ordered_candidate_ids=("a", "b"),
+            ordered_candidate_ids=("a", "b", "c"),
             trust_level="default",
             condition_id="C4",
             features_by_id=features,
             tau_sem=0.75,
         )
         assert result.sequence_annotation_id == "seq-001"
-        assert len(result.step_decisions) == 2
+        assert len(result.step_decisions) == 3
         assert result.step_decisions[0].detected is True
         assert result.step_decisions[1].detected is False
+        assert result.step_decisions[2].detected is False
+        # 2 delivered steps with sem evidence >= 0.5 → reconstruction guard
         assert result.predicted_sequence_reconstruction is True
-        assert result.predicted_earliest_reconstruction_step == 1
+        assert result.predicted_earliest_reconstruction_step == 2
 
-    def test_missing_features_conservative(self):
-        """Missing features → treated as undetected."""
-        result = replay_sequence(
-            sequence_annotation_id="seq-002",
-            ordered_candidate_ids=("missing",),
-            trust_level="low",
-            condition_id="C0",
-            features_by_id={},
-            tau_sem=0.75,
-        )
-        assert len(result.step_decisions) == 1
-        assert result.step_decisions[0].detected is False
-        assert result.step_decisions[0].policy_action == "allow"
+    def test_missing_features_fail_closed(self):
+        """Missing features → ValueError (§37 fail closed)."""
+        with pytest.raises(ValueError, match="Missing features"):
+            replay_sequence(
+                sequence_annotation_id="seq-002",
+                ordered_candidate_ids=("missing",),
+                trust_level="low",
+                condition_id="C0",
+                features_by_id={},
+                tau_sem=0.75,
+            )
 
     def test_all_detected_no_reconstruction(self):
         """All candidates detected → no reconstruction."""
@@ -211,19 +227,20 @@ class TestSequenceResultSerialisation:
         """Serialisation includes all key fields."""
         result = replay_sequence(
             sequence_annotation_id="seq-010",
-            ordered_candidate_ids=("x", "y"),
+            ordered_candidate_ids=("x", "y", "z"),
             trust_level="default",
             condition_id="C4",
             features_by_id={
                 "x": _feat("x", exact=True, sim=0.9),
-                "y": _feat("y", sim=0.3),
+                "y": _feat("y", sim=0.6),
+                "z": _feat("z", sim=0.7),
             },
             tau_sem=0.75,
         )
         d = sequence_result_to_dict(result)
         assert d["sequence_annotation_id"] == "seq-010"
         assert isinstance(d["ordered_candidate_ids"], list)
-        assert len(d["step_decisions"]) == 2
+        assert len(d["step_decisions"]) == 3
         assert d["predicted_sequence_reconstruction"] is True
 
 
@@ -384,9 +401,9 @@ class TestEvaluateSequences:
         labels = [
             _FakeSeqLabel(
                 sequence_annotation_id="s1",
-                ordered_candidate_ids=("a", "b"),
+                ordered_candidate_ids=("a", "b", "b2"),
                 final_sequence_reconstructs_target=True,
-                final_earliest_reconstruction_step=1,
+                final_earliest_reconstruction_step=2,
                 trust_level="default",
             ),
             _FakeSeqLabel(
@@ -398,13 +415,14 @@ class TestEvaluateSequences:
         ]
         features = {
             "a": _feat("a", exact=True, sim=0.9),
-            "b": _feat("b", sim=0.3),
+            "b": _feat("b", sim=0.6),
+            "b2": _feat("b2", sim=0.7),
             "c": _feat("c", exact=True, sim=0.95),
             "d": _feat("d", alias=True, sim=0.88),
         }
         results = evaluate_sequences(labels, features, tau_sem=0.75)
         assert len(results) == 2
-        # s1: one undetected → reconstructs
+        # s1: 2 undetected with sem evidence → reconstruction guard triggers
         assert results[0].predicted_sequence_reconstruction is True
         assert results[0].final_sequence_reconstructs_target is True
         # s2: all detected → no reconstruction
@@ -435,7 +453,9 @@ class TestEvaluateSequences:
                 final_reconstruction_strength="strong",
             ),
         ]
-        results = evaluate_sequences(labels, {}, tau_sem=0.75)
+        results = evaluate_sequences(
+            labels, {"a": _feat("a", sim=0.3)}, tau_sem=0.75,
+        )
         assert results[0].final_sequence_reconstructs_target is True
         assert results[0].final_earliest_reconstruction_step == 0
         assert results[0].final_reconstruction_strength == "strong"

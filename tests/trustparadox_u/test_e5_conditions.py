@@ -238,7 +238,7 @@ class TestBuildConditionManifest:
             assert "disabled_modules" in entry
             assert "thresholds" in entry
             assert "policy_rules" in entry
-            assert "embedding_config_sha" in entry
+            assert "embedding_config_version" in entry
             assert "code_commit" in entry
 
     def test_manifest_c0_no_modules(self):

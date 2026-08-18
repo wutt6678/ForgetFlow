@@ -242,14 +242,17 @@ class TestComputeRowMetrics:
         m2 = compute_row_metrics(features, labels, tau_sem=0.76)
         assert m2.counts.fn == 1  # not detected at higher threshold
 
-    def test_leakage_none_treated_as_false(self):
-        """Resolved row with final_target_leakage=None → treated as False."""
+    def test_leakage_none_excluded_from_metric(self):
+        """Resolved row with final_target_leakage=None → excluded (§39)."""
         features = [_feat("a", exact=True, sim=0.9)]
         labels = {
             "a": _FakeRowLabel("a", final_target_leakage=None, final_task_useful=True),
         }
         m = compute_row_metrics(features, labels, tau_sem=0.75)
-        assert m.counts.fp == 1  # None → not leaking → FP
+        # None → excluded from leakage metric, not treated as FP
+        assert m.n_eligible == 0
+        assert m.n_unresolved_excluded == 1  # excluded due to field-None
+        assert m.counts.fp == 0
 
 
 # ===========================================================================

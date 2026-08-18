@@ -1,7 +1,8 @@
-"""E5-009: Component ablation study (Iteration 10).
+"""E5-009: Component ablation study (Iteration 10 + repair).
 
-Defines four component ablations plus the full-system baseline and
-computes per-ablation metrics to quantify each component's contribution.
+Defines four component ablations plus the full-system baseline.
+Each ablation reruns the canonical firewall with exactly one component
+disabled (§20-§26 repair).
 
 Plan references:
     §55  component ablations
@@ -12,9 +13,16 @@ Plan references:
 Ablation set:
     A0  Full ForgetFlow (baseline)
     A1  − Semantic detector
-    A2  − Recipient/history-aware state (ForgetGraph)
-    A3  − ReconstructGuard
-    A4  − Purge/recontamination handling
+    A2  − Recipient/history-aware state (ForgetGraph → RecipientHistory)
+    A3  − ReconstructGuard (→ ReconstructionChecker)
+    A4  − Purge/recontamination handling (→ ContaminationTracker)
+
+Repair constraints (§20-§26):
+    All ablations rerun the canonical firewall, not post-hoc modification.
+    Attack labels are NOT used as runtime inputs (§23).
+    A2 actually disables history state (§24).
+    A3 actually disables reconstruction guard (§25).
+    A4 actually disables purge state management (§26).
 
 Exit criteria (plan §115):
     four core ablations complete
@@ -121,60 +129,81 @@ def get_ablation_specs() -> list[AblationSpec]:
 
 
 # ---------------------------------------------------------------------------
-# Apply ablation to row results (plan §56)
+# Real ablation execution via FirewallRunner (§20-§26)
 # ---------------------------------------------------------------------------
 
 
-def apply_ablation_to_row(
-    row_result: dict[str, Any],
-    row_label: dict[str, Any],
-    corpus: dict[str, Any],
-    spec: AblationSpec,
-    tau_sem: float,
-) -> dict[str, Any]:
-    """Apply one ablation to a single row result.
+def get_ablation_override(spec: AblationSpec) -> dict[str, bool]:
+    """Convert an AblationSpec to a FirewallRunner ablation_override dict.
 
-    Modifies detection outcome based on which component is disabled.
-    The ablation simulates what would happen if that component were absent.
+    This maps the ablation's disabled component to the corresponding
+    FirewallRunnerConfig flag override.
+    """
+    override: dict[str, bool] = {}
+    if not spec.semantic_enabled:
+        override["semantic_enabled"] = False
+    if not spec.history_enabled:
+        override["history_enabled"] = False
+    if not spec.reconstruction_guard:
+        override["reconstruction_guard"] = False
+    if not spec.purge_enabled:
+        override["purge_enabled"] = False
+    return override
+
+
+def run_ablation_via_firewall(
+    spec: AblationSpec,
+    features_by_id: dict[str, dict[str, Any]],
+    row_labels_by_id: dict[str, dict[str, Any]],
+    *,
+    tau_sem: float,
+    reconstruction_threshold: float = 0.60,
+    episode_metadata: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Run one ablation by re-executing the canonical firewall (§20).
+
+    Creates a FirewallRunner with the ablation's component disabled
+    and processes every candidate through it.  This is a REAL re-execution,
+    not a post-hoc modification of row outputs.
 
     Args:
-        row_result: Original row result dict from full system (A0).
-        row_label: Label dict with final_target_leakage, etc.
-        corpus: Corpus dict with attack_type, etc.
         spec: Ablation specification.
+        features_by_id: Pre-computed detector features.
+        row_labels_by_id: candidate_id -> label dict.
         tau_sem: Frozen semantic threshold.
+        reconstruction_threshold: Frozen reconstruction threshold.
+        episode_metadata: Fragment maps and fact chains.
 
     Returns:
-        Modified row result dict reflecting the ablation.
+        List of row result dicts from the ablated firewall run.
     """
-    result = dict(row_result)
+    from .e5_firewall_runner import create_firewall_runner
 
-    if spec.disabled_component is None:
-        # A0: full system, no modification
-        return result
+    override = get_ablation_override(spec)
+    runner = create_firewall_runner(
+        condition_id="C4",  # All ablations start from C4 config
+        semantic_threshold=tau_sem,
+        reconstruction_threshold=reconstruction_threshold,
+        episode_metadata=episode_metadata,
+        ablation_override=override if override else None,
+    )
 
-    if spec.disabled_component == "semantic":
-        # A1: disable semantic detector → mask semantic similarity
-        result["semantic_similarity"] = 0.0
-        # Re-evaluate detection without semantic
-        exact = result.get("exact_match", False)
-        alias = result.get("alias_match", False)
-        detected = exact or alias
-        result["blocked"] = detected
-        result["allowed"] = not detected
-        result["policy_action"] = "block" if detected else "allow"
+    results: list[dict[str, Any]] = []
+    for cid, features in sorted(features_by_id.items()):
+        label = row_labels_by_id.get(cid, {})
+        er = runner.process_row(
+            candidate_id=cid,
+            scenario_id=label.get("scenario_id", ""),
+            trust_level=label.get("trust_level", "default"),
+            features=features,
+            split=label.get("split", "development"),
+            input_content_sha=features.get("content_sha256", ""),
+            recipient_id=label.get("recipient_id", "default"),
+        )
+        from .e5_firewall_runner import extended_result_to_dict
+        results.append(extended_result_to_dict(er))
 
-    elif spec.disabled_component == "purge":
-        # A4: disable purge/recontamination handling
-        # Recontamination attacks lose their special handling →
-        # recontamination candidates that were blocked become allowed
-        attack_type = corpus.get("attack_type", "")
-        if attack_type == "recontamination":
-            result["blocked"] = False
-            result["allowed"] = True
-            result["policy_action"] = "allow"
-
-    return result
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -354,20 +383,24 @@ class AblationStudyResult:
 
 
 def run_ablation_study(
-    baseline_row_results: list[dict[str, Any]],
+    features_by_id: dict[str, dict[str, Any]],
     row_labels_by_id: dict[str, dict[str, Any]],
-    corpus_by_id: dict[str, dict[str, Any]],
+    *,
     tau_sem: float,
+    reconstruction_threshold: float = 0.60,
+    episode_metadata: dict[str, Any] | None = None,
 ) -> AblationStudyResult:
-    """Run the full ablation study (plan §55-§57).
+    """Run the full ablation study via real re-execution (§20-§26).
 
-    Applies each ablation to the baseline results and computes metrics.
+    Each ablation reruns the canonical firewall with one component
+    disabled.  Attack labels are NOT used as runtime inputs (§23).
 
     Args:
-        baseline_row_results: Row results from full system (A0/C4).
-        row_labels_by_id: candidate_id → label dict.
-        corpus_by_id: candidate_id → corpus dict.
+        features_by_id: Pre-computed detector features.
+        row_labels_by_id: candidate_id -> label dict.
         tau_sem: Frozen semantic threshold.
+        reconstruction_threshold: Frozen reconstruction threshold.
+        episode_metadata: Fragment maps and fact chains.
 
     Returns:
         AblationStudyResult with metrics for all ablations.
@@ -376,16 +409,21 @@ def run_ablation_study(
     ablations: list[AblationMetrics] = []
 
     for spec in specs:
-        # Apply ablation to each row
-        ablated_results = []
-        for row_result in baseline_row_results:
-            cid = row_result["candidate_id"]
-            label = row_labels_by_id.get(cid, {})
-            corpus = corpus_by_id.get(cid, {})
-            ablated = apply_ablation_to_row(
-                row_result, label, corpus, spec, tau_sem
-            )
-            ablated_results.append(ablated)
+        # Real re-execution via FirewallRunner (§20)
+        ablated_results = run_ablation_via_firewall(
+            spec=spec,
+            features_by_id=features_by_id,
+            row_labels_by_id=row_labels_by_id,
+            tau_sem=tau_sem,
+            reconstruction_threshold=reconstruction_threshold,
+            episode_metadata=episode_metadata,
+        )
+
+        # Build corpus_by_id from labels (no attack_type injection)
+        corpus_by_id = {
+            cid: {"attack_type": label.get("attack_type", "unknown")}
+            for cid, label in row_labels_by_id.items()
+        }
 
         metrics = compute_ablation_metrics(
             ablated_results=ablated_results,

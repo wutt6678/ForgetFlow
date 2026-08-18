@@ -8,8 +8,9 @@ follows a strict protocol: frozen E4 annotations, real embeddings,
 development calibration, validation confirmation, test freeze, and
 held-out test evaluation with zero post-test tuning.
 
-This report documents the complete E5 evaluation pipeline, from
-embedding provenance through final closure.
+This report documents the E5 evaluation pipeline scaffold, from
+embedding provenance through the planned closure workflow.
+**Empirical experiments have not yet been run.**
 
 ## 2. Frozen E4 Inputs
 
@@ -37,7 +38,7 @@ pair. Embeddings are computed once and cached to ensure reproducibility.
 
 ## 4. Calibration Protocol (Development Split)
 
-The development split was used to:
+The development split will be used to:
 
 1. Calibrate the semantic similarity threshold τ_sem
 2. Verify detector feature extraction (exact, alias, semantic)
@@ -50,21 +51,20 @@ Threshold selection rule (plan §11.2):
 
 ## 5. Validation Confirmation
 
-The validation split confirmed that the development-calibrated
-configuration generalises without modification. No parameter changes
-were made after validation.
+The validation split will confirm that the development-calibrated
+configuration generalises without modification.
 
 ## 6. Held-Out Test Lock
 
-Before any test evaluation, the experimental configuration was frozen:
+Before any test evaluation, the experimental configuration will be frozen:
 
-- **τ_sem = 0.75** (frozen from calibration)
-- **Random seed = 42** (for bootstrap and statistical tests)
+- **τ_sem**: to be determined by calibration
+- **Random seed**: 42 (for bootstrap and statistical tests)
 - **Test split**: `data/trustparadox_u/splits/test.jsonl`
 - **Conditions**: C0 (no firewall), C1 (exact only), C2 (+alias),
   C3 (+semantic), C4 (full ForgetFlow)
 
-The test freeze manifest records file hashes and configuration to
+The test freeze manifest will record file hashes and configuration to
 detect any post-hoc changes.
 
 ## 7. Experimental Conditions
@@ -262,27 +262,46 @@ checksums file.
 
 ## 19. Final E5 Closure Status
 
+> **E5 IMPLEMENTATION SCAFFOLD COMPLETE**
+> **EMPIRICAL E5 EXPERIMENTS NOT YET RUN**
+
+The current status reflects completed implementation scaffold only.
+No held-out test evaluation, calibration, or validation has been executed.
+
 | Criterion | Status |
 |-----------|--------|
 | E4 annotation root unchanged | PASS |
-| Real embedding provenance complete | PASS |
-| Development calibration complete | PASS |
-| Validation confirmation complete | PASS |
-| Test configuration frozen | PASS |
-| Held-out test evaluation complete | PASS |
-| Zero post-test tuning | PASS |
-| Primary metrics complete | PASS |
-| Attack analysis complete | PASS |
-| Trust analysis complete | PASS |
-| Utility analysis complete | PASS |
-| Sequence analysis complete | PASS |
-| Core ablations complete | PASS |
-| Core hyperparameter study complete | PASS |
-| Statistical uncertainty complete | PASS |
-| Test freeze verifier | PASS |
-| Final report complete | PASS |
+| Real embedding provenance (smoke) | PASS (10-item smoke) |
+| Full development embeddings | NOT RUN |
+| Development calibration | NOT RUN |
+| Validation confirmation | NOT RUN |
+| Test configuration frozen | NOT CREATED |
+| Held-out test evaluation | NOT RUN |
+| Zero post-test tuning | NOT VERIFIED |
+| Primary metrics | NOT COMPUTED |
+| Attack analysis | NOT COMPUTED |
+| Trust analysis | NOT COMPUTED |
+| Utility analysis | NOT COMPUTED |
+| Sequence analysis | NOT COMPUTED |
+| Core ablations | NOT COMPUTED |
+| Core hyperparameter study | NOT COMPUTED |
+| Statistical uncertainty | NOT COMPUTED |
+| Test freeze verifier | NOT RUN |
+| Final report | NOT COMPLETE |
 
-**E5 CLOSED: YES**
+**E5 CLOSED: NO**
+
+### Required truth
+
+- E5 preflight: PASS
+- Real embedding smoke: PASS (10 texts, 1 API call)
+- Full development embeddings: NOT RUN
+- Development calibration: NOT RUN
+- Validation: NOT RUN
+- Held-out test access: NOT STARTED
+- Held-out test evaluation: NOT RUN
+- E5 test freeze: NOT CREATED
+- E5 CLOSED: NO
 
 ### Implementation Summary
 

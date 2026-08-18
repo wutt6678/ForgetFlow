@@ -11,6 +11,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -316,21 +318,21 @@ class TestEvaluateRow:
         assert result.blocked is False
         assert result.policy_action == "allow"
 
-    def test_missing_features(self):
-        """Missing features → not detected → allow."""
+    def test_missing_features_fail_closed(self):
+        """Missing features → ValueError (§36-§37 fail closed)."""
         row = _FakeRowLabel(candidate_id="c3")
         corpus = _FakeCorpus(candidate_id="c3")
         features = {}
 
-        result = evaluate_row(
-            row_label=row,
-            corpus=corpus,
-            features=features,
-            condition=CONDITIONS["C4"],
-            tau_sem=0.75,
-            split="test",
-        )
-        assert result.allowed is True
+        with pytest.raises(ValueError, match="Missing features"):
+            evaluate_row(
+                row_label=row,
+                corpus=corpus,
+                features=features,
+                condition=CONDITIONS["C4"],
+                tau_sem=0.75,
+                split="test",
+            )
 
 
 # ===========================================================================

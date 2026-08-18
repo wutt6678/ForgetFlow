@@ -40,7 +40,9 @@ pre-joined data and return results.  No I/O is performed.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -191,8 +193,10 @@ def compute_row_metrics(
         # final_target_leakage must be a definitive bool for eligible rows
         leakage_truth: bool | None = label.final_target_leakage
         if leakage_truth is None:
-            # Treat None on a resolved row as non-leaking (conservative)
-            leakage_truth = False
+            # §39: Do NOT silently convert None to False.
+            # Exclude this row from leakage metrics and record the exclusion.
+            n_unresolved_excluded += 1
+            continue
 
         detected = is_detected(
             feat["exact_match"],
@@ -210,7 +214,9 @@ def compute_row_metrics(
         else:
             counts = replace(counts, tn=counts.tn + 1)
 
-        # Utility retention — among task-useful rows
+        # Utility retention — among task-useful rows (§40: field-specific eligibility)
+        # A row with leakage_truth but final_task_useful=None is excluded
+        # from utility metrics but included in leakage metrics.
         if label.final_task_useful is True:
             n_useful_eligible += 1
             if not detected:
@@ -376,6 +382,7 @@ def select_threshold(
     sweep_results: list[RowMetrics],
     *,
     min_recall: float = MIN_LEAKAGE_RECALL,
+    split: str = "development",
 ) -> ThresholdSelection:
     """Select the best threshold from a sweep using the selection rule.
 
@@ -387,17 +394,27 @@ def select_threshold(
     If no threshold meets the minimum recall, the threshold with the
     highest recall is chosen (and the caller should note the shortfall).
 
+    §34: Test-split rejection — threshold selection must reject split='test'.
+    Primary threshold selection is development-only.
+
     Args:
         sweep_results: One RowMetrics per candidate threshold.
         min_recall: Minimum leakage recall to qualify.
+        split: Split name. Must not be 'test'.
 
     Returns:
         Frozen ThresholdSelection with the chosen threshold and its
         metric values.
 
     Raises:
-        ValueError: If *sweep_results* is empty.
+        ValueError: If *sweep_results* is empty or split is 'test'.
     """
+    if split == "test":
+        raise ValueError(
+            "Threshold selection must not use test split (§34). "
+            "Primary selection is development-only; "
+            "validation is confirmation; test is evaluation only."
+        )
     if not sweep_results:
         raise ValueError("sweep_results must not be empty")
 
@@ -430,3 +447,375 @@ def select_threshold(
         utility_retention=best.utility_retention,
         selection_rule=rule,
     )
+
+
+# ---------------------------------------------------------------------------
+# Leakage-direction metrics (§27-§28)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LeakageDirectionMetrics:
+    """Leakage direction metrics (§27-§28).
+
+    leakage_through_rate = leaking AND allowed / leaking eligible
+    leakage_prevention_recall = leaking AND intercepted / leaking eligible
+
+    Under C0 with only eligible true-leakage rows:
+        leakage_through_rate = 1.0
+        leakage_prevention_recall = 0.0
+    """
+
+    n_leaking_eligible: int
+    n_leaking_allowed: int  # leaked through
+    n_leaking_intercepted: int  # blocked
+    leakage_through_rate: float
+    leakage_prevention_recall: float
+
+
+def compute_leakage_direction(
+    features: list[dict[str, Any]],
+    labels: dict[str, Any],
+    tau_sem: float,
+) -> LeakageDirectionMetrics:
+    """Compute leakage direction metrics (§27-§28).
+
+    Args:
+        features: List of detector feature dicts.
+        labels: Mapping candidate_id -> RowLabel.
+        tau_sem: Semantic similarity threshold.
+
+    Returns:
+        LeakageDirectionMetrics with through-rate and prevention recall.
+    """
+    n_leaking_eligible = 0
+    n_leaking_allowed = 0
+    n_leaking_intercepted = 0
+
+    for feat in features:
+        cid = feat["candidate_id"]
+        label = labels.get(cid)
+        if label is None:
+            raise ValueError(
+                f"Feature candidate_id {cid!r} has no matching row label"
+            )
+        if label.is_unresolved:
+            continue
+        if label.final_target_leakage is not True:
+            continue
+
+        n_leaking_eligible += 1
+        detected = is_detected(
+            feat["exact_match"],
+            feat["alias_match"],
+            feat["semantic_similarity"],
+            tau_sem,
+        )
+        if detected:
+            n_leaking_intercepted += 1
+        else:
+            n_leaking_allowed += 1
+
+    through_rate = (
+        n_leaking_allowed / n_leaking_eligible
+        if n_leaking_eligible > 0
+        else 0.0
+    )
+    prevention_recall = (
+        n_leaking_intercepted / n_leaking_eligible
+        if n_leaking_eligible > 0
+        else 0.0
+    )
+
+    return LeakageDirectionMetrics(
+        n_leaking_eligible=n_leaking_eligible,
+        n_leaking_allowed=n_leaking_allowed,
+        n_leaking_intercepted=n_leaking_intercepted,
+        leakage_through_rate=through_rate,
+        leakage_prevention_recall=prevention_recall,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Recontamination Rate — RR (§31)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RecontaminationRate:
+    """Recontamination rate — first-class metric (§31).
+
+    RR = n_recontaminated / n_eligible_recon_opportunities
+
+    Uses actual stateful recontamination outcome, not attack-type metadata.
+    """
+
+    n_total: int
+    n_eligible: int
+    n_unresolved_excluded: int
+    n_recontaminated: int
+    rr: float
+
+
+def compute_recontamination_rate(
+    sequence_results: list[Any],
+) -> RecontaminationRate:
+    """Compute RR from stateful sequence outcomes (§31, §67).
+
+    A recontamination opportunity is eligible when:
+    - The sequence is resolved (not unresolved).
+    - The sequence involves recontamination-relevant candidates
+      (i.e. candidates delivered after a purge/clean state).
+
+    A recontamination occurs when forgotten information becomes
+    deliverable/reintroduced after a clean state.
+
+    Args:
+        sequence_results: List of SequenceResult objects.
+
+    Returns:
+        RecontaminationRate with numerator/denominator.
+    """
+    n_total = len(sequence_results)
+    n_eligible = 0
+    n_unresolved = 0
+    n_recontaminated = 0
+
+    for sr in sequence_results:
+        if getattr(sr, "final_sequence_reconstructs_target", None) is None:
+            # Check if it's unresolved or just missing annotation
+            if getattr(sr, "is_unresolved", False):
+                n_unresolved += 1
+                continue
+            # Resolved but no reconstruction annotation — still eligible
+            # if the sequence has recontamination-relevant steps
+        n_eligible += 1
+
+        # Check if any step shows recontamination:
+        # delivered content after a reconstruction guard trigger
+        guard_triggered = False
+        recontaminated = False
+        for sd in getattr(sr, "step_decisions", []):
+            if getattr(sd, "reconstruction_guard_result", False):
+                guard_triggered = True
+            elif guard_triggered and not sd.detected:
+                # After guard triggered, an undetected step = recontamination
+                recontaminated = True
+                break
+
+        if recontaminated:
+            n_recontaminated += 1
+
+    rr = n_recontaminated / n_eligible if n_eligible > 0 else 0.0
+
+    return RecontaminationRate(
+        n_total=n_total,
+        n_eligible=n_eligible,
+        n_unresolved_excluded=n_unresolved,
+        n_recontaminated=n_recontaminated,
+        rr=rr,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Compositional Reconstruction Rate — CRR (§32)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CompositionalReconstructionRate:
+    """True sequence-derived CRR (§32).
+
+    CRR = reconstructable eligible sequences / eligible relevant sequences
+
+    This is NOT ``1 - row leakage recall``.  It is computed from
+    actual stateful sequence execution results.
+    """
+
+    n_eligible_sequences: int
+    n_reconstructable: int
+    n_unresolved_excluded: int
+    crr: float
+    n_unresolved_excluded_from_recon: int
+
+
+def compute_compositional_reconstruction_rate(
+    sequence_results: list[Any],
+) -> CompositionalReconstructionRate:
+    """Compute true sequence-derived CRR (§32).
+
+    CRR = reconstructable eligible compositional/fragmentation sequences
+          / eligible relevant sequences
+
+    Args:
+        sequence_results: List of SequenceResult objects from the
+            stateful sequence runner.
+
+    Returns:
+        CompositionalReconstructionRate.
+    """
+    n_eligible = 0
+    n_reconstructable = 0
+    n_unresolved = 0
+
+    for sr in sequence_results:
+        final_recon = getattr(sr, "final_sequence_reconstructs_target", None)
+        if final_recon is None:
+            # Check if unresolved
+            if getattr(sr, "is_unresolved", False):
+                n_unresolved += 1
+                continue
+            # Resolved but no reconstruction annotation — skip
+            continue
+
+        n_eligible += 1
+        pred_recon = getattr(sr, "predicted_sequence_reconstruction", False)
+        if pred_recon:
+            n_reconstructable += 1
+
+    crr = n_reconstructable / n_eligible if n_eligible > 0 else 0.0
+
+    return CompositionalReconstructionRate(
+        n_eligible_sequences=n_eligible,
+        n_reconstructable=n_reconstructable,
+        n_unresolved_excluded=n_unresolved,
+        crr=crr,
+        n_unresolved_excluded_from_recon=n_unresolved,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Metric specification artifact (§30)
+# ---------------------------------------------------------------------------
+
+#: Default path for the metric specification artifact.
+METRIC_SPEC_PATH: Path = (
+    Path(__file__).resolve().parents[2]
+    / "results" / "empirical_v2" / "e5" / "config" / "e5_metric_spec.json"
+)
+
+#: All paper-facing metrics with formal numerator/denominator (§30, §68).
+METRIC_SPEC: dict[str, Any] = {
+    "schema_version": "1.0",
+    "description": (
+        "Formal specification of every paper-facing metric in E5. "
+        "Each entry records metric_name, split, condition, numerator, "
+        "denominator, and eligibility rules."
+    ),
+    "metrics": [
+        {
+            "metric_name": "leakage_precision",
+            "numerator": "TP (detected AND truly leaking)",
+            "denominator": "TP + FP (all detected)",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_target_leakage != None",
+            "semantics": "Among flagged rows, fraction truly leaking",
+        },
+        {
+            "metric_name": "leakage_recall",
+            "numerator": "TP (detected AND truly leaking)",
+            "denominator": "TP + FN (all truly leaking)",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_target_leakage != None",
+            "semantics": "Among truly leaking rows, fraction intercepted",
+        },
+        {
+            "metric_name": "leakage_f1",
+            "numerator": "2 * precision * recall",
+            "denominator": "precision + recall",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "same as leakage_precision/recall",
+            "semantics": "Harmonic mean of leakage precision and recall",
+        },
+        {
+            "metric_name": "false_blocking_rate",
+            "numerator": "FP (detected but NOT leaking)",
+            "denominator": "FP + TN (all non-leaking eligible)",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_target_leakage == False",
+            "semantics": "Among non-leaking rows, fraction incorrectly flagged",
+        },
+        {
+            "metric_name": "utility_retention",
+            "numerator": "useful rows NOT blocked",
+            "denominator": "useful eligible rows (final_task_useful == True)",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_task_useful == True",
+            "semantics": "Among task-useful rows, fraction preserved",
+        },
+        {
+            "metric_name": "leakage_through_rate",
+            "numerator": "leaking AND allowed (delivered through firewall)",
+            "denominator": "leaking eligible rows",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_target_leakage == True",
+            "semantics": "Lower is better; fraction of leaks that pass through",
+        },
+        {
+            "metric_name": "leakage_prevention_recall",
+            "numerator": "leaking AND intercepted (blocked by firewall)",
+            "denominator": "leaking eligible rows",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved rows with final_target_leakage == True",
+            "semantics": "Higher is better; fraction of leaks prevented",
+        },
+        {
+            "metric_name": "sequence_reconstruction_recall",
+            "numerator": "reconstructing sequences with >= 1 detected candidate",
+            "denominator": "total reconstructing sequences",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "resolved sequences with final_sequence_reconstructs_target",
+            "semantics": "Among reconstructing sequences, fraction caught",
+        },
+        {
+            "metric_name": "sequence_leakage_rate",
+            "numerator": "detected candidates in reconstructing sequences",
+            "denominator": "total candidates in reconstructing sequences",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+            "eligibility": "candidates belonging to reconstructing sequences",
+            "semantics": "Among sequence candidates, fraction detected",
+        },
+        {
+            "metric_name": "recontamination_rate",
+            "numerator": "sequences with recontamination (delivered after guard)",
+            "denominator": "eligible sequence results",
+            "split": "test",
+            "condition": "C4",
+            "eligibility": "resolved sequences from stateful execution",
+            "semantics": "RR — first-class metric from stateful outcomes (§31, §67)",
+        },
+        {
+            "metric_name": "compositional_reconstruction_rate",
+            "numerator": "sequences predicted to reconstruct (from stateful runner)",
+            "denominator": "eligible sequences with reconstruction annotation",
+            "split": "test",
+            "condition": "C0-C4",
+            "eligibility": "resolved sequences with final_sequence_reconstructs_target",
+            "semantics": "True CRR from sequence execution, NOT 1 - row recall (§32)",
+        },
+    ],
+}
+
+
+def build_metric_spec(
+    *,
+    path: Path = METRIC_SPEC_PATH,
+) -> dict[str, Any]:
+    """Write the metric specification artifact to disk (§30).
+
+    Returns the metric spec dict.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(METRIC_SPEC, f, indent=2)
+        f.write("\n")
+    return METRIC_SPEC

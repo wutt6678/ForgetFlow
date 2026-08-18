@@ -154,6 +154,9 @@ def evaluate_row(
 ) -> RowResult:
     """Evaluate one candidate row under one condition.
 
+    Fail closed (§36): if features dict is empty (missing features),
+    raise ValueError instead of silently allowing.
+
     Args:
         row_label: Frozen annotation label.
         corpus: Frozen corpus candidate.
@@ -165,10 +168,40 @@ def evaluate_row(
         detector_config_sha: SHA of detector config.
 
     Returns:
-        Frozen RowResult.
+        Frozen RowResult with decision provenance.
+
+    Raises:
+        ValueError: If features are missing for this candidate (§36).
     """
-    _, _, _, detected = apply_condition_detection(features, condition, tau_sem)
+    # Fail closed on missing features (§36)
+    if not features:
+        raise ValueError(
+            f"Missing features for candidate {row_label.candidate_id!r}. "
+            f"All corpus candidates must have features in official runs."
+        )
+
+    exact_used, alias_used, semantic_used, detected = apply_condition_detection(
+        features, condition, tau_sem,
+    )
     action, blocked, allowed = determine_policy_action(detected, condition)
+
+    # Build decision provenance (§12)
+    if not condition.firewall_enabled:
+        decision_reason = "pass_through"
+        triggered: tuple[str, ...] = ()
+    elif detected:
+        parts: list[str] = []
+        if exact_used:
+            parts.append("exact_detector")
+        if alias_used:
+            parts.append("alias_detector")
+        if semantic_used >= tau_sem:
+            parts.append("semantic_detector")
+        triggered = tuple(parts)
+        decision_reason = "detected_by:" + "+".join(parts)
+    else:
+        decision_reason = "not_detected"
+        triggered = ()
 
     return RowResult(
         candidate_id=row_label.candidate_id,
@@ -187,6 +220,11 @@ def evaluate_row(
         detector_config_sha=detector_config_sha,
         condition_manifest_sha=condition_manifest_sha,
         embedding_model=features.get("embedding_model", "unknown"),
+        decision_reason=decision_reason,
+        triggered_modules=triggered,
+        history_state_used=condition.history_enabled,
+        reconstruction_guard_triggered=condition.reconstruction_guard and detected,
+        purge_triggered=False,
     )
 
 
@@ -252,12 +290,13 @@ def run_condition(
         )
         row_results.append(result)
 
-    # Sequence evaluation
+    # Sequence evaluation — pass condition spec for condition-aware replay (§13)
     sequence_results = evaluate_sequences(
         sequence_labels=list(split_data.sequence_labels),
         features_by_id=features_by_id,
         tau_sem=tau_sem,
         condition_id=condition.condition_id,
+        condition_spec=condition,
     )
 
     return row_results, sequence_results

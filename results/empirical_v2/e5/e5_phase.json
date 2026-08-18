@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "e5_preflight_complete": true,
+  "embedding_smoke_complete": true,
+  "implementation_repair_complete": true,
+  "development_embedding_complete": false,
+  "development_calibration_complete": false,
+  "validation_complete": false,
+  "test_lock_complete": false,
+  "test_access_started": false,
+  "test_evaluation_complete": false,
+  "e5_frozen": false,
+  "e5_closed": false
+}

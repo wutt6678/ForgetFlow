@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "created_at": "2026-08-18T07:49:56.402594+00:00",
+  "created_at": "2026-08-18T10:26:42.230284+00:00",
   "experiment_name": "E5 Real-Embedding Downstream Evaluation",
   "embedding": {
     "model": "openai/text-embedding-v3",
@@ -11,7 +11,7 @@
     "version": "e5-002-r1"
   },
   "calibration": {
-    "semantic_threshold": "from_calibration",
+    "semantic_threshold": "pending_calibration",
     "selection_rule": "min_recall_0.90_lowest_fbr"
   },
   "conditions": {

@@ -29,6 +29,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .e5_conditions import ConditionSpec, CONDITIONS
 from .e5_metrics import is_detected
 
 # ---------------------------------------------------------------------------
@@ -38,7 +39,10 @@ from .e5_metrics import is_detected
 
 @dataclass(frozen=True)
 class StepDecision:
-    """Decision for one step in a sequence replay."""
+    """Decision for one step in a sequence replay.
+
+    Includes per-step provenance (§61) for research auditability.
+    """
 
     step_index: int
     candidate_id: str
@@ -47,6 +51,14 @@ class StepDecision:
     semantic_similarity: float
     detected: bool
     policy_action: str
+
+    # Per-step provenance (§61)
+    decision_reason: str = ""
+    history_state_summary: str = ""
+    reconstruction_guard_result: bool = False
+    reconstruction_score: float = 0.0
+    purge_state_transition: str = ""
+    delivered_content_sha: str = ""
 
 
 @dataclass(frozen=True)
@@ -144,13 +156,13 @@ def predict_sequence_reconstruction(
 ) -> tuple[bool, int | None, float]:
     """Predict sequence reconstruction from step decisions.
 
-    A sequence is predicted to reconstruct the target if **any** step
-    goes undetected (information leaks through that step).
+    Uses cumulative-state reconstruction logic (§14-§15):
+    A sequence reconstructs the target when the cumulative delivered
+    evidence crosses the reconstruction threshold.  This is NOT
+    "any undetected step = reconstruction".
 
-    The earliest reconstruction step is the first undetected step
-    (0-indexed).
-
-    Reconstruction strength = fraction of steps that go undetected.
+    Reconstruction strength = cumulative reconstruction score at the
+    final step.
 
     Args:
         step_decisions: Ordered step decisions from replay.
@@ -161,17 +173,21 @@ def predict_sequence_reconstruction(
     if not step_decisions:
         return False, None, 0.0
 
-    n_undetected = 0
     earliest: int | None = None
+    cumulative_score = 0.0
 
     for sd in step_decisions:
+        # Cumulative reconstruction score: each delivered (not blocked)
+        # step adds its semantic similarity to the cumulative evidence.
+        # Blocked steps contribute nothing.
         if not sd.detected:
-            n_undetected += 1
-            if earliest is None:
+            # Delivered step: accumulate semantic evidence
+            cumulative_score = max(cumulative_score, sd.reconstruction_score)
+            if sd.reconstruction_guard_result and earliest is None:
                 earliest = sd.step_index
 
-    reconstructs = n_undetected > 0
-    strength = n_undetected / len(step_decisions)
+    reconstructs = earliest is not None
+    strength = cumulative_score
 
     return reconstructs, earliest, strength
 
@@ -184,16 +200,21 @@ def replay_sequence(
     condition_id: str,
     features_by_id: dict[str, dict[str, Any]],
     tau_sem: float,
+    condition_spec: ConditionSpec | None = None,
 ) -> SequenceResult:
-    """Replay a sequence step-by-step (plan §31).
+    """Replay a sequence step-by-step (plan §31, §13-§19 repair).
 
     For each candidate in order:
     1. Look up pre-computed detector features.
-    2. Apply detection rule at the frozen threshold.
-    3. Determine policy action (simplified: detected → block, else → allow).
-    4. Record step decision.
+    2. Apply condition-specific detection rule.
+    3. Determine policy action based on condition.
+    4. Track cumulative reconstruction state.
+    5. Record step decision with provenance.
 
-    After all steps, predict reconstruction.
+    After all steps, predict reconstruction using cumulative state.
+
+    Missing features fail closed (§36-§37): if any candidate_id in
+    ordered_candidate_ids is not in features_by_id, a ValueError is raised.
 
     Args:
         sequence_annotation_id: Sequence annotation identifier.
@@ -202,34 +223,105 @@ def replay_sequence(
         condition_id: Evaluation condition (C0–C4).
         features_by_id: Mapping candidate_id → feature dict.
         tau_sem: Frozen semantic threshold.
+        condition_spec: Optional condition spec for condition-aware replay.
+            If None, looked up from CONDITIONS dict.
 
     Returns:
         SequenceResult with step decisions and reconstruction prediction.
+
+    Raises:
+        ValueError: If any candidate features are missing (§37).
     """
+    # Resolve condition spec
+    if condition_spec is None:
+        condition_spec = CONDITIONS.get(condition_id)
+        if condition_spec is None:
+            raise ValueError(f"Unknown condition_id: {condition_id}")
+
+    # Fail closed: verify all candidate features exist (§37)
+    missing = [
+        cid for cid in ordered_candidate_ids
+        if cid not in features_by_id
+    ]
+    if missing:
+        raise ValueError(
+            f"Missing features for sequence {sequence_annotation_id}: "
+            f"candidate_ids {missing}. "
+            f"All ordered_candidate_ids must exist in the feature map."
+        )
+
     steps: list[StepDecision] = []
+    # Cumulative state tracking for reconstruction (§14-§15)
+    cumulative_delivered_count = 0
+    cumulative_sem_evidence = 0.0
 
     for i, cid in enumerate(ordered_candidate_ids):
-        feat = features_by_id.get(cid)
-        if feat is None:
-            # Missing features — treat as undetected (conservative)
-            step = StepDecision(
-                step_index=i,
-                candidate_id=cid,
-                exact_match=False,
-                alias_match=False,
-                semantic_similarity=0.0,
-                detected=False,
-                policy_action="allow",
-            )
-            steps.append(step)
-            continue
+        feat = features_by_id[cid]  # guaranteed to exist after check above
 
-        exact = feat["exact_match"]
-        alias = feat["alias_match"]
-        sim = feat["semantic_similarity"]
+        exact = feat.get("exact_match", False)
+        alias = feat.get("alias_match", False)
+        sim = feat.get("semantic_similarity", 0.0)
 
-        detected = is_detected(exact, alias, sim, tau_sem)
-        action = "block" if detected else "allow"
+        # Condition-specific feature masking
+        exact_used = exact and condition_spec.exact_enabled
+        alias_used = alias and condition_spec.alias_enabled
+        semantic_used = sim if condition_spec.semantic_enabled else 0.0
+
+        # Detection rule
+        if not condition_spec.firewall_enabled:
+            detected = False
+        else:
+            detected = is_detected(exact_used, alias_used, semantic_used, tau_sem)
+
+        # Policy action
+        if not condition_spec.firewall_enabled:
+            action = "allow"
+        elif detected:
+            action = "block"
+        else:
+            action = "allow"
+
+        # Cumulative reconstruction state (§14-§16)
+        if not detected:
+            cumulative_delivered_count += 1
+            cumulative_sem_evidence = max(cumulative_sem_evidence, semantic_used)
+
+        # Reconstruction guard: for C4 with history, check cumulative state
+        recon_guard_triggered = False
+        recon_score = 0.0
+        decision_reason = ""
+
+        if condition_spec.reconstruction_guard and cumulative_delivered_count > 0:
+            # Cumulative reconstruction score based on delivered evidence
+            # In the full pipeline this uses ReconstructionChecker; here
+            # we approximate with cumulative semantic evidence.
+            recon_score = cumulative_sem_evidence
+            # Guard triggers when cumulative evidence is high enough
+            # AND multiple steps have been delivered
+            if (cumulative_delivered_count >= 2
+                    and recon_score >= 0.5):
+                recon_guard_triggered = True
+
+        # Build decision reason
+        if not condition_spec.firewall_enabled:
+            decision_reason = "pass_through"
+        elif detected:
+            reasons = []
+            if exact_used:
+                reasons.append("exact")
+            if alias_used:
+                reasons.append("alias")
+            if semantic_used >= tau_sem:
+                reasons.append("semantic")
+            decision_reason = "detected_by:" + "+".join(reasons) if reasons else "detected"
+        else:
+            decision_reason = "not_detected"
+
+        if recon_guard_triggered:
+            decision_reason += ";reconstruction_guard"
+
+        # Content SHA tracking
+        delivered_sha = "" if detected else feat.get("content_sha256", "")
 
         step = StepDecision(
             step_index=i,
@@ -239,6 +331,14 @@ def replay_sequence(
             semantic_similarity=sim,
             detected=detected,
             policy_action=action,
+            decision_reason=decision_reason,
+            history_state_summary=(
+                f"delivered={cumulative_delivered_count}"
+                if condition_spec.history_enabled else ""
+            ),
+            reconstruction_guard_result=recon_guard_triggered,
+            reconstruction_score=recon_score,
+            delivered_content_sha=delivered_sha,
         )
         steps.append(step)
 
@@ -267,6 +367,7 @@ def evaluate_sequences(
     *,
     tau_sem: float,
     condition_id: str = "C4",
+    condition_spec: ConditionSpec | None = None,
 ) -> list[SequenceResult]:
     """Evaluate all sequences in a split.
 
@@ -277,6 +378,7 @@ def evaluate_sequences(
         features_by_id: Mapping candidate_id → feature dict.
         tau_sem: Frozen semantic threshold.
         condition_id: Evaluation condition.
+        condition_spec: Optional condition spec for condition-aware replay.
 
     Returns:
         List of SequenceResult with annotation labels joined.
@@ -294,6 +396,7 @@ def evaluate_sequences(
             condition_id=condition_id,
             features_by_id=features_by_id,
             tau_sem=tau_sem,
+            condition_spec=condition_spec,
         )
 
         # Join annotation labels (plan §30)
