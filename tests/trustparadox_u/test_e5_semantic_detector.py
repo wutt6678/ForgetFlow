@@ -341,10 +341,16 @@ class TestComputeFeaturesMocked:
             )
 
     def test_feature_count_matches_corpus(self) -> None:
-        """Feature count must match corpus candidate count per split."""
+        """Feature count must match corpus candidate count per split.
+
+        R1.2 §3: ``test`` split requires ``start_test_access()`` to be
+        called first (or the test must be skipped).  This test exercises
+        the development and validation splits only; the test-split path
+        is covered by :class:`TestTestSplitAccessGuarded`.
+        """
         from experiments.trustparadox_u.e5_loaders import load_corpus
 
-        for split in ("development", "validation", "test"):
+        for split in ("development", "validation"):
             corpus = load_corpus(split)
             assert len(corpus) > 0, f"Empty corpus for {split}"
 
@@ -461,6 +467,93 @@ class TestComputeFeaturesMocked:
         )
         for feat in features:
             assert feat.detector_version == _DETECTOR_VERSION
+
+
+# ---------------------------------------------------------------------------
+# R1.2 §3: Test-split access guard
+# ---------------------------------------------------------------------------
+
+
+class TestTestSplitAccessGuarded:
+    """The R1.2 §3 guard blocks any test-split data access before the
+    official ``test_access_started`` lock is in place.
+
+    With ``test_access_started = false`` (the R1.2 default state):
+
+        * ``compute_features_for_split("test")`` raises TestAccessError
+        * ``run_feature_extraction(splits=(..., "test"))`` raises TestAccessError
+        * No embedding backend calls are made
+        * No feature file writes are made
+    """
+
+    def test_test_split_compute_features_raises(self) -> None:
+        """``compute_features_for_split("test")`` raises TestAccessError
+        before any embedding/feature I/O is performed.
+        """
+        from experiments.trustparadox_u.e5_conditions import TestAccessError
+
+        backend = _make_mock_backend()
+        cache = EmbeddingCache(
+            records_path=Path("/dev/null"),
+            manifest_path=Path("/dev/null"),
+        )
+
+        # Track if the backend would have been called.
+        called = {"value": False}
+
+        def mock_embed(texts: list[str]) -> list[list[float]]:
+            called["value"] = True
+            return [_make_deterministic_vector(t) for t in texts]
+
+        backend.embed_texts = mock_embed  # type: ignore
+
+        with pytest.raises(TestAccessError):
+            compute_features_for_split("test", backend=backend, cache=cache)
+
+        # Critical: the embedding backend must NOT have been called.
+        assert called["value"] is False, (
+            "Embedding backend was called BEFORE the test access guard "
+            "rejected the request — guard must run first."
+        )
+
+    def test_test_split_run_feature_extraction_raises(self) -> None:
+        """``run_feature_extraction(splits=(..., "test"))`` raises
+        TestAccessError when test access is not started.
+        """
+        from experiments.trustparadox_u.e5_conditions import TestAccessError
+        from experiments.trustparadox_u.semantic_detector import (
+            run_feature_extraction,
+        )
+
+        backend = _make_mock_backend()
+        cache = EmbeddingCache(
+            records_path=Path("/dev/null"),
+            manifest_path=Path("/dev/null"),
+        )
+
+        with pytest.raises(TestAccessError):
+            run_feature_extraction(
+                backend=backend, cache=cache, splits=("development", "test"),
+            )
+
+    def test_development_split_still_works(self) -> None:
+        """Development path remains usable when test access is not started."""
+        backend = _make_mock_backend()
+        cache = EmbeddingCache(
+            records_path=Path("/dev/null"),
+            manifest_path=Path("/dev/null"),
+        )
+
+        def mock_embed(texts: list[str]) -> list[list[float]]:
+            return [_make_deterministic_vector(t) for t in texts]
+
+        backend.embed_texts = mock_embed  # type: ignore
+
+        # Should complete without error.
+        features = compute_features_for_split(
+            "development", backend=backend, cache=cache
+        )
+        assert len(features) > 0
 
 
 # ---------------------------------------------------------------------------

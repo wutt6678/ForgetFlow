@@ -560,26 +560,28 @@ class RecontaminationRate:
 def compute_recontamination_rate(
     sequence_results: list[Any],
 ) -> RecontaminationRate:
-    """Compute RR from stateful sequence outcomes (§26, §31, §67).
+    """Compute RR from stateful sequence outcomes (§26, §31, §67, R1.2 §12).
 
-    After official stateful runner integration, RR is defined from the
-    actual ContaminationTracker state transitions recorded in step
-    provenance.
+    R1.2 freezes the RR event: a recontamination event occurs when an
+    eligible (recipient, forget_id) pair transitions through the
+    CLEAN/VERIFIED → AT_RISK → RECONTAMINATED path of the actual
+    ContaminationStatus state machine. The transition is recorded in
+    each StepDecision's ``contamination_status_before/after`` and
+    surfaced via ``purge_state_transition`` as a string such as
+    ``"verified→at_risk"`` or ``"at_risk→recontaminated"``.
 
-    A recontamination event occurs when:
-    - A recipient/forget_id transitions from clean/purged → contaminated
-    - This is recorded in the step's ``purge_state_transition`` field.
+    The event is NOT ``purge_triggered`` (the legacy boolean) and NOT
+    any other guard/detector proxy. Only state-machine transitions
+    observed on actually-released outputs count.
 
     Eligibility:
-    - The sequence is resolved (not unresolved).
-    - The sequence has step decisions with contamination state info.
-
-    Args:
-        sequence_results: List of SequenceResult objects from the
-            stateful sequence runner.
-
-    Returns:
-        RecontaminationRate with numerator/denominator.
+        - The sequence is resolved.
+        - At least one step has a non-empty ``purge_state_transition``
+          field on the StepDecision (i.e. a real state change was
+          observed).
+        - Only steps whose transition ends in ``at_risk`` or
+          ``recontaminated`` count as a recontamination event; other
+          state changes (e.g. ``clean→verified``) are not RR events.
     """
     n_total = len(sequence_results)
     n_eligible = 0
@@ -587,29 +589,38 @@ def compute_recontamination_rate(
     n_recontaminated = 0
 
     for sr in sequence_results:
+        # Eligibility: resolved sequences whose final reconstruction
+        # status is defined.
         if getattr(sr, "final_sequence_reconstructs_target", None) is None:
             if getattr(sr, "is_unresolved", False):
                 n_unresolved += 1
                 continue
         n_eligible += 1
 
-        # Check for actual contamination state transitions (§26)
-        recontaminated = False
+        # Walk step decisions and look for the frozen recontamination
+        # transition: ending in "at_risk" or "recontaminated".
         for sd in getattr(sr, "step_decisions", []):
-            # The purge_state_transition field records actual
-            # ContaminationTracker state changes from the runner
             transition = getattr(sd, "purge_state_transition", "")
-            if "contaminated" in transition or "recontaminated" in transition:
-                recontaminated = True
+            if not transition:
+                continue
+            # Split concatenated transitions if the runner produced
+            # more than one.
+            for single in transition.split("|"):
+                single = single.strip()
+                if not single:
+                    continue
+                # Frozen RR events: any transition whose RHS is
+                # at_risk or recontaminated.
+                if "→at_risk" in single or "->at_risk" in single:
+                    n_recontaminated += 1
+                    break
+                if "→recontaminated" in single or "->recontaminated" in single:
+                    n_recontaminated += 1
+                    break
+            # Count at most one RR event per sequence to avoid double-
+            # counting multi-target sequences.
+            if n_recontaminated > 0:
                 break
-            # Fallback: if purge_triggered is True after a clean state,
-            # that indicates a state transition
-            if getattr(sd, "purge_triggered", False):
-                recontaminated = True
-                break
-
-        if recontaminated:
-            n_recontaminated += 1
 
     rr = n_recontaminated / n_eligible if n_eligible > 0 else 0.0
 
@@ -647,10 +658,20 @@ class CompositionalReconstructionRate:
 def compute_compositional_reconstruction_rate(
     sequence_results: list[Any],
 ) -> CompositionalReconstructionRate:
-    """Compute true sequence-derived CRR (§32).
+    """Compute true sequence-derived CRR (§32, R1.2 §9).
 
-    CRR = reconstructable eligible compositional/fragmentation sequences
-          / eligible relevant sequences
+    R1.2: CRR uses ``post_firewall_reconstructable`` (what the recipient
+    can actually reconstruct from released outputs) — NOT the guard
+    trigger and NOT the pre-release reconstruction score.
+
+    CRR = eligible sequences with post_firewall_reconstructable == True
+          / eligible sequences
+
+    Eligibility:
+        - The sequence is resolved (not unresolved).
+        - The sequence has ``final_sequence_reconstructs_target`` defined
+          (so we only score sequences for which reconstruction is
+          actually relevant).
 
     Args:
         sequence_results: List of SequenceResult objects from the
@@ -674,8 +695,19 @@ def compute_compositional_reconstruction_rate(
             continue
 
         n_eligible += 1
-        pred_recon = getattr(sr, "predicted_sequence_reconstruction", False)
-        if pred_recon:
+
+        # R1.2 §9: prefer the post-firewall field; fall back to
+        # predicted_sequence_reconstruction for back-compat with any
+        # pre-R1.2 caller that populated only the legacy alias.
+        if hasattr(sr, "post_firewall_reconstructable"):
+            post_firewall = bool(
+                getattr(sr, "post_firewall_reconstructable", False)
+            )
+        else:
+            post_firewall = bool(
+                getattr(sr, "predicted_sequence_reconstruction", False)
+            )
+        if post_firewall:
             n_reconstructable += 1
 
     crr = n_reconstructable / n_eligible if n_eligible > 0 else 0.0
@@ -706,7 +738,9 @@ METRIC_SPEC: dict[str, Any] = {
         "Formal specification of every paper-facing metric in E5. "
         "Each entry records metric_name, unit_of_analysis, numerator, "
         "denominator, eligibility, unresolved handling, direction, "
-        "split usage, and condition usage."
+        "split usage, and condition usage. "
+        "Earliest-step indexing: 0-based (step 0 is the first released "
+        "text in the ordered sequence)."
     ),
     "metrics": [
         {
@@ -811,6 +845,7 @@ METRIC_SPEC: dict[str, Any] = {
             "direction": "higher is better",
             "split": "test",
             "condition": "C4",
+            "indexing_convention": "0-based",
         },
         {
             "metric_name": "trust_drift",

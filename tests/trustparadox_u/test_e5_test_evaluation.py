@@ -382,8 +382,14 @@ class TestRunCondition:
         assert len(seqs) == 1
         assert rows[0].condition_id == "C4"
 
-    def test_missing_corpus_skipped(self):
-        """Rows without corpus entries are skipped."""
+    def test_missing_corpus_fail_closed(self):
+        """Rows without corpus entries raise ValueError (R1.2 §21).
+
+        R1.2 §21: official runs must fail closed on missing corpus rows
+        rather than silently skipping them. Silently skipping would let
+        a missing row degrade to ``NO_ACTIVE_RECORDS`` (allow), hiding
+        the underlying corpus-feature inconsistency.
+        """
         split = _FakeSplitData(
             split="test",
             row_labels=(
@@ -395,14 +401,13 @@ class TestRunCondition:
         )
         features = {"c1": _feat(sim=0.3)}
 
-        rows, _ = run_condition(
-            split_data=split,
-            condition=CONDITIONS["C4"],
-            features_by_id=features,
-            tau_sem=0.75,
-        )
-        assert len(rows) == 1
-        assert rows[0].candidate_id == "c1"
+        with pytest.raises(ValueError, match="R1.2 §21"):
+            run_condition(
+                split_data=split,
+                condition=CONDITIONS["C4"],
+                features_by_id=features,
+                tau_sem=0.75,
+            )
 
 
 # ===========================================================================

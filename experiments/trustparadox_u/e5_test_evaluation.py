@@ -317,7 +317,15 @@ def run_condition(
     for row_label in split_data.row_labels:
         corpus = corpus_by_id.get(row_label.candidate_id)
         if corpus is None:
-            continue
+            # R1.2 §21: missing corpus row is a FATAL error in
+            # official runs. Use the empty default silently would
+            # degrade to NO_ACTIVE_RECORDS, hiding the bug.
+            raise ValueError(
+                f"Missing corpus row for candidate "
+                f"{row_label.candidate_id!r} (split={split_data.split!r}, "
+                f"condition={cid!r}). All row labels must be backed by a "
+                f"corpus entry in official runs (R1.2 §21)."
+            )
 
         features = features_by_id.get(row_label.candidate_id, {})
         if not features:
@@ -326,7 +334,8 @@ def run_condition(
                 f"All corpus candidates must have features in official runs."
             )
 
-        # For C4: register the correct forget target before processing (§7)
+        # For C4: register the correct forget target before processing (§7).
+        # R1.2 §20: missing target registry mapping is a FATAL error.
         if cid == "C4":
             try:
                 forget_record = build_e5_forget_record(
@@ -334,8 +343,16 @@ def run_condition(
                     secret_variant_id=corpus.secret_variant_id,
                 )
                 runner.register_forget_record(forget_record)
-            except KeyError:
-                pass  # No registry spec for this variant; C4 returns NO_ACTIVE_RECORDS
+            except KeyError as e:
+                raise KeyError(
+                    f"Missing frozen target registry mapping (R1.2 §20): "
+                    f"candidate_id={row_label.candidate_id!r}, "
+                    f"scenario_id={corpus.scenario_id!r}, "
+                    f"secret_variant_id={corpus.secret_variant_id!r}, "
+                    f"split={split_data.split!r}. "
+                    f"All official C4 candidates must have a frozen target "
+                    f"registry entry. Inner error: {e}"
+                ) from e
 
         # Process row through canonical runner with real corpus text (§6)
         er = runner.process_row(
@@ -408,54 +425,106 @@ def _run_sequences_via_runner(
         trust_level = getattr(seq_label, "trust_level", "unknown")
         ordered_ids = seq_label.ordered_candidate_ids
 
+        # R1.2 §21: Fail closed on missing sequence corpus rows.
+        # Every ordered candidate must be present in corpus + features.
+        missing_corpus = [
+            cid for cid in ordered_ids if cid not in corpus_by_id
+        ]
+        if missing_corpus:
+            raise ValueError(
+                f"Missing corpus rows for sequence "
+                f"{seq_label.sequence_annotation_id!r} (split={split_data.split!r}, "
+                f"condition={cid!r}): {missing_corpus[:5]}{'...' if len(missing_corpus) > 5 else ''}. "
+                f"All ordered candidates must be in the corpus (R1.2 §21)."
+            )
+        missing_features = [
+            cid for cid in ordered_ids if cid not in features_by_id
+        ]
+        if missing_features:
+            raise ValueError(
+                f"Missing features for sequence "
+                f"{seq_label.sequence_annotation_id!r} (split={split_data.split!r}, "
+                f"condition={cid!r}): {missing_features[:5]}{'...' if len(missing_features) > 5 else ''}. "
+                f"All ordered candidates must have features (R1.2 §21)."
+            )
+
+        # R1.2 §22: Validate sequence target consistency.
+        # All ordered candidates in a sequence must share the same
+        # scenario_id and secret_variant_id — otherwise the target
+        # cannot be resolved unambiguously.
+        first_corpus = corpus_by_id[ordered_ids[0]]
+        target_scenario_id = first_corpus.scenario_id
+        target_secret_variant_id = first_corpus.secret_variant_id
+        for cid_check in ordered_ids[1:]:
+            cand = corpus_by_id[cid_check]
+            if (
+                cand.scenario_id != target_scenario_id
+                or cand.secret_variant_id != target_secret_variant_id
+            ):
+                raise ValueError(
+                    f"Sequence target consistency violation (R1.2 §22): "
+                    f"sequence {seq_label.sequence_annotation_id!r} "
+                    f"contains candidates with different target families. "
+                    f"step[0]=(scenario_id={target_scenario_id!r}, "
+                    f"secret_variant_id={target_secret_variant_id!r}), "
+                    f"step[{ordered_ids.index(cid_check)}]=(scenario_id="
+                    f"{cand.scenario_id!r}, secret_variant_id="
+                    f"{cand.secret_variant_id!r}), "
+                    f"candidate_id={cid_check!r}, split={split_data.split!r}."
+                )
+
         # Fresh runner per sequence (§8)
         seq_runner = create_firewall_runner(
             condition_id=cid,
             semantic_threshold=tau_sem,
         )
 
-        # Register forget target for C4
+        # Register forget target for C4. R1.2 §20: missing target
+        # registry mapping is a FATAL error.
         if cid == "C4" and ordered_ids:
-            first_corpus = corpus_by_id.get(ordered_ids[0])
-            if first_corpus is not None:
-                try:
-                    forget_record = build_e5_forget_record(
-                        scenario_id=first_corpus.scenario_id,
-                        secret_variant_id=first_corpus.secret_variant_id,
-                    )
-                    seq_runner.register_forget_record(forget_record)
-                except KeyError:
-                    pass
+            try:
+                forget_record = build_e5_forget_record(
+                    scenario_id=first_corpus.scenario_id,
+                    secret_variant_id=first_corpus.secret_variant_id,
+                )
+                seq_runner.register_forget_record(forget_record)
+            except KeyError as e:
+                raise KeyError(
+                    f"Missing frozen target registry mapping (R1.2 §20): "
+                    f"sequence_id={seq_label.sequence_annotation_id!r}, "
+                    f"scenario_id={first_corpus.scenario_id!r}, "
+                    f"secret_variant_id={first_corpus.secret_variant_id!r}, "
+                    f"split={split_data.split!r}. "
+                    f"All official C4 sequences must have a frozen target "
+                    f"registry entry. Inner error: {e}"
+                ) from e
 
         # Process each step through the same runner
         steps: list[StepDecision] = []
         for i, candidate_id in enumerate(ordered_ids):
-            corpus = corpus_by_id.get(candidate_id)
-            features = features_by_id.get(candidate_id, {})
+            corpus = corpus_by_id[candidate_id]
+            features = features_by_id[candidate_id]
             if not features:
+                # R1.2 §21: fail closed (defence in depth — already
+                # checked above at the sequence level).
                 raise ValueError(
                     f"Missing features for sequence step candidate "
                     f"{candidate_id!r} in sequence "
-                    f"{seq_label.sequence_annotation_id!r}."
+                    f"{seq_label.sequence_annotation_id!r} (R1.2 §21)."
                 )
-
-            raw_text = corpus.text if corpus else ""
-            recipient_id = corpus.recipient_id if corpus else "default_recipient"
-            sender_id = corpus.sender_id if corpus else "default_sender"
-            input_sha = corpus.content_sha256 if corpus else ""
 
             er = seq_runner.process_row(
                 candidate_id=candidate_id,
-                scenario_id=corpus.scenario_id if corpus else "",
+                scenario_id=corpus.scenario_id,
                 trust_level=trust_level,
                 features=features,
                 split=split_data.split,
-                raw_text=raw_text,
-                recipient_id=recipient_id,
-                sender_id=sender_id,
+                raw_text=corpus.text,
+                recipient_id=corpus.recipient_id,
+                sender_id=corpus.sender_id,
                 turn_id=i,
                 message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
-                input_content_sha=input_sha,
+                input_content_sha=corpus.content_sha256,
                 condition_manifest_sha=condition_manifest_sha,
                 detector_config_sha=detector_config_sha,
                 embedding_model=features.get("embedding_model", "unknown"),

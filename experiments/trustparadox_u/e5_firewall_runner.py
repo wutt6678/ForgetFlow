@@ -36,6 +36,7 @@ from marble.firewall.history import RecipientHistory, ReconstructionChecker
 from marble.firewall.policy import ForgetPolicy
 from marble.firewall.registry import ForgetLedger
 from marble.firewall.types import (
+    ContaminationStatus,
     DetectorResult,
     ForgetRecord,
     MessageEnvelope,
@@ -48,6 +49,16 @@ from marble.firewall.types import (
 # ---------------------------------------------------------------------------
 
 _VALID_TRUST_LEVELS = frozenset({"low", "default", "high"})
+
+#: Sentinel SHA used to mark released content as "blocked — no released text"
+#: (R1.2 §14). When the firewall blocks a message, no content is released
+#: and the output_content_sha / released_content_sha fields MUST use this
+#: deterministic null representation rather than a random hash.
+BLOCKED_SENTINEL_SHA: str = "sha256:BLOCKED"
+
+#: Maximum number of transformation attempts before escalating to block
+#: (matches FlowGate behavior; §13).
+MAX_TRANSFORMATION_ATTEMPTS: int = 2
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -113,6 +124,13 @@ class ExtendedRowResult:
     purge_triggered: bool = False
     reconstruction_score: float = 0.0
     matched_forget_ids: tuple[str, ...] = ()
+
+    # Transformation provenance (R1.2 §13, §14)
+    initial_policy_action: str = ""
+    final_policy_action: str = ""
+    transformation_attempt_count: int = 0
+    transformation_recheck_passed: bool = True
+    released_content_sha: str = ""
 
 
 def extended_result_to_dict(er: ExtendedRowResult) -> dict[str, Any]:
@@ -196,6 +214,68 @@ class FirewallRunner:
     def clear_recipient_state(self) -> None:
         """Clear recipient history between independent sequences (§17)."""
         self.history.clear()
+        # Also clear contamination tracker to keep state isolation strict.
+        # This avoids leaks between independent sequences run on the same
+        # runner instance.
+        self.contamination_tracker = ContaminationTracker()
+
+    # ------------------------------------------------------------------
+    # Post-forget state initialization (§11)
+    # ------------------------------------------------------------------
+
+    def initialize_post_forget_state(
+        self,
+        recipient_id: str,
+        forget_id: str,
+        *,
+        starting_state: ContaminationStatus = ContaminationStatus.VERIFIED,
+    ) -> ContaminationStatus:
+        """Initialize the contamination state for a recipient after a forget
+        event has been recorded (§11, §12).
+
+        This is the canonical "post-forget" starting state. The default is
+        ``VERIFIED`` (clean + verified), which is the natural state once a
+        recipient has been explicitly purged of the relevant knowledge and
+        verified clean.
+
+        Sequence authors MUST call this for every (recipient, forget_id)
+        pair *before* running a sequence, so that subsequent
+        ``contamination_status_before/after`` measurements are anchored
+        to a known starting state and the RR event is well-defined.
+
+        Args:
+            recipient_id: The recipient identifier.
+            forget_id: The frozen forget target identifier.
+            starting_state: The state to initialize to. Must be one of
+                the legal first states for the state machine. The
+                default is VERIFIED.
+
+        Returns:
+            The state the pair was initialized to.
+        """
+        # Walk the state machine from UNKNOWN to starting_state if needed.
+        current = self.contamination_tracker.get_status(recipient_id, forget_id)
+        if current == starting_state:
+            return current
+
+        # Path: UNKNOWN → CONTAMINATED → CLEAN → VERIFIED
+        path = [
+            ContaminationStatus.UNKNOWN,
+            ContaminationStatus.CONTAMINATED,
+            ContaminationStatus.CLEAN,
+            ContaminationStatus.VERIFIED,
+        ]
+        for state in path:
+            try:
+                self.contamination_tracker.set_status(
+                    recipient_id, forget_id, state
+                )
+            except ValueError:
+                # Already past this state; skip.
+                pass
+            if state == starting_state:
+                break
+        return self.contamination_tracker.get_status(recipient_id, forget_id)
 
     # ------------------------------------------------------------------
     # Main processing entry point
@@ -518,6 +598,17 @@ class FirewallRunner:
         action, released_text, reasons = self.policy.decide(
             det_result, active, self.ledger.policy_version()
         )
+        initial_policy_action = action
+
+        # Handle redact: produce actual redacted text via policy.redact_text
+        # (R1.2 §13). If redaction fails, the recheck/escalation pass below
+        # will escalate to abstract or block.
+        if action == "redact":
+            redacted = self.policy.redact_text(raw_text, active, det_result)
+            released_text = redacted if redacted else None
+            if released_text is None or released_text == raw_text:
+                # Mark redaction as failed; recheck will escalate.
+                reasons = reasons + ("REDACT_FAILED",)
 
         # Handle allow: released_text = original
         if action == "allow":
@@ -527,7 +618,27 @@ class FirewallRunner:
         if action == "block":
             released_text = None
 
-        # 6. Update history with released content
+        # 5b. Recheck transformed output with escalation (R1.2 §13)
+        # The escalation path mirrors FlowGate: redact -> abstract -> block.
+        # Maximum MAX_TRANSFORMATION_ATTEMPTS attempts before blocking.
+        transformation_attempt_count = 0
+        transformation_recheck_passed = True
+        if action in ("redact", "abstract") and released_text is not None:
+            (
+                action,
+                released_text,
+                reasons,
+                transformation_attempt_count,
+                transformation_recheck_passed,
+            ) = self._recheck_and_escalate(
+                action, released_text, raw_text, active, reasons
+            )
+        final_policy_action = action
+
+        # 6. Update history with released content (R1.2 §14)
+        # Only the actual released content enters history. Blocked messages
+        # contribute nothing; transformed messages contribute the transformed
+        # text (not the original).
         if released_text is not None and self.config.history_enabled:
             self._update_history(
                 recipient_id, message_id, turn_id, sender_id, released_text
@@ -535,13 +646,23 @@ class FirewallRunner:
 
         # 7. Track contamination for matched records
         purge_triggered = False
+        contamination_transition = ""
         if self.config.purge_enabled and det_result.matched_forget_ids:
-            purge_triggered = self._track_contamination(
+            purge_triggered, contamination_transition = self._track_contamination(
                 recipient_id, det_result, recon_score
             )
 
-        # 8. Compute output SHA
-        output_sha = _compute_output_sha(input_content_sha, action)
+        # 8. Compute output SHA from actual released text (R1.2 §14)
+        # For released content: SHA256 of the actual released text.
+        # For blocked content: the documented BLOCKED_SENTINEL_SHA.
+        released_content_sha = (
+            BLOCKED_SENTINEL_SHA
+            if released_text is None
+            else _sha256_text(released_text)
+        )
+        output_sha = _compute_output_sha_from_text(
+            input_content_sha, action, released_text
+        )
 
         # 9. Build provenance
         triggered_modules = self._build_triggered_modules(
@@ -557,6 +678,7 @@ class FirewallRunner:
             candidate_id, recipient_id, sender_id, turn_id,
             raw_text, released_text,
             action, det_result, reasons, triggered_modules,
+            contamination_transition,
         )
 
         return ExtendedRowResult(
@@ -583,6 +705,11 @@ class FirewallRunner:
             purge_triggered=purge_triggered,
             reconstruction_score=recon_score,
             matched_forget_ids=det_result.matched_forget_ids,
+            initial_policy_action=initial_policy_action,
+            final_policy_action=final_policy_action,
+            transformation_attempt_count=transformation_attempt_count,
+            transformation_recheck_passed=transformation_recheck_passed,
+            released_content_sha=released_content_sha,
         )
 
     # ------------------------------------------------------------------
@@ -644,6 +771,115 @@ class FirewallRunner:
         )
 
     # ------------------------------------------------------------------
+    # Helper: recheck transformed output and escalate (R1.2 §13)
+    # ------------------------------------------------------------------
+
+    def _recheck_and_escalate(
+        self,
+        action: str,
+        released_text: str,
+        original_text: str,
+        active: tuple[ForgetRecord, ...],
+        reasons: tuple[str, ...],
+    ) -> tuple[str, str | None, tuple[str, ...], int, bool]:
+        """Recheck a transformed output and escalate on failure (R1.2 §13).
+
+        Mirrors FlowGate's escalation path: ``redact -> abstract -> block``,
+        with at most :data:`MAX_TRANSFORMATION_ATTEMPTS` transformation
+        attempts. The transformation is considered safe if the transformed
+        text does NOT contain the canonical target value of any active
+        forget record (which is the only signal available without
+        re-running the embedding model).
+
+        Args:
+            action: Initial policy action (``"redact"`` or ``"abstract"``).
+            released_text: Text produced by the initial transformation.
+            original_text: Original raw text (for escalation evidence).
+            active: Active forget records for safety checks.
+            reasons: Current reason codes tuple.
+
+        Returns:
+            Tuple of ``(final_action, final_released_text, reasons,
+            attempt_count, recheck_passed)``.
+        """
+        from marble.firewall.normalization import text_contains_canonical_value
+
+        current_action = action
+        current_text = released_text
+        attempts = 0
+        recheck_passed = False
+
+        for attempt_idx in range(MAX_TRANSFORMATION_ATTEMPTS):
+            attempts = attempt_idx + 1
+
+            # Safety check: does the transformed text still contain any
+            # canonical target value? (This is the deterministic safety
+            # gate for the E5 features-only pipeline.)
+            still_unsafe = False
+            for rec in active:
+                if text_contains_canonical_value(current_text, rec.canonical_target):
+                    still_unsafe = True
+                    break
+                # Also check aliases as canonical safety
+                for alias in rec.aliases:
+                    if alias and alias in current_text:
+                        still_unsafe = True
+                        break
+                if still_unsafe:
+                    break
+
+            if not still_unsafe:
+                recheck_passed = True
+                return (
+                    current_action,
+                    current_text,
+                    reasons + (f"RECHECK_PASSED_ATTEMPT_{attempts}",),
+                    attempts,
+                    recheck_passed,
+                )
+
+            # Transformation failed; escalate
+            if current_action == "redact":
+                # Escalate to abstract (use permitted residual if available)
+                current_action = "abstract"
+                residual = self.policy._find_residual(
+                    active,
+                    # Use empty DetectorResult-like object to expose matched IDs
+                    _ResidualLookupResult(
+                        matched_forget_ids=tuple(r.forget_id for r in active)
+                    ),
+                )
+                if residual is not None:
+                    current_text = residual
+                else:
+                    # No permitted residual; block immediately
+                    return (
+                        "block",
+                        None,
+                        reasons + ("ESCALATION_NO_RESIDUAL",),
+                        attempts,
+                        False,
+                    )
+            elif current_action == "abstract":
+                # Abstract also failed; block
+                return (
+                    "block",
+                    None,
+                    reasons + ("ESCALATION_FAILED",),
+                    attempts,
+                    False,
+                )
+
+        # Max attempts exhausted
+        return (
+            "block",
+            None,
+            reasons + ("MAX_TRANSFORMATION_ATTEMPTS_EXCEEDED",),
+            attempts,
+            False,
+        )
+
+    # ------------------------------------------------------------------
     # Helper: update recipient history
     # ------------------------------------------------------------------
 
@@ -679,12 +915,17 @@ class FirewallRunner:
         recipient_id: str,
         det_result: DetectorResult,
         recon_score: float,
-    ) -> bool:
+    ) -> tuple[bool, str]:
         """Update contamination tracker for matched forget IDs.
 
-        Returns True if contamination state changed (purge/recontamination triggered).
+        Returns:
+            Tuple of ``(state_changed, transition_label)`` where
+            ``transition_label`` is a human-readable description of any
+            state change (e.g. ``"VERIFIED→AT_RISK"``) suitable for
+            persisting in step provenance. The label is the empty
+            string when no state changed.
         """
-        initial_status = {}
+        initial_status: dict[str, ContaminationStatus] = {}
         for fid in det_result.matched_forget_ids:
             initial_status[fid] = self.contamination_tracker.get_status(
                 recipient_id, fid
@@ -702,13 +943,34 @@ class FirewallRunner:
                     evidence=ev,
                 )
 
-        # Check if any state changed
+        # Capture the first observed state transition across all matched
+        # forget_ids for this recipient.
+        state_changed = False
+        transition_label = ""
         for fid in det_result.matched_forget_ids:
             new_status = self.contamination_tracker.get_status(recipient_id, fid)
-            if new_status != initial_status.get(fid):
-                return True
+            old_status = initial_status.get(fid, ContaminationStatus.UNKNOWN)
+            if new_status != old_status:
+                state_changed = True
+                if not transition_label:
+                    transition_label = f"{old_status.value}→{new_status.value}"
+                else:
+                    # Concatenate additional transitions to keep the
+                    # full provenance available.
+                    transition_label = (
+                        transition_label
+                        + f"|{old_status.value}→{new_status.value}"
+                    )
 
-        return False
+        return state_changed, transition_label
+
+    def get_contamination_status(
+        self, recipient_id: str, forget_id: str
+    ) -> str:
+        """Get contamination status for a recipient/forget_id pair."""
+        return self.contamination_tracker.get_status(
+            recipient_id, forget_id
+        ).value
 
     # ------------------------------------------------------------------
     # Helper: build triggered modules list
@@ -756,6 +1018,7 @@ class FirewallRunner:
         det_result: DetectorResult,
         reasons: tuple[str, ...],
         triggered_modules: list[str],
+        contamination_transition: str = "",
     ) -> None:
         """Record audit entry for this decision."""
         entry = {
@@ -777,20 +1040,13 @@ class FirewallRunner:
             "matched_forget_ids": list(det_result.matched_forget_ids),
             "reason_codes": list(reasons),
             "triggered_modules": triggered_modules,
+            "contamination_transition": contamination_transition,
         }
         self._audit_entries.append(entry)
 
     # ------------------------------------------------------------------
     # Accessors
     # ------------------------------------------------------------------
-
-    def get_contamination_status(
-        self, recipient_id: str, forget_id: str
-    ) -> str:
-        """Get contamination status for a recipient/forget_id pair."""
-        return self.contamination_tracker.get_status(
-            recipient_id, forget_id
-        ).value
 
     def get_audit_entries(self) -> list[dict[str, Any]]:
         """Return all audit entries for this runner."""
@@ -932,6 +1188,55 @@ def _compute_output_sha(input_sha: str, action: str) -> str:
     if action == "allow":
         return input_sha
     return hashlib.sha256(f"{action.upper()}:{input_sha}".encode()).hexdigest()
+
+
+def _sha256_text(text: str) -> str:
+    """Return ``sha256:<hex>`` of the given text.
+
+    Used for the released_content_sha field (R1.2 §14) so that the SHA
+    reflects the *actual* released text, not a synthesized one.
+    """
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _compute_output_sha_from_text(
+    input_sha: str,
+    action: str,
+    released_text: str | None,
+) -> str:
+    """Compute output_content_sha from actual released text (R1.2 §14).
+
+    For allow: returns SHA of released_text (which equals input_text).
+    For block: returns :data:`BLOCKED_SENTINEL_SHA`.
+    For redact/abstract: returns SHA of the actual transformed text.
+    """
+    if action == "block" or released_text is None:
+        return BLOCKED_SENTINEL_SHA
+    return _sha256_text(released_text)
+
+
+# ---------------------------------------------------------------------------
+# Internal helper for residual lookup during escalation
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _ResidualLookupResult:
+    """Minimal duck-typed result for ``ForgetPolicy._find_residual`` lookup.
+
+    The escalation path in :meth:`FirewallRunner._recheck_and_escalate`
+    needs to call ``policy._find_residual(active_records, det_result)``
+    with an object exposing ``matched_forget_ids``. We use this lightweight
+    stub rather than constructing a full ``DetectorResult`` because the
+    actual per-record evidence is not needed for residual lookup.
+    """
+
+    matched_forget_ids: tuple[str, ...] = ()
+
+
+# ---------------------------------------------------------------------------
+# build_forget_record
+# ---------------------------------------------------------------------------
 
 
 def build_forget_record(

@@ -173,6 +173,16 @@ def compute_features_for_split(
     if split not in VALID_SPLITS:
         raise ValueError(f"Unknown split: {split!r}.  Valid: {sorted(VALID_SPLITS)}")
 
+    # R1.2 §3: Test access must be authorised before any test data
+    # loading, embedding, cache, or feature file I/O. Import is deferred
+    # to avoid a circular import between e5_conditions and semantic_detector.
+    if split == "test":
+        from experiments.trustparadox_u.e5_conditions import (
+            require_test_access_started,
+        )
+
+        require_test_access_started()
+
     if target_index is None:
         target_index = build_target_index()
 
@@ -411,6 +421,16 @@ def run_feature_extraction(
     target_index = build_target_index()
     split_counts: dict[str, int] = {}
     total = 0
+
+    # R1.2 §3: Reject test split requests at the public pipeline entry
+    # before any embedding/cache/feature I/O. Import is deferred to
+    # avoid a circular import between e5_conditions and semantic_detector.
+    if "test" in splits:
+        from experiments.trustparadox_u.e5_conditions import (
+            require_test_access_started,
+        )
+
+        require_test_access_started()
 
     for split in splits:
         features = compute_features_for_split(

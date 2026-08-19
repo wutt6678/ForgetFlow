@@ -42,8 +42,11 @@ class StepDecision:
     """Decision for one step in a sequence replay.
 
     Includes per-step provenance (§61) for research auditability.
+    R1.2: Adds transformation provenance and the distinction between
+    guard detection and post-firewall reconstruction.
     """
 
+    # 0-based index of the step within the sequence (§7 convention).
     step_index: int
     candidate_id: str
     exact_match: bool
@@ -57,13 +60,38 @@ class StepDecision:
     history_state_summary: str = ""
     reconstruction_guard_result: bool = False
     reconstruction_score: float = 0.0
+
+    # R1.2 §11-§12: actual contamination state machine.
+    contamination_status_before: str = "unknown"
+    contamination_status_after: str = "unknown"
     purge_state_transition: str = ""
+
+    # R1.2 §14: transformation provenance and released-content SHA.
+    initial_policy_action: str = ""
+    final_policy_action: str = ""
+    transformation_attempt_count: int = 0
+    transformation_recheck_passed: bool = True
+    released_content_sha: str = ""
     delivered_content_sha: str = ""
 
 
 @dataclass(frozen=True)
 class SequenceResult:
-    """Per-sequence execution record (plan §32)."""
+    """Per-sequence execution record (plan §32, R1.2 §8).
+
+    R1.2 separates two distinct concepts that the previous schema
+    conflated:
+        - guard_reconstruction_triggered / guard_earliest_trigger_step /
+          guard_max_score describe what the ReconstructGuard detected
+          (used for guard precision/recall and earliest-trigger analysis).
+        - post_firewall_reconstructable / post_firewall_earliest_…/
+          post_firewall_reconstruction_score describe what the recipient
+          can actually reconstruct from released outputs (used for CRR).
+
+    predicted_sequence_reconstruction is preserved for backward
+    compatibility and is explicitly defined to refer to the
+    post-firewall measurement.
+    """
 
     sequence_annotation_id: str
     trust_level: str
@@ -73,10 +101,22 @@ class SequenceResult:
     # Step-level outputs
     step_decisions: tuple[StepDecision, ...]
 
-    # Predicted outcomes
-    predicted_sequence_reconstruction: bool
-    predicted_earliest_reconstruction_step: int | None
-    predicted_reconstruction_strength: float
+    # Guard-only metrics (§8) — what the ReconstructGuard detected.
+    guard_reconstruction_triggered: bool = False
+    guard_earliest_trigger_step: int | None = None
+    guard_max_score: float = 0.0
+
+    # Post-firewall reconstruction (§8, §9) — what the recipient can
+    # actually reconstruct from released outputs. This is what CRR uses.
+    post_firewall_reconstructable: bool = False
+    post_firewall_earliest_reconstruction_step: int | None = None
+    post_firewall_reconstruction_score: float = 0.0
+
+    # Backward-compat alias. Explicitly defined as the post-firewall
+    # measurement; deprecation comment kept for clarity.
+    predicted_sequence_reconstruction: bool = False
+    predicted_earliest_reconstruction_step: int | None = None
+    predicted_reconstruction_strength: float = 0.0
 
     # Annotation join (post-execution, plan §30)
     final_sequence_reconstructs_target: bool | None = None
