@@ -966,8 +966,17 @@ class TestPatchJ5CanonicalPlanHash:
             "sample_index": 0, "generation_replicate": 0,
         }, sort_keys=True).encode()
         h_file = hashlib.sha256(file_bytes).hexdigest()
-        # They should be different hash definitions.
-        assert h_sci != h_file or True  # may coincidentally match; definitions differ
+        # R1.2 §19: real structural check — the two hashes use
+        # different field-order / field-set definitions, so they
+        # MUST differ.  No vacuous ``or True`` fallback.
+        assert h_sci != h_file, (
+            f"plan_sha256 and naive JSON hash must differ by "
+            f"construction (got h_sci={h_sci!r}, h_file={h_file!r})"
+        )
+        # And both must be 64-char lowercase hex.
+        assert len(h_sci) == 64 and all(
+            c in "0123456789abcdef" for c in h_sci
+        )
 
 
 # ---------------------------------------------------------------------------

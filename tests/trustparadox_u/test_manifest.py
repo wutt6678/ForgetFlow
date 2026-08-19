@@ -51,11 +51,29 @@ class TestSmokeManifest:
     """Phase 7: sanitised smoke manifest."""
 
     def test_manifest_includes_commit_sha(self) -> None:
-        """Manifest includes a repository commit."""
+        """Manifest includes a repository commit (R1.2 §19)."""
         results = [_make_result()]
         m = build_manifest(results=results)
-        assert m.repository_commit != ""
-        assert m.repository_commit != "unknown" or True  # may be unknown in CI
+        # R1.2 §19: no vacuous ``or True`` fallback.  The manifest
+        # must always carry a non-empty commit string.  The format
+        # is ``<40-char hex SHA>[-dirty]``: the SHA part is always
+        # present, the ``-dirty`` suffix is appended when the
+        # working tree has uncommitted changes.
+        assert isinstance(m.repository_commit, str)
+        assert len(m.repository_commit) > 0
+        if m.repository_commit == "unknown":
+            # Sentinel only used when git cannot be invoked.
+            pass
+        else:
+            # Accept the canonical ``<sha>`` or ``<sha>-dirty`` form.
+            sha = m.repository_commit
+            if sha.endswith("-dirty"):
+                sha = sha[: -len("-dirty")]
+            assert len(sha) == 40, (
+                f"expected 40-char SHA before -dirty suffix, got "
+                f"{m.repository_commit!r}"
+            )
+            assert all(c in "0123456789abcdef" for c in sha.lower())
 
     def test_provider_model_dimension_present(self) -> None:
         """Provider, model, and dimension are recorded."""

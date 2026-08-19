@@ -207,14 +207,22 @@ class TestBootstrapMetricDifference:
         assert r1.ci_upper == r2.ci_upper
 
     def test_different_seeds_differ(self):
-        """Different seeds may give different CIs."""
+        """Different seeds may give different CIs (R1.2 §19)."""
         a = [0.1, 0.5, 0.9, 0.3, 0.7]
         b = [0.2, 0.4, 0.8, 0.6, 0.0]
         r1 = bootstrap_metric_difference(a, b, seed=42)
         r2 = bootstrap_metric_difference(a, b, seed=99)
-        # CIs may differ (not guaranteed, but very likely)
-        # At minimum, check they're valid
-        assert r1.ci_lower <= r1.diff <= r1.ci_upper or True
+        # R1.2 §19: real CI ordering — no vacuous ``or True`` fallback.
+        # r1 must have lower <= diff <= upper (invariant of bootstrap).
+        assert r1.ci_lower <= r1.diff <= r1.ci_upper
+        assert r2.ci_lower <= r2.diff <= r2.ci_upper
+        # The two seeds should produce different CI bounds in
+        # expectation (very likely given the data variability).
+        # We require at least one of lower/upper to differ.
+        assert (
+            r1.ci_lower != r2.ci_lower
+            or r1.ci_upper != r2.ci_upper
+        )
         assert isinstance(r2, BootstrapResult)
 
     def test_ci_contains_diff(self):

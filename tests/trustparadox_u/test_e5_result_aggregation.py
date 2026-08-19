@@ -198,33 +198,111 @@ class TestBuildUtilityTable:
 
 
 class TestBuildAblationTable:
-    """Tests for ablation table building."""
+    """Tests for ablation table building (R1.2 §16)."""
 
     def test_ablation_table(self):
-        """Builds ablation table with impacts."""
-        results, labels, corpus = _synthetic_data()
-        table = build_ablation_table(results, labels, corpus)
-        assert "ablations" in table
-        assert "impacts" in table
-        assert table["baseline_id"] == "A0"
+        """Summarises the precomputed ablation manifest.
 
-    def test_ablation_has_five_entries(self):
-        """Ablation table has 5 entries (A0-A4)."""
-        results, labels, corpus = _synthetic_data()
-        table = build_ablation_table(results, labels, corpus)
-        assert len(table["ablations"]) == 5
+        R1.2 §16: ``build_ablation_table`` is an aggregator only. It
+        does NOT run ablations; it summarises the manifest produced by
+        :mod:`scripts.run_e5_ablation`.
+        """
+        import json
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
+            json.dump(
+                {
+                    "schema_version": "1.0",
+                    "run_mode": "diagnostic",
+                    "split": "development",
+                    "tau_sem": 0.80,
+                    "reconstruction_threshold": 0.60,
+                    "code_commit": "test",
+                    "ablations": [
+                        {"ablation_id": f"A{i}", "row_count": 10}
+                        for i in range(5)
+                    ],
+                    "summary": {"A0": {"fbr": 0.05}},
+                },
+                f,
+            )
+            manifest_path = f.name
+
+        table = build_ablation_table(manifest_path)
+        assert "ablations" in table
+        assert "summary" in table
+        assert "manifest_path" in table
+
+    def test_ablation_table_raises_on_missing(self):
+        """Missing manifest raises FileNotFoundError."""
+        import pytest
+
+        with pytest.raises(FileNotFoundError, match="ablation_manifest"):
+            build_ablation_table(
+                "/tmp/nonexistent_ablation_manifest_12345.json"
+            )
+
+    def test_legacy_call_signature_removed(self):
+        """The legacy ``(row_results, row_labels, corpus)`` signature
+        is removed (R1.2 §16: aggregator does not re-run ablations).
+        """
+        import inspect
+
+        sig = inspect.signature(build_ablation_table)
+        params = list(sig.parameters.keys())
+        # The only required parameter is the manifest path.
+        assert "ablation_manifest_path" in params
+        # The legacy parameters must be gone.
+        assert "row_results" not in params
+        assert "row_labels" not in params
+        assert "corpus" not in params
 
 
 class TestBuildHyperparameterTable:
-    """Tests for hyperparameter table building."""
+    """Tests for hyperparameter table building (R1.2 §18)."""
 
     def test_hyperparameter_table(self):
-        """Builds sensitivity, tradeoff, and recommendation."""
+        """Builds sensitivity, tradeoff, and recommendation (R1.2 §18).
+
+        ``split`` is mandatory and must not default to test.
+        """
         results, labels, corpus = _synthetic_data()
-        table = build_hyperparameter_table(results, labels, corpus)
+        table = build_hyperparameter_table(
+            results, labels, corpus, split="development"
+        )
         assert "sensitivity" in table
         assert "tradeoff" in table
         assert "recommendation" in table
+        assert table["split"] == "development"
+        assert table["selection_rejected"] is False
+
+    def test_hyperparameter_table_test_split_rejected(self):
+        """Held-out test split must NOT produce a recommendation
+        (R1.2 §18).  The sensitivity/tradeoff tables may still be
+        emitted for measurement purposes, but ``recommendation`` is
+        forced to ``None`` and ``selection_rejected`` is ``True``.
+        """
+        results, labels, corpus = _synthetic_data()
+        table = build_hyperparameter_table(
+            results, labels, corpus, split="test"
+        )
+        assert "sensitivity" in table
+        assert "tradeoff" in table
+        assert table["recommendation"] is None
+        assert table["selection_rejected"] is True
+        assert "test" in table["rejection_reason"].lower()
+
+    def test_hyperparameter_table_requires_split(self):
+        """Calling without ``split`` raises TypeError (R1.2 §18)."""
+        import pytest
+
+        results, labels, corpus = _synthetic_data()
+        with pytest.raises(TypeError):
+            # Missing mandatory keyword arg.
+            build_hyperparameter_table(results, labels, corpus)
 
 
 class TestBuildEligibility:

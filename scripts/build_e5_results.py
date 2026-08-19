@@ -30,12 +30,6 @@ from typing import Any
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from experiments.trustparadox_u.e5_ablation_study import (  # noqa: E402
-    ablation_impacts_to_dict,
-    ablation_metrics_to_dict,
-    compute_ablation_impacts,
-    run_ablation_study,
-)
 from experiments.trustparadox_u.e5_attack_analysis import (  # noqa: E402
     compute_attack_robustness,
     compute_hard_negative_analysis,
@@ -71,6 +65,24 @@ def _compute_condition_counts(
     Returns a dict with: n_eligible, n_excluded, n_leaking,
     n_leaking_blocked, n_non_leaking, n_fp, n_useful_eligible,
     n_useful_preserved, leakage_prevention, fbr, utility_retention.
+
+    PU-RER (R1.2 §15) is leakage-through rate and uses
+    *released-output safety* rather than the legacy "not blocked" proxy:
+
+        delivered-as-leak ⇔ leaking AND released output is unsafe
+
+    Released output is unsafe iff the *final* policy action is
+    ``"allow"`` (raw original text released). The other three actions
+    (``block``, ``redact`` with recheck, ``abstract`` with recheck) all
+    produce a verified-safe release: block → no release,
+    redact/abstract → the same recheck-escalation pipeline that
+    FlowGate uses verifies the transformed text is safe before it is
+    recorded as released. So they are NOT counted as leakage-through.
+
+    Backward compatibility: if a row result lacks the R1.2
+    transformation-provenance fields (``final_policy_action``,
+    ``transformation_recheck_passed``), the legacy ``blocked``/
+    ``allowed`` fields are used as a conservative proxy.
     """
     results_by_id = {r["candidate_id"]: r for r in row_results}
 
@@ -78,7 +90,7 @@ def _compute_condition_counts(
     n_excluded = 0
     n_leaking = 0
     n_leaking_blocked = 0
-    n_leaking_delivered = 0  # leaking AND allowed through
+    n_leaking_delivered = 0  # leaking AND released output is unsafe
     n_non_leaking = 0
     n_fp = 0
     n_useful_eligible = 0
@@ -97,12 +109,28 @@ def _compute_condition_counts(
         is_useful = label.get("final_task_useful") is True
         is_blocked = result.get("blocked", False)
         is_allowed = result.get("allowed", False)
+        # R1.2 §15: use final_policy_action when available.
+        # A row is "released as a leak" iff:
+        #   leaking AND final_policy_action == "allow"
+        # (block → nothing; redact/abstract with recheck → verified safe)
+        final_action = result.get("final_policy_action") or result.get(
+            "policy_action", ""
+        )
+        has_r12_fields = bool(result.get("final_policy_action")) or bool(
+            result.get("transformation_recheck_passed") is not None
+            and "transformation_recheck_passed" in result
+        )
+        if has_r12_fields:
+            released_unsafe = is_leaking and final_action == "allow"
+        else:
+            # Legacy fallback: "not blocked" as a conservative proxy.
+            released_unsafe = is_leaking and is_allowed
 
         if is_leaking:
             n_leaking += 1
             if is_blocked:
                 n_leaking_blocked += 1
-            if is_allowed:
+            if released_unsafe:
                 n_leaking_delivered += 1
         elif label.get("final_target_leakage") is False:
             n_non_leaking += 1
@@ -114,9 +142,11 @@ def _compute_condition_counts(
             if is_allowed:
                 n_useful_preserved += 1
 
-    # PU-RER = leakage-through rate = leaking delivered / leaking eligible (§23)
+    # PU-RER = leakage-through rate = leaking delivered / leaking eligible (§23, R1.2 §15)
     purer = n_leaking_delivered / n_leaking if n_leaking > 0 else 0.0
     # Leakage Prevention Recall = leaking intercepted / leaking eligible
+    # (kept separate per R1.2 §15; uses blocked — the legacy proxy — for
+    # the interception event)
     leakage_prevention_recall = (
         n_leaking_blocked / n_leaking if n_leaking > 0 else 0.0
     )
@@ -321,63 +351,102 @@ def build_utility_table(
 
 
 def build_ablation_table(
-    row_results: list[dict[str, Any]],
-    row_labels: dict[str, dict[str, Any]],
-    corpus: dict[str, dict[str, Any]],
-    tau_sem: float = 0.75,
+    ablation_manifest_path: str | Path,
 ) -> dict[str, Any]:
-    """Build ablation table (plan §82).
+    """Summarise precomputed ablation artifacts (R1.2 §16).
+
+    The actual ablation EXECUTION lives in
+    :mod:`scripts.run_e5_ablation`. This function ONLY summarises the
+    per-ablation evidence produced by that script. It does NOT
+    reconstruct pseudo-features from primary row results and does NOT
+    re-run the ablations.
 
     Args:
-        row_results: Per-row results.
-        row_labels: Per-row labels.
-        corpus: Per-row corpus.
-        tau_sem: Semantic threshold.
+        ablation_manifest_path: Path to ``ablation_manifest.json``
+            produced by ``scripts/run_e5_ablation.py``.
 
     Returns:
-        Dict with ablation metrics and impacts.
+        Dict summarising per-ablation row/sequence counts and metrics.
+
+    Raises:
+        FileNotFoundError: If the manifest does not exist.
     """
-    # Convert row_results list → features_by_id dict (§20-§26 new API)
-    features_by_id: dict[str, dict[str, Any]] = {}
-    for r in row_results:
-        cid = r["candidate_id"]
-        features_by_id[cid] = {
-            "exact_match": r.get("exact_match", False),
-            "alias_match": r.get("alias_match", False),
-            "semantic_similarity": r.get("semantic_similarity", 0.0),
-        }
+    p = Path(ablation_manifest_path)
+    if not p.exists():
+        raise FileNotFoundError(
+            f"Ablation manifest not found: {p}. "
+            f"Run scripts/run_e5_ablation.py first to produce it "
+            f"(R1.2 §16)."
+        )
+    with open(p) as f:
+        manifest = json.load(f)
 
-    study = run_ablation_study(features_by_id, row_labels, tau_sem=tau_sem)
-    impacts = compute_ablation_impacts(study)
-
-    return {
-        "ablations": ablation_metrics_to_dict(list(study.ablations)),
-        "impacts": ablation_impacts_to_dict(impacts),
-        "baseline_id": study.baseline_id,
+    summary: dict[str, Any] = {
+        "schema_version": manifest.get("schema_version", "1.0"),
+        "run_mode": manifest.get("run_mode", "scientific"),
+        "split": manifest.get("split"),
+        "code_commit": manifest.get("code_commit"),
+        "tau_sem": manifest.get("tau_sem"),
+        "reconstruction_threshold": manifest.get("reconstruction_threshold"),
+        "ablations": manifest.get("ablations", []),
+        "summary": manifest.get("summary", {}),
+        "manifest_path": str(p),
     }
+    return summary
 
 
 def build_hyperparameter_table(
     row_results: list[dict[str, Any]],
     row_labels: dict[str, dict[str, Any]],
     corpus: dict[str, dict[str, Any]],
+    *,
+    split: str,
 ) -> dict[str, Any]:
-    """Build hyperparameter sensitivity table.
+    """Build hyperparameter sensitivity table (R1.2 §18).
 
     Args:
         row_results: Per-row results.
         row_labels: Per-row labels.
         corpus: Per-row corpus.
+        split: Split the row results came from. Mandatory. If
+            ``split == "test"`` the threshold sweep is rejected and
+            ``recommendation`` is set to ``None`` (the held-out test
+            split must never be used to select or recommend a
+            threshold).
 
     Returns:
-        Dict with sensitivity, tradeoff, and recommendation.
+        Dict with sensitivity, tradeoff, and recommendation. When
+        ``split == "test"``, ``recommendation`` is ``None``.
     """
+    if split == "test":
+        # R1.2 §18: test split must not be used to select or recommend
+        # a threshold. We still emit the sensitivity/tradeoff tables
+        # (computed from the frozen threshold grid; no selection is
+        # performed) so that downstream consumers see the full
+        # measurement surface, but ``recommendation`` is forced to
+        # ``None`` to make the bypass attempt explicit.
+        swept = run_threshold_sweep(row_results)
+        sens = compute_threshold_sensitivity(swept, row_labels, corpus)
+        tradeoff = compute_tradeoff_data(sens)
+        return {
+            "split": split,
+            "sensitivity": sensitivity_to_dict(sens),
+            "tradeoff": tradeoff_to_dict(tradeoff),
+            "recommendation": None,
+            "selection_rejected": True,
+            "rejection_reason": (
+                "R1.2 §18: threshold selection/recommendation is "
+                "forbidden on held-out test split."
+            ),
+        }
+
     swept = run_threshold_sweep(row_results)
     sens = compute_threshold_sensitivity(swept, row_labels, corpus)
     tradeoff = compute_tradeoff_data(sens)
-    rec = select_optimal_threshold(sens)
+    rec = select_optimal_threshold(sens, split=split)
 
     return {
+        "split": split,
         "sensitivity": sensitivity_to_dict(sens),
         "tradeoff": tradeoff_to_dict(tradeoff),
         "recommendation": {
@@ -387,6 +456,7 @@ def build_hyperparameter_table(
             "utility_retention": rec.utility_retention,
             "reason": rec.reason,
         },
+        "selection_rejected": False,
     }
 
 
@@ -506,18 +576,42 @@ def build_e5_results(
         )
         utility_tables.append(ut)
 
-    # Ablation table (uses C4 results)
+    # Ablation table (R1.2 §16): this aggregator ONLY summarises the
+    # precomputed ablation manifest produced by
+    # scripts/run_e5_ablation.py. If the manifest is missing, the
+    # ablation table is empty (caller is expected to run the dedicated
+    # ablation runner first).
     ablation_table: dict[str, Any] = {}
     if "C4" in row_results_by_condition:
-        ablation_table = build_ablation_table(
-            row_results_by_condition["C4"], row_labels, corpus, tau_sem
+        default_ablation_manifest = (
+            _PROJECT_ROOT
+            / "results"
+            / "empirical_v2"
+            / "e5"
+            / "ablation"
+            / "ablation_manifest.json"
         )
+        if default_ablation_manifest.exists():
+            try:
+                ablation_table = build_ablation_table(
+                    default_ablation_manifest
+                )
+            except FileNotFoundError:
+                ablation_table = {}
+        # else: ablation_table remains empty; build_e5_results does
+        # NOT re-run the ablations (R1.2 §16).
 
-    # Hyperparameter table (uses C4 results)
+    # Hyperparameter table (uses C4 results).
+    # R1.2 §18: split is mandatory; the held-out test split must NOT
+    # be used to select or recommend a threshold.  ``build_hyperparameter_table``
+    # rejects test internally and returns ``recommendation=None``.
     hyperparameter_table: dict[str, Any] = {}
     if "C4" in row_results_by_condition:
         hyperparameter_table = build_hyperparameter_table(
-            row_results_by_condition["C4"], row_labels, corpus
+            row_results_by_condition["C4"],
+            row_labels,
+            corpus,
+            split=split,
         )
 
     # Eligibility manifest
@@ -570,8 +664,13 @@ def main() -> None:
     parser.add_argument(
         "--split",
         type=str,
-        default="test",
-        help="Data split name (default: test).",
+        required=True,
+        choices=("development", "validation", "test"),
+        help=(
+            "Data split the row results came from. Required. The "
+            "held-out test split disables threshold selection and "
+            "recommendation (R1.2 §18)."
+        ),
     )
     parser.add_argument(
         "--tau-sem",

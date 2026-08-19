@@ -1,28 +1,30 @@
 {
-  "schema_version": "1.1",
-  "description": "Formal specification of every paper-facing metric in E5. Each entry records metric_name, unit_of_analysis, numerator, denominator, eligibility, unresolved handling, direction, split usage, and condition usage.",
+  "schema_version": "1.2",
+  "description": "Formal specification of every paper-facing metric in E5. Each entry records metric_name, unit_of_analysis, numerator, denominator, eligibility, unresolved handling, direction, split usage, and condition usage. R1.2 \u00a724 corrected the CRR and RR wordings to reflect (1) post-firewall release outputs (not guard triggers) and (2) the frozen ContaminationStatus recontamination transitions.",
   "metrics": [
     {
       "metric_name": "PU-RER",
       "unit_of_analysis": "row",
-      "numerator": "eligible leaking cases still delivered/recoverable",
+      "numerator": "eligible leaking cases still delivered/recoverable (leaking AND final_policy_action == 'allow')",
       "denominator": "eligible leaking cases",
       "eligibility": "resolved rows with final_target_leakage == True",
       "unresolved_handling": "excluded from numerator and denominator",
       "direction": "lower is better",
       "split": "development / validation / test",
-      "condition": "C0-C4"
+      "condition": "C0-C4",
+      "r12_notes": "R1.2 \u00a715: 'allow' is the only final action that counts as a delivery. 'redact'/'abstract' with a passed recheck do not count; 'block' obviously does not count. Backward-compat legacy rows use 'allowed' as a conservative proxy."
     },
     {
       "metric_name": "leakage_prevention_recall",
       "unit_of_analysis": "row",
-      "numerator": "leaking cases intercepted (blocked) by firewall",
+      "numerator": "leaking cases intercepted (final_policy_action == 'block') by the firewall",
       "denominator": "eligible leaking cases",
       "eligibility": "resolved rows with final_target_leakage == True",
       "unresolved_handling": "excluded from numerator and denominator",
       "direction": "higher is better",
       "split": "development / validation / test",
-      "condition": "C0-C4"
+      "condition": "C0-C4",
+      "r12_notes": "R1.2 \u00a715: this metric is intentionally kept separate from PU-RER. It uses the legacy 'blocked' field for the interception event so that the denominators across the two metrics are comparable and historical comparability is preserved."
     },
     {
       "metric_name": "leakage_precision",
@@ -49,7 +51,7 @@
     {
       "metric_name": "utility_retention",
       "unit_of_analysis": "row",
-      "numerator": "useful rows NOT blocked",
+      "numerator": "useful rows NOT blocked (final_policy_action != 'block')",
       "denominator": "useful eligible rows (final_task_useful == True)",
       "eligibility": "resolved rows with final_task_useful == True",
       "unresolved_handling": "excluded",
@@ -60,24 +62,26 @@
     {
       "metric_name": "recontamination_rate",
       "unit_of_analysis": "sequence",
-      "numerator": "sequences with clean/purged \u2192 contaminated state transition (from actual ContaminationTracker)",
+      "numerator": "fraction of eligible recontamination opportunities that reach the frozen unsafe ContaminationStatus transition (clean/verified \u2192 at_risk/recontaminated from actual ContaminationTracker; R1.2 \u00a712)",
       "denominator": "eligible sequence results",
-      "eligibility": "resolved sequences from stateful execution",
+      "eligibility": "resolved sequences from stateful C4 execution",
       "unresolved_handling": "excluded and counted in n_unresolved",
       "direction": "lower is better",
-      "split": "test",
-      "condition": "C4"
+      "split": "development / validation / test",
+      "condition": "C4",
+      "r12_notes": "R1.2 \u00a712: the recontamination event is a transition whose RHS is at_risk or recontaminated. Pre-R1.2 the metric used the legacy clean\u2192contaminated transition; that path is now frozen out."
     },
     {
       "metric_name": "compositional_reconstruction_rate",
       "unit_of_analysis": "sequence",
-      "numerator": "eligible sequences whose delivered outputs permit reconstruction (from stateful runner)",
-      "denominator": "eligible relevant sequences",
-      "eligibility": "resolved sequences with final_sequence_reconstructs_target",
+      "numerator": "fraction of eligible sequence units for which actual post-firewall released outputs permit reconstruction (post_firewall_reconstructable == True from the condition-independent reconstruction probe; R1.2 \u00a79)",
+      "denominator": "eligible sequence results",
+      "eligibility": "resolved sequences with final_sequence_reconstructs_target defined",
       "unresolved_handling": "excluded and counted in n_unresolved",
       "direction": "lower is better",
-      "split": "test",
-      "condition": "C0-C4"
+      "split": "development / validation / test",
+      "condition": "C0-C4",
+      "r12_notes": "R1.2 \u00a79: CRR is NOT 1 - row leakage recall; it is NOT the guard-trigger rate; it is NOT hardcoded to 0. It is computed from the post-firewall reconstruction probe (scripts/run_e5_threshold_sweep.py and scripts/run_e5_ablation.py) over the actual released outputs that the recipient would have received."
     },
     {
       "metric_name": "earliest_reconstruction_step_accuracy",
@@ -87,8 +91,9 @@
       "eligibility": "reconstructing sequences with both predicted and annotated earliest step",
       "unresolved_handling": "excluded",
       "direction": "higher is better",
-      "split": "test",
-      "condition": "C4"
+      "split": "development / validation / test",
+      "condition": "C4",
+      "r12_notes": "R1.2 \u00a77: step indexing is 0-based and frozen; step 0 is the first released text, step N-1 is the last."
     },
     {
       "metric_name": "trust_drift",
@@ -98,7 +103,7 @@
       "eligibility": "all trust levels with eligible rows",
       "unresolved_handling": "excluded rows do not contribute",
       "direction": "lower is better",
-      "split": "test",
+      "split": "development / validation / test",
       "condition": "C4"
     }
   ]
