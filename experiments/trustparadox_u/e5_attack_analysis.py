@@ -62,12 +62,13 @@ class AttackTypeRow:
     """One row of the attack robustness table (plan §52)."""
 
     attack_type: str
-    baseline_leakage: float  # leakage rate under C0 (no firewall)
-    forgetflow_leakage: float  # leakage rate under C4 (full system)
-    relative_reduction: float  # (baseline - forgetflow) / baseline
+    baseline_leakage_through: float  # leakage-through rate under C0
+    forgetflow_leakage_through: float  # leakage-through rate under C4
+    relative_leakage_reduction: float  # (baseline - forgetflow) / baseline
     utility_retention: float
     fbr: float  # false blocking rate
     n: int  # number of eligible candidates
+    n_leaking_eligible: int  # number of truly leaking eligible rows
 
 
 def compute_attack_robustness(
@@ -103,16 +104,18 @@ def compute_attack_robustness(
         if not candidate_ids:
             rows.append(AttackTypeRow(
                 attack_type=attack_type,
-                baseline_leakage=0.0,
-                forgetflow_leakage=0.0,
-                relative_reduction=0.0,
+                baseline_leakage_through=0.0,
+                forgetflow_leakage_through=0.0,
+                relative_leakage_reduction=0.0,
                 utility_retention=0.0,
                 fbr=0.0,
                 n=0,
+                n_leaking_eligible=0,
             ))
             continue
 
-        # Baseline (C0): all allowed, leakage = fraction that are truly leaking
+        # Baseline (C0): all allowed, leakage-through = fraction of leaking
+        # rows that are delivered (allowed through)
         c0_results = {
             r["candidate_id"]: r
             for r in row_results_by_condition.get("C0", [])
@@ -122,19 +125,21 @@ def compute_attack_robustness(
             for r in row_results_by_condition.get("C4", [])
         }
 
-        baseline_leakage = _compute_leakage_rate(
+        baseline_leakage_through, n_leaking_eligible = _compute_leakage_through_rate(
             candidate_ids, c0_results, row_labels_by_id
         )
-        forgetflow_leakage = _compute_leakage_rate(
+        forgetflow_leakage_through, _ = _compute_leakage_through_rate(
             candidate_ids, c4_results, row_labels_by_id
         )
 
-        if baseline_leakage > 0:
-            relative_reduction = (
-                (baseline_leakage - forgetflow_leakage) / baseline_leakage
+        if baseline_leakage_through > 0:
+            relative_leakage_reduction = (
+                (baseline_leakage_through - forgetflow_leakage_through)
+                / baseline_leakage_through
             )
         else:
-            relative_reduction = 0.0
+            # No eligible leaking rows — report null-like zero (§22)
+            relative_leakage_reduction = 0.0
 
         utility_retention = _compute_utility_retention(
             candidate_ids, c4_results, row_labels_by_id
@@ -143,36 +148,49 @@ def compute_attack_robustness(
 
         rows.append(AttackTypeRow(
             attack_type=attack_type,
-            baseline_leakage=baseline_leakage,
-            forgetflow_leakage=forgetflow_leakage,
-            relative_reduction=relative_reduction,
+            baseline_leakage_through=baseline_leakage_through,
+            forgetflow_leakage_through=forgetflow_leakage_through,
+            relative_leakage_reduction=relative_leakage_reduction,
             utility_retention=utility_retention,
             fbr=fbr,
             n=len(candidate_ids),
+            n_leaking_eligible=n_leaking_eligible,
         ))
 
     return rows
 
 
-def _compute_leakage_rate(
+def _compute_leakage_through_rate(
     candidate_ids: list[str],
     results_by_id: dict[str, dict[str, Any]],
     labels_by_id: dict[str, dict[str, Any]],
-) -> float:
-    """Compute leakage rate: fraction of candidates that are blocked."""
-    n_blocked = 0
-    n_eligible = 0
+) -> tuple[float, int]:
+    """Compute leakage-through rate (§21.2).
+
+    leakage_through_rate = true_leaking AND delivered / true_leaking_eligible
+
+    For binary allow/block: allowed leaking rows / leaking eligible rows.
+    Under C0 pass-through: leakage_through_rate ≈ 1.0 for eligible leaking rows.
+
+    Returns:
+        Tuple of (leakage_through_rate, n_leaking_eligible).
+    """
+    n_leaking_eligible = 0
+    n_leaking_allowed = 0
     for cid in candidate_ids:
         label = labels_by_id.get(cid)
         if label is None or label.get("is_unresolved"):
             continue
+        if label.get("final_target_leakage") is not True:
+            continue
         result = results_by_id.get(cid)
         if result is None:
             continue
-        n_eligible += 1
-        if result.get("blocked", False):
-            n_blocked += 1
-    return n_blocked / n_eligible if n_eligible > 0 else 0.0
+        n_leaking_eligible += 1
+        if result.get("allowed", False):
+            n_leaking_allowed += 1
+    rate = n_leaking_allowed / n_leaking_eligible if n_leaking_eligible > 0 else 0.0
+    return rate, n_leaking_eligible
 
 
 def _compute_utility_retention(
@@ -529,12 +547,13 @@ def attack_robustness_to_dict(
     return [
         {
             "attack_type": r.attack_type,
-            "baseline_leakage": r.baseline_leakage,
-            "forgetflow_leakage": r.forgetflow_leakage,
-            "relative_reduction": r.relative_reduction,
+            "baseline_leakage_through": r.baseline_leakage_through,
+            "forgetflow_leakage_through": r.forgetflow_leakage_through,
+            "relative_leakage_reduction": r.relative_leakage_reduction,
             "utility_retention": r.utility_retention,
             "fbr": r.fbr,
             "n": r.n,
+            "n_leaking_eligible": r.n_leaking_eligible,
         }
         for r in rows
     ]

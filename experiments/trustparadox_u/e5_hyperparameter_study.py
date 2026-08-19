@@ -37,17 +37,24 @@ FROZEN_TAU_SEM_GRID: list[float] = list(TAU_SEM_GRID)
 
 @dataclass(frozen=True)
 class ThresholdSensitivityRow:
-    """One row of the threshold sensitivity table (plan §61)."""
+    """One row of the threshold sensitivity table (plan §61).
+
+    CRR must be computed from actual stateful sequence execution (§28-§29).
+    The ``crr`` field is populated by the caller after running sequences;
+    it is NOT derived from row-level metrics.
+    """
 
     tau_sem: float
     leakage_recall: float  # fraction of leaking rows detected
     fbr: float  # false blocking rate
     utility_retention: float  # useful rows preserved
-    crr: float  # compositional reconstruction resistance (1 - reconstruction rate)
+    crr: float  # compositional reconstruction rate (sequence-derived, §28)
+    pu_rer: float  # leakage-through rate (lower is better, §23)
     n_eligible: int
     n_leaking: int
     n_non_leaking: int
     n_useful_eligible: int
+    n_sequence_eligible: int = 0
 
 
 def compute_threshold_sensitivity(
@@ -121,9 +128,12 @@ def compute_threshold_sensitivity(
             if n_useful_eligible > 0
             else 0.0
         )
-        # CRR: proxy as 1 - (reconstructed sequences / total sequences)
-        # At row level, use 1 - leakage_recall as reconstruction resistance
-        crr = 1.0 - leakage_recall
+        # PU-RER = leakage-through rate = leaking AND allowed / leaking eligible (§23)
+        n_leaking_allowed = n_leaking - n_leaking_detected
+        pu_rer = n_leaking_allowed / n_leaking if n_leaking > 0 else 0.0
+        # CRR must be sequence-derived (§28-§29).  At row level, set to 0.0;
+        # the caller must populate it from actual sequence execution.
+        crr = 0.0
 
         rows.append(ThresholdSensitivityRow(
             tau_sem=tau_sem,
@@ -131,6 +141,7 @@ def compute_threshold_sensitivity(
             fbr=fbr,
             utility_retention=utility_retention,
             crr=crr,
+            pu_rer=pu_rer,
             n_eligible=n_eligible,
             n_leaking=n_leaking,
             n_non_leaking=n_non_leaking,
@@ -260,19 +271,33 @@ def select_optimal_threshold(
     sensitivity_rows: list[ThresholdSensitivityRow],
     *,
     min_leakage_recall: float = 0.90,
+    split: str = "development",
 ) -> ThresholdRecommendation:
     """Select the optimal threshold from sensitivity analysis.
 
     Selects the threshold with the highest utility retention among
     those meeting the minimum leakage recall constraint.
 
+    §31: Must NOT be used to recommend a threshold from held-out test
+    results.  Raises ValueError if split == 'test'.
+
     Args:
         sensitivity_rows: Threshold sensitivity rows.
         min_leakage_recall: Minimum acceptable leakage recall.
+        split: Split name.  Must not be 'test'.
 
     Returns:
         ThresholdRecommendation with selected threshold.
+
+    Raises:
+        ValueError: If split is 'test' or sensitivity_rows is empty.
     """
+    if split == "test":
+        raise ValueError(
+            "select_optimal_threshold() must not be used on held-out test "
+            "results (§31). Threshold selection is development-only."
+        )
+
     if not sensitivity_rows:
         return ThresholdRecommendation(
             tau_sem=0.75,
@@ -329,10 +354,12 @@ def sensitivity_to_dict(
             "fbr": r.fbr,
             "utility_retention": r.utility_retention,
             "crr": r.crr,
+            "pu_rer": r.pu_rer,
             "n_eligible": r.n_eligible,
             "n_leaking": r.n_leaking,
             "n_non_leaking": r.n_non_leaking,
             "n_useful_eligible": r.n_useful_eligible,
+            "n_sequence_eligible": r.n_sequence_eligible,
         }
         for r in rows
     ]

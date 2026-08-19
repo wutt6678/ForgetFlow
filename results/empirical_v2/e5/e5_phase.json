@@ -1,8 +1,11 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "e5_preflight_complete": true,
   "embedding_smoke_complete": true,
   "implementation_repair_complete": true,
+  "r1_1_execution_integration_complete": true,
+  "metric_spec_frozen": true,
+  "metric_spec_schema_version": "1.1",
   "development_embedding_complete": false,
   "development_calibration_complete": false,
   "validation_complete": false,

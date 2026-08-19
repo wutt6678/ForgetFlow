@@ -159,6 +159,8 @@ def run_ablation_via_firewall(
     tau_sem: float,
     reconstruction_threshold: float = 0.60,
     episode_metadata: dict[str, Any] | None = None,
+    raw_text_by_id: dict[str, str] | None = None,
+    corpus_by_id: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Run one ablation by re-executing the canonical firewall (§20).
 
@@ -173,11 +175,18 @@ def run_ablation_via_firewall(
         tau_sem: Frozen semantic threshold.
         reconstruction_threshold: Frozen reconstruction threshold.
         episode_metadata: Fragment maps and fact chains.
+        raw_text_by_id: candidate_id -> raw corpus text (§6).
+        corpus_by_id: candidate_id -> corpus dict for forget record
+            registration (§7).  Keys: scenario_id, secret_variant_id.
 
     Returns:
         List of row result dicts from the ablated firewall run.
     """
-    from .e5_firewall_runner import create_firewall_runner
+    from .e5_firewall_runner import (
+        build_e5_forget_record,
+        create_firewall_runner,
+        extended_result_to_dict,
+    )
 
     override = get_ablation_override(spec)
     runner = create_firewall_runner(
@@ -191,17 +200,43 @@ def run_ablation_via_firewall(
     results: list[dict[str, Any]] = []
     for cid, features in sorted(features_by_id.items()):
         label = row_labels_by_id.get(cid, {})
+
+        # Register forget target from corpus metadata (§7)
+        if corpus_by_id is not None:
+            corpus = corpus_by_id.get(cid, {})
+            scenario_id = corpus.get("scenario_id", label.get("scenario_id", ""))
+            secret_variant_id = corpus.get(
+                "secret_variant_id", label.get("secret_variant_id", "")
+            )
+            if scenario_id and secret_variant_id:
+                try:
+                    forget_record = build_e5_forget_record(
+                        scenario_id=scenario_id,
+                        secret_variant_id=secret_variant_id,
+                    )
+                    runner.register_forget_record(forget_record)
+                except KeyError:
+                    pass
+
+        # Get raw text (§6)
+        raw_text = ""
+        if raw_text_by_id is not None:
+            raw_text = raw_text_by_id.get(cid, "")
+
         er = runner.process_row(
             candidate_id=cid,
             scenario_id=label.get("scenario_id", ""),
             trust_level=label.get("trust_level", "default"),
             features=features,
             split=label.get("split", "development"),
+            raw_text=raw_text,
             input_content_sha=features.get("content_sha256", ""),
             recipient_id=label.get("recipient_id", "default"),
         )
-        from .e5_firewall_runner import extended_result_to_dict
         results.append(extended_result_to_dict(er))
+
+        # Reset state between independent rows (§8)
+        runner.clear_recipient_state()
 
     return results
 
@@ -389,6 +424,8 @@ def run_ablation_study(
     tau_sem: float,
     reconstruction_threshold: float = 0.60,
     episode_metadata: dict[str, Any] | None = None,
+    raw_text_by_id: dict[str, str] | None = None,
+    corpus_by_id: dict[str, dict[str, Any]] | None = None,
 ) -> AblationStudyResult:
     """Run the full ablation study via real re-execution (§20-§26).
 
@@ -401,6 +438,8 @@ def run_ablation_study(
         tau_sem: Frozen semantic threshold.
         reconstruction_threshold: Frozen reconstruction threshold.
         episode_metadata: Fragment maps and fact chains.
+        raw_text_by_id: candidate_id -> raw corpus text (§6).
+        corpus_by_id: candidate_id -> corpus dict for target registration (§7).
 
     Returns:
         AblationStudyResult with metrics for all ablations.
@@ -417,6 +456,8 @@ def run_ablation_study(
             tau_sem=tau_sem,
             reconstruction_threshold=reconstruction_threshold,
             episode_metadata=episode_metadata,
+            raw_text_by_id=raw_text_by_id,
+            corpus_by_id=corpus_by_id,
         )
 
         # Build corpus_by_id from labels (no attack_type injection)

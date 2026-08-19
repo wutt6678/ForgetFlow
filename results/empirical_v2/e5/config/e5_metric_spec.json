@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.1",
+  "description": "Formal specification of every paper-facing metric in E5. Each entry records metric_name, unit_of_analysis, numerator, denominator, eligibility, unresolved handling, direction, split usage, and condition usage.",
+  "metrics": [
+    {
+      "metric_name": "PU-RER",
+      "unit_of_analysis": "row",
+      "numerator": "eligible leaking cases still delivered/recoverable",
+      "denominator": "eligible leaking cases",
+      "eligibility": "resolved rows with final_target_leakage == True",
+      "unresolved_handling": "excluded from numerator and denominator",
+      "direction": "lower is better",
+      "split": "development / validation / test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "leakage_prevention_recall",
+      "unit_of_analysis": "row",
+      "numerator": "leaking cases intercepted (blocked) by firewall",
+      "denominator": "eligible leaking cases",
+      "eligibility": "resolved rows with final_target_leakage == True",
+      "unresolved_handling": "excluded from numerator and denominator",
+      "direction": "higher is better",
+      "split": "development / validation / test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "leakage_precision",
+      "unit_of_analysis": "row",
+      "numerator": "TP (detected AND truly leaking)",
+      "denominator": "TP + FP (all detected)",
+      "eligibility": "resolved rows with final_target_leakage != None",
+      "unresolved_handling": "excluded",
+      "direction": "higher is better",
+      "split": "development / validation / test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "false_blocking_rate",
+      "unit_of_analysis": "row",
+      "numerator": "FP (detected but NOT leaking)",
+      "denominator": "FP + TN (all non-leaking eligible)",
+      "eligibility": "resolved rows with final_target_leakage == False",
+      "unresolved_handling": "excluded",
+      "direction": "lower is better",
+      "split": "development / validation / test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "utility_retention",
+      "unit_of_analysis": "row",
+      "numerator": "useful rows NOT blocked",
+      "denominator": "useful eligible rows (final_task_useful == True)",
+      "eligibility": "resolved rows with final_task_useful == True",
+      "unresolved_handling": "excluded",
+      "direction": "higher is better",
+      "split": "development / validation / test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "recontamination_rate",
+      "unit_of_analysis": "sequence",
+      "numerator": "sequences with clean/purged \u2192 contaminated state transition (from actual ContaminationTracker)",
+      "denominator": "eligible sequence results",
+      "eligibility": "resolved sequences from stateful execution",
+      "unresolved_handling": "excluded and counted in n_unresolved",
+      "direction": "lower is better",
+      "split": "test",
+      "condition": "C4"
+    },
+    {
+      "metric_name": "compositional_reconstruction_rate",
+      "unit_of_analysis": "sequence",
+      "numerator": "eligible sequences whose delivered outputs permit reconstruction (from stateful runner)",
+      "denominator": "eligible relevant sequences",
+      "eligibility": "resolved sequences with final_sequence_reconstructs_target",
+      "unresolved_handling": "excluded and counted in n_unresolved",
+      "direction": "lower is better",
+      "split": "test",
+      "condition": "C0-C4"
+    },
+    {
+      "metric_name": "earliest_reconstruction_step_accuracy",
+      "unit_of_analysis": "sequence",
+      "numerator": "sequences with exact step match",
+      "denominator": "sequences where both predicted and annotated define an earliest step",
+      "eligibility": "reconstructing sequences with both predicted and annotated earliest step",
+      "unresolved_handling": "excluded",
+      "direction": "higher is better",
+      "split": "test",
+      "condition": "C4"
+    },
+    {
+      "metric_name": "trust_drift",
+      "unit_of_analysis": "condition",
+      "numerator": "max(trust_levels) - min(trust_levels) for each metric",
+      "denominator": "N/A (range, not ratio)",
+      "eligibility": "all trust levels with eligible rows",
+      "unresolved_handling": "excluded rows do not contribute",
+      "direction": "lower is better",
+      "split": "test",
+      "condition": "C4"
+    }
+  ]
+}

@@ -33,6 +33,13 @@ from .e5_conditions import (
     RowResult,
     row_result_to_dict,
 )
+from .e5_firewall_runner import (
+    ExtendedRowResult,
+    build_e5_forget_record,
+    create_firewall_runner,
+    extended_result_to_dict,
+    extended_result_to_row_result,
+)
 from .e5_loaders import (
     CorpusCandidate,
     RowLabel,
@@ -64,8 +71,11 @@ EXPECTED_CONDITIONS = 5
 
 
 # ---------------------------------------------------------------------------
-# Condition-specific detection logic
+# Condition-specific detection logic (DEPRECATED — non-authoritative)
 # ---------------------------------------------------------------------------
+# These functions are retained for unit tests and detector diagnostics only.
+# The authoritative execution path uses create_firewall_runner() → process_row().
+# See §4-§5 of E5-R1.1.
 
 
 def apply_condition_detection(
@@ -137,8 +147,11 @@ def determine_policy_action(
 
 
 # ---------------------------------------------------------------------------
-# Row-level evaluation
+# Row-level evaluation (DEPRECATED — non-authoritative)
 # ---------------------------------------------------------------------------
+# evaluate_row() is retained for unit tests and detector diagnostics only.
+# The authoritative execution path uses create_firewall_runner() → process_row().
+# See §4-§5 of E5-R1.1.
 
 
 def evaluate_row(
@@ -241,7 +254,7 @@ def _compute_output_sha(input_sha: str, action: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Full condition evaluation
+# Full condition evaluation (AUTHORITATIVE — uses canonical FirewallRunner)
 # ---------------------------------------------------------------------------
 
 
@@ -254,7 +267,16 @@ def run_condition(
     condition_manifest_sha: str = "unknown",
     detector_config_sha: str = "unknown",
 ) -> tuple[list[RowResult], list[SequenceResult]]:
-    """Run one condition on the full split.
+    """Run one condition on the full split via canonical FirewallRunner (§4-§5).
+
+    Authoritative flow:
+        run_condition()
+          → create_firewall_runner(condition)
+          → register correct forget target
+          → runner.process_row(...)
+          → record ExtendedRowResult → convert to RowResult
+
+    For independent row evaluation, each row gets clean state (§8).
 
     Args:
         split_data: Frozen split data (labels + corpus).
@@ -267,10 +289,30 @@ def run_condition(
     Returns:
         Tuple of (row_results, sequence_results).
     """
-    row_results: list[RowResult] = []
+    cid = condition.condition_id
+
+    # Fail closed: verify feature completeness (§38)
+    corpus_ids = {c.candidate_id for c in split_data.corpus}
+    feature_ids = set(features_by_id.keys())
+    missing = corpus_ids - feature_ids
+    if missing:
+        raise ValueError(
+            f"Missing features for {len(missing)} candidates: "
+            f"{sorted(missing)[:5]}{'...' if len(missing) > 5 else ''}. "
+            f"All corpus candidates must have features in official runs."
+        )
+
+    # Create canonical runner for this condition
+    runner = create_firewall_runner(
+        condition_id=cid,
+        semantic_threshold=tau_sem,
+    )
 
     # Build corpus lookup
     corpus_by_id = {c.candidate_id: c for c in split_data.corpus}
+
+    # --- Row evaluation ---
+    row_results: list[RowResult] = []
 
     for row_label in split_data.row_labels:
         corpus = corpus_by_id.get(row_label.candidate_id)
@@ -278,28 +320,190 @@ def run_condition(
             continue
 
         features = features_by_id.get(row_label.candidate_id, {})
-        result = evaluate_row(
-            row_label=row_label,
-            corpus=corpus,
+        if not features:
+            raise ValueError(
+                f"Missing features for candidate {row_label.candidate_id!r}. "
+                f"All corpus candidates must have features in official runs."
+            )
+
+        # For C4: register the correct forget target before processing (§7)
+        if cid == "C4":
+            try:
+                forget_record = build_e5_forget_record(
+                    scenario_id=corpus.scenario_id,
+                    secret_variant_id=corpus.secret_variant_id,
+                )
+                runner.register_forget_record(forget_record)
+            except KeyError:
+                pass  # No registry spec for this variant; C4 returns NO_ACTIVE_RECORDS
+
+        # Process row through canonical runner with real corpus text (§6)
+        er = runner.process_row(
+            candidate_id=row_label.candidate_id,
+            scenario_id=corpus.scenario_id,
+            trust_level=corpus.trust_level,
             features=features,
-            condition=condition,
-            tau_sem=tau_sem,
             split=split_data.split,
+            raw_text=corpus.text,
+            recipient_id=corpus.recipient_id,
+            sender_id=corpus.sender_id,
+            input_content_sha=corpus.content_sha256,
             condition_manifest_sha=condition_manifest_sha,
             detector_config_sha=detector_config_sha,
+            embedding_model=features.get("embedding_model", "unknown"),
         )
-        row_results.append(result)
 
-    # Sequence evaluation — pass condition spec for condition-aware replay (§13)
-    sequence_results = evaluate_sequences(
-        sequence_labels=list(split_data.sequence_labels),
+        # Convert ExtendedRowResult → RowResult deterministically (§35)
+        rr = extended_result_to_row_result(er)
+        row_results.append(rr)
+
+        # Reset state between independent rows (§8)
+        if cid == "C4":
+            runner.clear_recipient_state()
+            # Re-create runner for next row to ensure full clean state
+            runner = create_firewall_runner(
+                condition_id=cid,
+                semantic_threshold=tau_sem,
+            )
+
+    # --- Sequence evaluation ---
+    # For sequences, create a fresh runner and process all steps through it (§8)
+    sequence_results = _run_sequences_via_runner(
+        split_data=split_data,
+        condition=condition,
         features_by_id=features_by_id,
         tau_sem=tau_sem,
-        condition_id=condition.condition_id,
-        condition_spec=condition,
+        corpus_by_id=corpus_by_id,
+        condition_manifest_sha=condition_manifest_sha,
+        detector_config_sha=detector_config_sha,
     )
 
     return row_results, sequence_results
+
+
+def _run_sequences_via_runner(
+    *,
+    split_data: SplitData,
+    condition: ConditionSpec,
+    features_by_id: dict[str, dict[str, Any]],
+    tau_sem: float,
+    corpus_by_id: dict[str, CorpusCandidate],
+    condition_manifest_sha: str,
+    detector_config_sha: str,
+) -> list[SequenceResult]:
+    """Run sequence evaluation via canonical FirewallRunner (§9).
+
+    Each sequence gets a fresh runner.  All steps within a sequence
+    go through the same runner instance to maintain state continuity.
+    """
+    from .e5_sequence_evaluation import SequenceResult, StepDecision
+
+    cid = condition.condition_id
+    results: list[SequenceResult] = []
+
+    for seq_label in split_data.sequence_labels:
+        if seq_label.is_unresolved:
+            continue
+
+        trust_level = getattr(seq_label, "trust_level", "unknown")
+        ordered_ids = seq_label.ordered_candidate_ids
+
+        # Fresh runner per sequence (§8)
+        seq_runner = create_firewall_runner(
+            condition_id=cid,
+            semantic_threshold=tau_sem,
+        )
+
+        # Register forget target for C4
+        if cid == "C4" and ordered_ids:
+            first_corpus = corpus_by_id.get(ordered_ids[0])
+            if first_corpus is not None:
+                try:
+                    forget_record = build_e5_forget_record(
+                        scenario_id=first_corpus.scenario_id,
+                        secret_variant_id=first_corpus.secret_variant_id,
+                    )
+                    seq_runner.register_forget_record(forget_record)
+                except KeyError:
+                    pass
+
+        # Process each step through the same runner
+        steps: list[StepDecision] = []
+        for i, candidate_id in enumerate(ordered_ids):
+            corpus = corpus_by_id.get(candidate_id)
+            features = features_by_id.get(candidate_id, {})
+            if not features:
+                raise ValueError(
+                    f"Missing features for sequence step candidate "
+                    f"{candidate_id!r} in sequence "
+                    f"{seq_label.sequence_annotation_id!r}."
+                )
+
+            raw_text = corpus.text if corpus else ""
+            recipient_id = corpus.recipient_id if corpus else "default_recipient"
+            sender_id = corpus.sender_id if corpus else "default_sender"
+            input_sha = corpus.content_sha256 if corpus else ""
+
+            er = seq_runner.process_row(
+                candidate_id=candidate_id,
+                scenario_id=corpus.scenario_id if corpus else "",
+                trust_level=trust_level,
+                features=features,
+                split=split_data.split,
+                raw_text=raw_text,
+                recipient_id=recipient_id,
+                sender_id=sender_id,
+                turn_id=i,
+                message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
+                input_content_sha=input_sha,
+                condition_manifest_sha=condition_manifest_sha,
+                detector_config_sha=detector_config_sha,
+                embedding_model=features.get("embedding_model", "unknown"),
+            )
+
+            # Build StepDecision from ExtendedRowResult (§9.3)
+            sd = StepDecision(
+                step_index=i,
+                candidate_id=candidate_id,
+                exact_match=er.exact_match,
+                alias_match=er.alias_match,
+                semantic_similarity=er.semantic_similarity,
+                detected=er.blocked,
+                policy_action=er.policy_action,
+                decision_reason=er.decision_reason,
+                history_state_summary=(
+                    f"history_used={er.history_state_used}"
+                ),
+                reconstruction_guard_result=er.reconstruction_guard_triggered,
+                reconstruction_score=er.reconstruction_score,
+                purge_state_transition=(
+                    f"purge={er.purge_triggered}"
+                ),
+                delivered_content_sha=er.output_content_sha,
+            )
+            steps.append(sd)
+
+        # Predict reconstruction from step decisions
+        from .e5_sequence_evaluation import predict_sequence_reconstruction
+        recon, earliest, strength = predict_sequence_reconstruction(steps)
+
+        seq_result = SequenceResult(
+            sequence_annotation_id=seq_label.sequence_annotation_id,
+            trust_level=trust_level,
+            condition_id=cid,
+            ordered_candidate_ids=ordered_ids,
+            step_decisions=tuple(steps),
+            predicted_sequence_reconstruction=recon,
+            predicted_earliest_reconstruction_step=earliest,
+            predicted_reconstruction_strength=strength,
+        )
+
+        # Join annotation labels
+        from .e5_sequence_evaluation import _join_annotations
+        seq_result = _join_annotations(seq_result, seq_label)
+        results.append(seq_result)
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +536,9 @@ def run_test_evaluation(
 
     Executes all conditions C0–C4 on the specified split.
 
+    §32-§33: If split == 'test', requires test-access guard before
+    any evaluation begins.
+
     Args:
         split: Split name (should be "test" for held-out).
         features_by_id: Pre-computed detector features.
@@ -342,6 +549,11 @@ def run_test_evaluation(
     Returns:
         TestEvaluationResult with all row and sequence results.
     """
+    # Test-access guard (§32-§33)
+    if split == "test":
+        from .e5_conditions import require_test_access_started
+        require_test_access_started()
+
     split_data = load_split(split)
 
     all_row_results: dict[str, tuple[RowResult, ...]] = {}

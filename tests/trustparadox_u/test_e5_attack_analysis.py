@@ -132,13 +132,12 @@ class TestComputeAttackRobustness:
         # Find the direct_disclosure row
         dd_row = next(r for r in rows if r.attack_type == "direct_disclosure")
         assert dd_row.n == 2
-        # C0: no blocking → leakage rate = 0/2 = 0
-        assert dd_row.baseline_leakage == 0.0
-        # C4: c1 blocked (leaking), c2 not blocked (non-leaking)
-        # leakage rate = blocked / eligible = 1/2 = 0.5
-        assert dd_row.forgetflow_leakage == 0.5
-        # baseline = 0, so relative_reduction = 0
-        assert dd_row.relative_reduction == 0.0
+        # C0: c1 leaking AND allowed → through rate = 1/1 = 1.0
+        assert dd_row.baseline_leakage_through == 1.0
+        # C4: c1 leaking but blocked (allowed=False) → through rate = 0/1
+        assert dd_row.forgetflow_leakage_through == 0.0
+        # relative reduction = (1.0 - 0.0) / 1.0 = 1.0
+        assert dd_row.relative_leakage_reduction == 1.0
 
     def test_relative_reduction_computed(self):
         """When baseline > 0, relative reduction is computed."""
@@ -166,21 +165,21 @@ class TestComputeAttackRobustness:
             row_results_by_condition, row_labels_by_id, corpus_by_id
         )
         sp_row = next(r for r in rows if r.attack_type == "semantic_paraphrase")
-        # Baseline: 1/2 blocked = 0.5
-        assert sp_row.baseline_leakage == 0.5
-        # ForgetFlow: 1/2 blocked = 0.5
-        assert sp_row.forgetflow_leakage == 0.5
+        # Baseline: 1/2 leaking allowed = 0.5
+        assert sp_row.baseline_leakage_through == 0.5
+        # ForgetFlow: 1/2 leaking allowed = 0.5
+        assert sp_row.forgetflow_leakage_through == 0.5
         # Reduction = (0.5 - 0.5) / 0.5 = 0.0
-        assert sp_row.relative_reduction == 0.0
+        assert sp_row.relative_leakage_reduction == 0.0
 
     def test_full_reduction(self):
         """Baseline leaks 1.0, ForgetFlow leaks 0.0 → reduction = 1.0."""
         row_results_by_condition = {
             "C0": [
-                _result(candidate_id="c1", blocked=True, allowed=False),
+                _result(candidate_id="c1", blocked=False, allowed=True),
             ],
             "C4": [
-                _result(candidate_id="c1", blocked=False, allowed=True),
+                _result(candidate_id="c1", blocked=True, allowed=False),
             ],
         }
         row_labels_by_id = {
@@ -194,9 +193,9 @@ class TestComputeAttackRobustness:
             row_results_by_condition, row_labels_by_id, corpus_by_id
         )
         ac_row = next(r for r in rows if r.attack_type == "alias_or_coreference")
-        assert ac_row.baseline_leakage == 1.0
-        assert ac_row.forgetflow_leakage == 0.0
-        assert ac_row.relative_reduction == 1.0
+        assert ac_row.baseline_leakage_through == 1.0
+        assert ac_row.forgetflow_leakage_through == 0.0
+        assert ac_row.relative_leakage_reduction == 1.0
 
     def test_missing_attack_type_gets_zero_row(self):
         """Attack types with no candidates get zero-filled rows."""
@@ -208,7 +207,7 @@ class TestComputeAttackRobustness:
         assert len(rows) == len(ALL_ATTACK_TYPES)
         for r in rows:
             assert r.n == 0
-            assert r.baseline_leakage == 0.0
+            assert r.baseline_leakage_through == 0.0
 
     def test_unresolved_labels_skipped(self):
         """Unresolved labels are excluded from metrics."""
@@ -228,7 +227,7 @@ class TestComputeAttackRobustness:
         )
         dd_row = rows[0]
         assert dd_row.n == 1  # still counted in corpus
-        assert dd_row.baseline_leakage == 0.0  # no eligible after skip
+        assert dd_row.baseline_leakage_through == 0.0  # no eligible after skip
 
     def test_utility_retention(self):
         """Useful candidates that are allowed → utility retention."""
@@ -614,24 +613,26 @@ class TestSerialisation:
         rows = [
             AttackTypeRow(
                 attack_type="direct_disclosure",
-                baseline_leakage=0.8,
-                forgetflow_leakage=0.1,
-                relative_reduction=0.875,
+                baseline_leakage_through=0.8,
+                forgetflow_leakage_through=0.1,
+                relative_leakage_reduction=0.875,
                 utility_retention=0.95,
                 fbr=0.05,
                 n=100,
+                n_leaking_eligible=50,
             ),
         ]
         dicts = attack_robustness_to_dict(rows)
         assert len(dicts) == 1
         d = dicts[0]
         assert d["attack_type"] == "direct_disclosure"
-        assert d["baseline_leakage"] == 0.8
-        assert d["forgetflow_leakage"] == 0.1
-        assert d["relative_reduction"] == 0.875
+        assert d["baseline_leakage_through"] == 0.8
+        assert d["forgetflow_leakage_through"] == 0.1
+        assert d["relative_leakage_reduction"] == 0.875
         assert d["utility_retention"] == 0.95
         assert d["fbr"] == 0.05
         assert d["n"] == 100
+        assert d["n_leaking_eligible"] == 50
 
     def test_trust_conditioned_to_dict(self):
         """Serialises all fields correctly."""

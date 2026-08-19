@@ -209,6 +209,7 @@ class FirewallRunner:
         trust_level: str,
         features: dict[str, Any],
         split: str,
+        raw_text: str = "",
         recipient_id: str = "default_recipient",
         sender_id: str = "default_sender",
         turn_id: int = 0,
@@ -235,6 +236,9 @@ class FirewallRunner:
             trust_level: Trust condition.
             features: Pre-computed detector features.
             split: Split name.
+            raw_text: Original corpus text for this candidate.  Required
+                for C4 reconstruction, history, policy, and audit.  Missing
+                raw_text in an official C4 run should fail closed.
             recipient_id: Recipient for history tracking.
             sender_id: Sender ID.
             turn_id: Turn number for active record scoping.
@@ -266,9 +270,9 @@ class FirewallRunner:
         elif cid == "C4":
             return self._process_c4(
                 candidate_id, scenario_id, trust_level, features, split,
-                recipient_id, sender_id, turn_id, message_id, episode_id,
-                session_id, input_content_sha, condition_manifest_sha,
-                detector_config_sha, embedding_model,
+                raw_text, recipient_id, sender_id, turn_id, message_id,
+                episode_id, session_id, input_content_sha,
+                condition_manifest_sha, detector_config_sha, embedding_model,
             )
         else:
             raise ValueError(f"Unknown condition_id: {cid}")
@@ -400,6 +404,7 @@ class FirewallRunner:
         trust_level: str,
         features: dict[str, Any],
         split: str,
+        raw_text: str,
         recipient_id: str,
         sender_id: str,
         turn_id: int,
@@ -473,7 +478,7 @@ class FirewallRunner:
         if self.config.reconstruction_guard and self.config.history_enabled:
             for rec in active:
                 per_record_recon[rec.forget_id] = self.reconstruction_checker.score(
-                    features.get("raw_text", ""),
+                    raw_text,
                     ctx,
                     active,
                     self.episode_metadata,
@@ -516,7 +521,7 @@ class FirewallRunner:
 
         # Handle allow: released_text = original
         if action == "allow":
-            released_text = features.get("raw_text", "")
+            released_text = raw_text
 
         # Handle block: released_text = None
         if action == "block":
@@ -550,7 +555,7 @@ class FirewallRunner:
         # 10. Record audit entry
         self._record_audit(
             candidate_id, recipient_id, sender_id, turn_id,
-            features.get("raw_text", ""), released_text,
+            raw_text, released_text,
             action, det_result, reasons, triggered_modules,
         )
 
@@ -953,4 +958,81 @@ def build_forget_record(
         permitted_residuals=permitted_residuals,
         active_from_turn=active_from_turn,
         scoped_agent_ids=scoped_agent_ids,
+    )
+
+
+def build_e5_forget_record(
+    scenario_id: str,
+    secret_variant_id: str,
+) -> ForgetRecord:
+    """Build a ForgetRecord from the frozen empirical target registry.
+
+    Maps by scenario_id + secret_variant_id from EMPIRICAL_TARGET_REGISTRY.
+    Never derives target identity from E4 outcome labels (§7.4).
+
+    Args:
+        scenario_id: Scenario identifier (e.g. "credential_001").
+        secret_variant_id: Variant identifier (e.g. "credential_v1").
+
+    Returns:
+        ForgetRecord containing the frozen target definition.
+
+    Raises:
+        KeyError: If no matching spec is found.
+    """
+    from .empirical_corpus import get_target_spec
+
+    spec = get_target_spec(secret_variant_id)
+
+    # Determine target_type from scenario_id prefix
+    if scenario_id.startswith("credential"):
+        target_type = "credential"
+    elif scenario_id.startswith("private_attribute"):
+        target_type = "private_attribute"
+    elif scenario_id.startswith("authorization"):
+        target_type = "authorization"
+    else:
+        target_type = "unknown"
+
+    return ForgetRecord(
+        forget_id=spec.forget_id,
+        canonical_target=spec.canonical_target,
+        target_type=target_type,
+        aliases=spec.aliases,
+        semantic_variants=spec.semantic_descriptions,
+        permitted_residuals=spec.permitted_residuals,
+        active_from_turn=0,
+        scoped_agent_ids=(spec.custodian_agent_id, spec.default_recipient_id),
+    )
+
+
+def extended_result_to_row_result(er: ExtendedRowResult) -> "RowResult":
+    """Convert an ExtendedRowResult to a RowResult deterministically.
+
+    Does NOT recompute the decision during conversion (§35).
+    """
+    from .e5_conditions import RowResult
+
+    return RowResult(
+        candidate_id=er.candidate_id,
+        split=er.split,
+        condition_id=er.condition_id,
+        scenario_id=er.scenario_id,
+        trust_level=er.trust_level,
+        exact_match=er.exact_match,
+        alias_match=er.alias_match,
+        semantic_similarity=er.semantic_similarity,
+        policy_action=er.policy_action,
+        blocked=er.blocked,
+        allowed=er.allowed,
+        input_content_sha=er.input_content_sha,
+        output_content_sha=er.output_content_sha,
+        detector_config_sha=er.detector_config_sha,
+        condition_manifest_sha=er.condition_manifest_sha,
+        embedding_model=er.embedding_model,
+        decision_reason=er.decision_reason,
+        triggered_modules=er.triggered_modules,
+        history_state_used=er.history_state_used,
+        reconstruction_guard_triggered=er.reconstruction_guard_triggered,
+        purge_triggered=er.purge_triggered,
     )

@@ -148,8 +148,8 @@ class TestBuildAttackTable:
         assert isinstance(table, list)
         assert len(table) > 0
         assert "attack_type" in table[0]
-        assert "baseline_leakage" in table[0]
-        assert "forgetflow_leakage" in table[0]
+        assert "baseline_leakage_through" in table[0]
+        assert "forgetflow_leakage_through" in table[0]
 
 
 class TestBuildTrustTable:

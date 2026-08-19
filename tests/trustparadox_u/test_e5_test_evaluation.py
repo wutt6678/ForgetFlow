@@ -56,8 +56,12 @@ class _FakeRowLabel:
 class _FakeCorpus:
     candidate_id: str
     scenario_id: str = "s1"
+    secret_variant_id: str = "credential_v1"
     trust_level: str = "default"
     content_sha256: str = "abc123"
+    text: str = "synthetic corpus text"
+    recipient_id: str = "default_recipient"
+    sender_id: str = "default_sender"
 
 
 @dataclass(frozen=True)

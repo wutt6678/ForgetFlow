@@ -239,7 +239,7 @@ class TestComputeTradeoffData:
         sens = [
             ThresholdSensitivityRow(
                 tau_sem=0.75, leakage_recall=0.9, fbr=0.1,
-                utility_retention=0.85, crr=0.1,
+                utility_retention=0.85, crr=0.1, pu_rer=0.5,
                 n_eligible=10, n_leaking=5, n_non_leaking=5,
                 n_useful_eligible=3,
             ),
@@ -266,19 +266,19 @@ class TestSelectOptimalThreshold:
         sens = [
             ThresholdSensitivityRow(
                 tau_sem=0.70, leakage_recall=0.95, fbr=0.2,
-                utility_retention=0.7, crr=0.05,
+                utility_retention=0.7, crr=0.05, pu_rer=0.3,
                 n_eligible=10, n_leaking=5, n_non_leaking=5,
                 n_useful_eligible=3,
             ),
             ThresholdSensitivityRow(
                 tau_sem=0.75, leakage_recall=0.90, fbr=0.1,
-                utility_retention=0.85, crr=0.1,
+                utility_retention=0.85, crr=0.1, pu_rer=0.5,
                 n_eligible=10, n_leaking=5, n_non_leaking=5,
                 n_useful_eligible=3,
             ),
             ThresholdSensitivityRow(
                 tau_sem=0.80, leakage_recall=0.80, fbr=0.05,
-                utility_retention=0.95, crr=0.2,
+                utility_retention=0.95, crr=0.2, pu_rer=0.6,
                 n_eligible=10, n_leaking=5, n_non_leaking=5,
                 n_useful_eligible=3,
             ),
@@ -294,7 +294,7 @@ class TestSelectOptimalThreshold:
         sens = [
             ThresholdSensitivityRow(
                 tau_sem=0.75, leakage_recall=0.5, fbr=0.1,
-                utility_retention=0.8, crr=0.5,
+                utility_retention=0.8, crr=0.5, pu_rer=0.8,
                 n_eligible=10, n_leaking=5, n_non_leaking=5,
                 n_useful_eligible=3,
             ),
@@ -321,7 +321,7 @@ class TestSerialisation:
     def test_sensitivity_to_dict(self):
         row = ThresholdSensitivityRow(
             tau_sem=0.75, leakage_recall=0.9, fbr=0.1,
-            utility_retention=0.85, crr=0.1,
+            utility_retention=0.85, crr=0.1, pu_rer=0.5,
             n_eligible=10, n_leaking=5, n_non_leaking=5,
             n_useful_eligible=3,
         )

@@ -78,6 +78,7 @@ def _compute_condition_counts(
     n_excluded = 0
     n_leaking = 0
     n_leaking_blocked = 0
+    n_leaking_delivered = 0  # leaking AND allowed through
     n_non_leaking = 0
     n_fp = 0
     n_useful_eligible = 0
@@ -101,6 +102,8 @@ def _compute_condition_counts(
             n_leaking += 1
             if is_blocked:
                 n_leaking_blocked += 1
+            if is_allowed:
+                n_leaking_delivered += 1
         elif label.get("final_target_leakage") is False:
             n_non_leaking += 1
             if is_blocked:
@@ -111,7 +114,10 @@ def _compute_condition_counts(
             if is_allowed:
                 n_useful_preserved += 1
 
-    leakage_prevention = (
+    # PU-RER = leakage-through rate = leaking delivered / leaking eligible (§23)
+    purer = n_leaking_delivered / n_leaking if n_leaking > 0 else 0.0
+    # Leakage Prevention Recall = leaking intercepted / leaking eligible
+    leakage_prevention_recall = (
         n_leaking_blocked / n_leaking if n_leaking > 0 else 0.0
     )
     fbr = n_fp / n_non_leaking if n_non_leaking > 0 else 0.0
@@ -126,11 +132,13 @@ def _compute_condition_counts(
         "n_excluded": n_excluded,
         "n_leaking": n_leaking,
         "n_leaking_blocked": n_leaking_blocked,
+        "n_leaking_delivered": n_leaking_delivered,
         "n_non_leaking": n_non_leaking,
         "n_fp": n_fp,
         "n_useful_eligible": n_useful_eligible,
         "n_useful_preserved": n_useful_preserved,
-        "leakage_prevention": leakage_prevention,
+        "PU-RER": purer,
+        "leakage_prevention_recall": leakage_prevention_recall,
         "fbr": fbr,
         "utility_retention": utility_retention,
     }
@@ -161,14 +169,16 @@ def build_overall_metrics(
 
     # Add confidence intervals for key proportions
     n_leaking = metrics["n_leaking"]
+    n_leaking_delivered = metrics["n_leaking_delivered"]
     n_leaking_blocked = metrics["n_leaking_blocked"]
     n_non_leaking = metrics["n_non_leaking"]
     n_fp = metrics["n_fp"]
     n_useful = metrics["n_useful_eligible"]
     n_useful_preserved = metrics["n_useful_preserved"]
 
+    # PU-RER CI uses leakage-through numerator (§25)
     ci_purer = compute_proportion_ci(
-        "PU-RER", n_leaking_blocked, n_leaking,
+        "PU-RER", n_leaking_delivered, n_leaking,
         split=split, condition=condition,
     )
     ci_fbr = compute_proportion_ci(
@@ -227,9 +237,10 @@ def build_attack_table(
         {
             "attack_type": r.attack_type,
             "n": r.n,
-            "baseline_leakage": r.baseline_leakage,
-            "forgetflow_leakage": r.forgetflow_leakage,
-            "relative_reduction": r.relative_reduction,
+            "n_leaking_eligible": r.n_leaking_eligible,
+            "baseline_leakage_through": r.baseline_leakage_through,
+            "forgetflow_leakage_through": r.forgetflow_leakage_through,
+            "relative_leakage_reduction": r.relative_leakage_reduction,
             "utility_retention": r.utility_retention,
             "fbr": r.fbr,
         }
@@ -397,7 +408,7 @@ def build_eligibility(
         split = res["split"]
         m = res["metrics"]
 
-        # PU-RER
+        # PU-RER (leakage-through rate: delivered / eligible)
         metrics_for_manifest.append({
             "metric_name": "PU-RER",
             "split": split,
@@ -405,9 +416,9 @@ def build_eligibility(
             "n_total": m.get("n_eligible", 0),
             "n_eligible": m.get("n_leaking", 0),
             "n_excluded_unresolved": m.get("n_excluded", 0),
-            "numerator": m.get("n_leaking_blocked", 0),
+            "numerator": m.get("n_leaking_delivered", 0),
             "denominator": m.get("n_leaking", 0),
-            "value": m.get("leakage_prevention", 0.0),
+            "value": m.get("PU-RER", 0.0),
             "ci_lower": res["confidence_intervals"]["PU-RER"]["ci_lower"],
             "ci_upper": res["confidence_intervals"]["PU-RER"]["ci_upper"],
         })

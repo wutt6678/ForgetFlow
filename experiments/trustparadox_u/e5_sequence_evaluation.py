@@ -204,6 +204,12 @@ def replay_sequence(
 ) -> SequenceResult:
     """Replay a sequence step-by-step (plan §31, §13-§19 repair).
 
+    .. deprecated:: E5-R1.1
+        This detector-only replay is retained for diagnostics and unit
+        tests.  The authoritative sequence execution path uses the
+        canonical FirewallRunner via ``_run_sequences_via_runner()``
+        in ``e5_test_evaluation.py`` (§9).
+
     For each candidate in order:
     1. Look up pre-computed detector features.
     2. Apply condition-specific detection rule.
@@ -370,6 +376,12 @@ def evaluate_sequences(
     condition_spec: ConditionSpec | None = None,
 ) -> list[SequenceResult]:
     """Evaluate all sequences in a split.
+
+    .. deprecated:: E5-R1.1
+        This detector-only evaluation is retained for diagnostics and
+        unit tests.  The authoritative path uses the canonical
+        FirewallRunner via ``_run_sequences_via_runner()`` in
+        ``e5_test_evaluation.py`` (§9).
 
     Joins annotation labels after execution (plan §30).
 

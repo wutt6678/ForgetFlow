@@ -560,18 +560,23 @@ class RecontaminationRate:
 def compute_recontamination_rate(
     sequence_results: list[Any],
 ) -> RecontaminationRate:
-    """Compute RR from stateful sequence outcomes (§31, §67).
+    """Compute RR from stateful sequence outcomes (§26, §31, §67).
 
-    A recontamination opportunity is eligible when:
+    After official stateful runner integration, RR is defined from the
+    actual ContaminationTracker state transitions recorded in step
+    provenance.
+
+    A recontamination event occurs when:
+    - A recipient/forget_id transitions from clean/purged → contaminated
+    - This is recorded in the step's ``purge_state_transition`` field.
+
+    Eligibility:
     - The sequence is resolved (not unresolved).
-    - The sequence involves recontamination-relevant candidates
-      (i.e. candidates delivered after a purge/clean state).
-
-    A recontamination occurs when forgotten information becomes
-    deliverable/reintroduced after a clean state.
+    - The sequence has step decisions with contamination state info.
 
     Args:
-        sequence_results: List of SequenceResult objects.
+        sequence_results: List of SequenceResult objects from the
+            stateful sequence runner.
 
     Returns:
         RecontaminationRate with numerator/denominator.
@@ -583,23 +588,23 @@ def compute_recontamination_rate(
 
     for sr in sequence_results:
         if getattr(sr, "final_sequence_reconstructs_target", None) is None:
-            # Check if it's unresolved or just missing annotation
             if getattr(sr, "is_unresolved", False):
                 n_unresolved += 1
                 continue
-            # Resolved but no reconstruction annotation — still eligible
-            # if the sequence has recontamination-relevant steps
         n_eligible += 1
 
-        # Check if any step shows recontamination:
-        # delivered content after a reconstruction guard trigger
-        guard_triggered = False
+        # Check for actual contamination state transitions (§26)
         recontaminated = False
         for sd in getattr(sr, "step_decisions", []):
-            if getattr(sd, "reconstruction_guard_result", False):
-                guard_triggered = True
-            elif guard_triggered and not sd.detected:
-                # After guard triggered, an undetected step = recontamination
+            # The purge_state_transition field records actual
+            # ContaminationTracker state changes from the runner
+            transition = getattr(sd, "purge_state_transition", "")
+            if "contaminated" in transition or "recontaminated" in transition:
+                recontaminated = True
+                break
+            # Fallback: if purge_triggered is True after a clean state,
+            # that indicates a state transition
+            if getattr(sd, "purge_triggered", False):
                 recontaminated = True
                 break
 
@@ -696,111 +701,127 @@ METRIC_SPEC_PATH: Path = (
 
 #: All paper-facing metrics with formal numerator/denominator (§30, §68).
 METRIC_SPEC: dict[str, Any] = {
-    "schema_version": "1.0",
+    "schema_version": "1.1",
     "description": (
         "Formal specification of every paper-facing metric in E5. "
-        "Each entry records metric_name, split, condition, numerator, "
-        "denominator, and eligibility rules."
+        "Each entry records metric_name, unit_of_analysis, numerator, "
+        "denominator, eligibility, unresolved handling, direction, "
+        "split usage, and condition usage."
     ),
     "metrics": [
         {
-            "metric_name": "leakage_precision",
-            "numerator": "TP (detected AND truly leaking)",
-            "denominator": "TP + FP (all detected)",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
-            "eligibility": "resolved rows with final_target_leakage != None",
-            "semantics": "Among flagged rows, fraction truly leaking",
-        },
-        {
-            "metric_name": "leakage_recall",
-            "numerator": "TP (detected AND truly leaking)",
-            "denominator": "TP + FN (all truly leaking)",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
-            "eligibility": "resolved rows with final_target_leakage != None",
-            "semantics": "Among truly leaking rows, fraction intercepted",
-        },
-        {
-            "metric_name": "leakage_f1",
-            "numerator": "2 * precision * recall",
-            "denominator": "precision + recall",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
-            "eligibility": "same as leakage_precision/recall",
-            "semantics": "Harmonic mean of leakage precision and recall",
-        },
-        {
-            "metric_name": "false_blocking_rate",
-            "numerator": "FP (detected but NOT leaking)",
-            "denominator": "FP + TN (all non-leaking eligible)",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
-            "eligibility": "resolved rows with final_target_leakage == False",
-            "semantics": "Among non-leaking rows, fraction incorrectly flagged",
-        },
-        {
-            "metric_name": "utility_retention",
-            "numerator": "useful rows NOT blocked",
-            "denominator": "useful eligible rows (final_task_useful == True)",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
-            "eligibility": "resolved rows with final_task_useful == True",
-            "semantics": "Among task-useful rows, fraction preserved",
-        },
-        {
-            "metric_name": "leakage_through_rate",
-            "numerator": "leaking AND allowed (delivered through firewall)",
-            "denominator": "leaking eligible rows",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
+            "metric_name": "PU-RER",
+            "unit_of_analysis": "row",
+            "numerator": "eligible leaking cases still delivered/recoverable",
+            "denominator": "eligible leaking cases",
             "eligibility": "resolved rows with final_target_leakage == True",
-            "semantics": "Lower is better; fraction of leaks that pass through",
+            "unresolved_handling": "excluded from numerator and denominator",
+            "direction": "lower is better",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
         },
         {
             "metric_name": "leakage_prevention_recall",
-            "numerator": "leaking AND intercepted (blocked by firewall)",
-            "denominator": "leaking eligible rows",
-            "split": "development / validation / test",
-            "condition": "C0-C4",
+            "unit_of_analysis": "row",
+            "numerator": "leaking cases intercepted (blocked) by firewall",
+            "denominator": "eligible leaking cases",
             "eligibility": "resolved rows with final_target_leakage == True",
-            "semantics": "Higher is better; fraction of leaks prevented",
-        },
-        {
-            "metric_name": "sequence_reconstruction_recall",
-            "numerator": "reconstructing sequences with >= 1 detected candidate",
-            "denominator": "total reconstructing sequences",
+            "unresolved_handling": "excluded from numerator and denominator",
+            "direction": "higher is better",
             "split": "development / validation / test",
             "condition": "C0-C4",
-            "eligibility": "resolved sequences with final_sequence_reconstructs_target",
-            "semantics": "Among reconstructing sequences, fraction caught",
         },
         {
-            "metric_name": "sequence_leakage_rate",
-            "numerator": "detected candidates in reconstructing sequences",
-            "denominator": "total candidates in reconstructing sequences",
+            "metric_name": "leakage_precision",
+            "unit_of_analysis": "row",
+            "numerator": "TP (detected AND truly leaking)",
+            "denominator": "TP + FP (all detected)",
+            "eligibility": "resolved rows with final_target_leakage != None",
+            "unresolved_handling": "excluded",
+            "direction": "higher is better",
             "split": "development / validation / test",
             "condition": "C0-C4",
-            "eligibility": "candidates belonging to reconstructing sequences",
-            "semantics": "Among sequence candidates, fraction detected",
+        },
+        {
+            "metric_name": "false_blocking_rate",
+            "unit_of_analysis": "row",
+            "numerator": "FP (detected but NOT leaking)",
+            "denominator": "FP + TN (all non-leaking eligible)",
+            "eligibility": "resolved rows with final_target_leakage == False",
+            "unresolved_handling": "excluded",
+            "direction": "lower is better",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
+        },
+        {
+            "metric_name": "utility_retention",
+            "unit_of_analysis": "row",
+            "numerator": "useful rows NOT blocked",
+            "denominator": "useful eligible rows (final_task_useful == True)",
+            "eligibility": "resolved rows with final_task_useful == True",
+            "unresolved_handling": "excluded",
+            "direction": "higher is better",
+            "split": "development / validation / test",
+            "condition": "C0-C4",
         },
         {
             "metric_name": "recontamination_rate",
-            "numerator": "sequences with recontamination (delivered after guard)",
+            "unit_of_analysis": "sequence",
+            "numerator": (
+                "sequences with clean/purged → contaminated state transition "
+                "(from actual ContaminationTracker)"
+            ),
             "denominator": "eligible sequence results",
+            "eligibility": "resolved sequences from stateful execution",
+            "unresolved_handling": "excluded and counted in n_unresolved",
+            "direction": "lower is better",
             "split": "test",
             "condition": "C4",
-            "eligibility": "resolved sequences from stateful execution",
-            "semantics": "RR — first-class metric from stateful outcomes (§31, §67)",
         },
         {
             "metric_name": "compositional_reconstruction_rate",
-            "numerator": "sequences predicted to reconstruct (from stateful runner)",
-            "denominator": "eligible sequences with reconstruction annotation",
+            "unit_of_analysis": "sequence",
+            "numerator": (
+                "eligible sequences whose delivered outputs permit "
+                "reconstruction (from stateful runner)"
+            ),
+            "denominator": "eligible relevant sequences",
+            "eligibility": (
+                "resolved sequences with "
+                "final_sequence_reconstructs_target"
+            ),
+            "unresolved_handling": "excluded and counted in n_unresolved",
+            "direction": "lower is better",
             "split": "test",
             "condition": "C0-C4",
-            "eligibility": "resolved sequences with final_sequence_reconstructs_target",
-            "semantics": "True CRR from sequence execution, NOT 1 - row recall (§32)",
+        },
+        {
+            "metric_name": "earliest_reconstruction_step_accuracy",
+            "unit_of_analysis": "sequence",
+            "numerator": "sequences with exact step match",
+            "denominator": (
+                "sequences where both predicted and annotated define "
+                "an earliest step"
+            ),
+            "eligibility": (
+                "reconstructing sequences with both predicted and "
+                "annotated earliest step"
+            ),
+            "unresolved_handling": "excluded",
+            "direction": "higher is better",
+            "split": "test",
+            "condition": "C4",
+        },
+        {
+            "metric_name": "trust_drift",
+            "unit_of_analysis": "condition",
+            "numerator": "max(trust_levels) - min(trust_levels) for each metric",
+            "denominator": "N/A (range, not ratio)",
+            "eligibility": "all trust levels with eligible rows",
+            "unresolved_handling": "excluded rows do not contribute",
+            "direction": "lower is better",
+            "split": "test",
+            "condition": "C4",
         },
     ],
 }
