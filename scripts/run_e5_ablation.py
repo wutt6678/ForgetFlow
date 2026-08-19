@@ -209,116 +209,32 @@ def _execute_one_sequence(
     """Execute one sequence through an ablation's runner with full state
     isolation (R1.2 §23).
 
-    A fresh runner is created per sequence; all steps within the
-    sequence share the same runner. The forget target is registered
-    once at the start from the frozen registry (R1.2 §20).
+    R1.2a: Uses the shared execute_e5_sequence() helper which builds
+    per-sequence metadata, creates runner WITH metadata, and runs the
+    post-firewall reconstruction probe for CRR.
     """
-    ordered_ids = list(seq_label.ordered_candidate_ids)
+    from experiments.trustparadox_u.e5_sequence_evaluation import (
+        execute_e5_sequence,
+        sequence_result_to_dict,
+    )
 
-    # R1.2 §21: missing sequence corpus / features rows fail closed.
-    missing_corpus = [c for c in ordered_ids if c not in corpus_by_id]
-    if missing_corpus:
-        raise ValueError(
-            f"Missing corpus rows for sequence "
-            f"{seq_label.sequence_annotation_id!r}: "
-            f"{missing_corpus[:5]}"
-            f"{'...' if len(missing_corpus) > 5 else ''} (R1.2 §21)"
-        )
-    missing_features = [c for c in ordered_ids if c not in features_by_id]
-    if missing_features:
-        raise ValueError(
-            f"Missing features for sequence "
-            f"{seq_label.sequence_annotation_id!r}: "
-            f"{missing_features[:5]}"
-            f"{'...' if len(missing_features) > 5 else ''} (R1.2 §21)"
-        )
-
-    # R1.2 §22: validate sequence target consistency.
-    first_corpus = corpus_by_id[ordered_ids[0]]
-    for c in ordered_ids[1:]:
-        cand = corpus_by_id[c]
-        if (
-            cand.scenario_id != first_corpus.scenario_id
-            or cand.secret_variant_id != first_corpus.secret_variant_id
-        ):
-            raise ValueError(
-                f"Sequence target mismatch (R1.2 §22): sequence "
-                f"{seq_label.sequence_annotation_id!r} contains "
-                f"candidates with different target families. "
-                f"step[0]=(scenario_id={first_corpus.scenario_id!r}, "
-                f"secret_variant_id={first_corpus.secret_variant_id!r}), "
-                f"step[{ordered_ids.index(c)}]=(scenario_id={cand.scenario_id!r}, "
-                f"secret_variant_id={cand.secret_variant_id!r})."
-            )
-
-    # Fresh runner per sequence (R1.2 §23).
+    # R1.2a §12-§14: use the shared executor with ablation overrides.
+    # The shared executor builds per-sequence episode metadata internally
+    # (R1.2a §13: no split-global metadata reuse).
     override = get_ablation_override(spec)
-    seq_runner = create_firewall_runner(
+    seq_result, _released = execute_e5_sequence(
         condition_id="C4",
-        semantic_threshold=tau_sem,
+        seq_label=seq_label,
+        corpus_by_id=corpus_by_id,
+        features_by_id=features_by_id,
+        tau_sem=tau_sem,
         reconstruction_threshold=reconstruction_threshold,
-        episode_metadata=episode_metadata,
+        split_name=split_name,
         ablation_override=override if override else None,
+        condition_manifest_sha=condition_manifest_sha,
+        detector_config_sha=detector_config_sha,
     )
 
-    # Register forget target (R1.2 §20: fail closed on missing).
-    forget_record = build_e5_forget_record(
-        scenario_id=first_corpus.scenario_id,
-        secret_variant_id=first_corpus.secret_variant_id,
-    )
-    seq_runner.register_forget_record(forget_record)
-
-    trust_level = getattr(seq_label, "trust_level", "unknown")
-    steps: list[StepDecision] = []
-    for i, candidate_id in enumerate(ordered_ids):
-        corpus = corpus_by_id[candidate_id]
-        features = features_by_id[candidate_id]
-        er = seq_runner.process_row(
-            candidate_id=candidate_id,
-            scenario_id=corpus.scenario_id,
-            trust_level=trust_level,
-            features=features,
-            split=split_name,
-            raw_text=corpus.text,
-            recipient_id=corpus.recipient_id,
-            sender_id=corpus.sender_id,
-            turn_id=i,
-            message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
-            input_content_sha=corpus.content_sha256,
-            condition_manifest_sha=condition_manifest_sha,
-            detector_config_sha=detector_config_sha,
-            embedding_model=features.get("embedding_model", "unknown"),
-        )
-        sd = StepDecision(
-            step_index=i,
-            candidate_id=candidate_id,
-            exact_match=er.exact_match,
-            alias_match=er.alias_match,
-            semantic_similarity=er.semantic_similarity,
-            detected=er.blocked,
-            policy_action=er.policy_action,
-            decision_reason=er.decision_reason,
-            history_state_summary=f"history_used={er.history_state_used}",
-            reconstruction_guard_result=er.reconstruction_guard_triggered,
-            reconstruction_score=er.reconstruction_score,
-            purge_state_transition=(
-                f"purge={er.purge_triggered}"
-            ),
-            delivered_content_sha=er.output_content_sha,
-        )
-        steps.append(sd)
-
-    recon, earliest, strength = predict_sequence_reconstruction(steps)
-    seq_result = SequenceResult(
-        sequence_annotation_id=seq_label.sequence_annotation_id,
-        trust_level=trust_level,
-        condition_id="C4",
-        ordered_candidate_ids=tuple(ordered_ids),
-        step_decisions=tuple(steps),
-        predicted_sequence_reconstruction=recon,
-        predicted_earliest_reconstruction_step=earliest,
-        predicted_reconstruction_strength=strength,
-    )
     return sequence_result_to_dict(seq_result)
 
 

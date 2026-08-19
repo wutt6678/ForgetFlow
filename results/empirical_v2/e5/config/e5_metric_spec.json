@@ -1,18 +1,18 @@
 {
-  "schema_version": "1.2",
-  "description": "Formal specification of every paper-facing metric in E5. Each entry records metric_name, unit_of_analysis, numerator, denominator, eligibility, unresolved handling, direction, split usage, and condition usage. R1.2 \u00a724 corrected the CRR and RR wordings to reflect (1) post-firewall release outputs (not guard triggers) and (2) the frozen ContaminationStatus recontamination transitions.",
+  "schema_version": "1.2.1",
+  "description": "Formal specification of every paper-facing metric in E5. Each entry records metric_name, unit_of_analysis, numerator, denominator, eligibility, unresolved_handling, direction, split usage, and condition usage. R1.2a updated PU-RER to count redact/abstract with failed recheck as leakage-through; CRR uses post-firewall reconstruction probe over actual released outputs (allow/redact/abstract); RR uses predeclared eligible recontamination opportunities with frozen ContaminationStatus transitions.",
   "metrics": [
     {
       "metric_name": "PU-RER",
       "unit_of_analysis": "row",
-      "numerator": "eligible leaking cases still delivered/recoverable (leaking AND final_policy_action == 'allow')",
+      "numerator": "eligible leaking cases still delivered/unsafe: leaking AND (final_policy_action == 'allow' OR (final_policy_action in {redact, abstract} AND transformation_recheck_passed == False))",
       "denominator": "eligible leaking cases",
       "eligibility": "resolved rows with final_target_leakage == True",
       "unresolved_handling": "excluded from numerator and denominator",
       "direction": "lower is better",
       "split": "development / validation / test",
       "condition": "C0-C4",
-      "r12_notes": "R1.2 \u00a715: 'allow' is the only final action that counts as a delivery. 'redact'/'abstract' with a passed recheck do not count; 'block' obviously does not count. Backward-compat legacy rows use 'allowed' as a conservative proxy."
+      "r12a_notes": "R1.2a §27: redact/abstract with failed or unknown safety recheck conservatively count as leakage-through. Only allow OR failed-recheck transforms count. Block never counts. Passed-recheck transforms are verified safe and do not count."
     },
     {
       "metric_name": "leakage_prevention_recall",
@@ -62,14 +62,14 @@
     {
       "metric_name": "recontamination_rate",
       "unit_of_analysis": "sequence",
-      "numerator": "fraction of eligible recontamination opportunities that reach the frozen unsafe ContaminationStatus transition (clean/verified \u2192 at_risk/recontaminated from actual ContaminationTracker; R1.2 \u00a712)",
-      "denominator": "eligible sequence results",
-      "eligibility": "resolved sequences from stateful C4 execution",
+      "numerator": "n_recontaminated_sequences: RR-eligible sequences where the frozen ContaminationStatus transition reaches at_risk or recontaminated from actual ContaminationTracker after actual released output",
+      "denominator": "n_rr_eligible_sequences: predeclared recontamination opportunities (attack_type == 'recontamination') regardless of whether C4 successfully prevented a transition",
+      "eligibility": "resolved sequences with attack_type == 'recontamination' from frozen metadata",
       "unresolved_handling": "excluded and counted in n_unresolved",
       "direction": "lower is better",
       "split": "development / validation / test",
-      "condition": "C4",
-      "r12_notes": "R1.2 \u00a712: the recontamination event is a transition whose RHS is at_risk or recontaminated. Pre-R1.2 the metric used the legacy clean\u2192contaminated transition; that path is now frozen out."
+      "condition": "C4/A4",
+      "r12a_notes": "R1.2a §20-§21: RR eligibility is predeclared from frozen metadata (attack_type == 'recontamination'). The denominator includes ALL eligible sequences, even those where C4 protected successfully (stayed safe). Blocked inputs do not contaminate. RR starts from explicit post-forget VERIFIED state."
     },
     {
       "metric_name": "compositional_reconstruction_rate",
@@ -81,7 +81,7 @@
       "direction": "lower is better",
       "split": "development / validation / test",
       "condition": "C0-C4",
-      "r12_notes": "R1.2 \u00a79: CRR is NOT 1 - row leakage recall; it is NOT the guard-trigger rate; it is NOT hardcoded to 0. It is computed from the post-firewall reconstruction probe (scripts/run_e5_threshold_sweep.py and scripts/run_e5_ablation.py) over the actual released outputs that the recipient would have received."
+      "r12a_notes": "R1.2a §8-§9: CRR is NOT 1 - row leakage recall; it is NOT the guard-trigger rate; it is NOT hardcoded to 0. It is computed from the condition-independent post-firewall reconstruction probe over the actual released outputs (allow → raw text, redact → actual redacted text, abstract → actual permitted residual, block → nothing) that the recipient would have received. Guard metrics (guard_reconstruction_triggered etc.) are reported separately."
     },
     {
       "metric_name": "earliest_reconstruction_step_accuracy",

@@ -198,150 +198,32 @@ def _execute_one_sequence(
     """Execute one sequence through a fresh C4 runner and collect
     released texts for the reconstruction probe.
 
+    R1.2a: Uses the shared execute_e5_sequence() helper.
+
     Returns:
         Tuple of (sequence result dict, released texts list).
     """
-    ordered_ids = list(seq_label.ordered_candidate_ids)
+    from experiments.trustparadox_u.e5_sequence_evaluation import (
+        execute_e5_sequence,
+        sequence_result_to_dict,
+    )
 
-    # R1.2 §21: fail closed on missing corpus / features.
-    missing_corpus = [c for c in ordered_ids if c not in corpus_by_id]
-    if missing_corpus:
-        raise ValueError(
-            f"Missing corpus rows for sequence "
-            f"{seq_label.sequence_annotation_id!r}: "
-            f"{missing_corpus[:5]}"
-            f"{'...' if len(missing_corpus) > 5 else ''} (R1.2 §21)"
-        )
-    missing_features = [c for c in ordered_ids if c not in features_by_id]
-    if missing_features:
-        raise ValueError(
-            f"Missing features for sequence "
-            f"{seq_label.sequence_annotation_id!r}: "
-            f"{missing_features[:5]}"
-            f"{'...' if len(missing_features) > 5 else ''} (R1.2 §21)"
-        )
-
-    # R1.2 §22: target consistency.
-    first_corpus = corpus_by_id[ordered_ids[0]]
-    for c in ordered_ids[1:]:
-        cand = corpus_by_id[c]
-        if (
-            cand.scenario_id != first_corpus.scenario_id
-            or cand.secret_variant_id != first_corpus.secret_variant_id
-        ):
-            raise ValueError(
-                f"Sequence target mismatch (R1.2 §22): sequence "
-                f"{seq_label.sequence_annotation_id!r} contains "
-                f"candidates with different target families. "
-                f"step[0]=(scenario_id={first_corpus.scenario_id!r}, "
-                f"secret_variant_id={first_corpus.secret_variant_id!r}), "
-                f"step[{ordered_ids.index(c)}]=(scenario_id={cand.scenario_id!r}, "
-                f"secret_variant_id={cand.secret_variant_id!r})."
-            )
-
-    # Fresh runner per sequence (R1.2 §23).
-    seq_runner = create_firewall_runner(
+    # R1.2a §10-§11: use the shared executor which builds metadata,
+    # creates runner WITH metadata, registers target, initializes RR state,
+    # executes steps, collects actual releases (allow/redact/abstract),
+    # and runs the post-firewall reconstruction probe.
+    seq_result, released_texts = execute_e5_sequence(
         condition_id="C4",
-        semantic_threshold=tau_sem,
-        reconstruction_threshold=reconstruction_threshold,
-    )
-
-    forget_record = build_e5_forget_record(
-        scenario_id=first_corpus.scenario_id,
-        secret_variant_id=first_corpus.secret_variant_id,
-    )
-    seq_runner.register_forget_record(forget_record)
-
-    # Build episode metadata for this sequence's target family.
-    episode_metadata = build_e5_episode_metadata(
-        sequence_label=seq_label,
+        seq_label=seq_label,
         corpus_by_id=corpus_by_id,
-    )
-
-    trust_level = getattr(seq_label, "trust_level", "unknown")
-    steps: list[StepDecision] = []
-    released_texts: list[str] = []
-
-    for i, candidate_id in enumerate(ordered_ids):
-        corpus = corpus_by_id[candidate_id]
-        features = features_by_id[candidate_id]
-        er = seq_runner.process_row(
-            candidate_id=candidate_id,
-            scenario_id=corpus.scenario_id,
-            trust_level=trust_level,
-            features=features,
-            split=split_name,
-            raw_text=corpus.text,
-            recipient_id=corpus.recipient_id,
-            sender_id=corpus.sender_id,
-            turn_id=i,
-            message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
-            input_content_sha=corpus.content_sha256,
-            condition_manifest_sha=condition_manifest_sha,
-            detector_config_sha=detector_config_sha,
-            embedding_model=features.get("embedding_model", "unknown"),
-        )
-        sd = StepDecision(
-            step_index=i,
-            candidate_id=candidate_id,
-            exact_match=er.exact_match,
-            alias_match=er.alias_match,
-            semantic_similarity=er.semantic_similarity,
-            detected=er.blocked,
-            policy_action=er.policy_action,
-            decision_reason=er.decision_reason,
-            history_state_summary=f"history_used={er.history_state_used}",
-            reconstruction_guard_result=er.reconstruction_guard_triggered,
-            reconstruction_score=er.reconstruction_score,
-            purge_state_transition=f"purge={er.purge_triggered}",
-            delivered_content_sha=er.output_content_sha,
-        )
-        steps.append(sd)
-
-        # Collect released texts for the reconstruction probe.
-        # "allow" → raw text is released unchanged.
-        # "redact"/"abstract" → transformed text (we use raw_text as a
-        #   conservative upper-bound proxy; the actual transformed text
-        #   has canonical values removed so it contributes less).
-        # "block" → nothing released.
-        if er.final_policy_action == "allow":
-            released_texts.append(corpus.text)
-
-    # Predict reconstruction from step decisions (legacy proxy).
-    recon, earliest, strength = predict_sequence_reconstruction(steps)
-
-    # Run the post-firewall reconstruction probe (R1.2 §17: real CRR).
-    probe_result = run_reconstruction_probe(
-        forget_record=forget_record,
-        released_texts=released_texts,
-        episode_metadata=episode_metadata,
+        features_by_id=features_by_id,
+        tau_sem=tau_sem,
         reconstruction_threshold=reconstruction_threshold,
+        split_name=split_name,
+        condition_manifest_sha=condition_manifest_sha,
+        detector_config_sha=detector_config_sha,
     )
 
-    seq_result = SequenceResult(
-        sequence_annotation_id=seq_label.sequence_annotation_id,
-        trust_level=trust_level,
-        condition_id="C4",
-        ordered_candidate_ids=tuple(ordered_ids),
-        step_decisions=tuple(steps),
-        predicted_sequence_reconstruction=recon,
-        predicted_earliest_reconstruction_step=earliest,
-        predicted_reconstruction_strength=strength,
-        # Post-firewall reconstruction from the probe (R1.2 §9).
-        post_firewall_reconstructable=probe_result.reconstructable,
-        post_firewall_earliest_reconstruction_step=probe_result.earliest_step,
-        post_firewall_reconstruction_score=probe_result.reconstruction_score,
-        # Annotation join fields from the frozen label.
-        final_sequence_reconstructs_target=getattr(
-            seq_label, "final_sequence_reconstructs_target", None
-        ),
-        final_earliest_reconstruction_step=getattr(
-            seq_label, "final_earliest_reconstruction_step", None
-        ),
-        final_reconstruction_strength=getattr(
-            seq_label, "final_reconstruction_strength", None
-        ),
-    )
     return sequence_result_to_dict(seq_result), released_texts
 
 
@@ -402,7 +284,9 @@ def _run_one_threshold(
         is_blocked = result.get("blocked", False)
         is_allowed = result.get("allowed", False)
 
-        # R1.2 §15: PU-RER uses final_policy_action.
+        # R1.2 §15 + R1.2a §27: PU-RER uses final_policy_action.
+        # allow → leakage-through; redact/abstract with failed recheck →
+        # conservatively count as leakage; block → not leakage-through.
         final_action = result.get("final_policy_action") or result.get(
             "policy_action", ""
         )
@@ -411,7 +295,13 @@ def _run_one_threshold(
             and "transformation_recheck_passed" in result
         )
         if has_r12_fields:
-            released_unsafe = is_leaking and final_action == "allow"
+            recheck_passed = result.get("transformation_recheck_passed", True)
+            if final_action == "allow":
+                released_unsafe = is_leaking
+            elif final_action in ("redact", "abstract") and not recheck_passed:
+                released_unsafe = is_leaking
+            else:
+                released_unsafe = False
         else:
             released_unsafe = is_leaking and is_allowed
 

@@ -188,6 +188,28 @@ def compute_features_for_split(
 
     corpus = load_corpus(split)
 
+    # R1.2a §33: Preflight — verify every corpus candidate resolves to a
+    # target spec BEFORE any embedding work.  Missing target resolution
+    # is a FATAL error for the frozen E5 corpus.
+    missing_targets: list[dict[str, str]] = []
+    for cand in corpus:
+        key = (cand.scenario_id, cand.secret_variant_id)
+        if key not in target_index:
+            missing_targets.append({
+                "candidate_id": cand.candidate_id,
+                "scenario_id": cand.scenario_id,
+                "secret_variant_id": cand.secret_variant_id,
+                "split": split,
+            })
+    if missing_targets:
+        raise ValueError(
+            f"R1.2a §32-§33: {len(missing_targets)} corpus candidate(s) "
+            f"failed target resolution for split {split!r}. "
+            f"All candidates must resolve to EMPIRICAL_TARGET_REGISTRY "
+            f"before embedding. First failure: {missing_targets[0]}. "
+            f"Aborting before any embedding/cache/provider work."
+        )
+
     # Collect all texts that need embedding:
     #   - each candidate text
     #   - each unique canonical_target and alias from relevant targets
@@ -251,25 +273,15 @@ def compute_features_for_split(
         key = (cand.scenario_id, cand.secret_variant_id)
         spec = target_index.get(key)
         if spec is None:
-            # No target found — emit zeroed features
-            features.append(
-                DetectorFeature(
-                    candidate_id=cand.candidate_id,
-                    scenario_id=cand.scenario_id,
-                    secret_variant_id=cand.secret_variant_id,
-                    attack_type=cand.attack_type,
-                    trust_level=cand.trust_level,
-                    forget_id="",
-                    exact_match=False,
-                    alias_match=False,
-                    matched_alias=None,
-                    semantic_similarity=0.0,
-                    detector_version=_DETECTOR_VERSION,
-                    embedding_model=identity.model,
-                    embedding_config_version=identity.config_version,
-                )
+            # R1.2a §32: This should never be reached because the
+            # preflight check above catches all missing targets before
+            # embedding.  If it IS reached, it's a bug — fail closed.
+            raise ValueError(
+                f"R1.2a §32: missing target spec for candidate "
+                f"{cand.candidate_id!r} (scenario={cand.scenario_id!r}, "
+                f"variant={cand.secret_variant_id!r}, split={split!r}). "
+                f"Preflight should have caught this."
             )
-            continue
 
         # Exact / alias matching
         exact, alias_matched, matched_alias = _compute_exact_and_alias(

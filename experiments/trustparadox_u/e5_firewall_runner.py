@@ -132,6 +132,16 @@ class ExtendedRowResult:
     transformation_recheck_passed: bool = True
     released_content_sha: str = ""
 
+    # R1.2a §6: actual released text for CRR probe input.
+    # allow → original raw text; redact → actual redacted text;
+    # abstract → actual permitted residual; block → None.
+    released_text: str | None = None
+
+    # R1.2a §19: contamination state provenance.
+    contamination_status_before: str = ""
+    contamination_status_after: str = ""
+    contamination_transition: str = ""
+
 
 def extended_result_to_dict(er: ExtendedRowResult) -> dict[str, Any]:
     """Serialise an ExtendedRowResult to a plain dict."""
@@ -339,7 +349,7 @@ class FirewallRunner:
             return self._process_c0(
                 candidate_id, scenario_id, trust_level, features, split,
                 input_content_sha, condition_manifest_sha, detector_config_sha,
-                embedding_model,
+                embedding_model, raw_text,
             )
         elif cid in ("C1", "C2", "C3"):
             return self._process_detector_only(
@@ -372,6 +382,7 @@ class FirewallRunner:
         condition_manifest_sha: str,
         detector_config_sha: str,
         embedding_model: str,
+        raw_text: str = "",
     ) -> ExtendedRowResult:
         """C0: no firewall, pass-through."""
         return ExtendedRowResult(
@@ -396,6 +407,9 @@ class FirewallRunner:
             history_state_used=False,
             reconstruction_guard_triggered=False,
             purge_triggered=False,
+            released_text=raw_text,
+            final_policy_action="allow",
+            released_content_sha=input_content_sha,
         )
 
     # ------------------------------------------------------------------
@@ -536,6 +550,9 @@ class FirewallRunner:
                 history_state_used=self.config.history_enabled,
                 reconstruction_guard_triggered=False,
                 purge_triggered=False,
+                released_text=raw_text,
+                final_policy_action="allow",
+                released_content_sha=_sha256_text(raw_text) if raw_text else input_content_sha,
             )
 
         # 2. Get recipient context from history
@@ -631,7 +648,7 @@ class FirewallRunner:
                 transformation_attempt_count,
                 transformation_recheck_passed,
             ) = self._recheck_and_escalate(
-                action, released_text, raw_text, active, reasons
+                action, released_text, raw_text, active, reasons, ctx=ctx,
             )
         final_policy_action = action
 
@@ -644,13 +661,34 @@ class FirewallRunner:
                 recipient_id, message_id, turn_id, sender_id, released_text
             )
 
-        # 7. Track contamination for matched records
+        # 7. Track contamination ONLY if something was actually released
+        # (R1.2a §17: blocked input → no contamination transition).
+        # For transformed messages, the contamination depends on the
+        # actual released output, not the original input.
         purge_triggered = False
         contamination_transition = ""
+        contamination_status_before = ""
+        contamination_status_after = ""
         if self.config.purge_enabled and det_result.matched_forget_ids:
-            purge_triggered, contamination_transition = self._track_contamination(
-                recipient_id, det_result, recon_score
-            )
+            # Capture pre-release contamination state
+            for fid in det_result.matched_forget_ids:
+                contamination_status_before = self.contamination_tracker.get_status(
+                    recipient_id, fid
+                ).value
+                break  # Use first matched forget_id for the primary status
+
+            # Only contaminate if content was actually released
+            if released_text is not None:
+                purge_triggered, contamination_transition = self._track_contamination(
+                    recipient_id, det_result, recon_score
+                )
+
+            # Capture post-release contamination state
+            for fid in det_result.matched_forget_ids:
+                contamination_status_after = self.contamination_tracker.get_status(
+                    recipient_id, fid
+                ).value
+                break
 
         # 8. Compute output SHA from actual released text (R1.2 §14)
         # For released content: SHA256 of the actual released text.
@@ -710,6 +748,10 @@ class FirewallRunner:
             transformation_attempt_count=transformation_attempt_count,
             transformation_recheck_passed=transformation_recheck_passed,
             released_content_sha=released_content_sha,
+            released_text=released_text,
+            contamination_status_before=contamination_status_before,
+            contamination_status_after=contamination_status_after,
+            contamination_transition=contamination_transition,
         )
 
     # ------------------------------------------------------------------
@@ -781,15 +823,25 @@ class FirewallRunner:
         original_text: str,
         active: tuple[ForgetRecord, ...],
         reasons: tuple[str, ...],
+        ctx: RecipientContext | None = None,
     ) -> tuple[str, str | None, tuple[str, ...], int, bool]:
-        """Recheck a transformed output and escalate on failure (R1.2 §13).
+        """Recheck a transformed output and escalate on failure (R1.2 §13, R1.2a §23).
 
         Mirrors FlowGate's escalation path: ``redact -> abstract -> block``,
         with at most :data:`MAX_TRANSFORMATION_ATTEMPTS` transformation
-        attempts. The transformation is considered safe if the transformed
-        text does NOT contain the canonical target value of any active
-        forget record (which is the only signal available without
-        re-running the embedding model).
+        attempts.  Each attempt checks ALL FlowGate safety dimensions:
+
+        - exact_safe: no canonical value present
+        - alias_safe: no alias present
+        - embedding_safe: semantic similarity below threshold (when checkable)
+        - claim_safe: no proposition entailment (when checkable)
+        - reconstruction_safe: reconstruction score below threshold
+        - canonical_value_safe: no canonical value via normalization
+
+        In the E5 pre-computed-feature pipeline the claim and embedding
+        dimensions are approximated using the ReconstructionChecker and
+        canonical-value normalization, matching FlowGate's deterministic
+        safety gates.
 
         Args:
             action: Initial policy action (``"redact"`` or ``"abstract"``).
@@ -797,6 +849,7 @@ class FirewallRunner:
             original_text: Original raw text (for escalation evidence).
             active: Active forget records for safety checks.
             reasons: Current reason codes tuple.
+            ctx: Optional recipient context for reconstruction scoring.
 
         Returns:
             Tuple of ``(final_action, final_released_text, reasons,
@@ -812,23 +865,75 @@ class FirewallRunner:
         for attempt_idx in range(MAX_TRANSFORMATION_ATTEMPTS):
             attempts = attempt_idx + 1
 
-            # Safety check: does the transformed text still contain any
-            # canonical target value? (This is the deterministic safety
-            # gate for the E5 features-only pipeline.)
-            still_unsafe = False
+            # --- FlowGate-equivalent safety dimensions (R1.2a §23) ---
+
+            # 1. exact_safe: no canonical value present
+            exact_safe = True
             for rec in active:
                 if text_contains_canonical_value(current_text, rec.canonical_target):
-                    still_unsafe = True
-                    break
-                # Also check aliases as canonical safety
-                for alias in rec.aliases:
-                    if alias and alias in current_text:
-                        still_unsafe = True
-                        break
-                if still_unsafe:
+                    exact_safe = False
                     break
 
-            if not still_unsafe:
+            # 2. alias_safe: no alias present
+            alias_safe = True
+            for rec in active:
+                for alias in rec.aliases:
+                    if alias and alias in current_text:
+                        alias_safe = False
+                        break
+                if not alias_safe:
+                    break
+
+            # 3. reconstruction_safe: reconstruction score below threshold
+            reconstruction_safe = True
+            if self.config.reconstruction_guard and ctx is not None:
+                for rec in active:
+                    recon_score = self.reconstruction_checker.score(
+                        current_text,
+                        ctx,
+                        active,
+                        self.episode_metadata,
+                        history_enabled=self.config.history_enabled,
+                        reconstruction_threshold=self.config.reconstruction_threshold,
+                        forget_id=rec.forget_id,
+                    )
+                    if recon_score >= self.config.reconstruction_threshold:
+                        reconstruction_safe = False
+                        break
+
+            # 4. claim_safe: in the E5 feature pipeline, claim entailment
+            #    is not directly checkable without the full HybridDetector.
+            #    We approximate by checking if the transformed text still
+            #    contains canonical targets (already covered by exact_safe)
+            #    or semantic variants of the target.
+            claim_safe = True
+            for rec in active:
+                for sv in rec.semantic_variants:
+                    if sv and sv.lower() in current_text.lower():
+                        claim_safe = False
+                        break
+                if not claim_safe:
+                    break
+
+            # 5. embedding_safe: in the E5 pre-computed feature pipeline
+            #    we cannot re-embed transformed text without provider calls
+            #    (forbidden during R1.2a).  When exact_safe, alias_safe, and
+            #    reconstruction_safe all pass, the text is deterministically
+            #    safe at the value-presence level.  The embedding dimension
+            #    will be fully exercised during E5-E1 when the real
+            #    embedding model is available.
+            embedding_safe = True
+
+            # Combined safety decision (matches FlowGate)
+            passed = (
+                exact_safe
+                and alias_safe
+                and embedding_safe
+                and claim_safe
+                and reconstruction_safe
+            )
+
+            if passed:
                 recheck_passed = True
                 return (
                     current_action,

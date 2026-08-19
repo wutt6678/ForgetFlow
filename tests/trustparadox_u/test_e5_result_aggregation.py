@@ -280,20 +280,15 @@ class TestBuildHyperparameterTable:
         assert table["selection_rejected"] is False
 
     def test_hyperparameter_table_test_split_rejected(self):
-        """Held-out test split must NOT produce a recommendation
-        (R1.2 §18).  The sensitivity/tradeoff tables may still be
-        emitted for measurement purposes, but ``recommendation`` is
-        forced to ``None`` and ``selection_rejected`` is ``True``.
+        """Held-out test split must raise ValueError (R1.2 §18, R1.2a §30).
+        The test split must never be used for threshold selection.
         """
+        import pytest
         results, labels, corpus = _synthetic_data()
-        table = build_hyperparameter_table(
-            results, labels, corpus, split="test"
-        )
-        assert "sensitivity" in table
-        assert "tradeoff" in table
-        assert table["recommendation"] is None
-        assert table["selection_rejected"] is True
-        assert "test" in table["rejection_reason"].lower()
+        with pytest.raises(ValueError, match="forbidden"):
+            build_hyperparameter_table(
+                results, labels, corpus, split="test"
+            )
 
     def test_hyperparameter_table_requires_split(self):
         """Calling without ``split`` raises TypeError (R1.2 §18)."""

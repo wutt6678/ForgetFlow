@@ -627,16 +627,13 @@ class TestTestThresholdRecommendationImpossible:
 
     def test_build_hyperparameter_table_test_split_no_recommendation(self):
         from scripts.build_e5_results import build_hyperparameter_table
-        # Minimal row/label/corpus: not actually used because test
-        # split is short-circuited.
+        # R1.2a §30: test split now raises ValueError (was: returned dict
+        # with recommendation=None).
         results = []
         labels: dict = {}
         corpus: dict = {}
-        table = build_hyperparameter_table(
-            results, labels, corpus, split="test"
-        )
-        assert table["recommendation"] is None
-        assert table["selection_rejected"] is True
+        with pytest.raises(ValueError, match="forbidden"):
+            build_hyperparameter_table(results, labels, corpus, split="test")
 
 
 # ===========================================================================

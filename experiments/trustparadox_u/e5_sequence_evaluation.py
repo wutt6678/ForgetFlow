@@ -123,6 +123,9 @@ class SequenceResult:
     final_earliest_reconstruction_step: int | None = None
     final_reconstruction_strength: str | None = None
 
+    # R1.2a §21: RR eligibility flag.
+    rr_eligible: bool = False
+
 
 def sequence_result_to_dict(sr: SequenceResult) -> dict[str, Any]:
     """Serialise a SequenceResult to a plain dict."""
@@ -564,3 +567,280 @@ def compute_earliest_step_metrics(
         n_predicted_later=n_later,
         n_exact_match=n_exact,
     )
+
+
+# ---------------------------------------------------------------------------
+# RR eligibility helper (R1.2a §15)
+# ---------------------------------------------------------------------------
+
+
+def is_rr_eligible_sequence(
+    seq_label: Any,
+    corpus_by_id: dict[str, Any],
+) -> bool:
+    """Determine whether a sequence is RR-eligible from frozen metadata.
+
+    A sequence is RR-eligible if its attack_type is 'recontamination'.
+    This is determined purely from the frozen structural metadata,
+    before any execution (R1.2a §15).
+
+    Args:
+        seq_label: Sequence annotation object.
+        corpus_by_id: Mapping from candidate_id to corpus entry.
+
+    Returns:
+        True if the sequence is RR-eligible.
+    """
+    ordered_ids = getattr(seq_label, "ordered_candidate_ids", ())
+    if not ordered_ids:
+        return False
+
+    first_id = ordered_ids[0]
+    first_corpus = corpus_by_id.get(first_id)
+    if first_corpus is None:
+        return False
+
+    # Check if the sequence label has an attack_type attribute
+    attack_type = getattr(seq_label, "attack_type", None)
+    if attack_type is None:
+        # Try to infer from the corpus entry
+        attack_type = getattr(first_corpus, "attack_type", None)
+
+    return attack_type == "recontamination"
+
+
+# ---------------------------------------------------------------------------
+# Shared authoritative sequence executor (R1.2a §40)
+# ---------------------------------------------------------------------------
+
+
+def execute_e5_sequence(
+    *,
+    condition_id: str,
+    seq_label: Any,
+    corpus_by_id: dict[str, Any],
+    features_by_id: dict[str, dict[str, Any]],
+    tau_sem: float,
+    reconstruction_threshold: float,
+    split_name: str,
+    ablation_override: dict[str, bool] | None = None,
+    condition_manifest_sha: str = "unknown",
+    detector_config_sha: str = "unknown",
+) -> tuple[SequenceResult, list[str]]:
+    """Execute one sequence through the canonical FirewallRunner (R1.2a §40).
+
+    This is the single authoritative sequence executor used by:
+        - Primary C0-C4 evaluation
+        - Threshold sweep
+        - Ablation runner
+
+    It owns:
+        1. Target validation
+        2. ForgetRecord lookup
+        3. Episode metadata construction
+        4. Runner construction WITH metadata
+        5. RR state initialization (if eligible)
+        6. Ordered step replay
+        7. Actual release capture (allow/redact/abstract, not just allow)
+        8. Guard provenance
+        9. Contamination provenance
+        10. Post-firewall reconstruction probe
+        11. SequenceResult construction
+
+    Args:
+        condition_id: Condition identifier (C0-C4 or A0-A4).
+        seq_label: Sequence annotation object with ordered_candidate_ids.
+        corpus_by_id: Mapping candidate_id → corpus entry.
+        features_by_id: Mapping candidate_id → feature dict.
+        tau_sem: Frozen semantic threshold.
+        reconstruction_threshold: Frozen reconstruction threshold.
+        split_name: Split name (development/validation/test).
+        ablation_override: Optional ablation config overrides.
+        condition_manifest_sha: SHA of condition manifest.
+        detector_config_sha: SHA of detector config.
+
+    Returns:
+        Tuple of (SequenceResult, released_texts list).
+
+    Raises:
+        ValueError: If target validation fails.
+        KeyError: If target registry lookup fails.
+    """
+    from .e5_episode_metadata import build_e5_episode_metadata
+    from .e5_firewall_runner import (
+        build_e5_forget_record,
+        create_firewall_runner,
+    )
+    from .e5_reconstruction_probe import run_reconstruction_probe
+
+    ordered_ids = list(getattr(seq_label, "ordered_candidate_ids", ()))
+    if not ordered_ids:
+        raise ValueError("Sequence has no ordered_candidate_ids")
+
+    # 1. Validate ordered candidate IDs (R1.2 §21)
+    missing_corpus = [cid for cid in ordered_ids if cid not in corpus_by_id]
+    if missing_corpus:
+        raise ValueError(
+            f"Missing corpus rows for sequence "
+            f"{seq_label.sequence_annotation_id!r}: "
+            f"{missing_corpus[:5]}{'...' if len(missing_corpus) > 5 else ''} "
+            f"(R1.2 §21)"
+        )
+    missing_features = [cid for cid in ordered_ids if cid not in features_by_id]
+    if missing_features:
+        raise ValueError(
+            f"Missing features for sequence "
+            f"{seq_label.sequence_annotation_id!r}: "
+            f"{missing_features[:5]}{'...' if len(missing_features) > 5 else ''} "
+            f"(R1.2 §21)"
+        )
+
+    # 2. Validate target consistency (R1.2 §22)
+    first_corpus = corpus_by_id[ordered_ids[0]]
+    target_scenario_id = first_corpus.scenario_id
+    target_secret_variant_id = first_corpus.secret_variant_id
+    for cid_check in ordered_ids[1:]:
+        cand = corpus_by_id[cid_check]
+        if (
+            cand.scenario_id != target_scenario_id
+            or cand.secret_variant_id != target_secret_variant_id
+        ):
+            raise ValueError(
+                f"Sequence target mismatch (R1.2 §22): sequence "
+                f"{seq_label.sequence_annotation_id!r} contains candidates "
+                f"with different target families."
+            )
+
+    # 3. Build frozen ForgetRecord (R1.2 §20: missing → fatal)
+    forget_record = build_e5_forget_record(
+        scenario_id=target_scenario_id,
+        secret_variant_id=target_secret_variant_id,
+    )
+
+    # 4. Build per-sequence episode metadata (R1.2a §13: per-sequence, not split-global)
+    episode_metadata = build_e5_episode_metadata(
+        sequence_label=seq_label,
+        corpus_by_id=corpus_by_id,
+    )
+
+    # 5. Create runner WITH metadata (R1.2a §11)
+    seq_runner = create_firewall_runner(
+        condition_id=condition_id if not condition_id.startswith("A") else "C4",
+        semantic_threshold=tau_sem,
+        reconstruction_threshold=reconstruction_threshold,
+        episode_metadata=episode_metadata,
+        ablation_override=ablation_override,
+    )
+
+    # 6. Register forget record
+    seq_runner.register_forget_record(forget_record)
+
+    # 7. Initialize RR state if eligible (R1.2a §16)
+    rr_eligible = is_rr_eligible_sequence(seq_label, corpus_by_id)
+    if rr_eligible:
+        recipient_id = first_corpus.recipient_id
+        seq_runner.initialize_post_forget_state(
+            recipient_id=recipient_id,
+            forget_id=forget_record.forget_id,
+        )
+
+    # 8. Execute all ordered steps on the same runner
+    trust_level = getattr(seq_label, "trust_level", "unknown")
+    steps: list[StepDecision] = []
+    released_texts: list[str] = []
+    guard_triggered_any = False
+    guard_earliest_step: int | None = None
+    guard_max_score = 0.0
+
+    for i, candidate_id in enumerate(ordered_ids):
+        corpus = corpus_by_id[candidate_id]
+        features = features_by_id[candidate_id]
+
+        er = seq_runner.process_row(
+            candidate_id=candidate_id,
+            scenario_id=corpus.scenario_id,
+            trust_level=trust_level,
+            features=features,
+            split=split_name,
+            raw_text=corpus.text,
+            recipient_id=corpus.recipient_id,
+            sender_id=corpus.sender_id,
+            turn_id=i,
+            message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
+            input_content_sha=corpus.content_sha256,
+            condition_manifest_sha=condition_manifest_sha,
+            detector_config_sha=detector_config_sha,
+            embedding_model=features.get("embedding_model", "unknown"),
+        )
+
+        # 9. Collect actual released outputs (R1.2a §7: include redact/abstract)
+        if er.released_text is not None:
+            released_texts.append(er.released_text)
+
+        # 10. Collect guard provenance (R1.2a §9)
+        if er.reconstruction_guard_triggered:
+            guard_triggered_any = True
+            if guard_earliest_step is None:
+                guard_earliest_step = i
+            guard_max_score = max(guard_max_score, er.reconstruction_score)
+
+        # Build StepDecision with full provenance
+        sd = StepDecision(
+            step_index=i,
+            candidate_id=candidate_id,
+            exact_match=er.exact_match,
+            alias_match=er.alias_match,
+            semantic_similarity=er.semantic_similarity,
+            detected=er.blocked,
+            policy_action=er.policy_action,
+            decision_reason=er.decision_reason,
+            history_state_summary=f"history_used={er.history_state_used}",
+            reconstruction_guard_result=er.reconstruction_guard_triggered,
+            reconstruction_score=er.reconstruction_score,
+            contamination_status_before=er.contamination_status_before,
+            contamination_status_after=er.contamination_status_after,
+            purge_state_transition=er.contamination_transition,
+            initial_policy_action=er.initial_policy_action,
+            final_policy_action=er.final_policy_action,
+            transformation_attempt_count=er.transformation_attempt_count,
+            transformation_recheck_passed=er.transformation_recheck_passed,
+            released_content_sha=er.released_content_sha,
+            delivered_content_sha=er.output_content_sha,
+        )
+        steps.append(sd)
+
+    # 11. Run post-firewall reconstruction probe (R1.2a §8)
+    probe_result = run_reconstruction_probe(
+        forget_record=forget_record,
+        released_texts=released_texts,
+        episode_metadata=episode_metadata,
+        reconstruction_threshold=reconstruction_threshold,
+    )
+
+    # 12. Populate SequenceResult
+    seq_result = SequenceResult(
+        sequence_annotation_id=seq_label.sequence_annotation_id,
+        trust_level=trust_level,
+        condition_id=condition_id,
+        ordered_candidate_ids=tuple(ordered_ids),
+        step_decisions=tuple(steps),
+        # Guard metrics (R1.2a §9)
+        guard_reconstruction_triggered=guard_triggered_any,
+        guard_earliest_trigger_step=guard_earliest_step,
+        guard_max_score=guard_max_score,
+        # Post-firewall reconstruction from probe (R1.2a §8)
+        post_firewall_reconstructable=probe_result.reconstructable,
+        post_firewall_earliest_reconstruction_step=probe_result.earliest_step,
+        post_firewall_reconstruction_score=probe_result.reconstruction_score,
+        # Backward-compat aliases (R1.2 §9: defined as post-firewall)
+        predicted_sequence_reconstruction=probe_result.reconstructable,
+        predicted_earliest_reconstruction_step=probe_result.earliest_step,
+        predicted_reconstruction_strength=probe_result.reconstruction_score,
+        # RR eligibility (R1.2a §21)
+        rr_eligible=rr_eligible,
+    )
+
+    # 13. Join annotation labels after execution (plan §30)
+    seq_result = _join_annotations(seq_result, seq_label)
+
+    return seq_result, released_texts

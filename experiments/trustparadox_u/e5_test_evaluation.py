@@ -408,12 +408,15 @@ def _run_sequences_via_runner(
     condition_manifest_sha: str,
     detector_config_sha: str,
 ) -> list[SequenceResult]:
-    """Run sequence evaluation via canonical FirewallRunner (§9).
+    """Run sequence evaluation via canonical FirewallRunner (§9, R1.2a §40).
 
     Each sequence gets a fresh runner.  All steps within a sequence
     go through the same runner instance to maintain state continuity.
+
+    R1.2a: Uses the shared execute_e5_sequence() helper which runs the
+    post-firewall reconstruction probe and collects actual released outputs.
     """
-    from .e5_sequence_evaluation import SequenceResult, StepDecision
+    from .e5_sequence_evaluation import execute_e5_sequence
 
     cid = condition.condition_id
     results: list[SequenceResult] = []
@@ -422,154 +425,18 @@ def _run_sequences_via_runner(
         if seq_label.is_unresolved:
             continue
 
-        trust_level = getattr(seq_label, "trust_level", "unknown")
-        ordered_ids = seq_label.ordered_candidate_ids
-
-        # R1.2 §21: Fail closed on missing sequence corpus rows.
-        # Every ordered candidate must be present in corpus + features.
-        missing_corpus = [
-            cid for cid in ordered_ids if cid not in corpus_by_id
-        ]
-        if missing_corpus:
-            raise ValueError(
-                f"Missing corpus rows for sequence "
-                f"{seq_label.sequence_annotation_id!r} (split={split_data.split!r}, "
-                f"condition={cid!r}): {missing_corpus[:5]}{'...' if len(missing_corpus) > 5 else ''}. "
-                f"All ordered candidates must be in the corpus (R1.2 §21)."
-            )
-        missing_features = [
-            cid for cid in ordered_ids if cid not in features_by_id
-        ]
-        if missing_features:
-            raise ValueError(
-                f"Missing features for sequence "
-                f"{seq_label.sequence_annotation_id!r} (split={split_data.split!r}, "
-                f"condition={cid!r}): {missing_features[:5]}{'...' if len(missing_features) > 5 else ''}. "
-                f"All ordered candidates must have features (R1.2 §21)."
-            )
-
-        # R1.2 §22: Validate sequence target consistency.
-        # All ordered candidates in a sequence must share the same
-        # scenario_id and secret_variant_id — otherwise the target
-        # cannot be resolved unambiguously.
-        first_corpus = corpus_by_id[ordered_ids[0]]
-        target_scenario_id = first_corpus.scenario_id
-        target_secret_variant_id = first_corpus.secret_variant_id
-        for cid_check in ordered_ids[1:]:
-            cand = corpus_by_id[cid_check]
-            if (
-                cand.scenario_id != target_scenario_id
-                or cand.secret_variant_id != target_secret_variant_id
-            ):
-                raise ValueError(
-                    f"Sequence target consistency violation (R1.2 §22): "
-                    f"sequence {seq_label.sequence_annotation_id!r} "
-                    f"contains candidates with different target families. "
-                    f"step[0]=(scenario_id={target_scenario_id!r}, "
-                    f"secret_variant_id={target_secret_variant_id!r}), "
-                    f"step[{ordered_ids.index(cid_check)}]=(scenario_id="
-                    f"{cand.scenario_id!r}, secret_variant_id="
-                    f"{cand.secret_variant_id!r}), "
-                    f"candidate_id={cid_check!r}, split={split_data.split!r}."
-                )
-
-        # Fresh runner per sequence (§8)
-        seq_runner = create_firewall_runner(
+        # R1.2a §4: use the shared authoritative sequence executor
+        seq_result, _released = execute_e5_sequence(
             condition_id=cid,
-            semantic_threshold=tau_sem,
+            seq_label=seq_label,
+            corpus_by_id=corpus_by_id,
+            features_by_id=features_by_id,
+            tau_sem=tau_sem,
+            reconstruction_threshold=0.60,  # frozen
+            split_name=split_data.split,
+            condition_manifest_sha=condition_manifest_sha,
+            detector_config_sha=detector_config_sha,
         )
-
-        # Register forget target for C4. R1.2 §20: missing target
-        # registry mapping is a FATAL error.
-        if cid == "C4" and ordered_ids:
-            try:
-                forget_record = build_e5_forget_record(
-                    scenario_id=first_corpus.scenario_id,
-                    secret_variant_id=first_corpus.secret_variant_id,
-                )
-                seq_runner.register_forget_record(forget_record)
-            except KeyError as e:
-                raise KeyError(
-                    f"Missing frozen target registry mapping (R1.2 §20): "
-                    f"sequence_id={seq_label.sequence_annotation_id!r}, "
-                    f"scenario_id={first_corpus.scenario_id!r}, "
-                    f"secret_variant_id={first_corpus.secret_variant_id!r}, "
-                    f"split={split_data.split!r}. "
-                    f"All official C4 sequences must have a frozen target "
-                    f"registry entry. Inner error: {e}"
-                ) from e
-
-        # Process each step through the same runner
-        steps: list[StepDecision] = []
-        for i, candidate_id in enumerate(ordered_ids):
-            corpus = corpus_by_id[candidate_id]
-            features = features_by_id[candidate_id]
-            if not features:
-                # R1.2 §21: fail closed (defence in depth — already
-                # checked above at the sequence level).
-                raise ValueError(
-                    f"Missing features for sequence step candidate "
-                    f"{candidate_id!r} in sequence "
-                    f"{seq_label.sequence_annotation_id!r} (R1.2 §21)."
-                )
-
-            er = seq_runner.process_row(
-                candidate_id=candidate_id,
-                scenario_id=corpus.scenario_id,
-                trust_level=trust_level,
-                features=features,
-                split=split_data.split,
-                raw_text=corpus.text,
-                recipient_id=corpus.recipient_id,
-                sender_id=corpus.sender_id,
-                turn_id=i,
-                message_id=f"seq_{seq_label.sequence_annotation_id}_step{i}",
-                input_content_sha=corpus.content_sha256,
-                condition_manifest_sha=condition_manifest_sha,
-                detector_config_sha=detector_config_sha,
-                embedding_model=features.get("embedding_model", "unknown"),
-            )
-
-            # Build StepDecision from ExtendedRowResult (§9.3)
-            sd = StepDecision(
-                step_index=i,
-                candidate_id=candidate_id,
-                exact_match=er.exact_match,
-                alias_match=er.alias_match,
-                semantic_similarity=er.semantic_similarity,
-                detected=er.blocked,
-                policy_action=er.policy_action,
-                decision_reason=er.decision_reason,
-                history_state_summary=(
-                    f"history_used={er.history_state_used}"
-                ),
-                reconstruction_guard_result=er.reconstruction_guard_triggered,
-                reconstruction_score=er.reconstruction_score,
-                purge_state_transition=(
-                    f"purge={er.purge_triggered}"
-                ),
-                delivered_content_sha=er.output_content_sha,
-            )
-            steps.append(sd)
-
-        # Predict reconstruction from step decisions
-        from .e5_sequence_evaluation import predict_sequence_reconstruction
-        recon, earliest, strength = predict_sequence_reconstruction(steps)
-
-        seq_result = SequenceResult(
-            sequence_annotation_id=seq_label.sequence_annotation_id,
-            trust_level=trust_level,
-            condition_id=cid,
-            ordered_candidate_ids=ordered_ids,
-            step_decisions=tuple(steps),
-            predicted_sequence_reconstruction=recon,
-            predicted_earliest_reconstruction_step=earliest,
-            predicted_reconstruction_strength=strength,
-        )
-
-        # Join annotation labels
-        from .e5_sequence_evaluation import _join_annotations
-        seq_result = _join_annotations(seq_result, seq_label)
         results.append(seq_result)
 
     return results

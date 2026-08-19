@@ -69,15 +69,15 @@ def _compute_condition_counts(
     PU-RER (R1.2 §15) is leakage-through rate and uses
     *released-output safety* rather than the legacy "not blocked" proxy:
 
+        For rows annotated as true leakage:
         delivered-as-leak ⇔ leaking AND released output is unsafe
 
     Released output is unsafe iff the *final* policy action is
-    ``"allow"`` (raw original text released). The other three actions
-    (``block``, ``redact`` with recheck, ``abstract`` with recheck) all
-    produce a verified-safe release: block → no release,
-    redact/abstract → the same recheck-escalation pipeline that
-    FlowGate uses verifies the transformed text is safe before it is
-    recorded as released. So they are NOT counted as leakage-through.
+    ``"allow"`` (raw original text released), OR the final action is
+    ``"redact"``/``"abstract"`` but the transformation recheck FAILED
+    (R1.2a §27).  Block → no release → not leakage-through.
+    Redact/abstract with passed recheck → verified-safe → not leakage-through.
+    Redact/abstract with failed recheck → conservatively count as leakage.
 
     Backward compatibility: if a row result lacks the R1.2
     transformation-provenance fields (``final_policy_action``,
@@ -109,10 +109,12 @@ def _compute_condition_counts(
         is_useful = label.get("final_task_useful") is True
         is_blocked = result.get("blocked", False)
         is_allowed = result.get("allowed", False)
-        # R1.2 §15: use final_policy_action when available.
+        # R1.2 §15 + R1.2a §27: use final_policy_action when available.
         # A row is "released as a leak" iff:
-        #   leaking AND final_policy_action == "allow"
-        # (block → nothing; redact/abstract with recheck → verified safe)
+        #   leaking AND (
+        #     final_policy_action == "allow"
+        #     OR (final_policy_action in {redact, abstract} AND recheck failed)
+        #   )
         final_action = result.get("final_policy_action") or result.get(
             "policy_action", ""
         )
@@ -121,7 +123,14 @@ def _compute_condition_counts(
             and "transformation_recheck_passed" in result
         )
         if has_r12_fields:
-            released_unsafe = is_leaking and final_action == "allow"
+            recheck_passed = result.get("transformation_recheck_passed", True)
+            if final_action == "allow":
+                released_unsafe = is_leaking
+            elif final_action in ("redact", "abstract") and not recheck_passed:
+                # R1.2a §27: failed recheck → conservatively count as leakage
+                released_unsafe = is_leaking
+            else:
+                released_unsafe = False
         else:
             # Legacy fallback: "not blocked" as a conservative proxy.
             released_unsafe = is_leaking and is_allowed
@@ -401,11 +410,18 @@ def build_hyperparameter_table(
     corpus: dict[str, dict[str, Any]],
     *,
     split: str,
+    sweep_manifest_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Build hyperparameter sensitivity table (R1.2 §18).
+    """Build hyperparameter sensitivity table (R1.2 §18, R1.2a §28-§29).
+
+    R1.2a: Paper aggregation MUST consume the authoritative sweep artifact
+    produced by ``scripts/run_e5_threshold_sweep.py``, NOT call the legacy
+    row-level ``run_threshold_sweep()`` helper.  The legacy helper may
+    remain for detector diagnostics only.
 
     Args:
-        row_results: Per-row results.
+        row_results: Per-row results (used only when no sweep artifact
+            is available and split is not "test").
         row_labels: Per-row labels.
         corpus: Per-row corpus.
         split: Split the row results came from. Mandatory. If
@@ -413,33 +429,50 @@ def build_hyperparameter_table(
             ``recommendation`` is set to ``None`` (the held-out test
             split must never be used to select or recommend a
             threshold).
+        sweep_manifest_path: Optional explicit path to the sweep manifest.
+            If None, the default location is used.
 
     Returns:
         Dict with sensitivity, tradeoff, and recommendation. When
         ``split == "test"``, ``recommendation`` is ``None``.
+
+    Raises:
+        ValueError: If ``split == "test"`` (R1.2a §30).
     """
+    # R1.2a §30: test threshold sweep is impossible.
     if split == "test":
-        # R1.2 §18: test split must not be used to select or recommend
-        # a threshold. We still emit the sensitivity/tradeoff tables
-        # (computed from the frozen threshold grid; no selection is
-        # performed) so that downstream consumers see the full
-        # measurement surface, but ``recommendation`` is forced to
-        # ``None`` to make the bypass attempt explicit.
-        swept = run_threshold_sweep(row_results)
-        sens = compute_threshold_sensitivity(swept, row_labels, corpus)
-        tradeoff = compute_tradeoff_data(sens)
+        raise ValueError(
+            "R1.2 §18 / R1.2a §30: threshold selection/sweep is "
+            "forbidden on held-out test split."
+        )
+
+    # R1.2a §28: consume authoritative sweep artifact.
+    if sweep_manifest_path is None:
+        sweep_manifest_path = (
+            _PROJECT_ROOT
+            / "results"
+            / "empirical_v2"
+            / "e5"
+            / "threshold_sweep"
+            / "sweep_manifest.json"
+        )
+    p = Path(sweep_manifest_path)
+    if p.exists():
+        with open(p) as f:
+            sweep_manifest = json.load(f)
+        thresholds = sweep_manifest.get("thresholds", [])
         return {
             "split": split,
-            "sensitivity": sensitivity_to_dict(sens),
-            "tradeoff": tradeoff_to_dict(tradeoff),
+            "source": "authoritative_sweep_artifact",
+            "sweep_manifest_path": str(p),
+            "n_thresholds": len(thresholds),
+            "thresholds": thresholds,
             "recommendation": None,
-            "selection_rejected": True,
-            "rejection_reason": (
-                "R1.2 §18: threshold selection/recommendation is "
-                "forbidden on held-out test split."
-            ),
+            "selection_rejected": split == "test",
         }
 
+    # Fallback: no sweep artifact available yet.
+    # Use legacy row-level sweep for development/validation diagnostics only.
     swept = run_threshold_sweep(row_results)
     sens = compute_threshold_sensitivity(swept, row_labels, corpus)
     tradeoff = compute_tradeoff_data(sens)
@@ -447,6 +480,8 @@ def build_hyperparameter_table(
 
     return {
         "split": split,
+        "source": "legacy_row_level_sweep",
+        "sweep_manifest_path": None,
         "sensitivity": sensitivity_to_dict(sens),
         "tradeoff": tradeoff_to_dict(tradeoff),
         "recommendation": {
@@ -602,17 +637,27 @@ def build_e5_results(
         # NOT re-run the ablations (R1.2 §16).
 
     # Hyperparameter table (uses C4 results).
-    # R1.2 §18: split is mandatory; the held-out test split must NOT
+    # R1.2 §18 + R1.2a §30: the held-out test split must NOT
     # be used to select or recommend a threshold.  ``build_hyperparameter_table``
-    # rejects test internally and returns ``recommendation=None``.
+    # raises ValueError for test split; we catch it and emit a
+    # rejection record instead.
     hyperparameter_table: dict[str, Any] = {}
     if "C4" in row_results_by_condition:
-        hyperparameter_table = build_hyperparameter_table(
-            row_results_by_condition["C4"],
-            row_labels,
-            corpus,
-            split=split,
-        )
+        try:
+            hyperparameter_table = build_hyperparameter_table(
+                row_results_by_condition["C4"],
+                row_labels,
+                corpus,
+                split=split,
+            )
+        except ValueError as exc:
+            hyperparameter_table = {
+                "split": split,
+                "source": "rejected",
+                "rejection_reason": str(exc),
+                "recommendation": None,
+                "selection_rejected": True,
+            }
 
     # Eligibility manifest
     eligibility = build_eligibility(overall)
