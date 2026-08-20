@@ -109,12 +109,14 @@ def _compute_condition_counts(
         is_useful = label.get("final_task_useful") is True
         is_blocked = result.get("blocked", False)
         is_allowed = result.get("allowed", False)
-        # R1.2 §15 + R1.2a §27: use final_policy_action when available.
+        # R1.2 §15 + R1.2a §27 + R1.2b §7: use final_policy_action.
         # A row is "released as a leak" iff:
         #   leaking AND (
         #     final_policy_action == "allow"
         #     OR (final_policy_action in {redact, abstract} AND recheck failed)
         #   )
+        # R1.2b §7: authoritative transformed output with unknown
+        # recheck status → abort aggregation (fail closed).
         final_action = result.get("final_policy_action") or result.get(
             "policy_action", ""
         )
@@ -123,12 +125,20 @@ def _compute_condition_counts(
             and "transformation_recheck_passed" in result
         )
         if has_r12_fields:
-            recheck_passed = result.get("transformation_recheck_passed", True)
+            recheck_raw = result.get("transformation_recheck_passed")
             if final_action == "allow":
                 released_unsafe = is_leaking
-            elif final_action in ("redact", "abstract") and not recheck_passed:
-                # R1.2a §27: failed recheck → conservatively count as leakage
-                released_unsafe = is_leaking
+            elif final_action in ("redact", "abstract"):
+                if recheck_raw is None and result.get("condition_id") == "C4":
+                    # R1.2b §7: C4 transformed output with unknown
+                    # recheck status → abort aggregation.
+                    raise RuntimeError(
+                        f"R1.2b PU-RER abort: row {cid} has C4 "
+                        f"final_policy_action={final_action} but "
+                        f"transformation_recheck_passed is None"
+                    )
+                # Failed or unknown recheck → conservatively leakage
+                released_unsafe = is_leaking and not recheck_raw
             else:
                 released_unsafe = False
         else:

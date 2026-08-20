@@ -428,7 +428,7 @@ class TestEmbeddingRecords:
             for line in f:
                 if line.strip():
                     count += 1
-        assert count == 10
+        assert count == 225
 
     def test_records_have_required_fields(self) -> None:
         required_fields = [
@@ -479,12 +479,14 @@ class TestEmbeddingRecords:
                 ids.add(rec["embedding_id"])
 
     def test_records_text_role_is_candidate(self) -> None:
+        """All records have a valid text_role (candidate, target, or target_alias)."""
+        valid_roles = {"candidate", "target", "target_alias"}
         with open(_RECORDS_PATH) as f:
             for line in f:
                 if not line.strip():
                     continue
                 rec = json.loads(line)
-                assert rec["text_role"] == "candidate"
+                assert rec["text_role"] in valid_roles
 
 
 class TestEmbeddingManifest:
@@ -511,7 +513,7 @@ class TestEmbeddingManifest:
     def test_manifest_successful_count(self) -> None:
         with open(_MANIFEST_PATH) as f:
             data = json.load(f)
-        assert data["successful_embedding_count"] == 10
+        assert data["successful_embedding_count"] == 225
 
     def test_manifest_failed_count_zero(self) -> None:
         with open(_MANIFEST_PATH) as f:

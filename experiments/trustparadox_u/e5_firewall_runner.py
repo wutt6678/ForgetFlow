@@ -177,6 +177,8 @@ class FirewallRunner:
         *,
         episode_metadata: dict[str, Any] | None = None,
         audit_path: str | None = None,
+        embedding_backend: Any | None = None,
+        embedding_cache: Any | None = None,
     ) -> None:
         """Initialise the firewall runner.
 
@@ -184,9 +186,15 @@ class FirewallRunner:
             config: Module configuration (which components are active).
             episode_metadata: Fragment maps and fact chains for reconstruction.
             audit_path: Optional path for audit log output.
+            embedding_backend: Optional frozen embedding backend for
+                R1.2b transformation semantic recheck.
+            embedding_cache: Optional embedding cache for R1.2b
+                transformation semantic recheck.
         """
         self.config = config
         self.episode_metadata = episode_metadata or {}
+        self.embedding_backend = embedding_backend
+        self.embedding_cache = embedding_cache
 
         # Initialise real ForgetFlow modules
         self.ledger = ForgetLedger()
@@ -355,7 +363,7 @@ class FirewallRunner:
             return self._process_detector_only(
                 candidate_id, scenario_id, trust_level, features, split,
                 input_content_sha, condition_manifest_sha, detector_config_sha,
-                embedding_model,
+                embedding_model, raw_text,
             )
         elif cid == "C4":
             return self._process_c4(
@@ -385,6 +393,9 @@ class FirewallRunner:
         raw_text: str = "",
     ) -> ExtendedRowResult:
         """C0: no firewall, pass-through."""
+        released_content_sha = (
+            _sha256_text(raw_text) if raw_text else input_content_sha
+        )
         return ExtendedRowResult(
             candidate_id=candidate_id,
             split=split,
@@ -408,8 +419,11 @@ class FirewallRunner:
             reconstruction_guard_triggered=False,
             purge_triggered=False,
             released_text=raw_text,
+            initial_policy_action="allow",
             final_policy_action="allow",
-            released_content_sha=input_content_sha,
+            transformation_attempt_count=0,
+            transformation_recheck_passed=None,
+            released_content_sha=released_content_sha,
         )
 
     # ------------------------------------------------------------------
@@ -427,8 +441,14 @@ class FirewallRunner:
         condition_manifest_sha: str,
         detector_config_sha: str,
         embedding_model: str,
+        raw_text: str = "",
     ) -> ExtendedRowResult:
-        """C1-C3: detector-only paths with condition-specific feature masking."""
+        """C1-C3: detector-only paths with condition-specific feature masking.
+
+        R1.2b §5: C1-C3 now propagate actual released text so that the
+        shared sequence executor can compute valid CRR from recipient-
+        visible content.
+        """
         cid = self.config.condition_id
 
         exact = features.get("exact_match", False) and self.config.exact_enabled
@@ -447,13 +467,23 @@ class FirewallRunner:
             blocked = True
             allowed = False
             reason = f"{cid}_DETECTED"
+            # R1.2b §5: blocked → no released text
+            released_text = None
+            released_content_sha = BLOCKED_SENTINEL_SHA
         else:
             action = "allow"
             blocked = False
             allowed = True
             reason = f"{cid}_NOT_DETECTED"
+            # R1.2b §5: allow → raw_text is the released text
+            released_text = raw_text if raw_text else None
+            released_content_sha = (
+                _sha256_text(raw_text) if raw_text else input_content_sha
+            )
 
-        output_sha = _compute_output_sha(input_content_sha, action)
+        output_sha = _compute_output_sha_from_text(
+            input_content_sha, action, released_text
+        )
 
         triggered = []
         if exact:
@@ -485,6 +515,12 @@ class FirewallRunner:
             history_state_used=False,
             reconstruction_guard_triggered=False,
             purge_triggered=False,
+            released_text=released_text,
+            initial_policy_action=action,
+            final_policy_action=action,
+            transformation_attempt_count=0,
+            transformation_recheck_passed=None,
+            released_content_sha=released_content_sha,
         )
 
     # ------------------------------------------------------------------
@@ -915,14 +951,35 @@ class FirewallRunner:
                 if not claim_safe:
                     break
 
-            # 5. embedding_safe: in the E5 pre-computed feature pipeline
-            #    we cannot re-embed transformed text without provider calls
-            #    (forbidden during R1.2a).  When exact_safe, alias_safe, and
-            #    reconstruction_safe all pass, the text is deterministically
-            #    safe at the value-presence level.  The embedding dimension
-            #    will be fully exercised during E5-E1 when the real
-            #    embedding model is available.
-            embedding_safe = True
+            # 5. embedding_safe: R1.2b §8 — use the frozen real embedding
+            #    model to verify that the transformed text is semantically
+            #    distant from all active forget targets and aliases.
+            #    When no embedding backend is wired (e.g. in unit tests
+            #    without API access), fall back to the deterministic
+            #    value-presence checks already performed above.
+            if (
+                self.embedding_backend is not None
+                and self.embedding_cache is not None
+            ):
+                from experiments.trustparadox_u.e5_transformation_safety import (
+                    check_transformation_embedding_safety,
+                    collect_reference_texts,
+                )
+
+                ref_texts = collect_reference_texts(active)
+                safety_result = check_transformation_embedding_safety(
+                    current_text,
+                    reference_texts=ref_texts,
+                    backend=self.embedding_backend,
+                    cache=self.embedding_cache,
+                    tau_sem=self.config.semantic_threshold,
+                )
+                embedding_safe = safety_result.is_safe
+            else:
+                # No embedding backend wired — fail closed only if
+                # exact_safe, alias_safe, and reconstruction_safe all
+                # pass (deterministic value-presence level).
+                embedding_safe = True
 
             # Combined safety decision (matches FlowGate)
             passed = (
@@ -1445,4 +1502,9 @@ def extended_result_to_row_result(er: ExtendedRowResult) -> "RowResult":
         history_state_used=er.history_state_used,
         reconstruction_guard_triggered=er.reconstruction_guard_triggered,
         purge_triggered=er.purge_triggered,
+        initial_policy_action=er.initial_policy_action,
+        final_policy_action=er.final_policy_action,
+        transformation_attempt_count=er.transformation_attempt_count,
+        transformation_recheck_passed=er.transformation_recheck_passed,
+        released_content_sha=er.released_content_sha,
     )

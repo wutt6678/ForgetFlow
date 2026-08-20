@@ -1,0 +1,50 @@
+{
+  "campaign": "E5-E1a",
+  "description": "Development embedding + detector feature generation",
+  "timestamp": "2026-08-19T16:19:05.656873+00:00",
+  "commit": "d44e84417f15d5d59ed973be588e73c6390dfbe5",
+  "embedding_model": "openai/text-embedding-v3",
+  "embedding_provider": "litellm",
+  "embedding_dimensions": 1024,
+  "embedding_normalization": "l2",
+  "config_version": "1",
+  "batch_size": 10,
+  "development_candidates": 225,
+  "development_features": 225,
+  "development_targets": 3,
+  "development_target_ids": ["EF001", "EF005", "EF009"],
+  "test_embeddings": 0,
+  "test_features": 0,
+  "test_access_started": false,
+  "embedding_manifest": {
+    "successful_embedding_count": 225,
+    "failed_embedding_count": 0,
+    "frozen_corpus_sha": "6b626f66734f809d422ba6f8b88f95f68a9515a7ab5b62535f86cae80d8d10b2",
+    "global_annotation_freeze_sha": "78a03c60ee57c1f9c448f7fa65be2efde6c87716585eae88c97e574882090f89",
+    "cache_sha": "4356c74b37405c4bb854fef7e90052ff8abb2e5d0affd3ef7aaee33e782d0a83"
+  },
+  "feature_manifest": {
+    "detector_version": "e5-002-r1",
+    "total_features": 225,
+    "split_counts": {"development": 225},
+    "features_sha256": "d60323cd5a5757998d56d58a062e6158cf410ba419f786540061a1d440f16771",
+    "annotation_independent": true
+  },
+  "artifacts": {
+    "embedding_records": "results/empirical_v2/e5/embeddings/embedding_records.jsonl",
+    "embedding_manifest": "results/empirical_v2/e5/embeddings/embedding_manifest.json",
+    "feature_records": "results/empirical_v2/e5/detector_features/development_detector_features.jsonl",
+    "feature_manifest": "results/empirical_v2/e5/detector_features/feature_manifest.json"
+  },
+  "invariants": {
+    "development_count_225": true,
+    "all_targets_embedded": true,
+    "all_aliases_embedded": true,
+    "zero_test_embeddings": true,
+    "zero_test_features": true,
+    "test_access_started_false": true,
+    "no_e4_changes": true,
+    "development_campaign_e1a": true
+  },
+  "status": "COMPLETE"
+}

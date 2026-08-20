@@ -339,6 +339,13 @@ class RowResult:
     reconstruction_guard_triggered: bool = False
     purge_triggered: bool = False
 
+    # Transformation provenance (R1.2b §6)
+    initial_policy_action: str = ""
+    final_policy_action: str = ""
+    transformation_attempt_count: int = 0
+    transformation_recheck_passed: bool | None = None
+    released_content_sha: str = ""
+
 
 def row_result_to_dict(rr: RowResult) -> dict[str, Any]:
     """Serialise a RowResult to a plain dict."""

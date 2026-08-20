@@ -457,11 +457,20 @@ def run_feature_extraction(
 
     # Persist cache and manifest
     cache.save()
+
+    # Compute frozen corpus + annotation freeze SHAs for provenance binding
+    from experiments.trustparadox_u.e5_loaders import compute_file_hashes
+    file_hashes = compute_file_hashes()
+
     cache.save_manifest(
         backend=backend,
         candidate_count=total,
         target_count=len(target_index),
         code_commit=code_commit,
+        frozen_corpus_sha=file_hashes.get("frozen_corpus_manifest", ""),
+        global_annotation_freeze_sha=file_hashes.get(
+            "global_annotation_freeze_manifest", ""
+        ),
     )
 
     manifest = write_feature_manifest(

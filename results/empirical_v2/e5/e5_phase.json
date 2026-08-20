@@ -5,8 +5,9 @@
   "implementation_repair_complete": true,
   "r1_1_execution_integration_complete": true,
   "metric_spec_frozen": true,
-  "metric_spec_schema_version": "1.2",
-  "development_embedding_complete": false,
+  "metric_spec_schema_version": "1.2.2",
+  "development_embedding_complete": true,
+  "development_feature_generation_complete": true,
   "development_calibration_complete": false,
   "validation_complete": false,
   "test_lock_complete": false,
@@ -15,5 +16,5 @@
   "e5_frozen": false,
   "e5_closed": false,
   "r1_2_scientific_measurement_complete": true,
-  "updated_at": "2026-08-19T07:46:09.997083+00:00"
+  "updated_at": "2026-08-19T16:22:42.808348+00:00"
 }

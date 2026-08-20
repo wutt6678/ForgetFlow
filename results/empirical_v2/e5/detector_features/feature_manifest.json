@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-19T16:22:42.807553+00:00",
+  "detector_version": "e5-002-r1",
+  "embedding_model": "openai/text-embedding-v3",
+  "embedding_provider": "litellm",
+  "embedding_dimensions": 1024,
+  "embedding_normalization": "l2",
+  "embedding_config_version": "1",
+  "code_commit": "d44e84417f15d5d59ed973be588e73c6390dfbe5",
+  "split_counts": {
+    "development": 225
+  },
+  "total_features": 225,
+  "features_sha256": "d60323cd5a5757998d56d58a062e6158cf410ba419f786540061a1d440f16771",
+  "annotation_independent": true
+}
